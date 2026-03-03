@@ -1,0 +1,18 @@
+{
+  "name": "Ironforge",
+  "short_name": "Ironforge",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#08080d",
+  "theme_color": "#08080d",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAADjUlEQVR4nO2SsVFDQRQDHTqhIBqgOQqhM4ogImDGmSJbf2/Eaja+uSft7XZh7vc3eZIr97o0eLMD0BvWgjc7AL1hLXizA9Ab1oI3OwC9YS14swPQG9aCNzsAvWEteLMD0BvWgjc7AL1hLXizA9Ab1oI3OwC9YS14swPQG9aCNzsAvWEteLMD0BvWgjc7AL1hLXizA9Ab1oI3OwC9YS14swPQG9aCNzsAvWEteLMD0BvWgjc7AL1hLXizA9Ab1oI3OwC9YS14swPQG9aCNzsAvWEteLMD0BvWgjc7AL1hLXizA9Ab1oI3OwC9YS14swM4mByBckhEOSSiHBJRDokoh0SUQyLKIRHlkIhySEQ5JKIcElEOiSiHRJRDIsohEeWQiHJIRDkkohwSUQ6JKIdElEMiyiER5ZCIckjkFDm+Pn+eAf//5EXK4UUR5fCiiHJ4UUQ5vCiiHF4U4eV4ssTTCl26SDm8SDm8SDlOYOYi5fAi5fAi5TiBmYuUw4uUw4uU4wRmLlIOL1IOL1KOE5i5SDm8SDm8SDlOYOYi5fCi8+T4fv/444VVPt5kaVykHMqhHMqhHMqhHMqhHMqhHMqhHMqhHMqhHMqhHMqhHP9DjgcvrBK/Zewi5fAi5fAi5TiBmYuUw4uUw4uU4wRmLlIOL1IOL1KOE5i5SDm8SDm8SDlOYOYi5fAi5fAi5TiBmYuUw4sOluMlheL/n7xIObwoohxeFFEOL4oohxdFlMOLIqfIIQeiHBJRDokoh0SUQyLKIRHlkIhySEQ5JKIcElEOiSiHRJRDIsohEeWQiHJIRDkkohwSUQ6JKIdElEMiyiER5ZCIckhEOSRyuzL4tQNcOtiVwZsdgN6wFrzZAegNa8GbHYDesBa82QHoDWvBmx2A3rAWvNkB6A1rwZsdgN6wFrzZAegNa8GbHYDesBa82QHoDWvBmx2A3rAWvNkB6A1rwZsdgN6wFrzZAegNa8GbHYDesBa82QHoDWvBmx2A3rAWvNkB6A1rwZsdgN6wFrzZAegNa8GbHYDesBa82QHoDWvBmx3gyr1+AedBAWLD5tIzAAAAAElFTkSuQmCC",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
