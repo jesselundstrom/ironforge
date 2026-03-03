@@ -414,6 +414,16 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <button class="btn btn-purple" style="margin-top:16px" onclick="saveAtsSetup()">Save Program Setup</button>
   </div>
   <div class="card">
+    <div class="card-title">Data Backup</div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="exportData()">📤 Export</button>
+      <label class="btn btn-secondary" style="flex:1;text-align:center;cursor:pointer;margin:0">📥 Import
+        <input type="file" accept=".json" onchange="importData(event)" style="display:none">
+      </label>
+    </div>
+    <div style="font-size:11px;color:var(--muted)">Export saves all data as a JSON file. Import from another device to sync your training history.</div>
+  </div>
+  <div class="card">
     <div class="card-title">Danger Zone</div>
     <button class="btn btn-ghost" onclick="showConfirm('Clear All Data','Delete ALL training data? This cannot be undone.',clearAllData)">Clear All Data</button>
   </div>
@@ -442,7 +452,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <script>
 const DAY_NAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-// ── STATE (in-memory, persisted via window.storage) ──────────
+// ── STATE (persisted via localStorage) ──────────
 let workouts=[];
 let schedule={hockeyDays:[3,0]};
 let profile={defaultRest:120};
@@ -569,18 +579,18 @@ const ATS={
 // ── STORAGE ──────────────────────────────────────────────────
 async function loadData(){
   try{
-    const w=await window.storage.get('workouts');
-    if(w) workouts=JSON.parse(w.value);
+    const w=localStorage.getItem('ic_workouts');
+    if(w) workouts=JSON.parse(w);
   }catch(e){}
   try{
   }catch(e){}
   try{
-    const s=await window.storage.get('schedule');
-    if(s) schedule=JSON.parse(s.value);
+    const s=localStorage.getItem('ic_schedule');
+    if(s) schedule=JSON.parse(s);
   }catch(e){}
   try{
-    const pr=await window.storage.get('profile');
-    if(pr) profile=JSON.parse(pr.value);
+    const pr=localStorage.getItem('ic_profile');
+    if(pr) profile=JSON.parse(pr);
   }catch(e){}
   // Ensure AtS fields exist (migration from older saves)
   if(!profile.atsLifts) profile.atsLifts={main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]};
@@ -596,9 +606,9 @@ async function loadData(){
   
   updateAtsDisplay();
 }
-async function saveWorkouts(){ try{await window.storage.set('workouts',JSON.stringify(workouts));}catch(e){} }
-async function saveScheduleData(){ try{await window.storage.set('schedule',JSON.stringify(schedule));}catch(e){} }
-async function saveProfileData(){ try{await window.storage.set('profile',JSON.stringify(profile));}catch(e){} }
+async function saveWorkouts(){ try{localStorage.setItem('ic_workouts',JSON.stringify(workouts));}catch(e){} }
+async function saveScheduleData(){ try{localStorage.setItem('ic_schedule',JSON.stringify(schedule));}catch(e){} }
+async function saveProfileData(){ try{localStorage.setItem('ic_profile',JSON.stringify(profile));}catch(e){} }
 
 // ── NAV ──────────────────────────────────────────────────────
 function showPage(name,btn){
@@ -1424,8 +1434,40 @@ function saveSchedule(){
   saveScheduleData();saveProfileData();updateAtsDisplay();updateDashboard();showToast('Settings saved!','var(--blue)');
 }
 
+function exportData(){
+  const data={version:1,exported:new Date().toISOString(),workouts,schedule,profile};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="iron-coach-backup-"+new Date().toISOString().slice(0,10)+".json";
+  a.click();URL.revokeObjectURL(url);
+  showToast("Backup exported!","var(--green)");
+}
+
+function importData(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async(e)=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!data.workouts&&!data.profile){showToast("Invalid backup file","var(--orange)");return;}
+      showConfirm("Import Data","Replace all data with backup from "+(data.exported?new Date(data.exported).toLocaleDateString():"unknown")+"?",async()=>{
+        if(data.workouts) workouts=data.workouts;
+        if(data.schedule) schedule=data.schedule;
+        if(data.profile) profile=data.profile;
+        await saveWorkouts();await saveScheduleData();await saveProfileData();
+        showToast("Data imported! Reloading...","var(--green)");
+        setTimeout(()=>location.reload(),1000);
+      });
+    }catch(err){showToast("Could not read file","var(--orange)");}
+  };
+  reader.readAsText(file);
+  event.target.value="";
+}
+
 async function clearAllData(){
-  try{await window.storage.delete('workouts');await window.storage.delete('schedule');await window.storage.delete('profile');}catch(e){}
+  try{localStorage.removeItem('ic_workouts');localStorage.removeItem('ic_schedule');localStorage.removeItem('ic_profile');}catch(e){}
   workouts=[];schedule={hockeyDays:[3,0]};profile={defaultRest:120,atsWeek:1,atsRounding:2.5,atsDaysPerWeek:3,atsDayNum:1,atsBackExercise:'Barbell Rows',atsBackWeight:0,atsLifts:{main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]}};
   updateDashboard();showToast('All data cleared','var(--accent)');
 }
