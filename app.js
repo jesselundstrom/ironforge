@@ -14,8 +14,8 @@ let exerciseIndex={};
 
 const RPE_FEELS={6:'Easy',7:'Moderate',8:'Hard',9:'Very Hard',10:'Max'};
 
-// ── AVERAGE TO SAVAGE 2.0 ENGINE ─────────────────────────────
-const ATS={
+// ── FORGE PROTOCOL ENGINE ─────────────────────────────
+const FORGE={
   mainIntensity:[0,0.70,0.75,0.80,0.725,0.775,0.825,0.60,0.75,0.80,0.85,0.775,0.825,0.875,0.60,0.80,0.85,0.90,0.85,0.90,0.95,0.60],
   auxIntensity:[0,0.60,0.65,0.70,0.625,0.675,0.725,0.50,0.65,0.70,0.75,0.675,0.725,0.775,0.50,0.70,0.75,0.80,0.75,0.80,0.85,0.50],
   deloadWeeks:[7,14,21],
@@ -91,7 +91,7 @@ const ATS={
   },
   getDayExercises(day,freq,lifts){
     const m=lifts.main,a=lifts.aux,r=[];
-    // Exact splits from AtS 2.0 spreadsheet
+    // Exact splits from Forge Protocol spreadsheet
     // m[0]=SQ m[1]=BP m[2]=DL m[3]=OHP  a[0]=SQaux1 a[1]=SQaux2 a[2]=BPaux1 a[3]=BPaux2 a[4]=DLaux a[5]=OHPaux
     const splits={
       2:[[['m',0],['m',1],['a',4],['a',5]],[['m',2],['m',3],['a',0],['a',2]]],
@@ -109,7 +109,7 @@ const ATS={
     return r;
   },
 
-  // Auxiliary swap options per category (from AtS 2.0 spreadsheet)
+  // Auxiliary swap options per category (from Forge Protocol spreadsheet)
   auxOptions:{
     squat:['Front Squat','Paused Squat','High Bar Squat','Beltless Squat','Wider Stance Squat','Narrower Stance Squat','Box Squat','Pin Squat','Half Squat','Good Morning','Squat With Slow Eccentric','Leg Press'],
     bench:['Close-Grip Bench','Long Pause Bench','Spoto Press','Incline Press','Wider Grip Bench','Board Press','Pin Press','Slingshot Bench','Bench With Feet Up','Bench With Slow Eccentric','DB Bench'],
@@ -152,32 +152,35 @@ async function loadData(){
     const pr=localStorage.getItem('ic_profile');
     if(pr) profile=JSON.parse(pr);
   }catch(e){}
-  // Ensure AtS fields exist (migration from older saves)
-  if(!profile.atsLifts) profile.atsLifts={main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]};
-  if(!profile.atsWeek) profile.atsWeek=1;
-  if(!profile.atsRounding) profile.atsRounding=2.5;
-  if(!profile.atsDaysPerWeek) profile.atsDaysPerWeek=3;
-  if(!profile.atsDayNum) profile.atsDayNum=1;
-  if(!profile.atsBackExercise) profile.atsBackExercise='Barbell Rows';
-  if(!profile.atsBackWeight) profile.atsBackWeight=0;
-  if(!profile.atsMode) profile.atsMode='sets';
-  if(!profile.atsWeekStartDate) profile.atsWeekStartDate=new Date().toISOString();
+  // Migrate legacy ats* keys to forge* (one-time migration)
+  if(profile.atsLifts&&!profile.forgeLifts){profile.forgeLifts=profile.atsLifts;profile.forgeWeek=profile.atsWeek||1;profile.forgeRounding=profile.atsRounding||2.5;profile.forgeDaysPerWeek=profile.atsDaysPerWeek||3;profile.forgeDayNum=profile.atsDayNum||1;profile.forgeBackExercise=profile.atsBackExercise||'Barbell Rows';profile.forgeBackWeight=profile.atsBackWeight||0;profile.forgeMode=profile.atsMode||'sets';profile.forgeWeekStartDate=profile.atsWeekStartDate||new Date().toISOString();}
+  workouts.forEach(w=>{if(w.type==='ats'){w.type='forge';if(w.atsWeek){w.forgeWeek=w.atsWeek;}if(w.atsDayNum){w.forgeDayNum=w.atsDayNum;}}});
+  // Ensure Forge Protocol fields exist
+  if(!profile.forgeLifts) profile.forgeLifts={main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]};
+  if(!profile.forgeWeek) profile.forgeWeek=1;
+  if(!profile.forgeRounding) profile.forgeRounding=2.5;
+  if(!profile.forgeDaysPerWeek) profile.forgeDaysPerWeek=3;
+  if(!profile.forgeDayNum) profile.forgeDayNum=1;
+  if(!profile.forgeBackExercise) profile.forgeBackExercise='Barbell Rows';
+  if(!profile.forgeBackWeight) profile.forgeBackWeight=0;
+  if(!profile.forgeMode) profile.forgeMode='sets';
+  if(!profile.forgeWeekStartDate) profile.forgeWeekStartDate=new Date().toISOString();
   // Persist any newly defaulted fields so they survive next load
   saveProfileData();
   // Date-based week auto-advance: catch up if >=7 days have passed since last advance
-  if((profile.atsWeek||1)<21){
-    const daysSinceStart=(Date.now()-new Date(profile.atsWeekStartDate).getTime())/864e5;
+  if((profile.forgeWeek||1)<21){
+    const daysSinceStart=(Date.now()-new Date(profile.forgeWeekStartDate).getTime())/864e5;
     if(daysSinceStart>=7){
       const weeksElapsed=Math.floor(daysSinceStart/7);
-      profile.atsWeek=Math.min(21,(profile.atsWeek||1)+weeksElapsed);
-      profile.atsWeekStartDate=new Date().toISOString();
+      profile.forgeWeek=Math.min(21,(profile.forgeWeek||1)+weeksElapsed);
+      profile.forgeWeekStartDate=new Date().toISOString();
       saveProfileData();
     }
   }
   restDuration=profile.defaultRest||120;
   buildExerciseIndex();
   updateDashboard();
-  updateAtsDisplay();
+  updateForgeDisplay();
 }
 async function saveWorkouts(){ try{localStorage.setItem('ic_workouts',JSON.stringify(workouts));}catch(e){} }
 async function saveScheduleData(){ try{localStorage.setItem('ic_schedule',JSON.stringify(schedule));}catch(e){} }
@@ -192,7 +195,7 @@ function showPage(name,btn){
   if(name==='dashboard') updateDashboard();
   if(name==='history') renderHistory();
   if(name==='settings') initSettings();
-  if(name==='log'){updateAtsDisplay();}
+  if(name==='log'){updateForgeDisplay();}
 }
 
 
@@ -314,7 +317,7 @@ function computeFatigue(){
   });
   const avgRecentRPE=rpeCount?recentRPE/rpeCount:7;
   const recentTypes=last72h.map(w=>w.type);
-  const cfg=ATS.config;
+  const cfg=FORGE.config;
   let muscular=Math.max(0,cfg.muscularBase-daysSinceLift*cfg.muscularDecay)+Math.min(30,recentSets*cfg.setsWeight)+(recentTypes.includes('hockey')?cfg.hockeyMuscularBonus:0);
   let cns=Math.max(0,cfg.cnsBase-daysSinceLift*cfg.cnsDecay)+(avgRecentRPE-5)*cfg.rpeWeight+(recentTypes.includes('hockey')?cfg.hockeyCnsBonus:0);
   const extraToday=last72h.filter(w=>w.type==='hockey'&&w.subtype==='extra').length;
@@ -323,7 +326,7 @@ function computeFatigue(){
   return{muscular:Math.round(muscular),cns:Math.round(cns),overall:Math.round(muscular*.5+cns*.5),daysSinceLift,daysSinceHockey,recentSets,avgRecentRPE};
 }
 function wasHockeyRecently(hours){
-  hours=hours||ATS.config.hockeyRecentHours;
+  hours=hours||FORGE.config.hockeyRecentHours;
   return workouts.some(w=>w.type==='hockey'&&(Date.now()-new Date(w.date).getTime())<hours*3600000);
 }
 function getFatigueColor(p){return p<35?'var(--green)':p<65?'var(--orange)':'var(--accent)';}
@@ -378,13 +381,13 @@ function renderWeekStrip(){
   const todayIsHockey=schedule.hockeyDays.includes(todayDow);
   const todayLogged=workouts.filter(w=>new Date(w.date).toDateString()===today.toDateString());
   const tHasLift=todayLogged.some(w=>w.type!=='hockey'),tHasHockey=todayLogged.some(w=>w.type==='hockey');
-  const atsW=profile.atsWeek||1;
+  const forgeW=profile.forgeWeek||1;
   let s='';
   if(tHasLift&&tHasHockey)s=`<span style="color:var(--green);font-weight:700">✅ Workout + hockey logged</span>`;
   else if(tHasLift)s=`<span style="color:var(--green);font-weight:700">✅ Workout logged</span>`;
   else if(tHasHockey)s=`<span style="color:var(--blue);font-weight:700">🏒 Hockey logged</span>`;
   else if(todayIsHockey)s=`<span style="color:var(--blue);font-weight:700">🏒 Hockey day — go easy on legs if you lift</span>`;
-  else s=`<span style="color:var(--purple);font-weight:700">📋 AtS 2.0 · W${atsW} · ${ATS.blockNames[atsW]||''}</span>`;
+  else s=`<span style="color:var(--purple);font-weight:700">📋 Forge Protocol · ${FORGE.blockNames[forgeW]||''} · Week ${forgeW}</span>`;
   document.getElementById('today-status').innerHTML=s;
 }
 
@@ -394,7 +397,7 @@ function updateDashboard(){
   const f=computeFatigue();updateFatigueBars(f);
 
   // Training Maxes from profile
-  const lifts=profile.atsLifts;
+  const lifts=profile.forgeLifts;
   if(lifts){
     const m=lifts.main;
     document.getElementById('tm-sq').textContent=m[0]?m[0].tm+'kg':'—';
@@ -408,8 +411,8 @@ function updateDashboard(){
 
   // Weekly session progress
   const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
-  const freq=profile.atsDaysPerWeek||3;
-  const doneThisWeek=workouts.filter(w=>w.type==='ats'&&new Date(w.date)>=sow).length;
+  const freq=profile.forgeDaysPerWeek||3;
+  const doneThisWeek=workouts.filter(w=>w.type==='forge'&&new Date(w.date)>=sow).length;
   const hockeyThisWeek=workouts.filter(w=>w.type==='hockey'&&new Date(w.date)>=sow).length;
   const pctDone=Math.min(100,doneThisWeek/freq*100);
   document.getElementById('volume-bar').style.width=pctDone+'%';
@@ -422,13 +425,13 @@ function updateDashboard(){
   const recovery=100-f.overall,todayDow=new Date().getDay();
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
   const hadHockeyYesterday=wasHockeyRecently(36);
-  const atsW=profile.atsWeek||1;
-  const mode=profile.atsMode||'sets';
-  const modeName=ATS.modes[mode]?.short||'Sets';
-  const isDeload=ATS.deloadWeeks.includes(atsW);
-  const pct=Math.round((ATS.mainIntensity[atsW]||0)*100);
-  const reps=ATS.getReps(ATS.mainIntensity[atsW]||0.7);
-  const rir=ATS.getRIR(ATS.mainIntensity[atsW]||0.7);
+  const forgeW=profile.forgeWeek||1;
+  const mode=profile.forgeMode||'sets';
+  const modeName=FORGE.modes[mode]?.short||'Sets';
+  const isDeload=FORGE.deloadWeeks.includes(forgeW);
+  const pct=Math.round((FORGE.mainIntensity[forgeW]||0)*100);
+  const reps=FORGE.getReps(FORGE.mainIntensity[forgeW]||0.7);
+  const rir=FORGE.getRIR(FORGE.mainIntensity[forgeW]||0.7);
 
   // Practical explanation of what today looks like
   let modeExplain='';
@@ -442,16 +445,16 @@ function updateDashboard(){
     modeExplain=`${pct}% TM × ${reps} reps for 5 sets. On the last set, note how many reps you had left.`;
   }
 
-  const blockInfo=`<div style="font-size:11px;color:var(--purple);margin-bottom:4px;padding:6px 10px;background:rgba(167,139,250,0.08);border-radius:8px;border:1px solid rgba(167,139,250,0.15)">📋 W${atsW}/21 · ${ATS.blockNames[atsW]||''} · ${pct}% TM · ${modeName} mode</div><div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:0 2px">${modeExplain}</div>`;
+  const blockInfo=`<div style="font-size:11px;color:var(--purple);margin-bottom:4px;padding:6px 10px;background:rgba(167,139,250,0.08);border-radius:8px;border:1px solid rgba(167,139,250,0.15)">📋 Forge Protocol · ${FORGE.blockNames[forgeW]||''} · Week ${forgeW} · ${pct}% TM · ${modeName} mode</div><div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:0 2px">${modeExplain}</div>`;
   let rec='';
-  if(doneThisWeek>=freq) rec=blockInfo+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ Week complete!</div><div style="font-size:13px;color:var(--muted)">All ${freq} sessions done. Rest up for ${atsW<21?'next week':'the end of the cycle'}.</div>`;
+  if(doneThisWeek>=freq) rec=blockInfo+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ Week complete!</div><div style="font-size:13px;color:var(--muted)">All ${freq} sessions done. Rest up for ${forgeW<21?'next week':'the end of the cycle'}.</div>`;
   else if(recovery<40) rec=blockInfo+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">⚠️ High fatigue — rest or deload</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${isDeload?'Good timing — deload week!':'Consider resting today.'} ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
   else if(isHockeyDay) rec=blockInfo+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Hockey day</div><div style="font-size:13px;color:var(--muted)">Pick an upper-body day on the Log tab, or rest. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
   else if(hadHockeyYesterday) rec=blockInfo+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Post-hockey</div><div style="font-size:13px;color:var(--muted)">Legs may be fatigued. The Log tab will suggest an upper-focused day. ${freq-doneThisWeek} left.</div>`;
   else if(isDeload) rec=blockInfo+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">🌊 Deload week</div><div style="font-size:13px;color:var(--muted)">60% TM, 5 easy sets. Recovery ${recovery}%. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
   else rec=blockInfo+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">🏋️ Training day</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}% — ${recovery>=75?'feeling fresh, push it':'moderate effort'}. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
   document.getElementById('next-session-content').innerHTML=rec;
-  document.getElementById('header-sub').textContent=`AtS 2.0 · W${atsW}/21 · ${ATS.blockNames[atsW]||''} · Recovery ${recovery}%`;
+  document.getElementById('header-sub').textContent=`Forge Protocol · ${FORGE.blockNames[forgeW]||''} · Week ${forgeW} · Recovery ${recovery}%`;
 }
 
 
@@ -464,33 +467,33 @@ function resetNotStartedView(){
         <div><div class="ql-title">Log Extra Hockey</div><div class="ql-sub">Unscheduled practice or game</div></div>
       </div>
     </div>
-    <div class="divider-label"><span>AtS 2.0 Session</span></div>
+    <div class="divider-label"><span>Forge Protocol Session</span></div>
     <div class="card" style="padding:20px">
       <div style="font-weight:800;font-size:16px;margin-bottom:4px">Start a Session</div>
       <label style="margin-top:8px">Training Day</label>
-      <select id="ats-day-select" onchange="onDaySelectChange()"></select>
-      <div id="ats-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
-      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startAtsWorkout()">🏋️ Start Workout</button></div>
+      <select id="forge-day-select" onchange="onDaySelectChange()"></select>
+      <div id="forge-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
+      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startForgeWorkout()">🏋️ Start Workout</button></div>
     </div>`;
 
-  updateAtsDisplay();
+  updateForgeDisplay();
 }
 
-// ── AtS 2.0 WORKOUT STARTER ──────────────────────────────────
-function startAtsWorkout(){
-  const dayNum=parseInt(document.getElementById('ats-day-select')?.value)||profile.atsDayNum||1;
-  const week=profile.atsWeek||1;
-  const freq=profile.atsDaysPerWeek||3;
-  const rounding=profile.atsRounding||2.5;
-  const mode=profile.atsMode||'sets';
-  const lifts=profile.atsLifts||{main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]};
-  const isDeload=ATS.deloadWeeks.includes(week);
-  const dayExercises=ATS.getDayExercises(dayNum,freq,lifts);
+// ── FORGE PROTOCOL WORKOUT STARTER ──────────────────────────────────
+function startForgeWorkout(){
+  const dayNum=parseInt(document.getElementById('forge-day-select')?.value)||profile.forgeDayNum||1;
+  const week=profile.forgeWeek||1;
+  const freq=profile.forgeDaysPerWeek||3;
+  const rounding=profile.forgeRounding||2.5;
+  const mode=profile.forgeMode||'sets';
+  const lifts=profile.forgeLifts||{main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]};
+  const isDeload=FORGE.deloadWeeks.includes(week);
+  const dayExercises=FORGE.getDayExercises(dayNum,freq,lifts);
 
-  activeWorkout={type:'ats',exercises:[],startTime:Date.now(),atsWeek:week,atsDayNum:dayNum,atsMode:mode};
+  activeWorkout={type:'forge',exercises:[],startTime:Date.now(),forgeWeek:week,forgeDayNum:dayNum,forgeMode:mode};
 
   dayExercises.forEach((ex,idx)=>{
-    const rx=ATS.getPrescription(ex.tm,week,ex.isAux,rounding,mode);
+    const rx=FORGE.getPrescription(ex.tm,week,ex.isAux,rounding,mode);
     let auxSlotIdx=-1;
     if(ex.isAux) auxSlotIdx=lifts.aux.findIndex(a=>a.name===ex.name);
 
@@ -517,8 +520,8 @@ function startAtsWorkout(){
   });
 
   // Add back exercise as accessory (3×8-10, auto-progression)
-  const backEx=profile.atsBackExercise||'Barbell Rows';
-  const backWt=profile.atsBackWeight||0;
+  const backEx=profile.forgeBackExercise||'Barbell Rows';
+  const backWt=profile.forgeBackWeight||0;
   activeWorkout.exercises.push({
     id:Date.now()+Math.random(),name:backEx,
     note:backWt?backWt+'kg × 3 sets of 8-10 — hit 3×10 then increase weight':'Set a working weight in Settings for auto-fill',
@@ -529,11 +532,11 @@ function startAtsWorkout(){
   resetNotStartedView();
   document.getElementById('workout-not-started').style.display='none';
   document.getElementById('workout-active').style.display='block';
-  const modeTag=ATS.modes[mode]?.short||'';
-  document.getElementById('active-session-title').textContent=(isDeload?'🌊':'🏋️')+' W'+week+' Day '+dayNum+' · '+(ATS.blockNames[week]||'')+' ['+modeTag+']';
+  const modeTag=FORGE.modes[mode]?.short||'';
+  document.getElementById('active-session-title').textContent=(isDeload?'🌊':'🏋️')+' W'+week+' Day '+dayNum+' · '+(FORGE.blockNames[week]||'')+' ['+modeTag+']';
   restDuration=parseInt(document.getElementById('rest-duration')?.value)||profile.defaultRest||120;
   startWorkoutTimer();renderExercises();
-  showToast(isDeload?'Deload week — keep it light':ATS.blockNames[week]+' block · '+Math.round((ATS.mainIntensity[week]||0)*100)+'% TM',isDeload?'var(--blue)':'var(--purple)');
+  showToast(isDeload?'Deload week — keep it light':FORGE.blockNames[week]+' block · '+Math.round((FORGE.mainIntensity[week]||0)*100)+'% TM',isDeload?'var(--blue)':'var(--purple)');
 
   // Hockey warning for leg-heavy days
   const legLifts=['squat','front squat','paused squat','high bar squat','beltless squat','box squat','pin squat','good morning','leg press','deadlift','sumo deadlift','conventional deadlift','block pull','rack pull','deficit deadlift','romanian deadlift','stiff leg deadlift','snatch grip deadlift','trap bar deadlift','squat with slow eccentric','wider stance squat','narrower stance squat','half squat'];
@@ -590,8 +593,8 @@ function renderExercises(){
     const block=document.createElement('div');block.className='exercise-block';
     let badges='';
     if(suggested)badges+=`<div class="suggest-badge">\ud83d\udcc8 Last best: ${suggested}kg</div>`;
-    // Show prescription note for AtS exercises
-    if(ex.note&&activeWorkout.type==='ats')badges+=`<div class="ai-badge" style="background:rgba(167,139,250,0.1);color:var(--purple);border-color:rgba(167,139,250,0.2)">\ud83d\udccb ${ex.note}</div>`;
+    // Show prescription note for Forge Protocol exercises
+    if(ex.note&&activeWorkout.type==='forge')badges+=`<div class="ai-badge" style="background:rgba(167,139,250,0.1);color:var(--purple);border-color:rgba(167,139,250,0.2)">\ud83d\udccb ${ex.note}</div>`;
 
     // Swap button for auxiliary exercises
     let swapBtn='';
@@ -618,7 +621,7 @@ function renderExercises(){
     ex.sets.forEach((set,si)=>{
       const row=document.createElement('div');row.className='set-row';
       const isAmrap=set.isAmrap;
-      const mode=activeWorkout?.atsMode||'sets';
+      const mode=activeWorkout?.forgeMode||'sets';
       const isLastSet=si===ex.sets.length-1;
       const showRir=mode==='rir'&&isLastSet&&!ex.isAccessory;
       const setLabel=isAmrap?'MAX':String(si+1);
@@ -655,8 +658,8 @@ function removeEx(ei){activeWorkout.exercises.splice(ei,1);renderExercises();}
 function swapAuxExercise(ei){
   const ex=activeWorkout.exercises[ei];
   if(ex.auxSlotIdx<0)return;
-  const cat=ATS.getAuxCategory(ex.auxSlotIdx);
-  const opts=ATS.auxOptions[cat]||[];
+  const cat=FORGE.getAuxCategory(ex.auxSlotIdx);
+  const opts=FORGE.auxOptions[cat]||[];
   // Build options HTML
   let optHtml=opts.map(o=>`<div class="swap-option${o===ex.name?' swap-active':''}" onclick="doAuxSwap(${ei},'${o.replace(/'/g,"\\'")}',${ex.auxSlotIdx})">${o}</div>`).join('');
   showCustomModal('Swap '+cat.charAt(0).toUpperCase()+cat.slice(1)+' Auxiliary',
@@ -667,8 +670,8 @@ function doAuxSwap(ei,newName,slotIdx){
   const ex=activeWorkout.exercises[ei];
   ex.name=newName;
   // Update profile aux too so TM carries over next time
-  if(profile.atsLifts&&profile.atsLifts.aux[slotIdx]){
-    profile.atsLifts.aux[slotIdx].name=newName;
+  if(profile.forgeLifts&&profile.forgeLifts.aux[slotIdx]){
+    profile.forgeLifts.aux[slotIdx].name=newName;
     saveProfileData();
   }
   closeCustomModal();renderExercises();
@@ -676,7 +679,7 @@ function doAuxSwap(ei,newName,slotIdx){
 }
 
 function swapBackExercise(ei){
-  const opts=ATS.auxOptions.back||[];
+  const opts=FORGE.auxOptions.back||[];
   let optHtml=opts.map(o=>`<div class="swap-option${o===activeWorkout.exercises[ei].name?' swap-active':''}" onclick="doBackSwap(${ei},'${o.replace(/'/g,"\\'")}')"> ${o}</div>`).join('');
   showCustomModal('Swap Back Exercise',
     `<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
@@ -684,7 +687,7 @@ function swapBackExercise(ei){
 
 function doBackSwap(ei,newName){
   activeWorkout.exercises[ei].name=newName;
-  profile.atsBackExercise=newName;saveProfileData();
+  profile.forgeBackExercise=newName;saveProfileData();
   closeCustomModal();renderExercises();
   showToast('Swapped to '+newName,'var(--purple)');
 }
@@ -718,12 +721,12 @@ async function finishWorkout(){
     showRPEPicker('Session',-1,(val)=>resolve(val||7));
   });
 
-  workouts.push({id:Date.now(),date:new Date().toISOString(),type:activeWorkout.type,duration:workoutSeconds,exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets,atsWeek:activeWorkout.atsWeek||0,atsDayNum:activeWorkout.atsDayNum||0});
+  workouts.push({id:Date.now(),date:new Date().toISOString(),type:activeWorkout.type,duration:workoutSeconds,exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets,forgeWeek:activeWorkout.forgeWeek||0,forgeDayNum:activeWorkout.forgeDayNum||0});
 
-  // Adjust AtS Training Maxes based on mode
-  if(activeWorkout.type==='ats'&&activeWorkout.atsWeek&&!ATS.deloadWeeks.includes(activeWorkout.atsWeek)){
-    const lifts=profile.atsLifts;
-    const mode=activeWorkout.atsMode||'sets';
+  // Adjust Forge Protocol Training Maxes based on mode
+  if(activeWorkout.type==='forge'&&activeWorkout.forgeWeek&&!FORGE.deloadWeeks.includes(activeWorkout.forgeWeek)){
+    const lifts=profile.forgeLifts;
+    const mode=activeWorkout.forgeMode||'sets';
     activeWorkout.exercises.forEach(ex=>{
       if(ex.isAccessory)return; // Skip back exercise
       const all=[...lifts.main,...lifts.aux];
@@ -744,21 +747,21 @@ async function finishWorkout(){
         adjustData=doneSets;
       }
 
-      match.tm=ATS.adjustTM(match.tm,adjustData,activeWorkout.atsWeek,mode);
-      if(match.tm!==oldTM) console.log('[AtS/'+mode+']',ex.name,'TM',match.tm>oldTM?'↑':'↓',oldTM,'→',match.tm);
+      match.tm=FORGE.adjustTM(match.tm,adjustData,activeWorkout.forgeWeek,mode);
+      if(match.tm!==oldTM) console.log('[Forge/'+mode+']',ex.name,'TM',match.tm>oldTM?'↑':'↓',oldTM,'→',match.tm);
     });
     saveProfileData();
   }
 
-  // Auto-advance AtS week when all sessions for this week are done
-  if(activeWorkout.type==='ats'){
+  // Auto-advance Forge Protocol week when all sessions for this week are done
+  if(activeWorkout.type==='forge'){
     const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
-    const thisWeekLifts=workouts.filter(w=>w.type==='ats'&&new Date(w.date)>=sow).length;
-    if(thisWeekLifts>=(profile.atsDaysPerWeek||3)&&(profile.atsWeek||1)<21){
-      profile.atsWeek=(profile.atsWeek||1)+1;
-      profile.atsWeekStartDate=new Date().toISOString();
+    const thisWeekLifts=workouts.filter(w=>w.type==='forge'&&new Date(w.date)>=sow).length;
+    if(thisWeekLifts>=(profile.forgeDaysPerWeek||3)&&(profile.forgeWeek||1)<21){
+      profile.forgeWeek=(profile.forgeWeek||1)+1;
+      profile.forgeWeekStartDate=new Date().toISOString();
       saveProfileData();
-      showToast('Week '+profile.atsWeek+'/21 · '+ATS.blockNames[profile.atsWeek]+' starts next!','var(--purple)');
+      showToast('Forge Protocol · '+FORGE.blockNames[profile.forgeWeek]+' · Week '+profile.forgeWeek+' starts next!','var(--purple)');
     }
   }
 
@@ -794,7 +797,7 @@ function renderHistory(){
   list.innerHTML=workouts.slice().reverse().map(w=>{
     const d=new Date(w.date),mins=Math.floor(w.duration/60);
     const isHockey=w.type==='hockey',isExtra=w.subtype==='extra';
-    const typeLabel=isHockey?(isExtra?'🏒 Extra Hockey':'🏒 Hockey'):'🏋️ W'+(w.atsWeek||'?')+' Day '+(w.atsDayNum||'?');
+    const typeLabel=isHockey?(isExtra?'🏒 Extra Hockey':'🏒 Hockey'):'🏋️ W'+(w.forgeWeek||'?')+' Day '+(w.forgeDayNum||'?');
     const badgeClass=isHockey?'badge-blue':'badge-purple';
     const rpeStr=w.rpe||null;
     return `<div class="history-item">
@@ -856,67 +859,67 @@ function initSettings(){
     }
   }
   document.getElementById('default-rest').value=profile.defaultRest||120;
-  if(document.getElementById('ats-mode'))document.getElementById('ats-mode').value=profile.atsMode||'sets';
-  if(document.getElementById('ats-week'))document.getElementById('ats-week').value=profile.atsWeek||1;
-  if(document.getElementById('ats-rounding'))document.getElementById('ats-rounding').value=profile.atsRounding||2.5;
-  if(document.getElementById('ats-days'))document.getElementById('ats-days').value=profile.atsDaysPerWeek||3;
-  renderAtsLiftInputs();
-  previewAtsSplit();
+  if(document.getElementById('forge-mode'))document.getElementById('forge-mode').value=profile.forgeMode||'sets';
+  if(document.getElementById('forge-week'))document.getElementById('forge-week').value=profile.forgeWeek||1;
+  if(document.getElementById('forge-rounding'))document.getElementById('forge-rounding').value=profile.forgeRounding||2.5;
+  if(document.getElementById('forge-days'))document.getElementById('forge-days').value=profile.forgeDaysPerWeek||3;
+  renderForgeLiftInputs();
+  previewForgeSplit();
   updateModeDesc();
 }
 
 function updateModeDesc(){
-  const mode=document.getElementById('ats-mode')?.value||'sets';
-  const desc=document.getElementById('ats-mode-desc');
+  const mode=document.getElementById('forge-mode')?.value||'sets';
+  const desc=document.getElementById('forge-mode-desc');
   if(!desc)return;
-  const info=ATS.modes[mode];
+  const info=FORGE.modes[mode];
   desc.textContent=info?info.desc:'';
 }
 
-function renderAtsLiftInputs(){
-  const lifts=profile.atsLifts;if(!lifts)return;
-  const mc=document.getElementById('ats-main-lifts');if(!mc)return;mc.innerHTML='';
+function renderForgeLiftInputs(){
+  const lifts=profile.forgeLifts;if(!lifts)return;
+  const mc=document.getElementById('forge-main-lifts');if(!mc)return;mc.innerHTML='';
   const labels=['SQ','BP','DL','OHP'];
-  lifts.main.forEach((l,i)=>{mc.innerHTML+=`<div class="lift-row"><span class="lift-label">${labels[i]||'#'+(i+1)}</span><input type="text" value="${l.name}" onchange="profile.atsLifts.main[${i}].name=this.value" style="flex:1"><input type="number" value="${l.tm}" onchange="profile.atsLifts.main[${i}].tm=parseFloat(this.value)||0"></div>`;});
-  const ac=document.getElementById('ats-aux-lifts');if(!ac)return;ac.innerHTML='';
+  lifts.main.forEach((l,i)=>{mc.innerHTML+=`<div class="lift-row"><span class="lift-label">${labels[i]||'#'+(i+1)}</span><input type="text" value="${l.name}" onchange="profile.forgeLifts.main[${i}].name=this.value" style="flex:1"><input type="number" value="${l.tm}" onchange="profile.forgeLifts.main[${i}].tm=parseFloat(this.value)||0"></div>`;});
+  const ac=document.getElementById('forge-aux-lifts');if(!ac)return;ac.innerHTML='';
   const auxLabels=['SQ-1','SQ-2','BP-1','BP-2','DL','OHP'];
   const cats=['squat','squat','bench','bench','deadlift','ohp'];
   lifts.aux.forEach((l,i)=>{
     const cat=cats[i]||'squat';
-    const opts=ATS.auxOptions[cat]||[];
-    let sel='<select onchange="profile.atsLifts.aux['+i+'].name=this.value;saveProfileData()" style="flex:1;font-size:13px">';
+    const opts=FORGE.auxOptions[cat]||[];
+    let sel='<select onchange="profile.forgeLifts.aux['+i+'].name=this.value;saveProfileData()" style="flex:1;font-size:13px">';
     opts.forEach(o=>{sel+=`<option value="${o}"${o===l.name?' selected':''}>${o}</option>`;});
     // Also allow current value if not in list
     if(!opts.includes(l.name)) sel+=`<option value="${l.name}" selected>${l.name}</option>`;
     sel+='</select>';
-    ac.innerHTML+=`<div class="lift-row"><span class="lift-label">${auxLabels[i]||'A'+(i+1)}</span>${sel}<input type="number" value="${l.tm}" onchange="profile.atsLifts.aux[${i}].tm=parseFloat(this.value)||0"></div>`;
+    ac.innerHTML+=`<div class="lift-row"><span class="lift-label">${auxLabels[i]||'A'+(i+1)}</span>${sel}<input type="number" value="${l.tm}" onchange="profile.forgeLifts.aux[${i}].tm=parseFloat(this.value)||0"></div>`;
   });
   // Back exercise selector
-  const bs=document.getElementById('ats-back-exercise');
-  if(bs) bs.value=profile.atsBackExercise||'Barbell Rows';
-  const bw=document.getElementById('ats-back-weight');
-  if(bw) bw.value=profile.atsBackWeight||'';
+  const bs=document.getElementById('forge-back-exercise');
+  if(bs) bs.value=profile.forgeBackExercise||'Barbell Rows';
+  const bw=document.getElementById('forge-back-weight');
+  if(bw) bw.value=profile.forgeBackWeight||'';
 }
 
-function saveAtsSetup(){
-  profile.atsMode=document.getElementById('ats-mode').value||'sets';
-  profile.atsWeek=parseInt(document.getElementById('ats-week').value)||1;
-  profile.atsRounding=parseFloat(document.getElementById('ats-rounding').value)||2.5;
-  profile.atsDaysPerWeek=parseInt(document.getElementById('ats-days').value)||3;
-  profile.atsBackExercise=document.getElementById('ats-back-exercise').value||'Barbell Rows';
-  profile.atsBackWeight=parseFloat(document.getElementById('ats-back-weight').value)||0;
-  profile.atsDayNum=1; // Reset day selection when frequency changes
-  saveProfileData();showToast('Program setup saved!','var(--purple)');updateAtsDisplay();
+function saveForgeSetup(){
+  profile.forgeMode=document.getElementById('forge-mode').value||'sets';
+  profile.forgeWeek=parseInt(document.getElementById('forge-week').value)||1;
+  profile.forgeRounding=parseFloat(document.getElementById('forge-rounding').value)||2.5;
+  profile.forgeDaysPerWeek=parseInt(document.getElementById('forge-days').value)||3;
+  profile.forgeBackExercise=document.getElementById('forge-back-exercise').value||'Barbell Rows';
+  profile.forgeBackWeight=parseFloat(document.getElementById('forge-back-weight').value)||0;
+  profile.forgeDayNum=1; // Reset day selection when frequency changes
+  saveProfileData();showToast('Program setup saved!','var(--purple)');updateForgeDisplay();
 }
 
-function previewAtsSplit(){
-  const freq=parseInt(document.getElementById('ats-days').value)||3;
-  const lifts=profile.atsLifts;
-  const prev=document.getElementById('ats-split-preview');
+function previewForgeSplit(){
+  const freq=parseInt(document.getElementById('forge-days').value)||3;
+  const lifts=profile.forgeLifts;
+  const prev=document.getElementById('forge-split-preview');
   if(!prev||!lifts)return;
   let html='';
   for(let d=1;d<=freq;d++){
-    const exs=ATS.getDayExercises(d,freq,lifts);
+    const exs=FORGE.getDayExercises(d,freq,lifts);
     const names=exs.map(e=>{
       const tag=e.isAux?'<span style="color:var(--purple)">'+e.name+'</span>':'<strong>'+e.name+'</strong>';
       return tag;
@@ -927,26 +930,26 @@ function previewAtsSplit(){
   prev.innerHTML=html;
 }
 
-function updateAtsDisplay(){
-  const info=document.getElementById('ats-week-display');if(!info)return;
-  const w=profile.atsWeek||1;
-  const mode=profile.atsMode||'sets';
-  const pct=Math.round((ATS.mainIntensity[w]||0)*100);
-  const reps=ATS.getReps(ATS.mainIntensity[w]||0.7);
-  const isDeload=ATS.deloadWeeks.includes(w);
-  const modeName=ATS.modes[mode]?.short||'Sets';
-  const rir=ATS.getRIR(ATS.mainIntensity[w]||0.7);
+function updateForgeDisplay(){
+  const info=document.getElementById('forge-week-display');if(!info)return;
+  const w=profile.forgeWeek||1;
+  const mode=profile.forgeMode||'sets';
+  const pct=Math.round((FORGE.mainIntensity[w]||0)*100);
+  const reps=FORGE.getReps(FORGE.mainIntensity[w]||0.7);
+  const isDeload=FORGE.deloadWeeks.includes(w);
+  const modeName=FORGE.modes[mode]?.short||'Sets';
+  const rir=FORGE.getRIR(FORGE.mainIntensity[w]||0.7);
   let modeDetail='';
   if(isDeload) modeDetail='Light week — 60% TM, 5 easy sets.';
   else if(mode==='sets') modeDetail=`Do sets of ${reps} until RIR ≤${rir}. Aim for 4-6 sets.`;
   else if(mode==='rtf') modeDetail=`${reps} reps × 4 sets, then AMRAP last set (target ${reps*2}+).`;
   else if(mode==='rir') modeDetail=`5 sets of ${reps}. Note reps left in tank on last set.`;
-  let infoHtml=`📋 <strong>AtS 2.0</strong> · W${w}/21 · ${ATS.blockNames[w]||''} · <span style="color:var(--purple)">${modeName}</span><br><span style="font-size:11px">${pct}% TM · ${modeDetail}</span>`;
+  let infoHtml=`📋 <strong>Forge Protocol</strong> · ${FORGE.blockNames[w]||''} · Week ${w} ·<span style="color:var(--purple)">${modeName}</span><br><span style="font-size:11px">${pct}% TM · ${modeDetail}</span>`;
   info.innerHTML=infoHtml;
 
-  const ds=document.getElementById('ats-day-select');
+  const ds=document.getElementById('forge-day-select');
   if(!ds)return;
-  const freq=profile.atsDaysPerWeek||3;ds.innerHTML='';
+  const freq=profile.forgeDaysPerWeek||3;ds.innerHTML='';
   const todayDow=new Date().getDay();
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
   const hadHockeyRecently=wasHockeyRecently();
@@ -958,13 +961,13 @@ function updateAtsDisplay(){
 
   // Find which days have been done this week
   const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
-  const doneThisWeek=workouts.filter(wk=>wk.type==='ats'&&new Date(wk.date)>=sow).map(wk=>wk.atsDayNum);
+  const doneThisWeek=workouts.filter(wk=>wk.type==='forge'&&new Date(wk.date)>=sow).map(wk=>wk.forgeDayNum);
 
   // Score each day for recommendation
   let bestDay=1,bestScore=-999;
   const dayScores=[];
   for(let d=1;d<=freq;d++){
-    const exs=ATS.getDayExercises(d,freq,profile.atsLifts);
+    const exs=FORGE.getDayExercises(d,freq,profile.forgeLifts);
     const hasLegs=exs.some(e=>legLifts.includes(e.name.toLowerCase()));
     const done=doneThisWeek.includes(d);
     let score=0;
@@ -978,7 +981,7 @@ function updateAtsDisplay(){
   }
 
   for(let d=1;d<=freq;d++){
-    const exs=ATS.getDayExercises(d,freq,profile.atsLifts);
+    const exs=FORGE.getDayExercises(d,freq,profile.forgeLifts);
     const ds_info=dayScores.find(x=>x.d===d);
     const label=exs.map(e=>e.name).join(' + ');
     const badges=[];
@@ -987,11 +990,11 @@ function updateAtsDisplay(){
     if(d===bestDay&&!ds_info.done) badges.push('⭐');
     ds.innerHTML+=`<option value="${d}"${d===bestDay?' selected':''}>${badges.join('')} Day ${d}: ${label}</option>`;
   }
-  profile.atsDayNum=bestDay;
+  profile.forgeDayNum=bestDay;
 
   // Recommendation banner
-  let banner=document.getElementById('ats-recommend-banner');
-  if(!banner){banner=document.createElement('div');banner.id='ats-recommend-banner';
+  let banner=document.getElementById('forge-recommend-banner');
+  if(!banner){banner=document.createElement('div');banner.id='forge-recommend-banner';
     banner.style.cssText='margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px';
     info.parentNode.insertBefore(banner,info.nextSibling);}
 
@@ -1018,8 +1021,8 @@ function updateAtsDisplay(){
 
 // Re-check hockey warning when day selection changes
 function onDaySelectChange(){
-  profile.atsDayNum=parseInt(document.getElementById('ats-day-select')?.value)||1;
-  updateAtsDisplay();
+  profile.forgeDayNum=parseInt(document.getElementById('forge-day-select')?.value)||1;
+  updateForgeDisplay();
 }
 
 function toggleDay(kind,dow,el){
@@ -1031,7 +1034,7 @@ function toggleDay(kind,dow,el){
 function saveSchedule(){
   profile.defaultRest=parseInt(document.getElementById('default-rest').value)||120;
   restDuration=profile.defaultRest;
-  saveScheduleData();saveProfileData();updateAtsDisplay();updateDashboard();showToast('Settings saved!','var(--blue)');
+  saveScheduleData();saveProfileData();updateForgeDisplay();updateDashboard();showToast('Settings saved!','var(--blue)');
 }
 
 function exportData(){
@@ -1039,7 +1042,7 @@ function exportData(){
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
-  a.href=url;a.download="iron-coach-backup-"+new Date().toISOString().slice(0,10)+".json";
+  a.href=url;a.download="ironforge-backup-"+new Date().toISOString().slice(0,10)+".json";
   a.click();URL.revokeObjectURL(url);
   showToast("Backup exported!","var(--green)");
 }
@@ -1072,7 +1075,7 @@ function importData(event){
 
 async function clearAllData(){
   try{localStorage.removeItem('ic_workouts');localStorage.removeItem('ic_schedule');localStorage.removeItem('ic_profile');}catch(e){}
-  workouts=[];schedule={hockeyDays:[3,0]};profile={defaultRest:120,atsWeek:1,atsRounding:2.5,atsDaysPerWeek:3,atsDayNum:1,atsBackExercise:'Barbell Rows',atsBackWeight:0,atsLifts:{main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]}};
+  workouts=[];schedule={hockeyDays:[3,0]};profile={defaultRest:120,forgeWeek:1,forgeRounding:2.5,forgeDaysPerWeek:3,forgeDayNum:1,forgeBackExercise:'Barbell Rows',forgeBackWeight:0,forgeLifts:{main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]}};
   updateDashboard();showToast('All data cleared','var(--accent)');
 }
 
