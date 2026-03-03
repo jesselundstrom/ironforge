@@ -5,6 +5,8 @@ const CACHE = 'iron-coach-v2';
 const PRE_CACHE = [
   '/',
   'index.html',
+  'styles.css',
+  'app.js',
 ];
 
 self.addEventListener('install', event => {
