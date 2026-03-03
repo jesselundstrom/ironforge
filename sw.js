@@ -1,9 +1,10 @@
-const CACHE = 'iron-coach-v1';
+const CACHE = 'iron-coach-v2';
 
+// Only cache local assets — Google Fonts URLs can fail offline and would
+// break the entire SW install. Fonts are cached on first successful fetch.
 const PRE_CACHE = [
   '/',
   'index.html',
-  'https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap',
 ];
 
 self.addEventListener('install', event => {

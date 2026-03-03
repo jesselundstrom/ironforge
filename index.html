@@ -21,7 +21,7 @@
   --radius:16px;
 }
 html{-webkit-text-size-adjust:100%}
-body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;min-height:100dvh;overflow-x:hidden;line-height:1.5}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',system-ui,-apple-system,sans-serif;min-height:100vh;min-height:100dvh;overflow-x:hidden;line-height:1.5}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
 
@@ -267,7 +267,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
   <div class="card">
     <div class="card-title">Recovery Status</div>
     <div class="fatigue-row"><div class="fatigue-label">Muscular</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
-    <div class="fatigue-row"><div class="fatigue-label">CNS</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
+    <div class="fatigue-row"><div class="fatigue-label">Nervous Sys.</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
     <div class="fatigue-row"><div class="fatigue-label">Overall</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-overall" style="width:0%"></div></div><div class="fatigue-value" id="f-overall-val">—</div></div>
     <div style="font-size:12px;color:var(--muted);margin-top:10px" id="recovery-msg">Log workouts to see recovery data</div>
   </div>
@@ -461,6 +461,8 @@ let restInterval=null, restSecondsLeft=0, restTotal=0, restDuration=120;
 let pendingRPECallback=null;
 let confirmCallback=null;
 let nameModalCallback=null;
+let _toastTimeout=null;
+let exerciseIndex={};
 
 const RPE_FEELS={6:'Easy',7:'Moderate',8:'Hard',9:'Very Hard',10:'Max'};
 
@@ -568,6 +570,16 @@ const ATS={
     back:['Barbell Rows','DB Rows','Chest Supported Rows','T-Bar Rows','Pull-ups','Chin-ups','Neutral Grip Pull-ups','Pull-downs']
   },
 
+  // Tuneable constants for fatigue engine and hockey logic
+  config:{
+    muscularBase:40,muscularDecay:15,
+    cnsBase:50,cnsDecay:20,
+    setsWeight:3,
+    hockeyMuscularBonus:20,hockeyCnsBonus:15,
+    rpeWeight:8,extraHockeyCns:10,
+    hockeyRecentHours:30
+  },
+
   // Get category for an auxiliary slot index (0-5)
   getAuxCategory(slotIdx){
     return ['squat','squat','bench','bench','deadlift','ohp'][slotIdx]||'squat';
@@ -601,9 +613,22 @@ async function loadData(){
   if(!profile.atsBackExercise) profile.atsBackExercise='Barbell Rows';
   if(!profile.atsBackWeight) profile.atsBackWeight=0;
   if(!profile.atsMode) profile.atsMode='sets';
+  if(!profile.atsWeekStartDate) profile.atsWeekStartDate=new Date().toISOString();
+  // Persist any newly defaulted fields so they survive next load
+  saveProfileData();
+  // Date-based week auto-advance: catch up if >=7 days have passed since last advance
+  if((profile.atsWeek||1)<21){
+    const daysSinceStart=(Date.now()-new Date(profile.atsWeekStartDate).getTime())/864e5;
+    if(daysSinceStart>=7){
+      const weeksElapsed=Math.floor(daysSinceStart/7);
+      profile.atsWeek=Math.min(21,(profile.atsWeek||1)+weeksElapsed);
+      profile.atsWeekStartDate=new Date().toISOString();
+      saveProfileData();
+    }
+  }
   restDuration=profile.defaultRest||120;
+  buildExerciseIndex();
   updateDashboard();
-  
   updateAtsDisplay();
 }
 async function saveWorkouts(){ try{localStorage.setItem('ic_workouts',JSON.stringify(workouts));}catch(e){} }
@@ -624,10 +649,20 @@ function showPage(name,btn){
 
 
 
-function showToast(msg,color){
+function showToast(msg,color,undoFn){
   const t=document.getElementById('toast');
-  t.textContent=msg;t.style.background=color||'var(--green)';
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);
+  clearTimeout(_toastTimeout);
+  t.style.background=color||'var(--green)';
+  if(undoFn){
+    t.style.pointerEvents='auto';
+    t.innerHTML=msg+' <span id="t-undo" style="background:rgba(255,255,255,0.2);border-radius:6px;padding:2px 10px;margin-left:6px;cursor:pointer;font-weight:700;font-size:13px">Undo</span>';
+    document.getElementById('t-undo').onclick=()=>{clearTimeout(_toastTimeout);t.classList.remove('show');t.style.pointerEvents='none';undoFn();};
+  }else{
+    t.style.pointerEvents='none';
+    t.textContent=msg;
+  }
+  t.classList.add('show');
+  _toastTimeout=setTimeout(()=>{t.classList.remove('show');t.style.pointerEvents='none';},undoFn?5000:2800);
 }
 
 // ── CONFIRM MODAL ────────────────────────────────────────────
@@ -703,7 +738,7 @@ function playBeep(){
 // ── RPE MODAL ────────────────────────────────────────────────
 function showRPEPicker(exName,setNum,cb){
   pendingRPECallback=cb;
-  document.getElementById('rpe-modal-sub').textContent=exName+' — Set '+(setNum+1);
+  document.getElementById('rpe-modal-sub').textContent=setNum<0?'Rate overall session effort (6 = easy, 10 = max)':exName+' — Set '+(setNum+1);
   const grid=document.getElementById('rpe-grid');grid.innerHTML='';
   [6,7,8,9,10].forEach(v=>{
     const btn=document.createElement('div');btn.className='rpe-btn';
@@ -731,12 +766,17 @@ function computeFatigue(){
   });
   const avgRecentRPE=rpeCount?recentRPE/rpeCount:7;
   const recentTypes=last72h.map(w=>w.type);
-  let muscular=Math.max(0,40-daysSinceLift*15)+Math.min(30,recentSets*3)+(recentTypes.includes('hockey')?20:0);
-  let cns=Math.max(0,50-daysSinceLift*20)+(avgRecentRPE-5)*8+(recentTypes.includes('hockey')?15:0);
+  const cfg=ATS.config;
+  let muscular=Math.max(0,cfg.muscularBase-daysSinceLift*cfg.muscularDecay)+Math.min(30,recentSets*cfg.setsWeight)+(recentTypes.includes('hockey')?cfg.hockeyMuscularBonus:0);
+  let cns=Math.max(0,cfg.cnsBase-daysSinceLift*cfg.cnsDecay)+(avgRecentRPE-5)*cfg.rpeWeight+(recentTypes.includes('hockey')?cfg.hockeyCnsBonus:0);
   const extraToday=last72h.filter(w=>w.type==='hockey'&&w.subtype==='extra').length;
-  cns+=extraToday*10;
+  cns+=extraToday*cfg.extraHockeyCns;
   muscular=Math.min(100,Math.max(0,muscular));cns=Math.min(100,Math.max(0,cns));
   return{muscular:Math.round(muscular),cns:Math.round(cns),overall:Math.round(muscular*.5+cns*.5),daysSinceLift,daysSinceHockey,recentSets,avgRecentRPE};
+}
+function wasHockeyRecently(hours){
+  hours=hours||ATS.config.hockeyRecentHours;
+  return workouts.some(w=>w.type==='hockey'&&(Date.now()-new Date(w.date).getTime())<hours*3600000);
 }
 function getFatigueColor(p){return p<35?'var(--green)':p<65?'var(--orange)':'var(--accent)';}
 function getReadinessLabel(o){
@@ -759,7 +799,16 @@ function updateFatigueBars(f){
 }
 
 // ── DATA HELPERS ─────────────────────────────────────────────
-function getPreviousSets(name){for(let i=workouts.length-1;i>=0;i--){const ex=workouts[i].exercises?.find(e=>e.name===name);if(ex)return ex.sets;}return null;}
+function buildExerciseIndex(){
+  exerciseIndex={};
+  workouts.forEach(w=>{
+    w.exercises?.forEach(e=>{
+      if(!exerciseIndex[e.name]||new Date(w.date)>new Date(exerciseIndex[e.name].date))
+        exerciseIndex[e.name]={sets:e.sets,date:w.date};
+    });
+  });
+}
+function getPreviousSets(name){return exerciseIndex[name]?.sets||null;}
 function getSuggested(name){const prev=getPreviousSets(name);if(!prev?.length)return null;const max=Math.max(...prev.map(s=>parseFloat(s.weight)||0));return prev.every(s=>s.done)?Math.round((max+2.5)*2)/2:max;}
 
 // ── WEEK STRIP ───────────────────────────────────────────────
@@ -824,7 +873,7 @@ function updateDashboard(){
   // Today's Plan
   const recovery=100-f.overall,todayDow=new Date().getDay();
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
-  const hadHockeyYesterday=workouts.some(w=>w.type==='hockey'&&(Date.now()-new Date(w.date).getTime())<36*3600000);
+  const hadHockeyYesterday=wasHockeyRecently(36);
   const atsW=profile.atsWeek||1;
   const mode=profile.atsMode||'sets';
   const modeName=ATS.modes[mode]?.short||'Sets';
@@ -942,7 +991,7 @@ function startAtsWorkout(){
   const legLifts=['squat','front squat','paused squat','high bar squat','beltless squat','box squat','pin squat','good morning','leg press','deadlift','sumo deadlift','conventional deadlift','block pull','rack pull','deficit deadlift','romanian deadlift','stiff leg deadlift','snatch grip deadlift','trap bar deadlift','squat with slow eccentric','wider stance squat','narrower stance squat','half squat'];
   const todayDow=new Date().getDay();
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
-  const hadHockeyRecently=workouts.some(w=>w.type==='hockey'&&(Date.now()-new Date(w.date).getTime())<30*3600000);
+  const hadHockeyRecently=wasHockeyRecently();
   if((isHockeyDay||hadHockeyRecently)&&!isDeload){
     const hasLegs=activeWorkout.exercises.some(e=>legLifts.includes(e.name.toLowerCase()));
     if(hasLegs) setTimeout(()=>showToast('🏒 Hockey legs — consider fewer squat/DL sets or swapping day order','var(--blue)'),1500);
@@ -1158,12 +1207,15 @@ async function finishWorkout(){
     const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
     const thisWeekLifts=workouts.filter(w=>w.type==='ats'&&new Date(w.date)>=sow).length;
     if(thisWeekLifts>=(profile.atsDaysPerWeek||3)&&(profile.atsWeek||1)<21){
-      profile.atsWeek=(profile.atsWeek||1)+1;saveProfileData();
+      profile.atsWeek=(profile.atsWeek||1)+1;
+      profile.atsWeekStartDate=new Date().toISOString();
+      saveProfileData();
       showToast('Week '+profile.atsWeek+'/21 · '+ATS.blockNames[profile.atsWeek]+' starts next!','var(--purple)');
     }
   }
 
   await saveWorkouts();
+  buildExerciseIndex();
   activeWorkout=null;
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
@@ -1220,11 +1272,20 @@ function deleteWorkout(id){
   const d=new Date(w.date);
   const label=w.type==='hockey'?'Hockey session':'Workout';
   const dateStr=d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
-  showConfirm('Delete '+label,'Remove '+label.toLowerCase()+' from '+dateStr+'? This cannot be undone.',async()=>{
-    workouts=workouts.filter(w=>w.id!==id);
+  showConfirm('Delete '+label,'Remove '+label.toLowerCase()+' from '+dateStr+'?',async()=>{
+    const backup=workouts.find(x=>x.id===id);
+    workouts=workouts.filter(x=>x.id!==id);
+    buildExerciseIndex();
     await saveWorkouts();
     renderHistory();updateStats();updateDashboard();
-    showToast('Session deleted','var(--muted)');
+    showToast('Session deleted','var(--muted)',async()=>{
+      workouts.push(backup);
+      workouts.sort((a,b)=>new Date(a.date)-new Date(b.date));
+      buildExerciseIndex();
+      await saveWorkouts();
+      renderHistory();updateStats();updateDashboard();
+      showToast('Session restored!','var(--green)');
+    });
   });
 }
 
@@ -1340,7 +1401,7 @@ function updateAtsDisplay(){
   const freq=profile.atsDaysPerWeek||3;ds.innerHTML='';
   const todayDow=new Date().getDay();
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
-  const hadHockeyRecently=workouts.some(w=>w.type==='hockey'&&(Date.now()-new Date(w.date).getTime())<30*3600000);
+  const hadHockeyRecently=wasHockeyRecently();
   const hockeyLegs=isHockeyDay||hadHockeyRecently;
   const fatigue=computeFatigue();
   const recovery=100-fatigue.overall;
@@ -1451,7 +1512,11 @@ function importData(event){
   reader.onload=async(e)=>{
     try{
       const data=JSON.parse(e.target.result);
-      if(!data.workouts&&!data.profile){showToast("Invalid backup file","var(--orange)");return;}
+      if(typeof data!=='object'||!data){showToast('Invalid backup file','var(--orange)');return;}
+      if(!Array.isArray(data.workouts)&&!data.profile){showToast('Invalid backup file','var(--orange)');return;}
+      if(data.workouts&&!Array.isArray(data.workouts)){showToast('Backup file has invalid workout data','var(--orange)');return;}
+      if(data.workouts){const bad=data.workouts.some(w=>!w.id||!w.date||!w.type||!Array.isArray(w.exercises));if(bad){showToast('Backup file has malformed workout entries','var(--orange)');return;}}
+      if(data.profile&&typeof data.profile!=='object'){showToast('Backup file has invalid profile data','var(--orange)');return;}
       showConfirm("Import Data","Replace all data with backup from "+(data.exported?new Date(data.exported).toLocaleDateString():"unknown")+"?",async()=>{
         if(data.workouts) workouts=data.workouts;
         if(data.schedule) schedule=data.schedule;
