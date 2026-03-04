@@ -89,12 +89,7 @@
   </div>
   <div class="card">
     <div class="card-title">Training Maxes</div>
-    <div class="lifts-grid" id="tm-grid">
-      <div class="lift-stat"><div class="value" id="tm-sq">—</div><div class="label">Squat</div></div>
-      <div class="lift-stat"><div class="value" id="tm-bp">—</div><div class="label">Bench</div></div>
-      <div class="lift-stat"><div class="value" id="tm-dl">—</div><div class="label">Deadlift</div></div>
-      <div class="lift-stat"><div class="value" id="tm-ohp">—</div><div class="label">OHP</div></div>
-    </div>
+    <div class="lifts-grid" id="tm-grid"></div>
   </div>
   <div class="card">
     <div class="card-title">This Week's Progress</div>
@@ -116,13 +111,13 @@
         <div><div class="ql-title">Log Extra Hockey</div><div class="ql-sub">Unscheduled practice or game</div></div>
       </div>
     </div>
-    <div class="divider-label"><span>Forge Protocol Session</span></div>
+    <div class="divider-label"><span>Training Session</span></div>
     <div class="card" style="padding:20px">
       <div style="font-weight:800;font-size:16px;margin-bottom:4px">Start a Session</div>
       <label style="margin-top:8px">Training Day</label>
-      <select id="forge-day-select" onchange="onDaySelectChange()"></select>
-      <div id="forge-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
-      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startForgeWorkout()">🏋️ Start Workout</button></div>
+      <select id="program-day-select" onchange="onDaySelectChange()"></select>
+      <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
+      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">🏋️ Start Workout</button></div>
     </div>
   </div>
 
@@ -188,46 +183,12 @@
     </div>
   </div>
   <div class="card">
-    <div class="card-title">Forge Protocol</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">21-week periodization: Hypertrophy → Strength → Peaking</div>
-    <label>Program Mode</label>
-    <select id="forge-mode" onchange="updateModeDesc()">
-      <option value="sets">Sets Completed — stop at RIR cutoff</option>
-      <option value="rtf">Reps to Failure — normal sets + AMRAP</option>
-      <option value="rir">Last Set RIR — fixed sets, report RIR (rec. for hockey)</option>
-    </select>
-    <div id="forge-mode-desc" style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:8px"></div>
-    <label>Current Week (1-21)</label>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" id="forge-week" min="1" max="21" value="1" style="flex:1">
-      <button class="btn btn-sm btn-secondary" onclick="document.getElementById('forge-week').value=1" style="width:auto">Reset</button>
-    </div>
-    <label style="margin-top:12px">Weight Rounding (kg)</label>
-    <select id="forge-rounding"><option value="1">1 kg</option><option value="2.5" selected>2.5 kg</option><option value="5">5 kg</option></select>
-    <label style="margin-top:12px">Sessions Per Week</label>
-    <select id="forge-days" onchange="previewForgeSplit()"><option value="2">2×/week</option><option value="3" selected>3×/week</option><option value="4">4×/week</option><option value="5">5×/week</option><option value="6">6×/week</option></select>
-    <div id="forge-split-preview" style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8"></div>
-    <div class="divider-label" style="margin-top:18px"><span>Main Lifts (TM in kg)</span></div>
-    <div id="forge-main-lifts"></div>
-    <div class="divider-label" style="margin-top:14px"><span>Auxiliary Lifts (TM in kg)</span></div>
-    <div id="forge-aux-lifts"></div>
-    <div class="divider-label" style="margin-top:14px"><span>Back Exercise (every session)</span></div>
-    <select id="forge-back-exercise" onchange="profile.forgeBackExercise=this.value;saveProfileData()">
-      <option value="Barbell Rows">Barbell Rows</option>
-      <option value="DB Rows">DB Rows</option>
-      <option value="Chest Supported Rows">Chest Supported Rows</option>
-      <option value="T-Bar Rows">T-Bar Rows</option>
-      <option value="Pull-ups">Pull-ups</option>
-      <option value="Chin-ups">Chin-ups</option>
-      <option value="Neutral Grip Pull-ups">Neutral Grip Pull-ups</option>
-      <option value="Pull-downs">Pull-downs</option>
-    </select>
-    <label style="margin-top:8px">Working Weight (kg)</label>
-    <div style="display:flex;align-items:center;gap:8px">
-      <input type="number" id="forge-back-weight" placeholder="e.g. 60" style="flex:1">
-      <span style="font-size:11px;color:var(--muted);flex:1">3×8 → 3×10, then increase</span>
-    </div>
-    <button class="btn btn-purple" style="margin-top:16px" onclick="saveForgeSetup()">Save Program Setup</button>
+    <div class="card-title">Training Program</div>
+    <div id="program-switcher-container"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Program Settings</div>
+    <div id="program-settings-container"></div>
   </div>
   <div class="card">
     <div class="card-title">Data Backup</div>
@@ -285,5 +246,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
+<script src="programs/forge.js"></script>
+<script src="programs/wendler531.js"></script>
+<script src="programs/stronglifts5x5.js"></script>
 </body>
 </html>

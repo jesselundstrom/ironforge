@@ -9,7 +9,7 @@ let currentUser=null;
 
 // ── STATE (persisted via localStorage) ──────────
 let workouts=[];
-let schedule={hockeyDays:[3,0]};
+let schedule={hockeyDays:[]};
 let profile={defaultRest:120};
 let activeWorkout=null, workoutTimer=null, workoutSeconds=0;
 let restInterval=null, restSecondsLeft=0, restTotal=0, restDuration=120;
@@ -21,124 +21,23 @@ let exerciseIndex={};
 
 const RPE_FEELS={6:'Easy',7:'Moderate',8:'Hard',9:'Very Hard',10:'Max'};
 
-// ── FORGE PROTOCOL ENGINE ─────────────────────────────
-const FORGE={
-  mainIntensity:[0,0.70,0.75,0.80,0.725,0.775,0.825,0.60,0.75,0.80,0.85,0.775,0.825,0.875,0.60,0.80,0.85,0.90,0.85,0.90,0.95,0.60],
-  auxIntensity:[0,0.60,0.65,0.70,0.625,0.675,0.725,0.50,0.65,0.70,0.75,0.675,0.725,0.775,0.50,0.70,0.75,0.80,0.75,0.80,0.85,0.50],
-  deloadWeeks:[7,14,21],
-  blockNames:['','Hypertrophy','Hypertrophy','Hypertrophy','Hypertrophy','Hypertrophy','Hypertrophy','Deload',
-    'Strength','Strength','Strength','Strength','Strength','Strength','Deload',
-    'Peaking','Peaking','Peaking','Peaking','Peaking','Peaking','Deload'],
-  getReps(pct){if(pct<=0.575)return 8;if(pct<=0.625)return 7;if(pct<=0.675)return 6;if(pct<=0.725)return 5;if(pct<=0.775)return 4;if(pct<=0.825)return 3;if(pct<=0.875)return 2;return 1;},
-  getRIR(pct){if(pct<=0.575)return 5;if(pct<=0.675)return 4;if(pct<=0.775)return 3;if(pct<=0.875)return 2;if(pct<=0.925)return 1;return 0;},
-  setLow:4,setHigh:6,tmUp:0.02,tmDown:-0.05,
-  modes:{
-    sets:{name:'Sets Completed',desc:'Do sets until RIR cutoff. TM adjusts by total sets.',short:'Sets'},
-    rtf:{name:'Reps to Failure',desc:'Normal sets + AMRAP last set. TM adjusts by reps hit.',short:'RTF'},
-    rir:{name:'Last Set RIR',desc:'Fixed sets, report RIR on last set. Best for athletes.',short:'RIR'}
-  },
-  rnd(v,inc){return Math.round(v/inc)*inc;},
-  getPrescription(tm,week,isAux,rounding,mode){
-    mode=mode||'sets';
-    const pct=isAux?this.auxIntensity[week]:this.mainIntensity[week];
-    const wt=this.rnd(tm*pct,rounding||2.5);
-    const reps=this.getReps(pct);
-    const rir=this.getRIR(pct);
-    const isDeload=this.deloadWeeks.includes(week);
+// ── PROGRAM REGISTRY ─────────────────────────────────
+// Programs (loaded via <script> tags after this file) call registerProgram() to self-register.
+const PROGRAMS={};
+function registerProgram(p){PROGRAMS[p.id]=p;}
+function getActiveProgram(){return PROGRAMS[profile.activeProgram||'forge']||PROGRAMS.forge||Object.values(PROGRAMS)[0]||{};}
+function getActiveProgramState(){return profile.programs?.[profile.activeProgram||'forge']||{};}
+function setProgramState(id,state){if(!profile.programs)profile.programs={};profile.programs[id]=state;}
 
-    if(mode==='rtf'){
-      const normalSets=isDeload?4:4;
-      const repOutTarget=reps*2; // AMRAP target ~2x normal reps
-      return{weight:wt,reps,rir,pct,isDeload,blockName:this.blockNames[week]||'',
-        mode:'rtf',normalSets,repOutTarget,
-        setTarget:isDeload?'5':(normalSets+'+AMRAP'),
-        note:isDeload?reps+'×'+wt+'kg — easy, 5 sets':wt+'kg × '+reps+' reps for '+normalSets+' sets, then go all-out on set '+(normalSets+1)+' (target '+repOutTarget+'+ reps)'};
-    }
-    if(mode==='rir'){
-      const fixedSets=isDeload?5:5;
-      return{weight:wt,reps,rir,pct,isDeload,blockName:this.blockNames[week]||'',
-        mode:'rir',fixedSets,rirTarget:rir,
-        setTarget:String(fixedSets),
-        note:isDeload?reps+'×'+wt+'kg — easy, 5 sets':wt+'kg × '+reps+' for '+fixedSets+' sets — on the last set, note how many reps you had left (target RIR ≤'+rir+')'};
-    }
-    // Default: sets completed mode
-    return{weight:wt,reps,rir,pct,isDeload,
-      setTarget:isDeload?'5':this.setLow+'-'+this.setHigh,blockName:this.blockNames[week]||'',
-      mode:'sets',
-      note:isDeload?reps+'×'+wt+'kg — easy, 5 sets':wt+'kg × '+reps+' reps — stop when RIR ≤'+rir+' (aim for '+this.setLow+'-'+this.setHigh+' sets)'};
-  },
-  adjustTM(tm,data,week,mode){
-    mode=mode||'sets';
-    if(this.deloadWeeks.includes(week))return tm;
-    if(mode==='rtf'){
-      // data = {repsOnLastSet, repOutTarget}
-      const reps=data.repsOnLastSet||0, target=data.repOutTarget||10;
-      if(reps>=target+3)return Math.round(tm*1.04*100)/100;  // crushed it: +4%
-      if(reps>=target)return Math.round(tm*1.02*100)/100;     // hit target: +2%
-      if(reps>=target-2)return tm;                              // close: no change
-      return Math.round(tm*0.95*100)/100;                      // missed badly: -5%
-    }
-    if(mode==='rir'){
-      // data = {setsCompleted, lastSetRIR}
-      const sets=data.setsCompleted||0, lastRIR=data.lastSetRIR;
-      if(sets<5)return Math.round(tm*0.95*100)/100;           // didn't finish sets: -5%
-      if(lastRIR!==null&&lastRIR!==undefined){
-        if(lastRIR<=0)return Math.round(tm*0.97*100)/100;     // maxed out: -3%
-        if(lastRIR<=1)return tm;                                // hard: no change
-        if(lastRIR<=2)return Math.round(tm*1.01*100)/100;     // moderate: +1%
-        return Math.round(tm*1.02*100)/100;                    // easy: +2%
-      }
-      return tm;
-    }
-    // Default: sets completed
-    const sets=typeof data==='number'?data:data.setsCompleted||0;
-    if(sets<this.setLow)return Math.round(tm*(1+this.tmDown)*100)/100;
-    if(sets>this.setHigh)return Math.round(tm*(1+this.tmUp)*100)/100;
-    return tm;
-  },
-  getDayExercises(day,freq,lifts){
-    const m=lifts.main,a=lifts.aux,r=[];
-    // Exact splits from Forge Protocol spreadsheet
-    // m[0]=SQ m[1]=BP m[2]=DL m[3]=OHP  a[0]=SQaux1 a[1]=SQaux2 a[2]=BPaux1 a[3]=BPaux2 a[4]=DLaux a[5]=OHPaux
-    const splits={
-      2:[[['m',0],['m',1],['a',4],['a',5]],[['m',2],['m',3],['a',0],['a',2]]],
-      3:[[['m',0],['a',4],['a',3]],[['m',1],['m',3],['a',0]],[['m',2],['a',2],['a',1],['a',5]]],
-      4:[[['m',0],['a',3],['a',4]],[['m',1],['a',0],['a',5]],[['m',2],['a',2]],[['m',3],['a',1]]],
-      5:[[['m',0],['a',5]],[['m',1],['a',0]],[['m',2],['a',2]],[['m',3],['a',1]],[['a',3],['a',4]]],
-      6:[[['m',0],['a',2]],[['a',5],['a',4]],[['m',1],['a',0]],[['a',3],['a',1]],[['m',2]],[['m',3]]]
-    };
-    const layout=splits[freq]?splits[freq][day-1]:splits[3][0];
-    if(!layout)return r;
-    layout.forEach(([type,idx])=>{
-      const src=type==='m'?m:a;
-      if(src[idx])r.push({...src[idx],isAux:type==='a'});
-    });
-    return r;
-  },
-
-  // Auxiliary swap options per category (from Forge Protocol spreadsheet)
-  auxOptions:{
-    squat:['Front Squat','Paused Squat','High Bar Squat','Beltless Squat','Wider Stance Squat','Narrower Stance Squat','Box Squat','Pin Squat','Half Squat','Good Morning','Squat With Slow Eccentric','Leg Press'],
-    bench:['Close-Grip Bench','Long Pause Bench','Spoto Press','Incline Press','Wider Grip Bench','Board Press','Pin Press','Slingshot Bench','Bench With Feet Up','Bench With Slow Eccentric','DB Bench'],
-    deadlift:['Sumo Deadlift','Conventional Deadlift','Block Pull','Rack Pull','Deficit Deadlift','Romanian Deadlift','Stiff Leg Deadlift','Snatch Grip Deadlift','Trap Bar Deadlift'],
-    ohp:['Push Press','Behind The Neck OHP','Seated OHP','Incline Press','DB OHP'],
-    back:['Barbell Rows','DB Rows','Chest Supported Rows','T-Bar Rows','Pull-ups','Chin-ups','Neutral Grip Pull-ups','Pull-downs']
-  },
-
-  // Tuneable constants for fatigue engine and hockey logic
-  config:{
-    muscularBase:40,muscularDecay:15,
-    cnsBase:50,cnsDecay:20,
-    setsWeight:3,
-    hockeyMuscularBonus:20,hockeyCnsBonus:15,
-    rpeWeight:8,extraHockeyCns:10,
-    hockeyRecentHours:30
-  },
-
-  // Get category for an auxiliary slot index (0-5)
-  getAuxCategory(slotIdx){
-    return ['squat','squat','bench','bench','deadlift','ohp'][slotIdx]||'squat';
-  }
+// ── FATIGUE ENGINE CONFIG ─────────────────────────────
+// Separate from program definitions — these are app-wide constants
+const FATIGUE_CONFIG={
+  muscularBase:40,muscularDecay:15,
+  cnsBase:50,cnsDecay:20,
+  setsWeight:3,
+  hockeyMuscularBonus:20,hockeyCnsBonus:15,
+  rpeWeight:8,extraHockeyCns:10,
+  hockeyRecentHours:30
 };
 
 
@@ -158,32 +57,25 @@ async function loadData(){
   // Migrate legacy ats* keys to forge* (one-time migration)
   if(profile.atsLifts&&!profile.forgeLifts){profile.forgeLifts=profile.atsLifts;profile.forgeWeek=profile.atsWeek||1;profile.forgeRounding=profile.atsRounding||2.5;profile.forgeDaysPerWeek=profile.atsDaysPerWeek||3;profile.forgeDayNum=profile.atsDayNum||1;profile.forgeBackExercise=profile.atsBackExercise||'Barbell Rows';profile.forgeBackWeight=profile.atsBackWeight||0;profile.forgeMode=profile.atsMode||'sets';profile.forgeWeekStartDate=profile.atsWeekStartDate||new Date().toISOString();}
   workouts.forEach(w=>{if(w.type==='ats'){w.type='forge';if(w.atsWeek){w.forgeWeek=w.atsWeek;}if(w.atsDayNum){w.forgeDayNum=w.atsDayNum;}}});
-  // Ensure Forge Protocol fields exist
-  if(!profile.forgeLifts) profile.forgeLifts={main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]};
-  if(!profile.forgeWeek) profile.forgeWeek=1;
-  if(!profile.forgeRounding) profile.forgeRounding=2.5;
-  if(!profile.forgeDaysPerWeek) profile.forgeDaysPerWeek=3;
-  if(!profile.forgeDayNum) profile.forgeDayNum=1;
-  if(!profile.forgeBackExercise) profile.forgeBackExercise='Barbell Rows';
-  if(!profile.forgeBackWeight) profile.forgeBackWeight=0;
-  if(!profile.forgeMode) profile.forgeMode='sets';
-  if(!profile.forgeWeekStartDate) profile.forgeWeekStartDate=new Date().toISOString();
-  // Persist any newly defaulted fields so they survive next load
-  saveProfileData();
-  // Date-based week auto-advance: catch up if >=7 days have passed since last advance
-  if((profile.forgeWeek||1)<21){
-    const daysSinceStart=(Date.now()-new Date(profile.forgeWeekStartDate).getTime())/864e5;
-    if(daysSinceStart>=7){
-      const weeksElapsed=Math.floor(daysSinceStart/7);
-      profile.forgeWeek=Math.min(21,(profile.forgeWeek||1)+weeksElapsed);
-      profile.forgeWeekStartDate=new Date().toISOString();
-      saveProfileData();
-    }
+  // Migrate forge* flat fields → profile.programs.forge (one-time migration)
+  if(profile.forgeLifts&&!profile.programs){
+    profile.programs={forge:{week:profile.forgeWeek||1,dayNum:profile.forgeDayNum||1,daysPerWeek:profile.forgeDaysPerWeek||3,mode:profile.forgeMode||'sets',rounding:profile.forgeRounding||2.5,weekStartDate:profile.forgeWeekStartDate||new Date().toISOString(),backExercise:profile.forgeBackExercise||'Barrell Rows',backWeight:profile.forgeBackWeight||0,lifts:profile.forgeLifts}};
+    profile.activeProgram='forge';
   }
+  // Stamp old workout records with program field
+  workouts.forEach(w=>{if(!w.program&&w.type&&w.type!=='hockey')w.program=w.type;});
+  // Ensure activeProgram is set
+  if(!profile.activeProgram)profile.activeProgram='forge';
+  // Initialize program states for all registered programs (fills in defaults for new programs)
+  if(!profile.programs)profile.programs={};
+  Object.values(PROGRAMS).forEach(prog=>{if(!profile.programs[prog.id])profile.programs[prog.id]=prog.getInitialState();});
+  // Apply date-based catch-up for the active program
+  const activeProg=getActiveProgram();
+  if(activeProg.dateCatchUp&&profile.programs[activeProg.id]){const caught=activeProg.dateCatchUp(profile.programs[activeProg.id]);if(caught!==profile.programs[activeProg.id])profile.programs[activeProg.id]=caught;}
+  saveProfileData();
   restDuration=profile.defaultRest||120;
   buildExerciseIndex();
   updateDashboard();
-  updateForgeDisplay();
 }
 async function saveWorkouts(){ try{localStorage.setItem('ic_workouts',JSON.stringify(workouts));}catch(e){} pushToCloud(); }
 async function saveScheduleData(){ try{localStorage.setItem('ic_schedule',JSON.stringify(schedule));}catch(e){} pushToCloud(); }
@@ -247,7 +139,7 @@ async function signUpWithEmail(){
 }
 async function logout(){
   await _SB.auth.signOut();
-  workouts=[];schedule={hockeyDays:[3,0]};profile={defaultRest:120};currentUser=null;
+  workouts=[];schedule={hockeyDays:[]};profile={defaultRest:120};currentUser=null;
   updateDashboard();
 }
 
@@ -260,7 +152,7 @@ function showPage(name,btn){
   if(name==='dashboard') updateDashboard();
   if(name==='history') renderHistory();
   if(name==='settings') initSettings();
-  if(name==='log'){updateForgeDisplay();}
+  if(name==='log'){if(!activeWorkout)resetNotStartedView();}
 }
 
 
@@ -382,7 +274,7 @@ function computeFatigue(){
   });
   const avgRecentRPE=rpeCount?recentRPE/rpeCount:7;
   const recentTypes=last72h.map(w=>w.type);
-  const cfg=FORGE.config;
+  const cfg=FATIGUE_CONFIG;
   let muscular=Math.max(0,cfg.muscularBase-daysSinceLift*cfg.muscularDecay)+Math.min(30,recentSets*cfg.setsWeight)+(recentTypes.includes('hockey')?cfg.hockeyMuscularBonus:0);
   let cns=Math.max(0,cfg.cnsBase-daysSinceLift*cfg.cnsDecay)+(avgRecentRPE-5)*cfg.rpeWeight+(recentTypes.includes('hockey')?cfg.hockeyCnsBonus:0);
   const extraToday=last72h.filter(w=>w.type==='hockey'&&w.subtype==='extra').length;
@@ -391,7 +283,7 @@ function computeFatigue(){
   return{muscular:Math.round(muscular),cns:Math.round(cns),overall:Math.round(muscular*.5+cns*.5),daysSinceLift,daysSinceHockey,recentSets,avgRecentRPE};
 }
 function wasHockeyRecently(hours){
-  hours=hours||FORGE.config.hockeyRecentHours;
+  hours=hours||FATIGUE_CONFIG.hockeyRecentHours;
   return workouts.some(w=>w.type==='hockey'&&(Date.now()-new Date(w.date).getTime())<hours*3600000);
 }
 function getFatigueColor(p){return p<35?'var(--green)':p<65?'var(--orange)':'var(--accent)';}
@@ -446,13 +338,12 @@ function renderWeekStrip(){
   const todayIsHockey=schedule.hockeyDays.includes(todayDow);
   const todayLogged=workouts.filter(w=>new Date(w.date).toDateString()===today.toDateString());
   const tHasLift=todayLogged.some(w=>w.type!=='hockey'),tHasHockey=todayLogged.some(w=>w.type==='hockey');
-  const forgeW=profile.forgeWeek||1;
   let s='';
   if(tHasLift&&tHasHockey)s=`<span style="color:var(--green);font-weight:700">✅ Workout + hockey logged</span>`;
   else if(tHasLift)s=`<span style="color:var(--green);font-weight:700">✅ Workout logged</span>`;
   else if(tHasHockey)s=`<span style="color:var(--blue);font-weight:700">🏒 Hockey logged</span>`;
   else if(todayIsHockey)s=`<span style="color:var(--blue);font-weight:700">🏒 Hockey day — go easy on legs if you lift</span>`;
-  else s=`<span style="color:var(--purple);font-weight:700">📋 Forge Protocol · ${FORGE.blockNames[forgeW]||''} · Week ${forgeW}</span>`;
+  else{const prog=getActiveProgram(),ps=getActiveProgramState(),bi=prog.getBlockInfo?prog.getBlockInfo(ps):{name:'',weekLabel:''};s=`<span style="color:var(--purple);font-weight:700">📋 ${prog.name||'Training'} · ${bi.name||''} · ${bi.weekLabel||''}</span>`;}
   document.getElementById('today-status').innerHTML=s;
 }
 
@@ -460,24 +351,19 @@ function renderWeekStrip(){
 function updateDashboard(){
   renderWeekStrip();
   const f=computeFatigue();updateFatigueBars(f);
+  const prog=getActiveProgram(),ps=getActiveProgramState();
 
-  // Training Maxes from profile
-  const lifts=profile.forgeLifts;
-  if(lifts){
-    const m=lifts.main;
-    document.getElementById('tm-sq').textContent=m[0]?m[0].tm+'kg':'—';
-    document.getElementById('tm-bp').textContent=m[1]?m[1].tm+'kg':'—';
-    document.getElementById('tm-dl').textContent=m[2]?m[2].tm+'kg':'—';
-    document.getElementById('tm-ohp').textContent=m[3]?m[3].tm+'kg':'—';
-    // Update labels with actual names
-    const labels=document.querySelectorAll('#tm-grid .label');
-    if(labels.length>=4){labels[0].textContent=m[0]?.name||'Squat';labels[1].textContent=m[1]?.name||'Bench';labels[2].textContent=m[2]?.name||'Deadlift';labels[3].textContent=m[3]?.name||'OHP';}
+  // Training Maxes — dynamic per program
+  const tmGrid=document.getElementById('tm-grid');
+  if(tmGrid&&prog.getDashboardTMs){
+    const tms=prog.getDashboardTMs(ps);
+    tmGrid.innerHTML=tms.map(t=>`<div class="lift-stat"><div class="value">${t.value}</div><div class="label">${t.name}</div></div>`).join('');
   }
 
   // Weekly session progress
   const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
-  const freq=profile.forgeDaysPerWeek||3;
-  const doneThisWeek=workouts.filter(w=>w.type==='forge'&&new Date(w.date)>=sow).length;
+  const freq=ps.daysPerWeek||3;
+  const doneThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
   const hockeyThisWeek=workouts.filter(w=>w.type==='hockey'&&new Date(w.date)>=sow).length;
   const pctDone=Math.min(100,doneThisWeek/freq*100);
   document.getElementById('volume-bar').style.width=pctDone+'%';
@@ -486,45 +372,28 @@ function updateDashboard(){
   if(doneThisWeek>=freq) volText+=' ✅';
   document.getElementById('volume-text').textContent=volText;
 
-  // Today's Plan
+  // Today's Plan — uses program's getBlockInfo
   const recovery=100-f.overall,todayDow=new Date().getDay();
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
   const hadHockeyYesterday=wasHockeyRecently(36);
-  const forgeW=profile.forgeWeek||1;
-  const mode=profile.forgeMode||'sets';
-  const modeName=FORGE.modes[mode]?.short||'Sets';
-  const isDeload=FORGE.deloadWeeks.includes(forgeW);
-  const pct=Math.round((FORGE.mainIntensity[forgeW]||0)*100);
-  const reps=FORGE.getReps(FORGE.mainIntensity[forgeW]||0.7);
-  const rir=FORGE.getRIR(FORGE.mainIntensity[forgeW]||0.7);
-
-  // Practical explanation of what today looks like
-  let modeExplain='';
-  if(isDeload){
-    modeExplain='Light work — 60% TM, 5 easy sets per exercise.';
-  }else if(mode==='sets'){
-    modeExplain=`${pct}% TM × ${reps} reps per set. Do sets until RIR ≤${rir}, aim for 4-6 total.`;
-  }else if(mode==='rtf'){
-    modeExplain=`${pct}% TM × ${reps} reps for 4 sets, then one all-out AMRAP set (target ${reps*2}+ reps).`;
-  }else if(mode==='rir'){
-    modeExplain=`${pct}% TM × ${reps} reps for 5 sets. On the last set, note how many reps you had left.`;
-  }
-
-  const blockInfo=`<div style="font-size:11px;color:var(--purple);margin-bottom:4px;padding:6px 10px;background:rgba(167,139,250,0.08);border-radius:8px;border:1px solid rgba(167,139,250,0.15)">📋 Forge Protocol · ${FORGE.blockNames[forgeW]||''} · Week ${forgeW} · ${pct}% TM · ${modeName} mode</div><div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:0 2px">${modeExplain}</div>`;
+  const bi=prog.getBlockInfo?prog.getBlockInfo(ps):{name:'',weekLabel:'',isDeload:false,pct:null,modeDesc:'',modeName:''};
+  const pctStr=bi.pct?bi.pct+'% TM · ':'';
+  const blockInfoHtml=`<div style="font-size:11px;color:var(--purple);margin-bottom:4px;padding:6px 10px;background:rgba(167,139,250,0.08);border-radius:8px;border:1px solid rgba(167,139,250,0.15)">📋 ${prog.name||'Training'} · ${bi.name||''} · ${bi.weekLabel||''} · ${pctStr}${bi.modeName||''}</div><div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:0 2px">${bi.modeDesc||''}</div>`;
   let rec='';
-  if(doneThisWeek>=freq) rec=blockInfo+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ Week complete!</div><div style="font-size:13px;color:var(--muted)">All ${freq} sessions done. Rest up for ${forgeW<21?'next week':'the end of the cycle'}.</div>`;
-  else if(recovery<40) rec=blockInfo+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">⚠️ High fatigue — rest or deload</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${isDeload?'Good timing — deload week!':'Consider resting today.'} ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
-  else if(isHockeyDay) rec=blockInfo+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Hockey day</div><div style="font-size:13px;color:var(--muted)">Pick an upper-body day on the Log tab, or rest. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
-  else if(hadHockeyYesterday) rec=blockInfo+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Post-hockey</div><div style="font-size:13px;color:var(--muted)">Legs may be fatigued. The Log tab will suggest an upper-focused day. ${freq-doneThisWeek} left.</div>`;
-  else if(isDeload) rec=blockInfo+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">🌊 Deload week</div><div style="font-size:13px;color:var(--muted)">60% TM, 5 easy sets. Recovery ${recovery}%. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
-  else rec=blockInfo+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">🏋️ Training day</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}% — ${recovery>=75?'feeling fresh, push it':'moderate effort'}. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
+  if(doneThisWeek>=freq) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ Week complete!</div><div style="font-size:13px;color:var(--muted)">All ${freq} sessions done. Rest up.</div>`;
+  else if(recovery<40) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">⚠️ High fatigue — rest or deload</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${bi.isDeload?'Good timing — deload!':'Consider resting today.'} ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
+  else if(isHockeyDay) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Hockey day</div><div style="font-size:13px;color:var(--muted)">Pick an upper-body day on the Log tab, or rest. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
+  else if(hadHockeyYesterday) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Post-hockey</div><div style="font-size:13px;color:var(--muted)">Legs may be fatigued. The Log tab will suggest an upper-focused day. ${freq-doneThisWeek} left.</div>`;
+  else if(bi.isDeload) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">🌊 Deload week</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
+  else rec=blockInfoHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">🏋️ Training day</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}% — ${recovery>=75?'feeling fresh, push it':'moderate effort'}. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
   document.getElementById('next-session-content').innerHTML=rec;
-  document.getElementById('header-sub').textContent=`Forge Protocol · ${FORGE.blockNames[forgeW]||''} · Week ${forgeW} · Recovery ${recovery}%`;
+  document.getElementById('header-sub').textContent=`${prog.name||'Training'} · ${bi.name||''} · ${bi.weekLabel||''} · Recovery ${recovery}%`;
 }
 
 
 
 function resetNotStartedView(){
+  const prog=getActiveProgram();
   document.getElementById('workout-not-started').innerHTML=`
     <div class="quick-log-row">
       <div class="quick-log-card ql-hockey" onclick="quickLogHockey()">
@@ -532,85 +401,54 @@ function resetNotStartedView(){
         <div><div class="ql-title">Log Extra Hockey</div><div class="ql-sub">Unscheduled practice or game</div></div>
       </div>
     </div>
-    <div class="divider-label"><span>Forge Protocol Session</span></div>
+    <div class="divider-label"><span>${(prog.icon||'🏋️')+' '+(prog.name||'Training')+' Session'}</span></div>
     <div class="card" style="padding:20px">
       <div style="font-weight:800;font-size:16px;margin-bottom:4px">Start a Session</div>
       <label style="margin-top:8px">Training Day</label>
-      <select id="forge-day-select" onchange="onDaySelectChange()"></select>
-      <div id="forge-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
-      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startForgeWorkout()">🏋️ Start Workout</button></div>
+      <select id="program-day-select" onchange="onDaySelectChange()"></select>
+      <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
+      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">🏋️ Start Workout</button></div>
     </div>`;
-
-  updateForgeDisplay();
+  updateProgramDisplay();
 }
 
-// ── FORGE PROTOCOL WORKOUT STARTER ──────────────────────────────────
-function startForgeWorkout(){
-  const dayNum=parseInt(document.getElementById('forge-day-select')?.value)||profile.forgeDayNum||1;
-  const week=profile.forgeWeek||1;
-  const freq=profile.forgeDaysPerWeek||3;
-  const rounding=profile.forgeRounding||2.5;
-  const mode=profile.forgeMode||'sets';
-  const lifts=profile.forgeLifts||{main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]};
-  const isDeload=FORGE.deloadWeeks.includes(week);
-  const dayExercises=FORGE.getDayExercises(dayNum,freq,lifts);
+// ── WORKOUT STARTER ──────────────────────────────────────────
+function startWorkout(){
+  const prog=getActiveProgram();
+  const state=getActiveProgramState();
+  const selectedOption=document.getElementById('program-day-select')?.value;
 
-  activeWorkout={type:'forge',exercises:[],startTime:Date.now(),forgeWeek:week,forgeDayNum:dayNum,forgeMode:mode};
+  const exercises=prog.buildSession(selectedOption,state);
+  const label=prog.getSessionLabel(selectedOption,state);
+  const bi=prog.getBlockInfo?prog.getBlockInfo(state):{isDeload:false};
 
-  dayExercises.forEach((ex,idx)=>{
-    const rx=FORGE.getPrescription(ex.tm,week,ex.isAux,rounding,mode);
-    let auxSlotIdx=-1;
-    if(ex.isAux) auxSlotIdx=lifts.aux.findIndex(a=>a.name===ex.name);
+  activeWorkout={
+    program:prog.id,
+    type:prog.id,           // keep type=prog.id for backwards-compat filters
+    programOption:selectedOption,
+    programDayNum:parseInt(selectedOption)||1,
+    programMode:state.mode||undefined,
+    programLabel:label,
+    exercises,
+    startTime:Date.now()
+  };
 
-    // Build sets based on mode
-    let sets;
-    if(mode==='rtf'&&!isDeload){
-      // Normal sets + 1 AMRAP last set
-      sets=Array.from({length:rx.normalSets},()=>({weight:rx.weight,reps:rx.reps,done:false,rpe:null}));
-      sets.push({weight:rx.weight,reps:'AMRAP',done:false,rpe:null,isAmrap:true,repOutTarget:rx.repOutTarget});
-    }else if(mode==='rir'&&!isDeload){
-      sets=Array.from({length:rx.fixedSets},()=>({weight:rx.weight,reps:rx.reps,done:false,rpe:null}));
-    }else{
-      // Sets completed mode or deload
-      sets=Array.from({length:5},()=>({weight:rx.weight,reps:rx.reps,done:false,rpe:null}));
-    }
-
-    activeWorkout.exercises.push({
-      id:Date.now()+Math.random(),name:ex.name,
-      note:rx.note||'',
-      isAux:ex.isAux,tm:ex.tm,auxSlotIdx,prescribedWeight:rx.weight,prescribedReps:rx.reps,
-      rirCutoff:rx.rir,isDeload:rx.isDeload,repOutTarget:rx.repOutTarget||0,
-      sets
-    });
-  });
-
-  // Add back exercise as accessory (3×8-10, auto-progression)
-  const backEx=profile.forgeBackExercise||'Barbell Rows';
-  const backWt=profile.forgeBackWeight||0;
-  activeWorkout.exercises.push({
-    id:Date.now()+Math.random(),name:backEx,
-    note:backWt?backWt+'kg × 3 sets of 8-10 — hit 3×10 then increase weight':'Set a working weight in Settings for auto-fill',
-    isAux:false,isAccessory:true,tm:0,auxSlotIdx:-1,
-    sets:[{weight:backWt||'',reps:8,done:false,rpe:null},{weight:backWt||'',reps:8,done:false,rpe:null},{weight:backWt||'',reps:8,done:false,rpe:null}]
-  });
-
-  resetNotStartedView();
+  updateProgramDisplay();
   document.getElementById('workout-not-started').style.display='none';
   document.getElementById('workout-active').style.display='block';
-  const modeTag=FORGE.modes[mode]?.short||'';
-  document.getElementById('active-session-title').textContent=(isDeload?'🌊':'🏋️')+' W'+week+' Day '+dayNum+' · '+(FORGE.blockNames[week]||'')+' ['+modeTag+']';
+  document.getElementById('active-session-title').textContent=label;
   restDuration=parseInt(document.getElementById('rest-duration')?.value)||profile.defaultRest||120;
   startWorkoutTimer();renderExercises();
-  showToast(isDeload?'Deload week — keep it light':FORGE.blockNames[week]+' block · '+Math.round((FORGE.mainIntensity[week]||0)*100)+'% TM',isDeload?'var(--blue)':'var(--purple)');
+  showToast(bi.isDeload?'Deload — keep it light':(prog.name||'Training'),bi.isDeload?'var(--blue)':'var(--purple)');
 
   // Hockey warning for leg-heavy days
-  const legLifts=['squat','front squat','paused squat','high bar squat','beltless squat','box squat','pin squat','good morning','leg press','deadlift','sumo deadlift','conventional deadlift','block pull','rack pull','deficit deadlift','romanian deadlift','stiff leg deadlift','snatch grip deadlift','trap bar deadlift','squat with slow eccentric','wider stance squat','narrower stance squat','half squat'];
+  const legLifts=prog.legLifts||[];
   const todayDow=new Date().getDay();
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
   const hadHockeyRecently=wasHockeyRecently();
-  if((isHockeyDay||hadHockeyRecently)&&!isDeload){
+  if((isHockeyDay||hadHockeyRecently)&&!bi.isDeload){
     const hasLegs=activeWorkout.exercises.some(e=>legLifts.includes(e.name.toLowerCase()));
-    if(hasLegs) setTimeout(()=>showToast('🏒 Hockey legs — consider fewer squat/DL sets or swapping day order','var(--blue)'),1500);
+    if(hasLegs)setTimeout(()=>showToast('🏒 Hockey legs — consider fewer sets or swapping day order','var(--blue)'),1500);
   }
 }
 
@@ -658,8 +496,7 @@ function renderExercises(){
     const block=document.createElement('div');block.className='exercise-block';
     let badges='';
     if(suggested)badges+=`<div class="suggest-badge">\ud83d\udcc8 Last best: ${suggested}kg</div>`;
-    // Show prescription note for Forge Protocol exercises
-    if(ex.note&&activeWorkout.type==='forge')badges+=`<div class="ai-badge" style="background:rgba(167,139,250,0.1);color:var(--purple);border-color:rgba(167,139,250,0.2)">\ud83d\udccb ${ex.note}</div>`;
+    if(ex.note)badges+=`<div class="ai-badge" style="background:rgba(167,139,250,0.1);color:var(--purple);border-color:rgba(167,139,250,0.2)">\ud83d\udccb ${ex.note}</div>`;
 
     // Swap button for auxiliary exercises
     let swapBtn='';
@@ -686,7 +523,7 @@ function renderExercises(){
     ex.sets.forEach((set,si)=>{
       const row=document.createElement('div');row.className='set-row';
       const isAmrap=set.isAmrap;
-      const mode=activeWorkout?.forgeMode||'sets';
+      const mode=activeWorkout?.programMode||'sets';
       const isLastSet=si===ex.sets.length-1;
       const showRir=mode==='rir'&&isLastSet&&!ex.isAccessory;
       const setLabel=isAmrap?'MAX':String(si+1);
@@ -723,36 +560,38 @@ function removeEx(ei){activeWorkout.exercises.splice(ei,1);renderExercises();}
 function swapAuxExercise(ei){
   const ex=activeWorkout.exercises[ei];
   if(ex.auxSlotIdx<0)return;
-  const cat=FORGE.getAuxCategory(ex.auxSlotIdx);
-  const opts=FORGE.auxOptions[cat]||[];
-  // Build options HTML
+  const prog=getActiveProgram();
+  const swapInfo=prog.getAuxSwapOptions?prog.getAuxSwapOptions(ex):null;
+  if(!swapInfo)return;
+  const cat=swapInfo.category||'',opts=swapInfo.options||[];
+  const title=cat?'Swap '+cat.charAt(0).toUpperCase()+cat.slice(1)+' Auxiliary':'Swap Exercise';
   let optHtml=opts.map(o=>`<div class="swap-option${o===ex.name?' swap-active':''}" onclick="doAuxSwap(${ei},'${o.replace(/'/g,"\\'")}',${ex.auxSlotIdx})">${o}</div>`).join('');
-  showCustomModal('Swap '+cat.charAt(0).toUpperCase()+cat.slice(1)+' Auxiliary',
-    `<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
+  showCustomModal(title,`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
 }
 
 function doAuxSwap(ei,newName,slotIdx){
-  const ex=activeWorkout.exercises[ei];
-  ex.name=newName;
-  // Update profile aux too so TM carries over next time
-  if(profile.forgeLifts&&profile.forgeLifts.aux[slotIdx]){
-    profile.forgeLifts.aux[slotIdx].name=newName;
-    saveProfileData();
-  }
+  activeWorkout.exercises[ei].name=newName;
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  const newState=prog.onAuxSwap?prog.onAuxSwap(slotIdx,newName,state):state;
+  setProgramState(prog.id,newState);
+  saveProfileData();
   closeCustomModal();renderExercises();
   showToast('Swapped to '+newName,'var(--purple)');
 }
 
 function swapBackExercise(ei){
-  const opts=FORGE.auxOptions.back||[];
+  const prog=getActiveProgram();
+  const opts=prog.getBackSwapOptions?prog.getBackSwapOptions():[];
   let optHtml=opts.map(o=>`<div class="swap-option${o===activeWorkout.exercises[ei].name?' swap-active':''}" onclick="doBackSwap(${ei},'${o.replace(/'/g,"\\'")}')"> ${o}</div>`).join('');
-  showCustomModal('Swap Back Exercise',
-    `<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
+  showCustomModal('Swap Back Exercise',`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
 }
 
 function doBackSwap(ei,newName){
   activeWorkout.exercises[ei].name=newName;
-  profile.forgeBackExercise=newName;saveProfileData();
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  const newState=prog.onBackSwap?prog.onBackSwap(newName,state):state;
+  setProgramState(prog.id,newState);
+  saveProfileData();
   closeCustomModal();renderExercises();
   showToast('Swapped to '+newName,'var(--purple)');
 }
@@ -776,66 +615,49 @@ function closeCustomModal(){const m=document.getElementById('custom-swap-modal')
 async function finishWorkout(){
   if(!activeWorkout.exercises.length){showToast('Add at least one exercise!','var(--orange)');return;}
   clearInterval(workoutTimer);skipRest();
-  let totalSets=0,doneSets=0;
-  activeWorkout.exercises.forEach(e=>{
-    totalSets+=e.sets.length;doneSets+=e.sets.filter(s=>s.done).length;
-  });
+  let totalSets=0;
+  activeWorkout.exercises.forEach(e=>{totalSets+=e.sets.length;});
 
-  // Ask for session effort rating
   const sessionRPE = await new Promise(resolve=>{
     showRPEPicker('Session',-1,(val)=>resolve(val||7));
   });
 
-  workouts.push({id:Date.now(),date:new Date().toISOString(),type:activeWorkout.type,duration:workoutSeconds,exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets,forgeWeek:activeWorkout.forgeWeek||0,forgeDayNum:activeWorkout.forgeDayNum||0});
+  const prog=getActiveProgram();
+  const state=getActiveProgramState();
 
-  // Adjust Forge Protocol Training Maxes based on mode
-  if(activeWorkout.type==='forge'&&activeWorkout.forgeWeek&&!FORGE.deloadWeeks.includes(activeWorkout.forgeWeek)){
-    const lifts=profile.forgeLifts;
-    const mode=activeWorkout.forgeMode||'sets';
-    activeWorkout.exercises.forEach(ex=>{
-      if(ex.isAccessory)return; // Skip back exercise
-      const all=[...lifts.main,...lifts.aux];
-      const match=all.find(l=>l.name===ex.name);
-      if(!match)return;
-      const oldTM=match.tm;
-      const doneSets=ex.sets.filter(s=>s.done).length;
+  // Push workout record (keep legacy forge fields for history backwards-compat)
+  workouts.push({id:Date.now(),date:new Date().toISOString(),
+    program:prog.id,type:prog.id,
+    programOption:activeWorkout.programOption,
+    programDayNum:activeWorkout.programDayNum,
+    programLabel:activeWorkout.programLabel||'',
+    forgeWeek:state.week||undefined,forgeDayNum:activeWorkout.programDayNum||undefined,
+    duration:workoutSeconds,exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets});
 
-      let adjustData;
-      if(mode==='rtf'){
-        const amrapSet=ex.sets.find(s=>s.isAmrap&&s.done);
-        adjustData={repsOnLastSet:amrapSet?parseInt(amrapSet.reps)||0:0, repOutTarget:ex.repOutTarget||10};
-      }else if(mode==='rir'){
-        const lastDone=ex.sets.filter(s=>s.done).pop();
-        const rir=lastDone?.rir!==undefined&&lastDone.rir!==''?parseInt(lastDone.rir):null;
-        adjustData={setsCompleted:doneSets, lastSetRIR:rir};
-      }else{
-        adjustData=doneSets;
-      }
+  // Adjust program state (TMs, weights, failures, etc.)
+  let newState=prog.adjustAfterSession?prog.adjustAfterSession(activeWorkout.exercises,state,activeWorkout.programOption):state;
 
-      match.tm=FORGE.adjustTM(match.tm,adjustData,activeWorkout.forgeWeek,mode);
-      if(match.tm!==oldTM) console.log('[Forge/'+mode+']',ex.name,'TM',match.tm>oldTM?'↑':'↓',oldTM,'→',match.tm);
-    });
-    saveProfileData();
+  // Count sessions this week for advanceState
+  const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
+  const sessionsThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
+
+  // Advance program state (week, cycle, A/B, etc.)
+  const advancedState=prog.advanceState?prog.advanceState(newState,sessionsThisWeek):newState;
+
+  // Toast if Forge week advanced
+  if(prog.id==='forge'&&advancedState.week!==newState.week){
+    const bi=prog.getBlockInfo(advancedState);
+    setTimeout(()=>showToast(prog.name+' · '+bi.name+' · Week '+advancedState.week+' starts next!','var(--purple)'),500);
   }
 
-  // Auto-advance Forge Protocol week when all sessions for this week are done
-  if(activeWorkout.type==='forge'){
-    const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
-    const thisWeekLifts=workouts.filter(w=>w.type==='forge'&&new Date(w.date)>=sow).length;
-    if(thisWeekLifts>=(profile.forgeDaysPerWeek||3)&&(profile.forgeWeek||1)<21){
-      profile.forgeWeek=(profile.forgeWeek||1)+1;
-      profile.forgeWeekStartDate=new Date().toISOString();
-      saveProfileData();
-      showToast('Forge Protocol · '+FORGE.blockNames[profile.forgeWeek]+' · Week '+profile.forgeWeek+' starts next!','var(--purple)');
-    }
-  }
-
+  setProgramState(prog.id,advancedState);
+  saveProfileData();
   await saveWorkouts();
   buildExerciseIndex();
   activeWorkout=null;
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
-
+  resetNotStartedView();
   showToast('Session saved!');
   updateDashboard();
 }
@@ -845,6 +667,7 @@ function cancelWorkout(){
   activeWorkout=null;
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
+  resetNotStartedView();
 }
 
 // ── HISTORY ──────────────────────────────────────────────────
@@ -862,7 +685,7 @@ function renderHistory(){
   list.innerHTML=workouts.slice().reverse().map(w=>{
     const d=new Date(w.date),mins=Math.floor(w.duration/60);
     const isHockey=w.type==='hockey',isExtra=w.subtype==='extra';
-    const typeLabel=isHockey?(isExtra?'🏒 Extra Hockey':'🏒 Hockey'):'🏋️ W'+(w.forgeWeek||'?')+' Day '+(w.forgeDayNum||'?');
+    const typeLabel=isHockey?(isExtra?'🏒 Extra Hockey':'🏒 Hockey'):(w.programLabel||('🏋️ W'+(w.forgeWeek||'?')+' Day '+(w.forgeDayNum||'?')));
     const badgeClass=isHockey?'badge-blue':'badge-purple';
     const rpeStr=w.rpe||null;
     return `<div class="history-item">
@@ -924,171 +747,118 @@ function initSettings(){
     }
   }
   document.getElementById('default-rest').value=profile.defaultRest||120;
-  if(document.getElementById('forge-mode'))document.getElementById('forge-mode').value=profile.forgeMode||'sets';
-  if(document.getElementById('forge-week'))document.getElementById('forge-week').value=profile.forgeWeek||1;
-  if(document.getElementById('forge-rounding'))document.getElementById('forge-rounding').value=profile.forgeRounding||2.5;
-  if(document.getElementById('forge-days'))document.getElementById('forge-days').value=profile.forgeDaysPerWeek||3;
-  renderForgeLiftInputs();
-  previewForgeSplit();
-  updateModeDesc();
+  renderProgramSwitcher();
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  const container=document.getElementById('program-settings-container');
+  if(container&&prog.renderSettings)prog.renderSettings(state,container);
 }
 
-function updateModeDesc(){
-  const mode=document.getElementById('forge-mode')?.value||'sets';
-  const desc=document.getElementById('forge-mode-desc');
-  if(!desc)return;
-  const info=FORGE.modes[mode];
-  desc.textContent=info?info.desc:'';
+function renderProgramSwitcher(){
+  const container=document.getElementById('program-switcher-container');if(!container)return;
+  const active=profile.activeProgram||'forge';
+  container.innerHTML=Object.values(PROGRAMS).map(p=>`
+    <div class="program-card${p.id===active?' active':''}" onclick="switchProgram('${p.id}')">
+      <div class="program-card-icon">${p.icon||'🏋️'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="program-card-name">${p.name}</div>
+        <div class="program-card-desc">${p.description}</div>
+      </div>
+      ${p.id===active?'<div class="program-card-badge">Active</div>':''}
+    </div>`).join('');
 }
 
-function renderForgeLiftInputs(){
-  const lifts=profile.forgeLifts;if(!lifts)return;
-  const mc=document.getElementById('forge-main-lifts');if(!mc)return;mc.innerHTML='';
-  const labels=['SQ','BP','DL','OHP'];
-  lifts.main.forEach((l,i)=>{mc.innerHTML+=`<div class="lift-row"><span class="lift-label">${labels[i]||'#'+(i+1)}</span><input type="text" value="${l.name}" onchange="profile.forgeLifts.main[${i}].name=this.value" style="flex:1"><input type="number" value="${l.tm}" onchange="profile.forgeLifts.main[${i}].tm=parseFloat(this.value)||0"></div>`;});
-  const ac=document.getElementById('forge-aux-lifts');if(!ac)return;ac.innerHTML='';
-  const auxLabels=['SQ-1','SQ-2','BP-1','BP-2','DL','OHP'];
-  const cats=['squat','squat','bench','bench','deadlift','ohp'];
-  lifts.aux.forEach((l,i)=>{
-    const cat=cats[i]||'squat';
-    const opts=FORGE.auxOptions[cat]||[];
-    let sel='<select onchange="profile.forgeLifts.aux['+i+'].name=this.value;saveProfileData()" style="flex:1;font-size:13px">';
-    opts.forEach(o=>{sel+=`<option value="${o}"${o===l.name?' selected':''}>${o}</option>`;});
-    // Also allow current value if not in list
-    if(!opts.includes(l.name)) sel+=`<option value="${l.name}" selected>${l.name}</option>`;
-    sel+='</select>';
-    ac.innerHTML+=`<div class="lift-row"><span class="lift-label">${auxLabels[i]||'A'+(i+1)}</span>${sel}<input type="number" value="${l.tm}" onchange="profile.forgeLifts.aux[${i}].tm=parseFloat(this.value)||0"></div>`;
+function switchProgram(id){
+  if(id===profile.activeProgram)return;
+  const prog=PROGRAMS[id];if(!prog)return;
+  showConfirm('Switch to '+prog.name,'Your current program is paused. '+prog.name+' will start where you left off.',()=>{
+    profile.activeProgram=id;
+    if(!profile.programs)profile.programs={};
+    if(!profile.programs[id])profile.programs[id]=prog.getInitialState();
+    saveProfileData();
+    initSettings();
+    updateDashboard();
+    showToast('Switched to '+prog.name,'var(--purple)');
   });
-  // Back exercise selector
-  const bs=document.getElementById('forge-back-exercise');
-  if(bs) bs.value=profile.forgeBackExercise||'Barbell Rows';
-  const bw=document.getElementById('forge-back-weight');
-  if(bw) bw.value=profile.forgeBackWeight||'';
 }
 
-function saveForgeSetup(){
-  profile.forgeMode=document.getElementById('forge-mode').value||'sets';
-  profile.forgeWeek=parseInt(document.getElementById('forge-week').value)||1;
-  profile.forgeRounding=parseFloat(document.getElementById('forge-rounding').value)||2.5;
-  profile.forgeDaysPerWeek=parseInt(document.getElementById('forge-days').value)||3;
-  profile.forgeBackExercise=document.getElementById('forge-back-exercise').value||'Barbell Rows';
-  profile.forgeBackWeight=parseFloat(document.getElementById('forge-back-weight').value)||0;
-  profile.forgeDayNum=1; // Reset day selection when frequency changes
-  saveProfileData();showToast('Program setup saved!','var(--purple)');updateForgeDisplay();
+function saveProgramSetup(){
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  const newState=prog.saveSettings?prog.saveSettings(state):state;
+  setProgramState(prog.id,newState);
+  saveProfileData();
+  showToast('Program setup saved!','var(--purple)');
+  updateProgramDisplay();
 }
 
-function previewForgeSplit(){
-  const freq=parseInt(document.getElementById('forge-days').value)||3;
-  const lifts=profile.forgeLifts;
-  const prev=document.getElementById('forge-split-preview');
-  if(!prev||!lifts)return;
-  let html='';
-  for(let d=1;d<=freq;d++){
-    const exs=FORGE.getDayExercises(d,freq,lifts);
-    const names=exs.map(e=>{
-      const tag=e.isAux?'<span style="color:var(--purple)">'+e.name+'</span>':'<strong>'+e.name+'</strong>';
-      return tag;
-    }).join(' · ');
-    html+=`<div style="margin-bottom:4px"><span style="color:var(--accent);font-weight:700">Day ${d}:</span> ${names}</div>`;
-  }
-  html+='<div style="margin-top:6px;font-size:11px;color:var(--muted)"><strong>Bold</strong> = main lift · <span style="color:var(--purple)">Purple</span> = auxiliary</div>';
-  prev.innerHTML=html;
+function updateProgramLift(array,idx,field,val){
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  if(!state.lifts||!state.lifts[array]||!state.lifts[array][idx])return;
+  const newState=JSON.parse(JSON.stringify(state));
+  newState.lifts[array][idx][field]=val;
+  setProgramState(prog.id,newState);
 }
 
-function updateForgeDisplay(){
-  const info=document.getElementById('forge-week-display');if(!info)return;
-  const w=profile.forgeWeek||1;
-  const mode=profile.forgeMode||'sets';
-  const pct=Math.round((FORGE.mainIntensity[w]||0)*100);
-  const reps=FORGE.getReps(FORGE.mainIntensity[w]||0.7);
-  const isDeload=FORGE.deloadWeeks.includes(w);
-  const modeName=FORGE.modes[mode]?.short||'Sets';
-  const rir=FORGE.getRIR(FORGE.mainIntensity[w]||0.7);
-  let modeDetail='';
-  if(isDeload) modeDetail='Light week — 60% TM, 5 easy sets.';
-  else if(mode==='sets') modeDetail=`Do sets of ${reps} until RIR ≤${rir}. Aim for 4-6 sets.`;
-  else if(mode==='rtf') modeDetail=`${reps} reps × 4 sets, then AMRAP last set (target ${reps*2}+).`;
-  else if(mode==='rir') modeDetail=`5 sets of ${reps}. Note reps left in tank on last set.`;
-  let infoHtml=`📋 <strong>Forge Protocol</strong> · ${FORGE.blockNames[w]||''} · Week ${w} ·<span style="color:var(--purple)">${modeName}</span><br><span style="font-size:11px">${pct}% TM · ${modeDetail}</span>`;
-  info.innerHTML=infoHtml;
+function updateSLLift(key,val){
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  const newState=JSON.parse(JSON.stringify(state));
+  if(newState.lifts&&newState.lifts[key])newState.lifts[key].weight=val;
+  setProgramState(prog.id,newState);
+}
 
-  const ds=document.getElementById('forge-day-select');
-  if(!ds)return;
-  const freq=profile.forgeDaysPerWeek||3;ds.innerHTML='';
-  const todayDow=new Date().getDay();
-  const isHockeyDay=schedule.hockeyDays.includes(todayDow);
-  const hadHockeyRecently=wasHockeyRecently();
-  const hockeyLegs=isHockeyDay||hadHockeyRecently;
-  const fatigue=computeFatigue();
-  const recovery=100-fatigue.overall;
+function setSLNextWorkout(wk){
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  setProgramState(prog.id,{...state,nextWorkout:wk});
+  initSettings();
+}
 
-  const legLifts=['squat','front squat','paused squat','high bar squat','beltless squat','box squat','pin squat','half squat','good morning','leg press','deadlift','sumo deadlift','conventional deadlift','block pull','rack pull','deficit deadlift','romanian deadlift','stiff leg deadlift','snatch grip deadlift','trap bar deadlift','squat with slow eccentric','wider stance squat','narrower stance squat'];
-
-  // Find which days have been done this week
-  const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
-  const doneThisWeek=workouts.filter(wk=>wk.type==='forge'&&new Date(wk.date)>=sow).map(wk=>wk.forgeDayNum);
-
-  // Score each day for recommendation
-  let bestDay=1,bestScore=-999;
-  const dayScores=[];
-  for(let d=1;d<=freq;d++){
-    const exs=FORGE.getDayExercises(d,freq,profile.forgeLifts);
-    const hasLegs=exs.some(e=>legLifts.includes(e.name.toLowerCase()));
-    const done=doneThisWeek.includes(d);
-    let score=0;
-    if(done) score-=100; // already done — deprioritize
-    if(hockeyLegs&&hasLegs) score-=30; // legs fatigued from hockey
-    if(recovery<40&&hasLegs) score-=20; // high fatigue + legs = bad
-    if(!hasLegs&&hockeyLegs) score+=15; // upper day on hockey legs = good
-    if(!done) score+=10; // not done yet = good
-    dayScores.push({d,hasLegs,done,score});
-    if(score>bestScore){bestScore=score;bestDay=d;}
+function previewProgramSplit(){
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  if(prog._previewSplit){
+    const freq=parseInt(document.getElementById('prog-days')?.value)||state.daysPerWeek||3;
+    prog._previewSplit(freq,state.lifts);
   }
+}
 
-  for(let d=1;d<=freq;d++){
-    const exs=FORGE.getDayExercises(d,freq,profile.forgeLifts);
-    const ds_info=dayScores.find(x=>x.d===d);
-    const label=exs.map(e=>e.name).join(' + ');
-    const badges=[];
-    if(ds_info.done) badges.push('✅');
-    if(hockeyLegs&&ds_info.hasLegs&&!isDeload) badges.push('🏒⚠️');
-    if(d===bestDay&&!ds_info.done) badges.push('⭐');
-    ds.innerHTML+=`<option value="${d}"${d===bestDay?' selected':''}>${badges.join('')} Day ${d}: ${label}</option>`;
+function updateForgeModeSetting(){
+  const prog=getActiveProgram();
+  const mode=document.getElementById('prog-mode')?.value||'sets';
+  if(prog._updateModeDesc)prog._updateModeDesc(mode);
+}
+
+function updateProgramDisplay(){
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  const ds=document.getElementById('program-day-select');if(!ds)return;
+  const options=prog.getSessionOptions?prog.getSessionOptions(state,workouts,schedule):[];
+  ds.innerHTML='';
+  const recommended=options.find(o=>o.isRecommended)||options[0];
+  options.forEach(o=>{
+    const opt=document.createElement('option');
+    opt.value=o.value;opt.textContent=o.label;
+    if(o===recommended)opt.selected=true;
+    if(o.done)opt.style.color='var(--muted)';
+    ds.appendChild(opt);
+  });
+  const info=document.getElementById('program-week-display');
+  if(info&&prog.getBlockInfo){
+    const bi=prog.getBlockInfo(state);
+    info.innerHTML=`${prog.icon||'🏋️'} <strong>${prog.name}</strong> · ${bi.name} · ${bi.weekLabel}${bi.pct?` · <span style="color:var(--purple)">${bi.pct}% TM</span>`:''}${bi.modeName?` · <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
   }
-  profile.forgeDayNum=bestDay;
-
-  // Recommendation banner
-  let banner=document.getElementById('forge-recommend-banner');
-  if(!banner){banner=document.createElement('div');banner.id='forge-recommend-banner';
+  let banner=document.getElementById('program-recommend-banner');
+  if(!banner){
+    banner=document.createElement('div');banner.id='program-recommend-banner';
     banner.style.cssText='margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px';
-    info.parentNode.insertBefore(banner,info.nextSibling);}
-
-  const recDay=dayScores.find(x=>x.d===bestDay);
-  const allDone=dayScores.every(x=>x.done);
-  if(allDone){
-    banner.style.background='rgba(34,197,94,0.1)';banner.style.border='1px solid rgba(34,197,94,0.25)';banner.style.color='var(--green)';
-    banner.innerHTML='✅ All '+freq+' sessions done this week! Rest up and recover.';
-  }else if(hockeyLegs&&recDay&&!recDay.hasLegs){
-    banner.style.background='rgba(59,130,246,0.1)';banner.style.border='1px solid rgba(59,130,246,0.25)';banner.style.color='var(--blue)';
-    banner.innerHTML='🏒 '+(isHockeyDay?'Hockey day':'Post-hockey')+' — recommending <strong>Day '+bestDay+'</strong> (upper-focused). Spare those legs.';
-  }else if(hockeyLegs&&recDay&&recDay.hasLegs){
-    banner.style.background='rgba(251,146,60,0.1)';banner.style.border='1px solid rgba(251,146,60,0.25)';banner.style.color='var(--orange)';
-    banner.innerHTML='🏒 Hockey legs but only leg days remain. Go lighter or rest today.';
-  }else if(recovery<40){
-    banner.style.background='rgba(251,146,60,0.1)';banner.style.border='1px solid rgba(251,146,60,0.25)';banner.style.color='var(--orange)';
-    banner.innerHTML='⚠️ Recovery '+recovery+'% — consider resting. If training, <strong>Day '+bestDay+'</strong> is next.';
-  }else{
-    banner.style.background='rgba(167,139,250,0.08)';banner.style.border='1px solid rgba(167,139,250,0.15)';banner.style.color='var(--purple)';
-    const left=freq-doneThisWeek.length;
-    banner.innerHTML='⭐ Recommended: <strong>Day '+bestDay+'</strong> · '+left+' session'+(left!==1?'s':'')+' left this week · Recovery '+recovery+'%';
+    const ref=document.getElementById('program-week-display');
+    if(ref)ref.parentNode.insertBefore(banner,ref.nextSibling);
+  }
+  const fatigue=computeFatigue();
+  const bHTML=prog.getBannerHTML?prog.getBannerHTML(options,state,schedule,workouts,fatigue):null;
+  if(bHTML&&banner){
+    banner.style.background=bHTML.style;banner.style.border='1px solid '+bHTML.border;
+    banner.style.color=bHTML.color;banner.innerHTML=bHTML.html;
   }
 }
 
-// Re-check hockey warning when day selection changes
-function onDaySelectChange(){
-  profile.forgeDayNum=parseInt(document.getElementById('forge-day-select')?.value)||1;
-  updateForgeDisplay();
-}
+function onDaySelectChange(){updateProgramDisplay();}
 
 function toggleDay(kind,dow,el){
   const key=kind+'Days';
@@ -1099,7 +869,7 @@ function toggleDay(kind,dow,el){
 function saveSchedule(){
   profile.defaultRest=parseInt(document.getElementById('default-rest').value)||120;
   restDuration=profile.defaultRest;
-  saveScheduleData();saveProfileData();updateForgeDisplay();updateDashboard();showToast('Settings saved!','var(--blue)');
+  saveScheduleData();saveProfileData();updateProgramDisplay();updateDashboard();showToast('Settings saved!','var(--blue)');
 }
 
 function exportData(){
@@ -1140,7 +910,9 @@ function importData(event){
 
 async function clearAllData(){
   try{localStorage.removeItem('ic_workouts');localStorage.removeItem('ic_schedule');localStorage.removeItem('ic_profile');}catch(e){}
-  workouts=[];schedule={hockeyDays:[3,0]};profile={defaultRest:120,forgeWeek:1,forgeRounding:2.5,forgeDaysPerWeek:3,forgeDayNum:1,forgeBackExercise:'Barbell Rows',forgeBackWeight:0,forgeLifts:{main:[{name:'Squat',tm:100},{name:'Bench Press',tm:80},{name:'Deadlift',tm:120},{name:'OHP',tm:50}],aux:[{name:'Front Squat',tm:80},{name:'Pause Squat',tm:90},{name:'Close-Grip Bench',tm:70},{name:'Spoto Press',tm:75},{name:'Stiff Leg Deadlift',tm:100},{name:'Push Press',tm:50}]}};
+  workouts=[];schedule={hockeyDays:[]};
+  profile={defaultRest:120,activeProgram:'forge',programs:{}};
+  Object.values(PROGRAMS).forEach(prog=>{profile.programs[prog.id]=prog.getInitialState();});
   updateDashboard();showToast('All data cleared','var(--accent)');
 }
 
