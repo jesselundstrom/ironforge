@@ -557,7 +557,19 @@ function updateSet(ei,si,f,v){activeWorkout.exercises[ei].sets[si][f]=v;}
 function toggleSet(ei,si){
   const set=activeWorkout.exercises[ei].sets[si];
   if(!set.done){
-    set.done=true;renderExercises();
+    set.done=true;
+    // Animate the live element directly — no re-render needed for mark-done
+    const exCards=document.querySelectorAll('#exercises-container .exercise-block');
+    if(exCards[ei]){
+      const rows=exCards[ei].querySelectorAll('.set-row');
+      const check=rows[si]?.querySelector('.set-check');
+      if(check){
+        check.classList.add('done','set-done-anim');
+        rows[si].classList.add('set-done-anim');
+        check.addEventListener('animationend',()=>check.classList.remove('set-done-anim'),{once:true});
+        rows[si].addEventListener('animationend',()=>rows[si].classList.remove('set-done-anim'),{once:true});
+      }
+    }
     startRestTimer();
   }else{
     set.done=false;set.rir=undefined;renderExercises();
