@@ -362,9 +362,11 @@ function updateDashboard(){
 
   // Training Maxes — dynamic per program
   const tmGrid=document.getElementById('tm-grid');
+  const tmTitle=document.getElementById('tm-section-title');
   if(tmGrid&&prog.getDashboardTMs){
     const tms=prog.getDashboardTMs(ps);
     tmGrid.innerHTML=tms.map(t=>`<div class="lift-stat"><div class="value">${t.value}</div><div class="label">${t.name}</div></div>`).join('');
+    if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||'Training Maxes';
   }
 
   // Weekly session progress

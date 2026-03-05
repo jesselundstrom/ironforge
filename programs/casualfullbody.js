@@ -101,6 +101,7 @@ const CASUAL_FULL_BODY = {
   name:        'Casual Full Body',
   description: 'Slot-based variety engine: 2-3x/week full body. Exercises rotate each session — always something fresh.',
   icon:        '🎯',
+  dashboardStatsLabel: 'Session Stats',
 
   // Legs-containing lift names (lowercase) for hockey fatigue awareness
   legLifts: [
