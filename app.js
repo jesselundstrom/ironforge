@@ -836,13 +836,17 @@ function updateForgeModeSetting(){
 function updateProgramDisplay(){
   const prog=getActiveProgram(),state=getActiveProgramState();
   const ds=document.getElementById('program-day-select');if(!ds)return;
+  // Preserve any selection the user has already made before rebuilding the list
+  const prevVal=ds.value;
   const options=prog.getSessionOptions?prog.getSessionOptions(state,workouts,schedule):[];
   ds.innerHTML='';
   const recommended=options.find(o=>o.isRecommended)||options[0];
+  // Use user's current pick if it still exists in the option list; otherwise recommend
+  const hasMatch=prevVal&&options.some(o=>o.value===prevVal);
   options.forEach(o=>{
     const opt=document.createElement('option');
     opt.value=o.value;opt.textContent=o.label;
-    if(o===recommended)opt.selected=true;
+    if(hasMatch?o.value===prevVal:o===recommended)opt.selected=true;
     if(o.done)opt.style.color='var(--muted)';
     ds.appendChild(opt);
   });
