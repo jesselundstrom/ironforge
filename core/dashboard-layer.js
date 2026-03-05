@@ -1,4 +1,5 @@
 ﻿function isSportWorkout(w){return w.type==='sport'||w.type==='hockey';}
+let _lastTmSignature='';
 function computeFatigue(){
   const now=Date.now();
   const liftS=workouts.filter(w=>!isSportWorkout(w)).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -104,7 +105,10 @@ function updateDashboard(){
   const tmTitle=document.getElementById('tm-section-title');
   if(tmGrid&&prog.getDashboardTMs){
     const tms=prog.getDashboardTMs(ps);
-    tmGrid.innerHTML=tms.map(t=>`<div class="lift-stat"><div class="value">${t.value}</div><div class="label">${t.name}</div></div>`).join('');
+    const tmSignature=tms.map(t=>`${t.name}:${t.value}`).join('|');
+    const tmChanged=!!_lastTmSignature&&tmSignature!==_lastTmSignature;
+    _lastTmSignature=tmSignature;
+    tmGrid.innerHTML=tms.map((t,i)=>`<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${t.value}</div><div class="label">${t.name}</div></div>`).join('');
     if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||'Training Maxes';
   }
 

@@ -17,6 +17,7 @@ let pendingRPECallback=null;
 let confirmCallback=null;
 let nameModalCallback=null;
 let _toastTimeout=null;
+let _forgeOpenPulseTimer=null;
 let exerciseIndex={};
 
 const RPE_FEELS={6:'Easy',7:'Moderate',8:'Hard',9:'Very Hard',10:'Max'};
@@ -224,6 +225,15 @@ function getSportConfig(){return SPORT_INTENSITY[schedule.sportIntensity||'hard'
 // Data/auth lifecycle functions moved to core/data-layer.js.
 
 // NAV
+function pulseForgeCore(){
+  const forgeCore=document.querySelector('.forge-btn .forge-core');
+  if(!forgeCore)return;
+  forgeCore.classList.remove('opened');
+  void forgeCore.offsetWidth;
+  forgeCore.classList.add('opened');
+  clearTimeout(_forgeOpenPulseTimer);
+  _forgeOpenPulseTimer=setTimeout(()=>forgeCore.classList.remove('opened'),220);
+}
 function showPage(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -234,7 +244,10 @@ function showPage(name,btn){
   if(name==='dashboard') updateDashboard();
   if(name==='history') renderHistory();
   if(name==='settings') initSettings();
-  if(name==='log'){if(!activeWorkout)resetNotStartedView();}
+  if(name==='log'){
+    pulseForgeCore();
+    if(!activeWorkout)resetNotStartedView();
+  }
 }
 function goToLog(){showPage('log',document.querySelectorAll('.nav-btn')[1]);}
 
