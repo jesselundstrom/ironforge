@@ -159,6 +159,7 @@ function showPage(name,btn){
   if(name==='settings') initSettings();
   if(name==='log'){if(!activeWorkout)resetNotStartedView();}
 }
+function goToLog(){showPage('log',document.querySelectorAll('.nav-btn')[1]);}
 
 
 
@@ -291,7 +292,7 @@ function wasHockeyRecently(hours){
   hours=hours||FATIGUE_CONFIG.hockeyRecentHours;
   return workouts.some(w=>w.type==='hockey'&&(Date.now()-new Date(w.date).getTime())<hours*3600000);
 }
-function getFatigueColor(p){return p<35?'var(--green)':p<65?'var(--orange)':'var(--accent)';}
+function getRecoveryColor(r){return r>=65?'var(--green)':r>=35?'var(--orange)':'var(--accent)';}
 function getReadinessLabel(o){
   const r=100-o;
   if(r>=75)return{label:'🟢 Fully Recovered',color:'var(--green)'};
@@ -302,8 +303,9 @@ function getReadinessLabel(o){
 function updateFatigueBars(f){
   ['muscular','cns','overall'].forEach(k=>{
     const el=document.getElementById('f-'+k),vEl=document.getElementById('f-'+k+'-val');
-    if(el){el.style.width=f[k]+'%';el.style.background=getFatigueColor(f[k]);}
-    if(vEl)vEl.textContent=f[k]+'%';
+    const recovery=100-f[k];
+    if(el){el.style.width=recovery+'%';el.style.background=getRecoveryColor(recovery);}
+    if(vEl)vEl.textContent=recovery+'%';
   });
   const{label,color}=getReadinessLabel(f.overall);
   const days=f.daysSinceLift<99?`Last lift: ${f.daysSinceLift<1?'today':Math.round(f.daysSinceLift)+'d ago'}`:'No lifts yet';
@@ -348,7 +350,7 @@ function renderWeekStrip(){
   else if(tHasLift)s=`<span style="color:var(--green);font-weight:700">✅ Workout logged</span>`;
   else if(tHasHockey)s=`<span style="color:var(--blue);font-weight:700">🏒 Hockey logged</span>`;
   else if(todayIsHockey)s=`<span style="color:var(--blue);font-weight:700">🏒 Hockey day — go easy on legs if you lift</span>`;
-  else{const prog=getActiveProgram(),ps=getActiveProgramState(),bi=prog.getBlockInfo?prog.getBlockInfo(ps):{name:'',weekLabel:''};s=`<span style="color:var(--purple);font-weight:700">📋 ${prog.name||'Training'} · ${bi.name||''} · ${bi.weekLabel||''}</span>`;}
+  else{s='';}
   document.getElementById('today-status').innerHTML=s;
 }
 
@@ -382,16 +384,17 @@ function updateDashboard(){
   const isHockeyDay=schedule.hockeyDays.includes(todayDow);
   const hadHockeyYesterday=wasHockeyRecently(36);
   const bi=prog.getBlockInfo?prog.getBlockInfo(ps):{name:'',weekLabel:'',isDeload:false,pct:null,modeDesc:'',modeName:''};
-  const pctStr=bi.pct?bi.pct+'% TM · ':'';
-  const blockInfoHtml=`<div style="font-size:11px;color:var(--purple);margin-bottom:4px;padding:6px 10px;background:rgba(167,139,250,0.08);border-radius:8px;border:1px solid rgba(167,139,250,0.15)">📋 ${prog.name||'Training'} · ${bi.name||''} · ${bi.weekLabel||''} · ${pctStr}${bi.modeName||''}</div><div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:0 2px">${bi.modeDesc||''}</div>`;
-  let rec='';
-  if(doneThisWeek>=freq) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ Week complete!</div><div style="font-size:13px;color:var(--muted)">All ${freq} sessions done. Rest up.</div>`;
-  else if(recovery<40) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">⚠️ High fatigue — rest or deload</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${bi.isDeload?'Good timing — deload!':'Consider resting today.'} ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
-  else if(isHockeyDay) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Hockey day</div><div style="font-size:13px;color:var(--muted)">Pick an upper-body day on the Log tab, or rest. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
-  else if(hadHockeyYesterday) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Post-hockey</div><div style="font-size:13px;color:var(--muted)">Legs may be fatigued. The Log tab will suggest an upper-focused day. ${freq-doneThisWeek} left.</div>`;
-  else if(bi.isDeload) rec=blockInfoHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">🌊 Deload week</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
-  else rec=blockInfoHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">🏋️ Training day</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}% — ${recovery>=75?'feeling fresh, push it':'moderate effort'}. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>`;
+  const modeDescHtml=bi.modeDesc?`<div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:0 2px">${bi.modeDesc}</div>`:'';
+  const startBtn=`<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="goToLog()">Start Session →</button>`;
+  let rec='',cardAccent=false;
+  if(doneThisWeek>=freq) rec=modeDescHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">✅ Week complete!</div><div style="font-size:13px;color:var(--muted)">All ${freq} sessions done. Rest up.</div>`;
+  else if(recovery<40) rec=modeDescHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">⚠️ High fatigue — rest or deload</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${bi.isDeload?'Good timing — deload!':'Consider resting today.'} ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
+  else if(isHockeyDay){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Hockey day</div><div style="font-size:13px;color:var(--muted)">Pick an upper-body day on the Log tab, or rest. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>${startBtn}`;}
+  else if(hadHockeyYesterday){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">🏒 Post-hockey</div><div style="font-size:13px;color:var(--muted)">Legs may be fatigued. The Log tab will suggest an upper-focused day. ${freq-doneThisWeek} left.</div>${startBtn}`;}
+  else if(bi.isDeload){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">🌊 Deload week</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>${startBtn}`;}
+  else{cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">🏋️ Training day</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}% — ${recovery>=75?'feeling fresh, push it':'moderate effort'}. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>${startBtn}`;}
   document.getElementById('next-session-content').innerHTML=rec;
+  document.getElementById('next-session-content').parentElement.style.borderColor=cardAccent?'var(--accent)':'';
   document.getElementById('header-sub').textContent=`${prog.name||'Training'} · ${bi.name||''} · ${bi.weekLabel||''} · Recovery ${recovery}%`;
 }
 
