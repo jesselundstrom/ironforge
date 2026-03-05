@@ -607,16 +607,16 @@ const WENDLER_531 = {
       </div>
 
       <label style="margin-top:14px">TM Test Week <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
         Replaces the next Deload with a 100% TM × AMRAP test to recalibrate your Training Max.
         1–2 reps → TM recalculates. 3+ reps → standard cycle increment applies.
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <input type="checkbox" id="prog-test-week" ${testPending?'checked':''} style="margin:0">
-        <label for="prog-test-week" style="font-size:13px;margin:0;cursor:pointer">
-          Enable TM Test Week instead of Deload
-        </label>
-      </div>
+      <input type="hidden" id="prog-test-week" value="${testPending?'1':'0'}">
+      <button class="btn ${testPending?'btn-primary':'btn-secondary'}" id="w531-test-btn"
+        onclick="window._w531ToggleTestWeek()"
+        style="width:100%;text-align:left;padding:10px 14px">
+        ${testPending?'🔬 TM Test Week enabled — will replace next Deload':'🔬 Enable TM Test Week instead of Deload'}
+      </button>
 
       <div class="divider-label" style="margin-top:18px"><span>Training Maxes (kg)</span></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
@@ -640,7 +640,7 @@ const WENDLER_531 = {
     const week         = parseInt(document.getElementById('prog-week')?.value) || 1;
     const rounding     = parseFloat(document.getElementById('prog-rounding')?.value) || 2.5;
     const daysPerWeek  = parseInt(document.getElementById('prog-days')?.value) || 4;
-    const testWeekPending = !!(document.getElementById('prog-test-week')?.checked);
+    const testWeekPending = document.getElementById('prog-test-week')?.value === '1';
     const season       = document.getElementById('prog-season')?.value || 'off';
 
     // Read Triumvirate inputs
@@ -666,6 +666,20 @@ window._w531SetReadiness = function(mode) {
     btn.className = 'btn btn-sm ' + (m===mode ? 'btn-primary' : 'btn-secondary');
     btn.style.cssText = 'font-size:11px;padding:4px 8px';
   });
+};
+
+// TM Test Week toggle button
+window._w531ToggleTestWeek = function() {
+  const hidden = document.getElementById('prog-test-week');
+  const btn    = document.getElementById('w531-test-btn');
+  if (!hidden || !btn) return;
+  const next = hidden.value !== '1';
+  hidden.value = next ? '1' : '0';
+  btn.className = 'btn ' + (next ? 'btn-primary' : 'btn-secondary');
+  btn.style.cssText = 'width:100%;text-align:left;padding:10px 14px';
+  btn.textContent = next
+    ? '🔬 TM Test Week enabled — will replace next Deload'
+    : '🔬 Enable TM Test Week instead of Deload';
 };
 
 // Season toggle in Settings — updates hidden input + button classes
