@@ -379,6 +379,30 @@ function setSportIntensity(val,el){
   document.querySelectorAll('#sport-intensity-btns button').forEach(b=>b.classList.remove('active'));
   if(el)el.classList.add('active');
 }
+let _settingsTab='schedule';
+function showSettingsTab(name,el){
+  _settingsTab=name;
+  ['schedule','program','account'].forEach(t=>{
+    const d=document.getElementById('settings-tab-'+t);
+    if(d)d.style.display=t===name?'':'none';
+  });
+  document.querySelectorAll('#settings-tabs .tab').forEach((t,i)=>{
+    t.classList.toggle('active',['schedule','program','account'][i]===name);
+  });
+}
+function openProgramSetupSheet(){
+  const prog=getActiveProgram(),state=getActiveProgramState();
+  const container=document.getElementById('program-settings-container');
+  if(container&&prog.renderSettings)prog.renderSettings(state,container);
+  const title=document.getElementById('program-setup-sheet-title');
+  if(title)title.textContent=prog.name+' Setup';
+  document.getElementById('program-setup-sheet').classList.add('active');
+}
+function closeProgramSetupSheet(e){
+  if(!e||e.target.id==='program-setup-sheet'){
+    document.getElementById('program-setup-sheet').classList.remove('active');
+  }
+}
 function initSettings(){
   {const inp=document.getElementById('sport-name');if(inp)inp.value=schedule.sportName||'Hockey';}
   {const btns=document.querySelectorAll('#sport-intensity-btns button');
@@ -388,9 +412,7 @@ function initSettings(){
   renderSportDayToggles();
   document.getElementById('default-rest').value=profile.defaultRest||120;
   renderProgramSwitcher();
-  const prog=getActiveProgram(),state=getActiveProgramState();
-  const container=document.getElementById('program-settings-container');
-  if(container&&prog.renderSettings)prog.renderSettings(state,container);
+  showSettingsTab(_settingsTab);
 }
 
 // Program UI/state helpers moved to core/program-layer.js.
@@ -402,14 +424,18 @@ function toggleDay(kind,dow,el){
   else{el.classList.add(cls);if(!schedule[key])schedule[key]=[];if(!schedule[key].includes(dow))schedule[key].push(dow);}
 }
 
+function saveRestTimer(){
+  profile.defaultRest=parseInt(document.getElementById('default-rest').value)||120;
+  restDuration=profile.defaultRest;
+  saveProfileData();
+  showToast('Rest timer updated','var(--blue)');
+}
 function saveSchedule(){
   const nameInp=document.getElementById('sport-name');
   if(nameInp)schedule.sportName=nameInp.value.trim()||'Sport';
   const cb=document.getElementById('sport-legs-heavy');
   if(cb)schedule.sportLegsHeavy=cb.checked;
-  profile.defaultRest=parseInt(document.getElementById('default-rest').value)||120;
-  restDuration=profile.defaultRest;
-  saveScheduleData();saveProfileData();updateProgramDisplay();updateDashboard();showToast('Settings saved!','var(--blue)');
+  saveScheduleData();saveProfileData();updateProgramDisplay();updateDashboard();showToast('Schedule saved!','var(--blue)');
 }
 
 function exportData(){

@@ -82,6 +82,7 @@ function saveProgramSetup(){
   const newState=prog.saveSettings?prog.saveSettings(state):state;
   setProgramState(prog.id,newState);
   saveProfileData();
+  closeProgramSetupSheet();
   showToast('Program setup saved!','var(--purple)');
   updateProgramDisplay();
 }
