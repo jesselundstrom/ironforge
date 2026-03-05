@@ -229,7 +229,8 @@ function showPage(name,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
-  window.scrollTo(0,0);
+  const contentScroller=document.querySelector('.content');
+  if(contentScroller)contentScroller.scrollTo({top:0,behavior:'auto'});
   if(name==='dashboard') updateDashboard();
   if(name==='history') renderHistory();
   if(name==='settings') initSettings();
