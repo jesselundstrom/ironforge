@@ -117,7 +117,7 @@ const WENDLER_531 = {
     const week   = state.week || 1;
     const freq   = state.daysPerWeek || 4;
     const season = state.season || 'off';
-    const lifts  = state.lifts.main;
+    const lifts  = (state.lifts && state.lifts.main) || this.getInitialState().lifts.main;
     const scheme = W531.weekScheme[week] || W531.weekScheme[1];
 
     // Workouts logged this calendar week
@@ -526,7 +526,7 @@ const WENDLER_531 = {
     const season      = state.season || 'off';
     const rounding    = state.rounding || 2.5;
     const testPending = !!state.testWeekPending;
-    const lifts       = state.lifts.main;
+    const lifts       = (state.lifts && state.lifts.main) || this.getInitialState().lifts.main;
     const stalled     = state.stalledLifts || {};
 
     const freqOpts = [

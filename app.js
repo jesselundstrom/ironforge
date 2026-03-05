@@ -151,6 +151,7 @@ function showPage(name,btn){
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   btn.classList.add('active');
+  window.scrollTo(0,0);
   if(name==='dashboard') updateDashboard();
   if(name==='history') renderHistory();
   if(name==='settings') initSettings();
