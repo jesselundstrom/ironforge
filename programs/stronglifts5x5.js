@@ -5,11 +5,11 @@
 const STRONGLIFTS_5X5={
   id:'stronglifts5x5',
   name:'StrongLifts 5×5',
-  description:'Beginner strength builder — add weight every session.',
+  description:'Beginner strength program with steady weight increases.',
   icon:'📈',
   legLifts:['squat','deadlift'],
 
-  _names:{squat:'Squat',bench:'Bench Press',row:'Barbell Row',ohp:'OHP',deadlift:'Deadlift'},
+  _names:{squat:'Squat',bench:'Bench Press',row:'Barbell Row',ohp:'Overhead Press (OHP)',deadlift:'Deadlift'},
   _incrm:{squat:2.5,bench:2.5,row:2.5,ohp:2.5,deadlift:5},
   _workoutA:['squat','bench','row'],
   _workoutB:['squat','ohp','deadlift'],
@@ -116,15 +116,15 @@ const STRONGLIFTS_5X5={
     const roundOpts=[1,2.5,5].map(n=>`<option value="${n}"${n===rounding?' selected':''}>${n} kg</option>`).join('');
     const liftRows=Object.entries(this._names).map(([key,name])=>{
       const l=lifts[key]||{weight:60,failures:0};
-      return`<div class="lift-row"><span class="lift-label" style="min-width:80px">${name}</span><input type="number" value="${l.weight}" onchange="updateSLLift('${key}',parseFloat(this.value)||0)" style="flex:1"><span style="font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap">fails: ${l.failures||0}</span></div>`;
+      return`<div class="lift-row"><span class="lift-label" style="min-width:80px">${name}</span><input type="number" value="${l.weight}" onchange="updateSLLift('${key}',parseFloat(this.value)||0)" style="flex:1"><span style="font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap">failed sessions: ${l.failures||0}</span></div>`;
     }).join('');
     container.innerHTML=`
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;background:rgba(167,139,250,0.08);padding:8px 12px;border-radius:8px">A: Squat+Bench+Row · B: Squat+OHP+Deadlift · alternating 3×/week</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;background:rgba(167,139,250,0.08);padding:8px 12px;border-radius:8px">A: Squat+Bench+Row · B: Squat+Overhead Press+Deadlift · alternating 3 sessions/week</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Session ${sc} completed · Next: Workout ${next}</div>
       <label>Weight Rounding (kg)</label>
       <select id="prog-rounding">${roundOpts}</select>
       <div class="divider-label" style="margin-top:18px"><span>Working Weights (kg)</span></div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Weights auto-increase +2.5kg (+5kg deadlift) after each successful session. 3 failures = 10% deload.</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Add +2.5kg (+5kg deadlift) after successful sessions. 3 failed sessions trigger a 10% deload.</div>
       ${liftRows}
       <label style="margin-top:14px">Next Workout</label>
       <div style="display:flex;gap:8px;margin-top:6px">

@@ -99,7 +99,7 @@ function updateProgramDisplay(){
   const info=document.getElementById('program-week-display');
   if(info&&prog.getBlockInfo){
     const bi=prog.getBlockInfo(state);
-    info.innerHTML=`${prog.icon||'Lift'} <strong>${prog.name}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${bi.pct}% TM</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
+    info.innerHTML=`${prog.icon||'Lift'} <strong>${prog.name}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${bi.pct}% of Training Max</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
   }
   let banner=document.getElementById('program-recommend-banner');
   if(!banner){

@@ -66,7 +66,7 @@ let _readiness = 'default'; // 'default' | 'light' | 'none'
 const WENDLER_531 = {
   id:   'wendler531',
   name: '5/3/1 (Wendler)',
-  description: "Classic 4-week strength cycles with auto progression.",
+  description: "4-week strength cycles with automatic weight progression.",
   icon: '💪',
 
   // Leg-containing lifts for hockey fatigue awareness
@@ -535,7 +535,7 @@ const WENDLER_531 = {
     const stalled     = state.stalledLifts || {};
 
     const freqOpts = [
-      [2, '2×/week — Combined (Squat+Bench  /  DL+OHP)'],
+      [2, '2×/week — Combined (Squat+Bench  /  Deadlift+Overhead Press)'],
       [3, '3×/week — Rotating (4 lifts across 3 days)'],
       [4, '4×/week — Standard (one lift per day)']
     ].map(([n,l]) => `<option value="${n}"${n===freq?' selected':''}>${l}</option>`).join('');
@@ -546,14 +546,14 @@ const WENDLER_531 = {
     const stalledAlerts = Object.keys(stalled).map(i => {
       const l = lifts[parseInt(i)];
       return l ? `<div style="color:var(--orange);font-size:11px;margin-top:2px">`
-               + `⚠️ ${l.name} stalled — TM will drop 10% at cycle end</div>` : '';
+               + `⚠️ ${l.name} plateaued — Training Max will drop 10% at cycle end</div>` : '';
     }).join('');
 
     const liftRows = lifts.map((l,i) => {
       const stalledBadge = stalled[i]
-        ? ' <span style="color:var(--orange);font-size:11px">⚠️ stalled</span>' : '';
+        ? ' <span style="color:var(--orange);font-size:11px">⚠️ plateaued</span>' : '';
       return `<div class="lift-row">
-        <span class="lift-label">${['SQ','BP','DL','OHP'][i]||'#'+(i+1)}</span>
+        <span class="lift-label">${['Squat (SQ)','Bench Press (BP)','Deadlift (DL)','Overhead Press (OHP)'][i]||'#'+(i+1)}</span>
         <span style="flex:1;font-size:13px;padding:4px 0;color:var(--text)">${l.name}${stalledBadge}</span>
         <input type="number" value="${l.tm}"
           onchange="updateProgramLift('main',${i},'tm',parseFloat(this.value)||0)">
@@ -577,7 +577,10 @@ const WENDLER_531 = {
 
     container.innerHTML = `
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;background:rgba(167,139,250,0.08);padding:8px 12px;border-radius:8px">
-        4-week cycles · +5kg lower / +2.5kg upper per cycle · Pass/Fail stall detection
+        4-week cycles · +5kg lower / +2.5kg upper each cycle · plateau tracking
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5">
+        <strong>Terms:</strong> TM = Training Max. 1RM = one-rep max. AMRAP = as many reps as possible.
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Cycle ${cycle} · Week ${week} of 4</div>
       ${stalledAlerts}
@@ -587,12 +590,12 @@ const WENDLER_531 = {
         <button class="btn ${season==='off'?'btn-primary':'btn-secondary'}" id="w531-s-off"
           onclick="window._w531SeasonUI('off')"
           style="flex:1;line-height:1.5;padding:10px 8px">
-          🏗️ Off-Season<br><small style="opacity:.7">5's PRO + BBB</small>
+          🏗️ Off-Season<br><small style="opacity:.7">5's PRO + BBB (5x10 assistance)</small>
         </button>
         <button class="btn ${season==='in'?'btn-primary':'btn-secondary'}" id="w531-s-in"
           onclick="window._w531SeasonUI('in')"
           style="flex:1;line-height:1.5;padding:10px 8px">
-          🏒 In-Season<br><small style="opacity:.7">Min Reps + Triumvirate</small>
+          🏒 In-Season<br><small style="opacity:.7">Minimum reps + 2 accessory lifts</small>
         </button>
       </div>
       <input type="hidden" id="prog-season" value="${season}">
@@ -613,8 +616,8 @@ const WENDLER_531 = {
 
       <label style="margin-top:14px">TM Test Week <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Replaces the next Deload with a 100% TM × AMRAP test to recalibrate your Training Max.
-        1–2 reps → TM recalculates. 3+ reps → standard cycle increment applies.
+        Replaces the next Deload with a 100% TM AMRAP test.
+        1–2 reps: recalculate TM. 3+ reps: keep normal progression.
       </div>
       <input type="hidden" id="prog-test-week" value="${testPending?'1':'0'}">
       <button class="btn ${testPending?'btn-primary':'btn-secondary'}" id="w531-test-btn"
@@ -623,15 +626,15 @@ const WENDLER_531 = {
         ${testPending?'🔬 TM Test Week enabled — will replace next Deload':'🔬 Enable TM Test Week instead of Deload'}
       </button>
 
-      <div class="divider-label" style="margin-top:18px"><span>Training Maxes (kg)</span></div>
+      <div class="divider-label" style="margin-top:18px"><span>Training Max (kg)</span></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Set to ~90% of your 1RM. Increments / stall-reductions apply automatically each cycle.
+        Set to about 90% of your 1RM. Auto increases and resets apply each cycle.
       </div>
       ${liftRows}
 
-      <div class="divider-label" style="margin-top:14px"><span>In-Season: Triumvirate Exercises</span></div>
+      <div class="divider-label" style="margin-top:14px"><span>In-Season Accessory Exercises</span></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        2 exercises per session during in-season mode (3 sets × 10–15 reps each).
+        Pick 2 accessory exercises per in-season session (3 sets × 10–15 reps each).
       </div>
       ${triRows}
 

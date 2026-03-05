@@ -94,7 +94,7 @@ const LEG_LIFTS=['squat','front squat','paused squat','high bar squat','beltless
 const FORGE_PROGRAM={
   id:'forge',
   name:'Forge Protocol',
-  description:'21-week periodization for strength athletes.',
+  description:'21-week strength cycle: hypertrophy, strength, and peaking.',
   icon:'⚒️',
   legLifts:LEG_LIFTS,
 
@@ -161,7 +161,7 @@ const FORGE_PROGRAM={
   getSessionLabel(selectedOption,state){
     const dayNum=parseInt(selectedOption)||1,week=state.week||1;
     const isDeload=FORGE_INTERNAL.deloadWeeks.includes(week),mode=state.mode||'sets';
-    const modeTag=FORGE_INTERNAL.modes[mode]?.short||'';
+    const modeTag=FORGE_INTERNAL.modes[mode]?.name||'Sets Completed';
     return(isDeload?'🌊':'🏋️')+' W'+week+' Day '+dayNum+' · '+(FORGE_INTERNAL.blockNames[week]||'')+' ['+modeTag+']';
   },
 
@@ -177,7 +177,7 @@ const FORGE_PROGRAM={
     else if(mode==='rtf')modeDesc=reps+' reps × 4 sets, then AMRAP last set (target '+(reps*2)+'+).';
     else if(mode==='rir')modeDesc='5 sets of '+reps+'. Note reps left in tank on last set.';
     if(state.skipPeakBlock&&week===14)modeDesc+=' Peak block skipped — program restarts from Hypertrophy after this deload.';
-    return{name:FORGE_INTERNAL.blockNames[week]||'',weekLabel:'Week '+week,pct,isDeload,totalWeeks:state.skipPeakBlock?14:21,mode,modeName:FORGE_INTERNAL.modes[mode]?.short||'Sets',modeDesc,reps,rir};
+    return{name:FORGE_INTERNAL.blockNames[week]||'',weekLabel:'Week '+week,pct,isDeload,totalWeeks:state.skipPeakBlock?14:21,mode,modeName:FORGE_INTERNAL.modes[mode]?.name||'Sets Completed',modeDesc,reps,rir};
   },
 
   adjustAfterSession(exercises,state){
@@ -265,7 +265,7 @@ const FORGE_PROGRAM={
     const roundOpts=[1,2.5,5].map(n=>`<option value="${n}"${n===rounding?' selected':''}>${n} kg</option>`).join('');
     const backOpts=FORGE_INTERNAL.auxOptions.back.map(o=>`<option value="${o}"${o===backEx?' selected':''}>${o}</option>`).join('');
     container.innerHTML=`
-      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">21-week periodization: Hypertrophy → Strength → Peaking</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px">21-week strength cycle: Hypertrophy → Strength → Peaking.</div>
       <label>Program Mode</label>
       <select id="prog-mode" onchange="updateForgeModeSetting()">${modeOpts}</select>
       <div id="prog-mode-desc" style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:8px"></div>
@@ -291,9 +291,12 @@ const FORGE_PROGRAM={
       <label style="margin-top:12px">Sessions Per Week</label>
       <select id="prog-days" onchange="previewProgramSplit()">${freqOpts}</select>
       <div id="prog-split-preview" style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.8"></div>
-      <div class="divider-label" style="margin-top:18px"><span>Main Lifts (TM in kg)</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5">
+        <strong>Terms:</strong> TM = Training Max. RIR = reps left before failure. AMRAP = as many reps as possible.
+      </div>
+      <div class="divider-label" style="margin-top:18px"><span>Main Lifts (Training Max in kg)</span></div>
       <div id="prog-main-lifts"></div>
-      <div class="divider-label" style="margin-top:14px"><span>Auxiliary Lifts (TM in kg)</span></div>
+      <div class="divider-label" style="margin-top:14px"><span>Auxiliary Lifts (Training Max in kg)</span></div>
       <div id="prog-aux-lifts"></div>
       <div class="divider-label" style="margin-top:14px"><span>Back Exercise (every session)</span></div>
       <select id="prog-back-exercise" style="margin-bottom:8px">${backOpts}</select>
@@ -309,12 +312,12 @@ const FORGE_PROGRAM={
 
   _renderMainLifts(lifts){
     const mc=document.getElementById('prog-main-lifts');if(!mc||!lifts)return;mc.innerHTML='';
-    const labels=['SQ','BP','DL','OHP'];
+    const labels=['Squat (SQ)','Bench Press (BP)','Deadlift (DL)','Overhead Press (OHP)'];
     lifts.main.forEach((l,i)=>{mc.innerHTML+=`<div class="lift-row"><span class="lift-label">${labels[i]||'#'+(i+1)}</span><input type="text" value="${l.name}" onchange="updateProgramLift('main',${i},'name',this.value)" style="flex:1"><input type="number" value="${l.tm}" onchange="updateProgramLift('main',${i},'tm',parseFloat(this.value)||0)"></div>`;});
   },
   _renderAuxLifts(lifts){
     const ac=document.getElementById('prog-aux-lifts');if(!ac||!lifts)return;ac.innerHTML='';
-    const auxLabels=['SQ-1','SQ-2','BP-1','BP-2','DL','OHP'];const cats=['squat','squat','bench','bench','deadlift','ohp'];
+    const auxLabels=['Squat Variant 1 (SQ-1)','Squat Variant 2 (SQ-2)','Bench Variant 1 (BP-1)','Bench Variant 2 (BP-2)','Deadlift Variant (DL)','Overhead Press Variant (OHP)'];const cats=['squat','squat','bench','bench','deadlift','ohp'];
     lifts.aux.forEach((l,i)=>{
       const cat=cats[i]||'squat',opts=FORGE_INTERNAL.auxOptions[cat]||[];
       let sel=`<select onchange="updateProgramLift('aux',${i},'name',this.value)" style="flex:1;font-size:13px">`;

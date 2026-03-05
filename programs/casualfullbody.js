@@ -99,7 +99,7 @@ function isNextWeek(keyA, keyB) {
 const CASUAL_FULL_BODY = {
   id:          'casualfullbody',
   name:        'Casual Full Body',
-  description: 'Flexible full body training, 2-3x/week. No maxes needed.',
+  description: 'Flexible full body training, 2-3 sessions/week. No maxes needed.',
   icon:        '🎯',
   dashboardStatsLabel: 'Session Stats',
 
@@ -242,7 +242,7 @@ const CASUAL_FULL_BODY = {
     const streak = state.currentStreak || 0;
     return [
       { name: 'Sessions',    value: String(sc) },
-      { name: 'Wk Streak',  value: streak > 0 ? streak + (streak === 1 ? ' wk' : ' wks') : '—' }
+      { name: 'Week Streak',  value: streak > 0 ? streak + (streak === 1 ? ' week' : ' weeks') : '—' }
     ];
   },
 
@@ -323,23 +323,23 @@ const CASUAL_FULL_BODY = {
       <div style="display:flex;gap:12px;margin-bottom:16px">
         <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:24px;font-weight:700;color:var(--text)">${sc}</div>
-          <div style="font-size:11px;color:var(--muted)">Sessions Total</div>
+          <div style="font-size:11px;color:var(--muted)">Total Sessions</div>
         </div>
         <div style="flex:1;background:rgba(255,255,255,0.04);border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:24px;font-weight:700;color:var(--text)">${streak > 0 ? streak : '—'}</div>
-          <div style="font-size:11px;color:var(--muted)">${streak === 1 ? '1-week streak' : streak > 1 ? 'week streak' : 'No streak yet'}</div>
+          <div style="font-size:11px;color:var(--muted)">Week Streak</div>
         </div>
       </div>
 
       <label>Target Frequency</label>
       <select id="cfb-freq">${freqOpts}</select>
       <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:14px">
-        For reference only — the program does not auto-schedule sessions.
+        Reference only. This program does not auto-schedule sessions.
       </div>
 
       <div class="divider-label"><span>Movement Pattern Pools</span></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px;margin-top:4px">
-        Each session picks one exercise per slot, avoiding last session's choices.
+        Each session picks one exercise per slot and avoids last session choices.
       </div>
       ${slotRows}
       <div style="margin-bottom:12px">
@@ -353,7 +353,7 @@ const CASUAL_FULL_BODY = {
       <div style="margin-top:8px;margin-bottom:14px">${lastStr}</div>
 
       <div style="font-size:11px;color:var(--muted);margin-bottom:14px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5">
-        No Training Maxes to configure. Load more weight when 12 reps feels easy — keep it simple and consistent.
+        No Training Max setup needed. Add weight when 12 reps feels easy.
       </div>
 
       <button class="btn btn-purple" onclick="saveProgramSetup()">Save Program Setup</button>
