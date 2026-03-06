@@ -1,11 +1,27 @@
-﻿function resetNotStartedView(){
+﻿function getSportQuickLogMeta(){
+  const sportName=(schedule.sportName||'Cardio').trim()||'Cardio';
+  const normalized=sportName.toLowerCase();
+  let icon='S';
+  if(normalized.includes('hock'))icon='🏒';
+  else if(normalized.includes('run'))icon='🏃';
+  else if(normalized.includes('cycl')||normalized.includes('bike'))icon='🚴';
+  else if(normalized.includes('swim'))icon='🏊';
+  else if(normalized.includes('row'))icon='🚣';
+  else if(normalized.includes('soccer')||normalized.includes('football'))icon='⚽';
+  else if(normalized.includes('basket'))icon='🏀';
+  else if(normalized.includes('tennis'))icon='🎾';
+  const subtitle=normalized==='cardio'?`Unscheduled ${normalized} session`:`Unscheduled ${sportName} session`;
+  return {sportName,icon,subtitle};
+}
+
+function resetNotStartedView(){
   const prog=getActiveProgram();
-  const _sn=schedule.sportName||'Sport';
+  const {sportName,icon,subtitle}=getSportQuickLogMeta();
   document.getElementById('workout-not-started').innerHTML=`
     <div class="quick-log-row">
       <div class="quick-log-card ql-sport" onclick="quickLogSport()">
-        <div class="ql-icon">S</div>
-        <div><div class="ql-title">Log Extra ${_sn}</div><div class="ql-sub">Unscheduled session or game</div></div>
+        <div class="ql-icon">${icon}</div>
+        <div><div class="ql-title">Log Extra ${sportName}</div><div class="ql-sub">${subtitle}</div></div>
       </div>
     </div>
     <div class="divider-label"><span>${(prog.icon||'Lift')+' '+(prog.name||'Training')+' Session'}</span></div>
@@ -63,11 +79,11 @@ function startWorkout(){
 
 // QUICK LOG
 function quickLogSport(){
-  const _sn=schedule.sportName||'Sport';
-  showConfirm('Log '+_sn,'Log an extra '+_sn.toLowerCase()+' session for today?',async()=>{
+  const {sportName}=getSportQuickLogMeta();
+  showConfirm('Log '+sportName,'Log an extra '+sportName.toLowerCase()+' session for today?',async()=>{
     workouts.push({id:Date.now(),date:new Date().toISOString(),type:'sport',subtype:'extra',duration:5400,exercises:[],rpe:7,sets:0});
     await saveWorkouts();
-    showToast('Extra '+_sn+' logged!','var(--blue)');
+    showToast('Extra '+sportName+' logged!','var(--accent)');
     updateDashboard();
   });
 }

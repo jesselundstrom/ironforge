@@ -435,6 +435,7 @@ function saveSchedule(){
   if(nameInp)schedule.sportName=nameInp.value.trim()||'Sport';
   const cb=document.getElementById('sport-legs-heavy');
   if(cb)schedule.sportLegsHeavy=cb.checked;
+  if(!activeWorkout)resetNotStartedView();
   saveScheduleData();saveProfileData();updateProgramDisplay();updateDashboard();showToast('Schedule saved!','var(--blue)');
 }
 
