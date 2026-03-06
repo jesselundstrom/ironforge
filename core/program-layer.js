@@ -1,4 +1,8 @@
 // Program registry + program UI/state helpers extracted from app.js.
+function trProg(key,fallback,params){
+  if(window.I18N)return I18N.t(key,params,fallback);
+  return fallback;
+}
 
 // Programs (loaded via <script> tags) call registerProgram() to self-register.
 const PROGRAMS={};
@@ -59,21 +63,21 @@ function renderProgramSwitcher(){
         <div class="program-card-name">${p.name}</div>
         <div class="program-card-desc">${p.description}</div>
       </div>
-      ${p.id===active?'<div class="program-card-badge">Active</div>':''}
+      ${p.id===active?'<div class="program-card-badge">'+trProg('program.active','Active')+'</div>':''}
     </div>`).join('');
 }
 
 function switchProgram(id){
   if(id===profile.activeProgram)return;
   const prog=PROGRAMS[id];if(!prog)return;
-  showConfirm('Switch to '+prog.name,'Your current program is paused. '+prog.name+' will start where you left off.',()=>{
+  showConfirm(trProg('program.switch_to','Switch to {name}',{name:prog.name}),trProg('program.switch_msg','Your current program is paused. {name} will start where you left off.',{name:prog.name}),()=>{
     profile.activeProgram=id;
     if(!profile.programs)profile.programs={};
     if(!profile.programs[id])profile.programs[id]=prog.getInitialState();
     saveProfileData();
     initSettings();
     updateDashboard();
-    showToast('Switched to '+prog.name,'var(--purple)');
+    showToast(trProg('program.switched','Switched to {name}',{name:prog.name}),'var(--purple)');
   });
 }
 
@@ -83,7 +87,7 @@ function saveProgramSetup(){
   setProgramState(prog.id,newState);
   saveProfileData();
   closeProgramSetupSheet();
-  showToast('Program setup saved!','var(--purple)');
+  showToast(trProg('program.setup_saved','Program setup saved!'),'var(--purple)');
   updateProgramDisplay();
 }
 
@@ -142,7 +146,7 @@ function updateProgramDisplay(){
   const info=document.getElementById('program-week-display');
   if(info&&prog.getBlockInfo){
     const bi=prog.getBlockInfo(state);
-    info.innerHTML=`${prog.icon||'Lift'} <strong>${prog.name}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${bi.pct}% of Training Max</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
+    info.innerHTML=`${prog.icon||'Lift'} <strong>${prog.name}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${trProg('program.training_max_pct','{pct}% of Training Max',{pct:bi.pct})}</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
   }
   let banner=document.getElementById('program-recommend-banner');
   if(!banner){

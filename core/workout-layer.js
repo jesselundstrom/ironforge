@@ -10,7 +10,7 @@
   else if(normalized.includes('soccer')||normalized.includes('football'))icon='⚽';
   else if(normalized.includes('basket'))icon='🏀';
   else if(normalized.includes('tennis'))icon='🎾';
-  const subtitle=normalized==='cardio'?`Unscheduled ${normalized} session`:`Unscheduled ${sportName} session`;
+  const subtitle=i18nText('workout.unscheduled_session','Unscheduled {sport} session').replace('{sport}',normalized==='cardio'?normalized:sportName);
   return {sportName,icon,subtitle};
 }
 
@@ -21,18 +21,74 @@ function resetNotStartedView(){
     <div class="quick-log-row">
       <div class="quick-log-card ql-sport" onclick="quickLogSport()">
         <div class="ql-icon">${icon}</div>
-        <div><div class="ql-title">Log Extra ${sportName}</div><div class="ql-sub">${subtitle}</div></div>
+        <div><div class="ql-title">${i18nText('workout.log_extra','Log Extra {sport}').replace('{sport}',sportName)}</div><div class="ql-sub">${subtitle}</div></div>
       </div>
     </div>
-    <div class="divider-label"><span>${(prog.icon||'Lift')+' '+(prog.name||'Training')+' Session'}</span></div>
+    <div class="divider-label"><span>${(prog.icon||'Lift')+' '+(prog.name||'Training')+' '+i18nText('common.session','Session')}</span></div>
     <div class="card" style="padding:20px">
-      <div style="font-weight:800;font-size:16px;margin-bottom:4px">Start a Session</div>
-      <label style="margin-top:8px">Training Day</label>
+      <div style="font-weight:800;font-size:16px;margin-bottom:4px">${i18nText('workout.start_session','Start a Session')}</div>
+      <label style="margin-top:8px">${i18nText('workout.training_day','Training Day')}</label>
       <select id="program-day-select" onchange="onDaySelectChange()"></select>
       <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
-      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">Start Workout</button></div>
+      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">${i18nText('workout.start_workout','Start Workout')}</button></div>
     </div>`;
   updateProgramDisplay();
+}
+
+function exerciseIdForName(name){
+  if(!window.EXERCISE_LIBRARY||!EXERCISE_LIBRARY.resolveExerciseId)return null;
+  return EXERCISE_LIBRARY.resolveExerciseId(name)||null;
+}
+
+function withResolvedExerciseId(ex){
+  if(!ex)return ex;
+  const exerciseId=ex.exerciseId||exerciseIdForName(ex.name);
+  return exerciseId?{...ex,exerciseId}:{...ex,exerciseId:null};
+}
+
+function i18nText(key,fallback){
+  if(window.I18N&&I18N.t)return I18N.t(key);
+  return fallback;
+}
+
+function escapeHtml(text){
+  return String(text??'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#39;');
+}
+
+function renderExerciseGuidance(ex){
+  if(!window.EXERCISE_LIBRARY||!EXERCISE_LIBRARY.getExerciseGuidance){
+    return'';
+  }
+  const guide=EXERCISE_LIBRARY.getExerciseGuidance(ex.exerciseId||ex.name,window.I18N&&I18N.getLanguage?I18N.getLanguage():'en');
+  if(!guide){
+    return`<div class="last-session" style="margin-top:2px">${escapeHtml(i18nText('guidance.none','No guidance is available for this exercise yet.'))}</div>`;
+  }
+  const execRows=(guide.execution||[]).map(step=>`<li>${escapeHtml(step)}</li>`).join('');
+  const cueRows=(guide.cues||[]).map(cue=>`<li>${escapeHtml(cue)}</li>`).join('');
+  const mediaLinks=[];
+  if(guide.media?.videoUrl){
+    mediaLinks.push(`<a class="exercise-guide-link" href="${escapeHtml(guide.media.videoUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(i18nText('guidance.media.video','Open video'))}</a>`);
+  }
+  if(guide.media?.imageUrl){
+    mediaLinks.push(`<a class="exercise-guide-link" href="${escapeHtml(guide.media.imageUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(i18nText('guidance.media.image','Open image'))}</a>`);
+  }
+  const mediaHtml=mediaLinks.length?`<div class="exercise-guide-links">${mediaLinks.join('')}</div>`:'';
+  return`
+    <details class="exercise-guide">
+      <summary>${escapeHtml(i18nText('guidance.title','Movement Guide'))}</summary>
+      <div class="exercise-guide-grid">
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.setup','Setup'))}</div><div class="exercise-guide-text">${escapeHtml(guide.setup||'')}</div></div>
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.execution','Execution'))}</div><ol class="exercise-guide-list">${execRows}</ol></div>
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.cues','Key cues'))}</div><ul class="exercise-guide-list">${cueRows}</ul></div>
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.safety','Safety'))}</div><div class="exercise-guide-text">${escapeHtml(guide.safety||'')}</div></div>
+        ${mediaHtml}
+      </div>
+    </details>`;
 }
 
 // WORKOUT STARTER
@@ -41,9 +97,12 @@ function startWorkout(){
   const state=getActiveProgramState();
   const selectedOption=document.getElementById('program-day-select')?.value;
 
-  const exercises=prog.buildSession(selectedOption,state);
+  const exercises=(prog.buildSession(selectedOption,state)||[]).map(withResolvedExerciseId);
   const label=prog.getSessionLabel(selectedOption,state);
   const bi=prog.getBlockInfo?prog.getBlockInfo(state):{isDeload:false};
+  const sessionDescription=prog.getSessionDescription
+    ? (prog.getSessionDescription(selectedOption,state)||'')
+    : (bi.modeDesc||bi.name||'');
 
   activeWorkout={
     program:prog.id,
@@ -52,6 +111,7 @@ function startWorkout(){
     programDayNum:parseInt(selectedOption)||1,
     programMode:state.mode||undefined,
     programLabel:label,
+    sessionDescription,
     exercises,
     startTime:Date.now()
   };
@@ -60,9 +120,15 @@ function startWorkout(){
   document.getElementById('workout-not-started').style.display='none';
   document.getElementById('workout-active').style.display='block';
   document.getElementById('active-session-title').textContent=label;
+  const descEl=document.getElementById('active-session-description');
+  if(descEl){
+    const prefix=i18nText('session.description','Session focus');
+    descEl.textContent=sessionDescription?(prefix+': '+sessionDescription):'';
+    descEl.style.display=sessionDescription?'':'none';
+  }
   restDuration=parseInt(document.getElementById('rest-duration')?.value)||profile.defaultRest||120;
   startWorkoutTimer();renderExercises();
-  showToast(bi.isDeload?'Deload - keep it light':(prog.name||'Training'),bi.isDeload?'var(--blue)':'var(--purple)');
+  showToast(bi.isDeload?i18nText('workout.deload_light','Deload - keep it light'):(prog.name||'Training'),bi.isDeload?'var(--blue)':'var(--purple)');
 
   // Sport warning for leg-heavy days
   const legLifts=prog.legLifts||[];
@@ -72,7 +138,7 @@ function startWorkout(){
   if((_isSportDay||_hadSportRecently)&&!bi.isDeload&&schedule.sportLegsHeavy!==false){
     const hasLegs=activeWorkout.exercises.some(e=>legLifts.includes(e.name.toLowerCase()));
     const _sn2=schedule.sportName||'Sport';
-    if(hasLegs)setTimeout(()=>showToast(`${_sn2} legs - consider fewer sets or swapping day order`,'var(--blue)'),1500);
+    if(hasLegs)setTimeout(()=>showToast(i18nText('workout.sport_legs_warning','{sport} legs - consider fewer sets or swapping day order').replace('{sport}',_sn2),'var(--blue)'),1500);
   }
 }
 
@@ -80,10 +146,10 @@ function startWorkout(){
 // QUICK LOG
 function quickLogSport(){
   const {sportName}=getSportQuickLogMeta();
-  showConfirm('Log '+sportName,'Log an extra '+sportName.toLowerCase()+' session for today?',async()=>{
+  showConfirm(i18nText('workout.log_extra','Log Extra {sport}').replace('{sport}',sportName),i18nText('workout.log_extra_confirm','Log an extra {sport} session for today?').replace('{sport}',sportName.toLowerCase()),async()=>{
     workouts.push({id:Date.now(),date:new Date().toISOString(),type:'sport',subtype:'extra',duration:5400,exercises:[],rpe:7,sets:0});
     await saveWorkouts();
-    showToast('Extra '+sportName+' logged!','var(--accent)');
+    showToast(i18nText('workout.extra_logged','Extra {sport} logged!').replace('{sport}',sportName),'var(--accent)');
     updateDashboard();
   });
 }
@@ -104,8 +170,9 @@ function startWorkoutTimer(){
 
 function addExerciseByName(name){
   if(!activeWorkout)return;
-  const suggested=getSuggested(name);
-  activeWorkout.exercises.push({id:Date.now()+Math.random(),name,note:'',sets:[
+  const exerciseId=exerciseIdForName(name);
+  const suggested=getSuggested({name,exerciseId});
+  activeWorkout.exercises.push({id:Date.now()+Math.random(),exerciseId,name,note:'',sets:[
     {weight:suggested||'',reps:5,done:false,rpe:null},
     {weight:suggested||'',reps:5,done:false,rpe:null},
     {weight:suggested||'',reps:5,done:false,rpe:null}
@@ -116,24 +183,25 @@ function addExerciseByName(name){
 function renderExercises(){
   const c=document.getElementById('exercises-container');c.innerHTML='';
   activeWorkout.exercises.forEach((ex,ei)=>{
-    const prev=getPreviousSets(ex.name);
-    const prevText=prev?'Last: '+prev.map(s=>s.weight+'kg\u00d7'+s.reps).join(', '):'No previous data';
-    const suggested=getSuggested(ex.name);
+    const prev=getPreviousSets(ex);
+    const prevText=prev?i18nText('workout.last_prefix','Last:')+' '+prev.map(s=>s.weight+'kg\u00d7'+s.reps).join(', '):i18nText('workout.no_previous_data','No previous data');
+    const suggested=getSuggested(ex);
     const block=document.createElement('div');block.className='exercise-block';
     let badges='';
-    if(suggested)badges+=`<div class="suggest-badge">\ud83d\udcc8 Last best: ${suggested}kg</div>`;
+    if(suggested)badges+=`<div class="suggest-badge">\ud83d\udcc8 ${i18nText('workout.last_best','Last best: {weight}kg').replace('{weight}',suggested)}</div>`;
     if(ex.note)badges+=`<div class="ai-badge" style="background:rgba(167,139,250,0.1);color:var(--purple);border-color:rgba(167,139,250,0.2)">\ud83d\udccb ${ex.note}</div>`;
+    const guidanceHtml=renderExerciseGuidance(ex);
 
     // Swap button for auxiliary exercises
     let swapBtn='';
     if(ex.isAux&&ex.auxSlotIdx>=0){
-      swapBtn=`<button class="btn btn-icon btn-secondary" onclick="swapAuxExercise(${ei})" title="Swap exercise" style="font-size:14px">Swap</button>`;
+      swapBtn=`<button class="btn btn-icon btn-secondary" onclick="swapAuxExercise(${ei})" title="${i18nText('workout.swap','Swap')}" style="font-size:14px">${i18nText('workout.swap','Swap')}</button>`;
     }
     // Swap button for back accessory
     if(ex.isAccessory){
-      swapBtn=`<button class="btn btn-icon btn-secondary" onclick="swapBackExercise(${ei})" title="Swap back exercise" style="font-size:14px">Swap</button>`;
+      swapBtn=`<button class="btn btn-icon btn-secondary" onclick="swapBackExercise(${ei})" title="${i18nText('workout.swap_back','Swap back exercise')}" style="font-size:14px">${i18nText('workout.swap','Swap')}</button>`;
     }
-    const typeLabel=ex.isAux?'<span style="font-size:10px;color:var(--muted);font-weight:600;margin-left:6px">AUX</span>':ex.isAccessory?'<span style="font-size:10px;color:var(--blue);font-weight:600;margin-left:6px">BACK</span>':'';
+    const typeLabel=ex.isAux?'<span style="font-size:10px;color:var(--muted);font-weight:600;margin-left:6px">'+i18nText('workout.aux','AUX')+'</span>':ex.isAccessory?'<span style="font-size:10px;color:var(--blue);font-weight:600;margin-left:6px">'+i18nText('workout.back','BACK')+'</span>':'';
 
     block.innerHTML=`
       <div class="exercise-header">
@@ -142,8 +210,9 @@ function renderExercises(){
       </div>
       <div class="last-session">${prevText}</div>
       ${badges}
+      ${guidanceHtml}
       <div id="sets-${ei}"></div>
-      <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addSet(${ei})">+ Set</button>`;
+      <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addSet(${ei})">${i18nText('workout.add_set','+ Set')}</button>`;
     c.appendChild(block);
     const sc=document.getElementById('sets-'+ei);
     ex.sets.forEach((set,si)=>{
@@ -202,36 +271,38 @@ function swapAuxExercise(ei){
   const swapInfo=prog.getAuxSwapOptions?prog.getAuxSwapOptions(ex):null;
   if(!swapInfo)return;
   const cat=swapInfo.category||'',opts=swapInfo.options||[];
-  const title=cat?'Swap '+cat.charAt(0).toUpperCase()+cat.slice(1)+' Auxiliary':'Swap Exercise';
+  const title=cat?i18nText('workout.swap_aux_category','Swap {cat} auxiliary').replace('{cat}',cat.charAt(0).toUpperCase()+cat.slice(1)):i18nText('workout.swap_exercise','Swap exercise');
   let optHtml=opts.map(o=>`<div class="swap-option${o===ex.name?' swap-active':''}" onclick="doAuxSwap(${ei},'${o.replace(/'/g,"\\'")}',${ex.auxSlotIdx})">${o}</div>`).join('');
   showCustomModal(title,`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
 }
 
 function doAuxSwap(ei,newName,slotIdx){
   activeWorkout.exercises[ei].name=newName;
+  activeWorkout.exercises[ei].exerciseId=exerciseIdForName(newName);
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=prog.onAuxSwap?prog.onAuxSwap(slotIdx,newName,state):state;
   setProgramState(prog.id,newState);
   saveProfileData();
   closeCustomModal();renderExercises();
-  showToast('Swapped to '+newName,'var(--purple)');
+  showToast(i18nText('workout.swapped_to','Swapped to {name}').replace('{name}',newName),'var(--purple)');
 }
 
 function swapBackExercise(ei){
   const prog=getActiveProgram();
   const opts=prog.getBackSwapOptions?prog.getBackSwapOptions():[];
   let optHtml=opts.map(o=>`<div class="swap-option${o===activeWorkout.exercises[ei].name?' swap-active':''}" onclick="doBackSwap(${ei},'${o.replace(/'/g,"\\'")}')"> ${o}</div>`).join('');
-  showCustomModal('Swap Back Exercise',`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
+  showCustomModal(i18nText('workout.swap_back_title','Swap Back Exercise'),`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
 }
 
 function doBackSwap(ei,newName){
   activeWorkout.exercises[ei].name=newName;
+  activeWorkout.exercises[ei].exerciseId=exerciseIdForName(newName);
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=prog.onBackSwap?prog.onBackSwap(newName,state):state;
   setProgramState(prog.id,newState);
   saveProfileData();
   closeCustomModal();renderExercises();
-  showToast('Swapped to '+newName,'var(--purple)');
+  showToast(i18nText('workout.swapped_to','Swapped to {name}').replace('{name}',newName),'var(--purple)');
 }
 
 function showCustomModal(title,bodyHtml){
@@ -242,7 +313,7 @@ function showCustomModal(title,bodyHtml){
   m.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%">
     <div style="font-weight:800;font-size:16px;margin-bottom:14px">${title}</div>
     ${bodyHtml}
-    <button class="btn btn-secondary" style="margin-top:14px;width:100%" onclick="closeCustomModal()">Cancel</button>
+    <button class="btn btn-secondary" style="margin-top:14px;width:100%" onclick="closeCustomModal()">${i18nText('common.cancel','Cancel')}</button>
   </div>`;
   m.onclick=e=>{if(e.target===m)closeCustomModal();};
   document.body.appendChild(m);
@@ -251,8 +322,9 @@ function showCustomModal(title,bodyHtml){
 function closeCustomModal(){const m=document.getElementById('custom-swap-modal');if(m)m.remove();}
 
 async function finishWorkout(){
-  if(!activeWorkout.exercises.length){showToast('Add at least one exercise!','var(--orange)');return;}
+  if(!activeWorkout.exercises.length){showToast(i18nText('workout.add_at_least_one','Add at least one exercise!'),'var(--orange)');return;}
   clearInterval(workoutTimer);skipRest();
+  activeWorkout.exercises=activeWorkout.exercises.map(withResolvedExerciseId);
   let totalSets=0;
   activeWorkout.exercises.forEach(e=>{totalSets+=e.sets.length;});
 
@@ -309,7 +381,7 @@ async function finishWorkout(){
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
   resetNotStartedView();
-  showToast('Session saved!');
+  showToast(i18nText('workout.session_saved','Session saved!'));
   updateDashboard();
 }
 

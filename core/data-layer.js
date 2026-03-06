@@ -30,6 +30,11 @@ async function loadData(){
   workouts.forEach(w=>{if(!w.program&&w.type&&w.type!=='hockey'&&w.type!=='sport')w.program=w.type;});
   // Ensure activeProgram is set
   if(!profile.activeProgram)profile.activeProgram='forge';
+  if(!profile.language)profile.language=(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en');
+  if(window.I18N&&I18N.setLanguage){
+    I18N.setLanguage(profile.language,{persist:true,notify:false});
+    profile.language=I18N.getLanguage();
+  }
   // Initialize program states for all registered programs (fills in defaults for new programs)
   if(!profile.programs)profile.programs={};
   Object.values(PROGRAMS).forEach(prog=>{if(!profile.programs[prog.id])profile.programs[prog.id]=prog.getInitialState();});
@@ -42,6 +47,7 @@ async function loadData(){
   restDuration=profile.defaultRest||120;
   buildExerciseIndex();
   updateDashboard();
+  if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
 }
 
 async function saveWorkouts(){ try{localStorage.setItem('ic_workouts',JSON.stringify(workouts));}catch(e){logWarn('Failed to save workouts to localStorage',e);} pushToCloud(); }
@@ -116,6 +122,6 @@ async function signUpWithEmail(){
 
 async function logout(){
   await _SB.auth.signOut();
-  workouts=[];schedule={sportName:'Hockey',sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};profile={defaultRest:120};currentUser=null;
+  workouts=[];schedule={sportName:'Hockey',sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en')};currentUser=null;
   updateDashboard();
 }
