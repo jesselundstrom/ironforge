@@ -234,6 +234,11 @@ function pulseForgeCore(){
   clearTimeout(_forgeOpenPulseTimer);
   _forgeOpenPulseTimer=setTimeout(()=>forgeCore.classList.remove('opened'),220);
 }
+function syncBottomNavOffset(){
+  const nav=document.querySelector('.bottom-nav');
+  if(!nav)return;
+  document.documentElement.style.setProperty('--nav-offset',nav.offsetHeight+'px');
+}
 function showPage(name,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -484,6 +489,10 @@ async function clearAllData(){
 }
 
 // INIT
+syncBottomNavOffset();
+window.addEventListener('load',syncBottomNavOffset);
+window.addEventListener('resize',syncBottomNavOffset);
+if(window.visualViewport)window.visualViewport.addEventListener('resize',syncBottomNavOffset);
 initAuth();
 
 if ('serviceWorker' in navigator) {
