@@ -288,7 +288,7 @@ const FORGE_PROGRAM={
     const modeSelectLabel=Object.entries(FORGE_INTERNAL.modes).map(([k])=>`<option value="${k}"${k===mode?' selected':''}>${getForgeModeName(k)} — ${getForgeModeDesc(k)}</option>`).join('');
     const freqOpts=[2,3,4,5,6].map(n=>`<option value="${n}"${n===freq?' selected':''}>${n}×/week</option>`).join('');
     const roundOpts=[1,2.5,5].map(n=>`<option value="${n}"${n===rounding?' selected':''}>${n} kg</option>`).join('');
-    const backOpts=FORGE_INTERNAL.auxOptions.back.map(o=>`<option value="${o}"${o===backEx?' selected':''}>${o}</option>`).join('');
+    const backOpts=FORGE_INTERNAL.auxOptions.back.map(o=>`<option value="${escapeHtml(o)}"${o===backEx?' selected':''}>${escapeHtml(forgeExerciseName(o))}</option>`).join('');
     container.innerHTML=`
       <div style="font-size:13px;color:var(--muted);margin-bottom:12px">${trForge('program.forge.settings.overview','21-week strength cycle: Hypertrophy → Strength → Peaking.')}</div>
       <label>${trForge('program.forge.settings.mode','Program Mode')}</label>
@@ -346,8 +346,8 @@ const FORGE_PROGRAM={
     lifts.aux.forEach((l,i)=>{
       const cat=cats[i]||'squat',opts=FORGE_INTERNAL.auxOptions[cat]||[];
       let sel=`<select onchange="updateProgramLift('aux',${i},'name',this.value)" style="flex:1;font-size:13px">`;
-      opts.forEach(o=>{sel+=`<option value="${o}"${o===l.name?' selected':''}>${o}</option>`;});
-      if(!opts.includes(l.name))sel+=`<option value="${l.name}" selected>${l.name}</option>`;
+      opts.forEach(o=>{sel+=`<option value="${escapeHtml(o)}"${o===l.name?' selected':''}>${escapeHtml(forgeExerciseName(o))}</option>`;});
+      if(!opts.includes(l.name))sel+=`<option value="${escapeHtml(l.name)}" selected>${escapeHtml(forgeExerciseName(l.name))}</option>`;
       sel+='</select>';
       ac.innerHTML+=`<div class="lift-row"><span class="lift-label">${auxLabels[i]||'A'+(i+1)}</span>${sel}<input type="number" value="${l.tm}" onchange="updateProgramLift('aux',${i},'tm',parseFloat(this.value)||0)"></div>`;
     });
@@ -358,7 +358,7 @@ const FORGE_PROGRAM={
     let html='';
     for(let d=1;d<=freq;d++){
       const exs=FORGE_INTERNAL.getDayExercises(d,freq,lifts);
-      const names=exs.map(e=>e.isAux?'<span style="color:var(--purple)">'+e.name+'</span>':'<strong>'+e.name+'</strong>').join(' · ');
+      const names=exs.map(e=>e.isAux?'<span style="color:var(--purple)">'+escapeHtml(forgeExerciseName(e.name))+'</span>':'<strong>'+escapeHtml(forgeExerciseName(e.name))+'</strong>').join(' · ');
       html+=`<div style="margin-bottom:4px"><span style="color:var(--accent);font-weight:700">${trForge('program.forge.settings.day_num','Day {day}:',{day:d})}</span> ${names}</div>`;
     }
     html+='<div style="margin-top:6px;font-size:11px;color:var(--muted)">'+trForge('program.forge.settings.split_legend','<strong>Bold</strong> = main lift · <span style="color:var(--purple)">Purple</span> = auxiliary')+'</div>';

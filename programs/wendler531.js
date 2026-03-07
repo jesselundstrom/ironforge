@@ -11,6 +11,11 @@ function trW531(key,fallback,params){
   return fallback;
 }
 
+function w531ExName(name){
+  if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(name);
+  return name;
+}
+
 function getW531SchemeName(week){
   const keyMap={1:'program.w531.scheme.5s',2:'program.w531.scheme.3s',3:'program.w531.scheme.531',4:'program.w531.scheme.deload'};
   const k=keyMap[week];const label=(W531.weekScheme[week]||{}).label||'';
@@ -192,7 +197,7 @@ const WENDLER_531 = {
     if (freq === 2) {
       // 2 days: Day 1 = Squat+Bench, Day 2 = DL+OHP
       return [1,2].map(d => {
-        const names = this._dayLifts(d, 2).map(i => lifts[i]?.name||'').join(' + ');
+        const names = this._dayLifts(d, 2).map(i => w531ExName(lifts[i]?.name||'')).join(' + ');
         const done  = doneNums.includes(d);
         const isNext = !done && doneNums.length === d-1;
         return {
@@ -210,7 +215,7 @@ const WENDLER_531 = {
       const isRecommended = !done && prevsDone;
       return {
         value: String(i+1),
-        label: (done?'✅ ':(isRecommended?'⭐ ':'')+l.name+' · '+pct+'%×'+topRep),
+        label: (done?'✅ ':(isRecommended?'⭐ ':'')+w531ExName(l.name)+' · '+pct+'%×'+topRep),
         isRecommended, done, liftIdx:i, category:l.category
       };
     });
@@ -514,8 +519,9 @@ const WENDLER_531 = {
   getDashboardTMs(state) {
     const stalled = state.stalledLifts || {};
     return (state.lifts?.main || []).map((l,i) => ({
-      name:  l.name + (stalled[i] ? ' ⚠️' : ''),
-      value: l.tm + 'kg'
+      name:  l.name,
+      value: l.tm + 'kg',
+      stalled: !!stalled[i]
     }));
   },
 
@@ -634,7 +640,7 @@ const WENDLER_531 = {
     const stalledAlerts = Object.keys(stalled).map(i => {
       const l = lifts[parseInt(i)];
       return l ? `<div style="color:var(--orange);font-size:11px;margin-top:2px">`
-               + trW531('program.w531.settings.stalled','⚠️ {name} plateaued — Training Max will drop 10% at cycle end',{name:l.name})
+               + trW531('program.w531.settings.stalled','⚠️ {name} plateaued — Training Max will drop 10% at cycle end',{name:escapeHtml(w531ExName(l.name))})
                + `</div>` : '';
     }).join('');
 
@@ -644,7 +650,7 @@ const WENDLER_531 = {
         ? ' <span style="color:var(--orange);font-size:11px">'+trW531('program.w531.settings.plateau_badge','⚠️ plateaued')+'</span>' : '';
       return `<div class="lift-row">
         <span class="lift-label">${liftLabels[i]||'#'+(i+1)}</span>
-        <span style="flex:1;font-size:13px;padding:4px 0;color:var(--text)">${l.name}${stalledBadge}</span>
+        <span style="flex:1;font-size:13px;padding:4px 0;color:var(--text)">${escapeHtml(w531ExName(l.name))}${stalledBadge}</span>
         <input type="number" value="${l.tm}"
           onchange="updateProgramLift('main',${i},'tm',parseFloat(this.value)||0)">
       </div>`;

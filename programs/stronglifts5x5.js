@@ -7,6 +7,11 @@ function trSL(key,fallback,params){
   return fallback;
 }
 
+function slExName(name){
+  if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(name);
+  return name;
+}
+
 const STRONGLIFTS_5X5={
   id:'stronglifts5x5',
   name:trSL('program.sl.name','StrongLifts 5x5'),
@@ -26,7 +31,7 @@ const STRONGLIFTS_5X5={
 
   getSessionOptions(state){
     const next=state.nextWorkout||'A',other=next==='A'?'B':'A';
-    const mkLabel=wk=>(wk==='A'?this._workoutA:this._workoutB).map(k=>this._names[k]).join(' + ');
+    const mkLabel=wk=>(wk==='A'?this._workoutA:this._workoutB).map(k=>slExName(this._names[k])).join(' + ');
     return[
       {value:next,label:'⭐ '+trSL('program.sl.workout','Workout')+' '+next+': '+mkLabel(next),isRecommended:true,done:false},
       {value:other,label:trSL('program.sl.workout','Workout')+' '+other+': '+mkLabel(other),isRecommended:false,done:false}
@@ -123,7 +128,7 @@ const STRONGLIFTS_5X5={
     const roundOpts=[1,2.5,5].map(n=>`<option value="${n}"${n===rounding?' selected':''}>${n} kg</option>`).join('');
     const liftRows=Object.entries(this._names).map(([key,name])=>{
       const l=lifts[key]||{weight:60,failures:0};
-      return`<div class="lift-row"><span class="lift-label" style="min-width:80px">${name}</span><input type="number" value="${l.weight}" onchange="updateSLLift('${key}',parseFloat(this.value)||0)" style="flex:1"><span style="font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap">${trSL('program.sl.failed_sessions','failed sessions')}: ${l.failures||0}</span></div>`;
+      return`<div class="lift-row"><span class="lift-label" style="min-width:80px">${escapeHtml(slExName(name))}</span><input type="number" value="${l.weight}" onchange="updateSLLift('${key}',parseFloat(this.value)||0)" style="flex:1"><span style="font-size:11px;color:var(--muted);margin-left:8px;white-space:nowrap">${trSL('program.sl.failed_sessions','failed sessions')}: ${l.failures||0}</span></div>`;
     }).join('');
     container.innerHTML=`
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;background:rgba(167,139,250,0.08);padding:8px 12px;border-radius:8px">${trSL('program.sl.split_overview','A: Squat+Bench+Row · B: Squat+Overhead Press+Deadlift · alternating 3 sessions/week')}</div>
