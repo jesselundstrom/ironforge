@@ -46,8 +46,8 @@ async function loadData(){
   saveProfileData();
   restDuration=profile.defaultRest||120;
   buildExerciseIndex();
-  updateDashboard();
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
+  updateDashboard();
 }
 
 async function saveWorkouts(){ try{localStorage.setItem('ic_workouts',JSON.stringify(workouts));}catch(e){logWarn('Failed to save workouts to localStorage',e);} pushToCloud(); }

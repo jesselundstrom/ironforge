@@ -555,6 +555,7 @@ async function clearAllData(){
 function updateLanguageDependentUI(){
   refreshDayNames();
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
+  updateDashboard();
   renderSportDayToggles();
   if(activeWorkout){
     const prog=getActiveProgram();

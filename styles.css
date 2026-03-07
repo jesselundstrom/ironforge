@@ -559,8 +559,8 @@ body.login-active::before{
 
 /* ── DASHBOARD COMPACT LAYOUT ── */
 .dash-week-card{margin-bottom:8px}
-.dash-row{display:flex;gap:8px;margin-bottom:8px}
-.dash-row .card{margin-bottom:0;flex:1;min-width:0}
+.dash-row{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:8px}
+.dash-row .card{margin-bottom:0;min-width:0}
 .dash-col .fatigue-row{margin-bottom:4px;gap:6px}
 .dash-col .fatigue-label{font-size:11px;min-width:52px}
 .dash-col .fatigue-bar-wrap{height:6px}
@@ -569,6 +569,9 @@ body.login-active::before{
 .dash-col .lift-stat{padding:7px 8px}
 .dash-col .lift-stat .value{font-size:16px}
 .dash-col .lift-stat .label{font-size:8px;letter-spacing:0.45px;line-height:1.15}
+@media (min-width:640px){
+  .dash-row{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+}
 /* Session pills */
 .week-progress-row{display:grid;grid-template-columns:1fr;justify-items:center;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.05)}
 .week-progress-row .session-pills{width:min(164px,100%)}
