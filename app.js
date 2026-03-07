@@ -23,12 +23,13 @@ let workouts=[];
 let schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};
 let profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en')};
 let activeWorkout=null, workoutTimer=null, workoutSeconds=0;
-let restInterval=null, restSecondsLeft=0, restTotal=0, restDuration=120;
+let restInterval=null, restSecondsLeft=0, restTotal=0, restDuration=120, restEndsAt=0, restHideTimeout=null;
 let pendingRPECallback=null;
 let confirmCallback=null;
 let nameModalCallback=null;
 let _toastTimeout=null;
 let exerciseIndex={};
+let _appViewportSyncTimeout=null;
 
 function getDefaultSportName(){
   const locale=window.I18N&&I18N.getLanguage?I18N.getLanguage():'en';
@@ -38,6 +39,28 @@ function getDefaultSportName(){
 function isLegacyDefaultSportName(name){
   const raw=String(name||'').trim().toLowerCase();
   return raw===''||raw==='hockey'||raw==='jääkiekko'||raw==='cardio'||raw==='sport'||raw==='urheilu'||raw==='kestävyys';
+}
+
+function syncAppViewportHeight(){
+  const viewport=window.visualViewport;
+  const height=Math.round((viewport&&viewport.height)||window.innerHeight||0);
+  if(height>0)document.documentElement.style.setProperty('--app-vh',height+'px');
+}
+
+function scheduleAppViewportHeightSync(delay=0){
+  clearTimeout(_appViewportSyncTimeout);
+  _appViewportSyncTimeout=setTimeout(syncAppViewportHeight,delay);
+}
+
+syncAppViewportHeight();
+window.addEventListener('resize',()=>scheduleAppViewportHeightSync());
+window.addEventListener('orientationchange',()=>scheduleAppViewportHeightSync(120));
+window.addEventListener('pageshow',()=>scheduleAppViewportHeightSync());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleAppViewportHeightSync();});
+document.addEventListener('focusout',()=>scheduleAppViewportHeightSync(120));
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',()=>scheduleAppViewportHeightSync());
+  window.visualViewport.addEventListener('scroll',()=>scheduleAppViewportHeightSync());
 }
 
 const RPE_FEELS={6:'Easy',7:'Moderate',8:'Hard',9:'Very Hard',10:'Max'};
@@ -313,34 +336,50 @@ function submitNameModal(){
 }
 
 // REST TIMER
-function updateRestDuration(){restDuration=parseInt(document.getElementById('rest-duration').value);}
-function startRestTimer(){
-  if(!restDuration)return;
-  clearInterval(restInterval);
-  restSecondsLeft=restDuration;restTotal=restDuration;
-  document.getElementById('rest-timer-bar').classList.add('active');
+function updateRestDuration(){restDuration=parseInt(document.getElementById('rest-duration').value,10)||0;}
+function clearRestInterval(){if(restInterval){clearInterval(restInterval);restInterval=null;}}
+function clearRestHideTimer(){if(restHideTimeout){clearTimeout(restHideTimeout);restHideTimeout=null;}}
+function syncRestTimer(){
+  if(!restEndsAt)return;
+  restSecondsLeft=Math.max(0,Math.ceil((restEndsAt-Date.now())/1000));
+  if(restSecondsLeft<=0){restDone();return;}
   updateRestDisplay();
-  restInterval=setInterval(()=>{
-    restSecondsLeft--;
-    if(restSecondsLeft<=0){clearInterval(restInterval);restDone();return;}
-    updateRestDisplay();
-  },1000);
+}
+function startRestTimer(){
+  if(!restDuration){skipRest();return;}
+  clearRestInterval();
+  clearRestHideTimer();
+  restTotal=restDuration;restEndsAt=Date.now()+restDuration*1000;
+  document.getElementById('rest-timer-bar').classList.add('active');
+  syncRestTimer();
+  restInterval=setInterval(syncRestTimer,250);
 }
 function updateRestDisplay(){
   const m=Math.floor(restSecondsLeft/60),s=restSecondsLeft%60;
   const el=document.getElementById('rest-timer-count');
+  if(!el)return;
   el.textContent=m+':'+(s<10?'0':'')+s;
   el.className='rest-timer-count'+(restSecondsLeft<=10?' warning':'');
-  const offset=119.4*(1-(restSecondsLeft/restTotal));
+  const offset=restTotal?119.4*(1-(restSecondsLeft/restTotal)):119.4;
   document.getElementById('timer-arc').setAttribute('stroke-dashoffset',offset);
 }
 function restDone(){
+  clearRestInterval();
+  clearRestHideTimer();
+  restEndsAt=0;restSecondsLeft=0;
   const el=document.getElementById('rest-timer-count');
   el.className='rest-timer-count done';el.textContent=tr('dashboard.badge.go','GO');
   playBeep();
-  setTimeout(()=>document.getElementById('rest-timer-bar').classList.remove('active'),3000);
+  restHideTimeout=setTimeout(()=>document.getElementById('rest-timer-bar').classList.remove('active'),3000);
 }
-function skipRest(){clearInterval(restInterval);document.getElementById('rest-timer-bar').classList.remove('active');}
+function skipRest(){
+  clearRestInterval();
+  clearRestHideTimer();
+  restEndsAt=0;restSecondsLeft=0;
+  document.getElementById('rest-timer-bar').classList.remove('active');
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncRestTimer();});
+window.addEventListener('pageshow',syncRestTimer);
 function playBeep(){
   try{
     const ctx=new(window.AudioContext||window.webkitAudioContext)();

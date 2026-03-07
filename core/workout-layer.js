@@ -174,15 +174,34 @@ function quickLogHockey(){quickLogSport();}
 
 
 // WORKOUT LOGGING
-function startWorkoutTimer(){
-  workoutSeconds=0;
-  workoutTimer=setInterval(()=>{
-    workoutSeconds++;
-    const m=String(Math.floor(workoutSeconds/60)).padStart(2,'0');
-    const s=String(workoutSeconds%60).padStart(2,'0');
-    document.getElementById('active-session-timer').textContent=m+':'+s;
-  },1000);
+function getWorkoutElapsedSeconds(){
+  if(!activeWorkout?.startTime)return 0;
+  return Math.max(0,Math.floor((Date.now()-activeWorkout.startTime)/1000));
 }
+
+function renderWorkoutTimer(){
+  workoutSeconds=getWorkoutElapsedSeconds();
+  const m=String(Math.floor(workoutSeconds/60)).padStart(2,'0');
+  const s=String(workoutSeconds%60).padStart(2,'0');
+  const timerEl=document.getElementById('active-session-timer');
+  if(timerEl)timerEl.textContent=m+':'+s;
+}
+
+function clearWorkoutTimer(){
+  if(workoutTimer){
+    clearInterval(workoutTimer);
+    workoutTimer=null;
+  }
+}
+
+function startWorkoutTimer(){
+  clearWorkoutTimer();
+  renderWorkoutTimer();
+  workoutTimer=setInterval(renderWorkoutTimer,1000);
+}
+
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderWorkoutTimer();});
+window.addEventListener('pageshow',renderWorkoutTimer);
 
 function addExerciseByName(name){
   if(!activeWorkout)return;
@@ -258,7 +277,24 @@ function renderExercises(){
   });
 }
 
-function updateSet(ei,si,f,v){activeWorkout.exercises[ei].sets[si][f]=v;}
+function updateSet(ei,si,f,v){
+  const exercise=activeWorkout.exercises[ei];
+  const set=exercise?.sets?.[si];
+  if(!set)return;
+  set[f]=v;
+  if(f!=='weight')return;
+  for(let nextIndex=si+1;nextIndex<exercise.sets.length;nextIndex++){
+    const nextSet=exercise.sets[nextIndex];
+    if(nextSet.done)continue;
+    nextSet.weight=v;
+  }
+  const rows=document.querySelectorAll(`#sets-${ei} .set-row`);
+  for(let nextIndex=si+1;nextIndex<rows.length;nextIndex++){
+    if(exercise.sets[nextIndex]?.done)continue;
+    const weightInput=rows[nextIndex]?.querySelector('input');
+    if(weightInput)weightInput.value=v;
+  }
+}
 
 function toggleSet(ei,si){
   const set=activeWorkout.exercises[ei].sets[si];
@@ -344,7 +380,9 @@ function closeCustomModal(){const m=document.getElementById('custom-swap-modal')
 
 async function finishWorkout(){
   if(!activeWorkout.exercises.length){showToast(i18nText('workout.add_at_least_one','Add at least one exercise!'),'var(--orange)');return;}
-  clearInterval(workoutTimer);skipRest();
+  clearWorkoutTimer();
+  renderWorkoutTimer();
+  skipRest();
   activeWorkout.exercises=activeWorkout.exercises.map(withResolvedExerciseId);
   let totalSets=0;
   activeWorkout.exercises.forEach(e=>{totalSets+=e.sets.length;});
@@ -372,7 +410,7 @@ async function finishWorkout(){
     programMeta,
     programStateBefore:stateBeforeSession,
     forgeWeek:state.week||undefined,forgeDayNum:activeWorkout.programDayNum||undefined,
-    duration:workoutSeconds,exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets});
+    duration:getWorkoutElapsedSeconds(),exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets});
 
   // Adjust program state (TMs, weights, failures, etc.)
   let newState=prog.adjustAfterSession?prog.adjustAfterSession(activeWorkout.exercises,state,activeWorkout.programOption):state;
@@ -408,7 +446,7 @@ async function finishWorkout(){
 }
 
 function cancelWorkout(){
-  clearInterval(workoutTimer);skipRest();
+  clearWorkoutTimer();skipRest();
   activeWorkout=null;
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
