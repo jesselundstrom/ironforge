@@ -71,6 +71,7 @@ h1,h2{margin-top:0}
 .btn-sm{padding:8px 14px;font-size:13px;border-radius:10px;width:auto}
 .btn-icon{width:36px;height:36px;padding:0;border-radius:10px;flex-shrink:0}
 .btn[disabled]{opacity:0.5;pointer-events:none}
+label.btn{text-transform:none;letter-spacing:0}
 
 /* ── INPUTS ── */
 input:not([type=checkbox]),select,textarea{background:var(--surface2);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--text);font-size:16px;padding:12px;width:100%;outline:none;-webkit-appearance:none;appearance:none;font-family:inherit;transition:border-color 0.2s,box-shadow 0.2s}
