@@ -21,11 +21,11 @@ function resetNotStartedView(){
   document.getElementById('workout-not-started').innerHTML=`
     <div class="quick-log-row">
       <div class="quick-log-card ql-sport" onclick="quickLogSport()">
-        <div class="ql-icon">${icon}</div>
-        <div><div class="ql-title">${i18nText('workout.log_extra','Log Extra {sport}',{sport:sportName})}</div><div class="ql-sub">${subtitle}</div></div>
+        <div class="ql-icon">${escapeHtml(icon)}</div>
+        <div><div class="ql-title">${escapeHtml(i18nText('workout.log_extra','Log Extra {sport}',{sport:sportName}))}</div><div class="ql-sub">${escapeHtml(subtitle)}</div></div>
       </div>
     </div>
-    <div class="divider-label"><span>${(prog.icon||'Lift')+' '+(prog.name||'Training')+' '+i18nText('common.session','Session')}</span></div>
+    <div class="divider-label"><span>${escapeHtml((prog.icon||'Lift')+' '+(prog.name||'Training')+' '+i18nText('common.session','Session'))}</span></div>
     <div class="card" style="padding:20px">
       <div style="font-weight:800;font-size:16px;margin-bottom:4px">${i18nText('workout.start_session','Start a Session')}</div>
       <label style="margin-top:8px">${i18nText('workout.training_day','Training Day')}</label>
@@ -52,14 +52,7 @@ function i18nText(key,fallback,params){
   return fallback;
 }
 
-function escapeHtml(text){
-  return String(text??'')
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;')
-    .replaceAll('"','&quot;')
-    .replaceAll("'",'&#39;');
-}
+// escapeHtml() is defined globally in i18n-layer.js (loaded first)
 
 function displayExerciseName(input){
   if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(input);
@@ -266,8 +259,8 @@ function renderExercises(){
       if(isAmrap)row.style.cssText='background:rgba(167,139,250,0.12);border-radius:8px;padding:2px 0';
       row.innerHTML=`
         <span class="set-num"${isAmrap?' style="color:var(--purple);font-weight:800"':''}>${setLabel}</span>
-        <input class="set-input" type="number" placeholder="${escapeHtml(i18nText('workout.weight_placeholder','kg'))}" value="${set.weight}" onchange="updateSet(${ei},${si},'weight',this.value)">
-        <input class="set-input" type="number" placeholder="${escapeHtml(isAmrap?i18nText('workout.reps_hit','reps hit'):i18nText('workout.reps_placeholder','reps'))}" value="${repVal}" onchange="updateSet(${ei},${si},'reps',this.value)"${isAmrap?' style="border-color:var(--purple)"':''}>
+        <input class="set-input" type="number" inputmode="decimal" min="0" max="999" step="any" placeholder="${escapeHtml(i18nText('workout.weight_placeholder','kg'))}" value="${set.weight}" onchange="updateSet(${ei},${si},'weight',this.value)">
+        <input class="set-input" type="number" inputmode="numeric" min="0" max="999" placeholder="${escapeHtml(isAmrap?i18nText('workout.reps_hit','reps hit'):i18nText('workout.reps_placeholder','reps'))}" value="${repVal}" onchange="updateSet(${ei},${si},'reps',this.value)"${isAmrap?' style="border-color:var(--purple)"':''}>
         ${showRir?`<select class="set-rir" onchange="updateSet(${ei},${si},'rir',this.value)">
           <option value="">${escapeHtml(i18nText('workout.rir','RIR'))}</option><option value="0"${set.rir==='0'||set.rir===0?' selected':''}>0</option><option value="1"${set.rir==='1'||set.rir===1?' selected':''}>1</option><option value="2"${set.rir==='2'||set.rir===2?' selected':''}>2</option><option value="3"${set.rir==='3'||set.rir===3?' selected':''}>3</option><option value="4"${set.rir==='4'||set.rir===4?' selected':''}>4</option><option value="5"${set.rir==='5'||set.rir===5?' selected':''}>5+</option>
         </select>`:''}
@@ -277,29 +270,42 @@ function renderExercises(){
   });
 }
 
+function sanitizeSetValue(field,raw){
+  if(field==='weight'){const n=parseFloat(raw);return isNaN(n)?'':Math.max(0,Math.min(999,Math.round(n*10)/10));}
+  if(field==='reps'){const n=parseInt(raw,10);return isNaN(n)?'':Math.max(0,Math.min(999,n));}
+  if(field==='rir')return raw;
+  return raw;
+}
+
 function updateSet(ei,si,f,v){
   const exercise=activeWorkout.exercises[ei];
   const set=exercise?.sets?.[si];
   if(!set)return;
-  set[f]=v;
+  const sanitizedValue=sanitizeSetValue(f,v);
+  set[f]=sanitizedValue;
   if(f!=='weight')return;
   for(let nextIndex=si+1;nextIndex<exercise.sets.length;nextIndex++){
     const nextSet=exercise.sets[nextIndex];
     if(nextSet.done)continue;
-    nextSet.weight=v;
+    nextSet.weight=sanitizedValue;
   }
   const rows=document.querySelectorAll(`#sets-${ei} .set-row`);
   for(let nextIndex=si+1;nextIndex<rows.length;nextIndex++){
     if(exercise.sets[nextIndex]?.done)continue;
     const weightInput=rows[nextIndex]?.querySelector('input');
-    if(weightInput)weightInput.value=v;
+    if(weightInput)weightInput.value=sanitizedValue;
   }
+}
+
+function tryHaptic(pattern){
+  try{if(navigator.vibrate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)navigator.vibrate(pattern);}catch(e){}
 }
 
 function toggleSet(ei,si){
   const set=activeWorkout.exercises[ei].sets[si];
   if(!set.done){
     set.done=true;
+    tryHaptic(40);
     // Animate the live element directly - no re-render needed for mark-done
     const exCards=document.querySelectorAll('#exercises-container .exercise-block');
     if(exCards[ei]){
@@ -319,7 +325,16 @@ function toggleSet(ei,si){
 }
 
 function addSet(ei){const ex=activeWorkout.exercises[ei];const l=ex.sets[ex.sets.length-1];ex.sets.push({weight:l?.weight||'',reps:l?.reps||5,done:false,rpe:null});renderExercises();}
-function removeEx(ei){activeWorkout.exercises.splice(ei,1);renderExercises();}
+function removeEx(ei){
+  const removed=activeWorkout.exercises.splice(ei,1)[0];
+  renderExercises();
+  if(removed){
+    showToast(escapeHtml(i18nText('workout.exercise_removed','{name} removed',{name:displayExerciseName(removed.name)})),'var(--muted)',()=>{
+      activeWorkout.exercises.splice(ei,0,removed);
+      renderExercises();
+    });
+  }
+}
 
 function swapAuxExercise(ei){
   const ex=activeWorkout.exercises[ei];
@@ -378,12 +393,47 @@ function showCustomModal(title,bodyHtml){
 
 function closeCustomModal(){const m=document.getElementById('custom-swap-modal');if(m)m.remove();}
 
+function showSessionSummary(summaryData){
+  return new Promise(resolve=>{
+    const {duration,exerciseCount,completedSets,totalSets,tonnage,rpe,programLabel}=summaryData;
+    const mins=Math.floor(duration/60);
+    const secs=duration%60;
+    const timeStr=mins>0?(mins+'m '+(secs>0?secs+'s':'')):(secs+'s');
+    const tonnageStr=tonnage>=1000?((tonnage/1000).toFixed(1)+' t'):(Math.round(tonnage)+' kg');
+    const content=document.getElementById('summary-modal-content');
+    content.innerHTML=`
+      <div style="font-size:32px;margin-bottom:4px">&#9889;</div>
+      <div style="font-size:20px;font-weight:900;margin-bottom:4px">${escapeHtml(i18nText('workout.session_complete','Session Complete'))}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${escapeHtml(programLabel)}</div>
+      <div class="summary-stats">
+        <div class="summary-stat"><div class="summary-stat-value">${escapeHtml(timeStr)}</div><div class="summary-stat-label">${escapeHtml(i18nText('workout.summary_duration','Duration'))}</div></div>
+        <div class="summary-stat"><div class="summary-stat-value green">${completedSets}/${totalSets}</div><div class="summary-stat-label">${escapeHtml(i18nText('workout.summary_sets','Sets Done'))}</div></div>
+        <div class="summary-stat"><div class="summary-stat-value gold">${escapeHtml(tonnageStr)}</div><div class="summary-stat-label">${escapeHtml(i18nText('workout.summary_volume','Volume'))}</div></div>
+        <div class="summary-stat"><div class="summary-stat-value purple">${rpe||'--'}</div><div class="summary-stat-label">${escapeHtml(i18nText('workout.summary_rpe','RPE'))}</div></div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px" onclick="closeSummaryModal()">${escapeHtml(i18nText('common.done','Done'))}</button>`;
+    document.getElementById('summary-modal').classList.add('active');
+    window._summaryResolve=resolve;
+  });
+}
+function closeSummaryModal(){
+  document.getElementById('summary-modal').classList.remove('active');
+  if(window._summaryResolve){window._summaryResolve();window._summaryResolve=null;}
+}
+
 async function finishWorkout(){
   if(!activeWorkout.exercises.length){showToast(i18nText('workout.add_at_least_one','Add at least one exercise!'),'var(--orange)');return;}
   clearWorkoutTimer();
   renderWorkoutTimer();
   skipRest();
   activeWorkout.exercises=activeWorkout.exercises.map(withResolvedExerciseId);
+  // Sanitize all set values before persisting (preserve AMRAP sentinel)
+  activeWorkout.exercises.forEach(e=>{
+    e.sets.forEach(s=>{
+      s.weight=sanitizeSetValue('weight',s.weight);
+      if(s.reps!=='AMRAP')s.reps=sanitizeSetValue('reps',s.reps);
+    });
+  });
   let totalSets=0;
   activeWorkout.exercises.forEach(e=>{totalSets+=e.sets.length;});
 
@@ -397,7 +447,9 @@ async function finishWorkout(){
   const stateBeforeSession=JSON.parse(JSON.stringify(state));
 
   // Structured state snapshot at session time (program-agnostic; used by history + analytics)
-  const programMeta=prog.getWorkoutMeta?prog.getWorkoutMeta(state):{week:state.week,cycle:state.cycle};
+  let programMeta;
+  try{programMeta=prog.getWorkoutMeta?prog.getWorkoutMeta(state):{week:state.week,cycle:state.cycle};}
+  catch(e){logWarn('getWorkoutMeta',e);programMeta={week:state.week,cycle:state.cycle};}
   const workoutId=Date.now();
   const workoutDate=new Date().toISOString();
 
@@ -412,37 +464,64 @@ async function finishWorkout(){
     forgeWeek:state.week||undefined,forgeDayNum:activeWorkout.programDayNum||undefined,
     duration:getWorkoutElapsedSeconds(),exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets});
 
-  // Adjust program state (TMs, weights, failures, etc.)
-  let newState=prog.adjustAfterSession?prog.adjustAfterSession(activeWorkout.exercises,state,activeWorkout.programOption):state;
+  // Program state adjustment — wrapped in try/catch so a program bug never loses the workout.
+  // If anything throws, the workout is already in the array and will be saved below.
+  let advancedState=state;
+  let programHookFailed=false;
+  try{
+    // Adjust program state (TMs, weights, failures, etc.)
+    let newState=prog.adjustAfterSession?prog.adjustAfterSession(activeWorkout.exercises,state,activeWorkout.programOption):state;
 
-  // Count sessions this week for advanceState
-  const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
-  const sessionsThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
+    // Count sessions this week for advanceState
+    const now=new Date(),sow=getWeekStart(now);
+    const sessionsThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
 
-  // Advance program state (week, cycle, A/B, etc.)
-  const advancedState=prog.advanceState?prog.advanceState(newState,sessionsThisWeek):newState;
-  const savedWorkout=workouts[workouts.length-1];
-  if(savedWorkout)savedWorkout.programStateAfter=JSON.parse(JSON.stringify(advancedState));
+    // Advance program state (week, cycle, A/B, etc.)
+    advancedState=prog.advanceState?prog.advanceState(newState,sessionsThisWeek):newState;
+    const savedWorkout=workouts[workouts.length-1];
+    if(savedWorkout)savedWorkout.programStateAfter=JSON.parse(JSON.stringify(advancedState));
 
-  // Toast on week or cycle advance (any program)
-  if(advancedState.cycle!==undefined&&advancedState.cycle!==(newState.cycle)){
-    const bi=prog.getBlockInfo?prog.getBlockInfo(advancedState):{name:''};
-    setTimeout(()=>showToast(i18nText('workout.next_cycle','{program} - cycle {cycle} starts now.',{program:programName,cycle:advancedState.cycle}),'var(--purple)'),500);
-  } else if(advancedState.week!==undefined&&advancedState.week!==newState.week){
-    const bi=prog.getBlockInfo?prog.getBlockInfo(advancedState):{name:'',weekLabel:''};
-    setTimeout(()=>showToast(i18nText('workout.next_week','{program} - {label} up next!',{program:programName,label:(bi.name||('Week '+advancedState.week))}),'var(--purple)'),500);
+    // Toast on week or cycle advance (any program)
+    if(advancedState.cycle!==undefined&&advancedState.cycle!==(newState.cycle)){
+      const bi=prog.getBlockInfo?prog.getBlockInfo(advancedState):{name:''};
+      setTimeout(()=>showToast(i18nText('workout.next_cycle','{program} - cycle {cycle} starts now.',{program:programName,cycle:advancedState.cycle}),'var(--purple)'),500);
+    } else if(advancedState.week!==undefined&&advancedState.week!==newState.week){
+      const bi=prog.getBlockInfo?prog.getBlockInfo(advancedState):{name:'',weekLabel:''};
+      setTimeout(()=>showToast(i18nText('workout.next_week','{program} - {label} up next!',{program:programName,label:(bi.name||('Week '+advancedState.week))}),'var(--purple)'),500);
+    }
+  }catch(e){
+    logWarn('finishWorkout program hooks',e);
+    programHookFailed=true;
   }
 
   setProgramState(prog.id,advancedState);
   saveProfileData();
   await saveWorkouts();
   buildExerciseIndex();
+
+  // Compute summary before clearing activeWorkout
+  let tonnage=0,completedSets=0;
+  activeWorkout.exercises.forEach(ex=>{
+    ex.sets.forEach(s=>{
+      if(s.done){completedSets++;tonnage+=(parseFloat(s.weight)||0)*(parseInt(s.reps)||0);}
+    });
+  });
+  const summaryData={
+    duration:getWorkoutElapsedSeconds(),
+    exerciseCount:activeWorkout.exercises.length,
+    completedSets,totalSets,tonnage,
+    rpe:sessionRPE,
+    programLabel:activeWorkout.programLabel||''
+  };
+
   activeWorkout=null;
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
   resetNotStartedView();
-  showToast(i18nText('workout.session_saved','Session saved!'));
   updateDashboard();
+
+  if(programHookFailed)showToast(i18nText('workout.program_error','Session saved, but program state may need review.'),'var(--orange)');
+  await showSessionSummary(summaryData);
 }
 
 function cancelWorkout(){

@@ -138,7 +138,7 @@ const FORGE_PROGRAM={
     const isSportDay=sportDays.includes(todayDow);
     const hadSportRecently=workouts.some(w=>(w.type==='sport'||w.type==='hockey')&&(Date.now()-new Date(w.date).getTime())/3600000<=recentHours);
     const sportLegs=(isSportDay||hadSportRecently)&&legsHeavy;
-    const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
+    const now=new Date(),sow=getWeekStart(now);
     const doneThisWeek=workouts.filter(w=>(w.program==='forge'||(!w.program&&w.type==='forge'))&&new Date(w.date)>=sow).map(w=>w.programDayNum||w.forgeDayNum);
     let bestDay=1,bestScore=-999;
     const dayScores=[];
@@ -237,7 +237,7 @@ const FORGE_PROGRAM={
 
   dateCatchUp(state){
     const week=state.week||1;if(week>=21)return state;
-    const daysSince=(Date.now()-new Date(state.weekStartDate||Date.now()).getTime())/864e5;
+    const daysSince=(Date.now()-new Date(state.weekStartDate||Date.now()).getTime())/MS_PER_DAY;
     if(daysSince>=7){
       const elapsed=Math.floor(daysSince/7);
       let next=Math.min(21,week+elapsed);

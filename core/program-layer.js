@@ -39,9 +39,7 @@ function recomputeProgramStateFromWorkouts(programId){
     if(prog.adjustAfterSession)state=prog.adjustAfterSession(exercises,state,w.programOption);
     if(prog.advanceState){
       const wd=new Date(w.date);
-      const sow=new Date(wd);
-      sow.setDate(wd.getDate()-((wd.getDay()+6)%7));
-      sow.setHours(0,0,0,0);
+      const sow=getWeekStart(wd);
       const sessionsThisWeek=programWorkouts
         .slice(0,idx+1)
         .filter(sw=>new Date(sw.date)>=sow).length;
@@ -57,13 +55,13 @@ function renderProgramSwitcher(){
   const container=document.getElementById('program-switcher-container');if(!container)return;
   const active=profile.activeProgram||'forge';
   container.innerHTML=Object.values(PROGRAMS).map(p=>`
-    <div class="program-card${p.id===active?' active':''}" onclick="switchProgram('${p.id}')">
-      <div class="program-card-icon">${p.icon||'🏋️'}</div>
+    <div class="program-card${p.id===active?' active':''}" onclick="switchProgram('${escapeHtml(p.id)}')">
+      <div class="program-card-icon">${escapeHtml(p.icon||'🏋️')}</div>
       <div style="flex:1;min-width:0">
-        <div class="program-card-name">${p.name}</div>
-        <div class="program-card-desc">${p.description}</div>
+        <div class="program-card-name">${escapeHtml(p.name)}</div>
+        <div class="program-card-desc">${escapeHtml(p.description)}</div>
       </div>
-      ${p.id===active?'<div class="program-card-badge">'+trProg('program.active','Active')+'</div>':''}
+      ${p.id===active?'<div class="program-card-badge">'+escapeHtml(trProg('program.active','Active'))+'</div>':''}
     </div>`).join('');
 }
 
@@ -95,6 +93,10 @@ function updateProgramLift(array,idx,field,val){
   const prog=getActiveProgram(),state=getActiveProgramState();
   if(!state.lifts||!state.lifts[array]||!state.lifts[array][idx])return;
   const newState=JSON.parse(JSON.stringify(state));
+  if(field==='tm'||field==='weight'){
+    const n=parseFloat(val);
+    val=isNaN(n)?0:Math.max(0,Math.min(999,Math.round(n*10)/10));
+  }
   newState.lifts[array][idx][field]=val;
   setProgramState(prog.id,newState);
 }
@@ -102,7 +104,10 @@ function updateProgramLift(array,idx,field,val){
 function updateSLLift(key,val){
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=JSON.parse(JSON.stringify(state));
-  if(newState.lifts&&newState.lifts[key])newState.lifts[key].weight=val;
+  if(newState.lifts&&newState.lifts[key]){
+    const n=parseFloat(val);
+    newState.lifts[key].weight=isNaN(n)?0:Math.max(0,Math.min(999,Math.round(n*10)/10));
+  }
   setProgramState(prog.id,newState);
 }
 
@@ -159,6 +164,8 @@ function updateProgramDisplay(){
   const bHTML=prog.getBannerHTML?prog.getBannerHTML(options,state,schedule,workouts,fatigue):null;
   if(bHTML&&banner){
     banner.style.background=bHTML.style;banner.style.border='1px solid '+bHTML.border;
+    // Banner HTML is trusted (first-party program code, not user input).
+    // Programs use <strong> and styled spans intentionally.
     banner.style.color=bHTML.color;banner.innerHTML=bHTML.html;
   }
 }

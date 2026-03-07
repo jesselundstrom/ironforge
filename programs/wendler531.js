@@ -181,9 +181,7 @@ const WENDLER_531 = {
     const scheme = W531.weekScheme[week] || W531.weekScheme[1];
 
     // Workouts logged this calendar week
-    const now = new Date(), sow = new Date(now);
-    sow.setDate(now.getDate() - ((now.getDay()+6) % 7));
-    sow.setHours(0,0,0,0);
+    const now = new Date(), sow = getWeekStart(now);
     const doneNums = workouts
       .filter(w => w.program==='wendler531' && new Date(w.date)>=sow)
       .map(w => w.programDayNum);
@@ -230,6 +228,7 @@ const WENDLER_531 = {
     const isDeload = scheme.isDeload && !state.testWeekPending;
     const isTest   = week === 4 && !!state.testWeekPending;
     const readiness = _readiness;
+    _readiness = 'default'; // reset after capturing — prevents stale readiness leaking into next session
     const exercises = [];
 
     this._dayLifts(dayNum, freq).forEach(liftIdx => {

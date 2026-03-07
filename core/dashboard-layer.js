@@ -12,9 +12,9 @@ function computeFatigue(){
   const now=Date.now();
   const liftS=workouts.filter(w=>!isSportWorkout(w)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const sportS=workouts.filter(w=>isSportWorkout(w)).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const daysSinceLift=liftS.length?(now-new Date(liftS[0].date).getTime())/864e5:99;
-  const daysSinceSport=sportS.length?(now-new Date(sportS[0].date).getTime())/864e5:99;
-  const last72h=workouts.filter(w=>now-new Date(w.date).getTime()<3*864e5);
+  const daysSinceLift=liftS.length?daysSince(liftS[0].date):99;
+  const daysSinceSport=sportS.length?daysSince(sportS[0].date):99;
+  const last72h=workouts.filter(w=>daysSince(w.date)<3);
   let recentSets=0,recentRPE=0,rpeCount=0;
   last72h.forEach(w=>{
     if(!isSportWorkout(w))w.exercises?.forEach(e=>recentSets+=e.sets.length);
@@ -115,7 +115,7 @@ function getSuggested(exercise){
 function renderWeekStrip(){
   const strip=document.getElementById('week-strip');
   const today=new Date(),todayDow=today.getDay();
-  const start=new Date(today);start.setDate(today.getDate()-((todayDow+6)%7));
+  const start=getWeekStart(today);
   const sn=schedule.sportName||trDash('common.sport','Sport');
   strip.innerHTML='';
   for(let i=0;i<7;i++){
@@ -191,12 +191,12 @@ function updateDashboard(){
     const tmSignature=tms.map(t=>`${t.name}:${t.value}`).join('|');
     const tmChanged=!!_lastTmSignature&&tmSignature!==_lastTmSignature;
     _lastTmSignature=tmSignature;
-    tmGrid.innerHTML=tms.map((t,i)=>`<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${t.value}</div><div class="label">${dashExerciseName(t.name)}</div></div>`).join('');
+    tmGrid.innerHTML=tms.map((t,i)=>`<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${escapeHtml(t.value)}</div><div class="label">${escapeHtml(dashExerciseName(t.name))}</div></div>`).join('');
     if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||trDash('dashboard.training_maxes','Training Maxes');
   }
 
   // Weekly session progress
-  const now=new Date(),sow=new Date(now);sow.setDate(now.getDate()-((now.getDay()+6)%7));sow.setHours(0,0,0,0);
+  const now=new Date(),sow=getWeekStart(now);
   const freq=ps.daysPerWeek||3;
   const doneThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
   const sportThisWeek=workouts.filter(w=>isSportWorkout(w)&&new Date(w.date)>=sow).length;

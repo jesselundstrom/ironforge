@@ -1,3 +1,25 @@
+// Shared HTML-escape utility (available to all layers)
+function escapeHtml(text){
+  return String(text??'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#39;');
+}
+
+// Shared date utilities (available to all layers)
+const MS_PER_DAY=864e5;
+function getWeekStart(date){
+  const d=new Date(date||new Date());
+  d.setDate(d.getDate()-((d.getDay()+6)%7));
+  d.setHours(0,0,0,0);
+  return d;
+}
+function daysSince(dateStr){
+  return (Date.now()-new Date(dateStr).getTime())/MS_PER_DAY;
+}
+
 // Lightweight runtime i18n helper with per-string fallback.
 (function(){
 'use strict';
@@ -147,7 +169,14 @@ const STRINGS={
     'workout.add_set':'+ Set',
     'workout.add_at_least_one':'Add at least one exercise!',
     'workout.deload_light':'Deload - keep it light',
+    'workout.exercise_removed':'{name} removed',
     'workout.session_saved':'Session saved!',
+    'workout.session_complete':'Session Complete',
+    'workout.summary_duration':'Duration',
+    'workout.summary_sets':'Sets Done',
+    'workout.summary_volume':'Volume',
+    'workout.summary_rpe':'RPE',
+    'workout.program_error':'Session saved, but program state may need review.',
     'workout.sport_legs_warning':'{sport} legs - consider fewer sets or swapping day order',
     'workout.extra_logged':'Extra {sport} logged!',
     'workout.next_cycle':'{program} - cycle {cycle} starts now.',
@@ -531,7 +560,14 @@ const STRINGS={
     'workout.add_set':'+ Sarja',
     'workout.add_at_least_one':'Lisää vähintään yksi liike!',
     'workout.deload_light':'Kevyt viikko - pidetään kevyenä',
+    'workout.exercise_removed':'{name} poistettu',
     'workout.session_saved':'Sessio tallennettu!',
+    'workout.session_complete':'Sessio valmis',
+    'workout.summary_duration':'Kesto',
+    'workout.summary_sets':'Sarjat',
+    'workout.summary_volume':'Volyymi',
+    'workout.summary_rpe':'RPE',
+    'workout.program_error':'Sessio tallennettiin, mutta ohjelman tila kannattaa tarkistaa.',
     'workout.extra_logged':'Ylimääräinen {sport} kirjattu!',
     'workout.next_cycle':'{program} - sykli {cycle} alkaa nyt.',
     'workout.next_week':'{program} - seuraavaksi {label}!',

@@ -70,7 +70,7 @@ function histComputeRecovery(){
     if(!prev){
       map[w.id]=85; // first session - assume well-rested
     } else {
-      const gapDays=(new Date(w.date)-new Date(prev.date))/864e5;
+      const gapDays=(new Date(w.date)-new Date(prev.date))/MS_PER_DAY;
       const prevRPE=prev.rpe||7;
       // Base: gap adds recovery, high-RPE sessions reduce it
       const raw=Math.round(40+(gapDays-1)*25-(prevRPE-7)*4);
@@ -153,7 +153,7 @@ function histRenderCard(w,isPR,recovery){
         <div class="hist-card-left">
           <span class="hist-lift-icon">${trHist('history.sport','Sport')}</span>
           <div>
-            <div class="hist-card-title">${sLabel}</div>
+            <div class="hist-card-title">${escapeHtml(sLabel)}</div>
             <div class="hist-card-date">${dateStr}</div>
             ${mins>0?`<div class="hist-sport-duration">${mins} min</div>`:''}
           </div>
@@ -195,7 +195,7 @@ function histRenderCard(w,isPR,recovery){
     const amrapStr=lastHeavy&&parseInt(lastHeavy.reps)>0
       ?` - <span class="hist-amrap-reps">${lastHeavy.reps}+ reps</span>` :'';
     return`<div class="hist-exercise-row">
-      <span>${histDisplayName(ex.name)}</span>
+      <span>${escapeHtml(histDisplayName(ex.name))}</span>
       <span class="hist-exercise-vol">${done.length}x${maxKg>0?maxKg+'kg':'bw'}${amrapStr}</span>
     </div>`;
   }).join('');
@@ -208,7 +208,7 @@ function histRenderCard(w,isPR,recovery){
       <div class="hist-card-left">
         <span class="hist-lift-icon">${liftIcon}</span>
         <div style="min-width:0">
-          <div class="hist-card-title">${shortLabel}</div>
+          <div class="hist-card-title">${escapeHtml(shortLabel)}</div>
           <div class="hist-card-date">${dateStr}</div>
         </div>
       </div>
@@ -235,7 +235,7 @@ function histRenderWeekGroup(wk,isOpen,prSet,recovMap){
     <summary class="hist-week-toggle">
       <div class="hist-week-toggle-left">
         <span class="hist-week-chevron">v</span>
-        <span class="hist-week-label">${wk.weekLabel}</span>
+        <span class="hist-week-label">${escapeHtml(wk.weekLabel)}</span>
       </div>
       <span class="hist-week-count">${count} ${count!==1?trHist('dashboard.sessions_left','sessions'):trHist('dashboard.session_left','session',{count:1})}</span>
     </summary>
@@ -248,9 +248,9 @@ function histRenderGroup(g,prSet,recovMap){
   const weeks=g.weeks.map((wk,i)=>histRenderWeekGroup(wk,i===0,prSet,recovMap)).join('');
   return`<div class="hist-cycle-group">
     <div class="hist-cycle-header">
-      <span class="hist-cycle-icon">${g.groupIcon}</span>
+      <span class="hist-cycle-icon">${escapeHtml(g.groupIcon)}</span>
       <div>
-        <div class="hist-cycle-label">${g.groupLabel}</div>
+        <div class="hist-cycle-label">${escapeHtml(g.groupLabel)}</div>
         <div class="hist-cycle-sub">${total} ${total!==1?trHist('dashboard.sessions_left','sessions'):trHist('dashboard.session_left','session',{count:1})}</div>
       </div>
     </div>
@@ -285,8 +285,7 @@ function renderHeatmap(){
   const today=new Date();today.setHours(0,0,0,0);
 
   // Monday of the current week
-  const dow=(today.getDay()+6)%7; // 0=Mon ... 6=Sun
-  const weekStart=new Date(today);weekStart.setDate(today.getDate()-dow);
+  const weekStart=getWeekStart(today);
 
   // Grid starts WEEKS weeks back (Monday)
   const gridStart=new Date(weekStart);gridStart.setDate(weekStart.getDate()-(WEEKS-1)*7);

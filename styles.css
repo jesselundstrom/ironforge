@@ -342,6 +342,15 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .heatmap-legend-item{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted)}
 .heatmap-legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 
+/* ── SESSION SUMMARY ── */
+.summary-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.summary-stat{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center}
+.summary-stat-value{font-size:24px;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--accent)}
+.summary-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:4px;font-weight:600}
+.summary-stat-value.green{color:var(--green)}
+.summary-stat-value.purple{color:var(--purple)}
+.summary-stat-value.gold{color:var(--gold)}
+
 /* ── NAME INPUT MODAL ── */
 .name-input-row{display:flex;gap:8px;margin-top:12px}
 .name-input-row input{flex:1}
