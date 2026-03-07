@@ -235,7 +235,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .badge-purple{background:rgba(167,139,250,0.1)!important;color:var(--purple)!important}
 .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.15);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-20px);color:white;padding:12px 22px;border-radius:14px;font-size:14px;font-weight:700;z-index:999;opacity:0;transition:all 0.3s ease;pointer-events:none;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,0.4)}
+.toast{position:fixed;top:calc(var(--sat) + 14px);left:50%;width:min(420px,calc(100vw - var(--sal) - var(--sar) - 24px));transform:translateX(-50%) translateY(-16px);color:white;padding:12px 16px;border-radius:14px;font-size:14px;line-height:1.4;font-weight:700;z-index:999;opacity:0;transition:all 0.3s ease;pointer-events:none;white-space:normal;text-wrap:balance;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.4)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .empty-state{text-align:center;padding:48px 24px;color:var(--muted);font-size:14px;font-weight:500}
 .divider-label{display:flex;align-items:center;gap:10px;margin:18px 0}

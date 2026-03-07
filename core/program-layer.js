@@ -4,6 +4,62 @@ function trProg(key,fallback,params){
   return fallback;
 }
 
+function cloneProgramSession(exercises){
+  return(exercises||[]).map(ex=>({
+    ...ex,
+    sets:Array.isArray(ex?.sets)?ex.sets.map(set=>({...set})):ex?.sets
+  }));
+}
+
+function analyzeProgramSessionShape(prog,session){
+  const exercises=Array.isArray(session)?session:[];
+  const totalSets=exercises.reduce((sum,ex)=>sum+(Array.isArray(ex.sets)?ex.sets.length:0),0);
+  const accessoryCount=exercises.filter(ex=>ex.isAccessory).length;
+  const auxCount=exercises.filter(ex=>ex.isAux&&!ex.isAccessory).length;
+  const legNames=new Set((prog.legLifts||[]).map(name=>String(name).toLowerCase()));
+  const hasLegs=exercises.some(ex=>legNames.has(String(ex.name||'').toLowerCase()));
+  return{totalSets,accessoryCount,auxCount,hasLegs,exerciseCount:exercises.length};
+}
+
+function getProgramPreferenceRecommendation(prog,options,state){
+  const prefs=normalizeTrainingPreferences(profile);
+  const activeOptions=(options||[]).filter(o=>!o.done);
+  if(activeOptions.length<=1)return null;
+  let best=null;
+  activeOptions.forEach((option,idx)=>{
+    let score=option.isRecommended?20:0;
+    let shape={totalSets:0,accessoryCount:0,auxCount:0,hasLegs:false,exerciseCount:0};
+    try{
+      shape=analyzeProgramSessionShape(prog,cloneProgramSession(prog.buildSession?prog.buildSession(option.value,state):[]));
+    }catch(_e){}
+    if(prefs.sessionMinutes<=30){
+      score+=shape.totalSets<=14?10:-8;
+      score-=shape.accessoryCount*5;
+      score-=Math.max(0,shape.auxCount-1)*2;
+    }else if(prefs.sessionMinutes<=45){
+      score+=shape.totalSets<=18?6:-5;
+      score-=shape.accessoryCount*3;
+      score-=Math.max(0,shape.auxCount-2);
+    }
+    if(prefs.goal==='sport_support'){
+      score+=shape.hasLegs?-6:5;
+      score+=shape.totalSets<=16?2:-2;
+      score-=shape.accessoryCount*2;
+    }
+    if(best===null||score>best.score||(score===best.score&&idx===0))best={value:option.value,score};
+  });
+  return best?.value||null;
+}
+
+function applyPreferenceRecommendation(prog,options,state){
+  const preferredValue=getProgramPreferenceRecommendation(prog,options,state);
+  if(!preferredValue)return options;
+  return(options||[]).map(option=>({
+    ...option,
+    isRecommended:!option.done&&option.value===preferredValue
+  }));
+}
+
 // Programs (loaded via <script> tags) call registerProgram() to self-register.
 const PROGRAMS={};
 function registerProgram(p){PROGRAMS[p.id]=p;}
@@ -140,7 +196,8 @@ function updateProgramDisplay(){
   const ds=document.getElementById('program-day-select');if(!ds)return;
   // Preserve any selection the user has already made before rebuilding the list
   const prevVal=ds.value;
-  const options=prog.getSessionOptions?prog.getSessionOptions(state,workouts,schedule):[];
+  const rawOptions=prog.getSessionOptions?prog.getSessionOptions(state,workouts,schedule):[];
+  const options=applyPreferenceRecommendation(prog,rawOptions,state);
   ds.innerHTML='';
   const recommended=options.find(o=>o.isRecommended)||options[0];
   // Use user's current pick if it still exists in the option list; otherwise recommend

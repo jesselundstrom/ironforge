@@ -53,6 +53,74 @@ function i18nText(key,fallback,params){
   return fallback;
 }
 
+function cloneWorkoutExercises(exercises){
+  return(exercises||[]).map(ex=>({
+    ...ex,
+    sets:Array.isArray(ex?.sets)?ex.sets.map(set=>({...set})):ex?.sets
+  }));
+}
+
+function applyTrainingPreferencesToExercises(exercises){
+  const prefs=normalizeTrainingPreferences(profile);
+  const next=cloneWorkoutExercises(exercises);
+  const changes=[];
+
+  let adjusted=next;
+
+  if(prefs.goal==='sport_support'){
+    const beforeLen=adjusted.length;
+    adjusted=adjusted.filter(ex=>!ex.isAccessory);
+    if(adjusted.length!==beforeLen){
+      changes.push(i18nText('workout.pref_adjustment.sport_support','Accessory work removed to keep the session sharper for sport support.'));
+    }
+    adjusted.forEach(ex=>{
+      if(ex.isAux&&!ex.isAccessory&&Array.isArray(ex.sets)&&ex.sets.length>3){
+        ex.sets=ex.sets.slice(0,3);
+      }
+    });
+  }
+
+  if(prefs.sessionMinutes<=45){
+    const beforeLen=adjusted.length;
+    adjusted=adjusted.filter(ex=>!ex.isAccessory);
+    if(adjusted.length!==beforeLen&&!changes.includes(i18nText('workout.pref_adjustment.accessories','Accessory work trimmed for a shorter session.'))){
+      changes.push(i18nText('workout.pref_adjustment.accessories','Accessory work trimmed for a shorter session.'));
+    }
+  }
+
+  if(prefs.sessionMinutes<=30){
+    let auxTrimmed=false;
+    adjusted.forEach(ex=>{
+      if(ex.isAux&&!ex.isAccessory&&Array.isArray(ex.sets)&&ex.sets.length>2){
+        ex.sets=ex.sets.slice(0,2);
+        auxTrimmed=true;
+      }
+    });
+    if(auxTrimmed){
+      changes.push(i18nText('workout.pref_adjustment.aux_volume','Auxiliary volume reduced to fit your time cap.'));
+    }
+  }else if(prefs.sessionMinutes<=45){
+    let auxTrimmed=false;
+    adjusted.forEach(ex=>{
+      if(ex.isAux&&!ex.isAccessory&&Array.isArray(ex.sets)&&ex.sets.length>3){
+        ex.sets=ex.sets.slice(0,3);
+        auxTrimmed=true;
+      }
+    });
+    if(auxTrimmed){
+      changes.push(i18nText('workout.pref_adjustment.aux_volume','Auxiliary volume reduced to fit your time cap.'));
+    }
+  }
+
+  return{
+    exercises:adjusted,
+    changes:[...new Set(changes)],
+    equipmentHint:(prefs.equipmentAccess==='basic_gym'||prefs.equipmentAccess==='home_gym'||prefs.equipmentAccess==='minimal')
+      ? i18nText('workout.pref_adjustment.swap_hint','Use exercise swap freely if your setup does not match the planned lift exactly.')
+      : ''
+  };
+}
+
 // escapeHtml() is defined globally in i18n-layer.js (loaded first)
 
 function displayExerciseName(input){
@@ -107,7 +175,9 @@ function startWorkout(){
   const state=getActiveProgramState();
   const selectedOption=document.getElementById('program-day-select')?.value;
 
-  const exercises=(prog.buildSession(selectedOption,state)||[]).map(withResolvedExerciseId);
+  const builtExercises=(prog.buildSession(selectedOption,state)||[]).map(withResolvedExerciseId);
+  const sessionPrefs=applyTrainingPreferencesToExercises(builtExercises);
+  const exercises=sessionPrefs.exercises;
   const label=prog.getSessionLabel(selectedOption,state);
   const bi=prog.getBlockInfo?prog.getBlockInfo(state):{isDeload:false};
   const sessionDescription=prog.getSessionDescription
@@ -140,6 +210,12 @@ function startWorkout(){
   startWorkoutTimer();renderExercises();
   const progName=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):(prog.name||'Training');
   showToast(bi.isDeload?i18nText('workout.deload_light','Deload - keep it light'):progName,bi.isDeload?'var(--blue)':'var(--purple)');
+  if(sessionPrefs.changes.length){
+    setTimeout(()=>showToast(sessionPrefs.changes[0],'var(--blue)'),900);
+  }
+  if(sessionPrefs.equipmentHint){
+    setTimeout(()=>showToast(sessionPrefs.equipmentHint,'var(--blue)'),sessionPrefs.changes.length?2600:900);
+  }
 
   // Sport warning for leg-heavy days
   const legLifts=prog.legLifts||[];
