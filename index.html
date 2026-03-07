@@ -27,31 +27,31 @@
     <circle cx="22" cy="22" r="19" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="119.4" stroke-dashoffset="0" id="timer-arc" stroke-linecap="round" transform="rotate(-90 22 22)" style="transition:stroke-dashoffset 1s linear"/>
   </svg>
   <div class="rest-timer-info">
-    <div class="rest-timer-label">Rest Timer</div>
+    <div class="rest-timer-label" data-i18n="workout.rest_timer">Rest Timer</div>
     <div class="rest-timer-count" id="rest-timer-count">2:00</div>
   </div>
-  <button class="rest-skip-btn" onclick="skipRest()">Skip ›</button>
+  <button class="rest-skip-btn" onclick="skipRest()" data-i18n="common.skip">Skip</button>
 </div>
 
 <!-- RPE MODAL -->
 <div class="modal-overlay" id="rpe-modal">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title">How hard was this session?</div>
-    <div class="modal-sub" id="rpe-modal-sub">Rate overall effort (6 = easy, 10 = max)</div>
+    <div class="modal-title" data-i18n="rpe.session_title">How hard was this session?</div>
+    <div class="modal-sub" id="rpe-modal-sub" data-i18n="rpe.session_prompt">Rate overall effort (6 = easy, 10 = max)</div>
     <div class="rpe-grid" id="rpe-grid"></div>
-    <div class="rpe-skip" onclick="skipRPE()">Skip</div>
+    <div class="rpe-skip" onclick="skipRPE()" data-i18n="common.skip">Skip</div>
   </div>
 </div>
 
 <!-- CONFIRM MODAL -->
 <div class="confirm-modal" id="confirm-modal">
   <div class="confirm-box">
-    <h3 id="confirm-title">Confirm</h3>
+    <h3 id="confirm-title" data-i18n="modal.confirm.title">Confirm</h3>
     <p id="confirm-msg">Are you sure?</p>
     <div class="confirm-actions">
-      <button class="btn btn-secondary btn-sm" onclick="confirmCancel()">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="confirm-ok" onclick="confirmOk()">Confirm</button>
+      <button class="btn btn-secondary btn-sm" onclick="confirmCancel()" data-i18n="modal.confirm.cancel">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="confirm-ok" onclick="confirmOk()" data-i18n="modal.confirm.ok">Confirm</button>
     </div>
   </div>
 </div>
@@ -60,12 +60,12 @@
 <div class="modal-overlay" id="name-modal">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title" id="name-modal-title">Add Exercise</div>
-    <div class="modal-sub">Enter the exercise name</div>
-    <input type="text" id="name-modal-input" placeholder="e.g. Back Squat">
+    <div class="modal-title" id="name-modal-title" data-i18n="modal.name.title">Add Exercise</div>
+    <div class="modal-sub" data-i18n="modal.name.sub">Enter the exercise name</div>
+    <input type="text" id="name-modal-input" data-i18n-placeholder="modal.name.placeholder" placeholder="e.g. Back Squat">
     <div class="name-input-row">
-      <button class="btn btn-secondary" onclick="closeNameModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitNameModal()">Add</button>
+      <button class="btn btn-secondary" onclick="closeNameModal()" data-i18n="common.cancel">Cancel</button>
+      <button class="btn btn-primary" onclick="submitNameModal()" data-i18n="common.add">Add</button>
     </div>
   </div>
 </div>
@@ -84,24 +84,24 @@
     <div class="week-progress-row">
       <div id="today-status" style="font-size:12px;flex:1"></div>
       <div id="session-pills" class="session-pills"></div>
-      <div id="volume-text" style="font-size:11px;color:var(--muted);white-space:nowrap">0/2 sessions</div>
+      <div id="volume-text" style="font-size:11px;color:var(--muted);white-space:nowrap" data-i18n="common.loading">Loading...</div>
     </div>
     <div id="day-detail-panel" style="display:none"></div>
   </div>
   <div class="card" id="todays-plan-card">
-    <div class="card-title">Today's Plan</div>
-    <div id="next-session-content" style="color:var(--muted);font-size:13px">Loading...</div>
+    <div class="card-title" data-i18n="dashboard.today_plan">Today's Plan</div>
+    <div id="next-session-content" style="color:var(--muted);font-size:13px" data-i18n="common.loading">Loading...</div>
   </div>
   <div class="dash-row">
     <div class="card dash-col">
-      <div class="card-title">Recovery</div>
-      <div class="fatigue-row"><div class="fatigue-label">Muscular</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
-      <div class="fatigue-row"><div class="fatigue-label">Nervous</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
-      <div class="fatigue-row"><div class="fatigue-label">Overall</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-overall" style="width:0%"></div></div><div class="fatigue-value" id="f-overall-val">—</div></div>
-      <div id="recovery-badge" style="margin-top:6px"><span style="font-size:11px;color:var(--muted)">Log workouts to see data</span></div>
+      <div class="card-title" data-i18n="dashboard.recovery">Recovery</div>
+      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.muscular">Muscular</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
+      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.nervous">Nervous</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
+      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.overall">Overall</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-overall" style="width:0%"></div></div><div class="fatigue-value" id="f-overall-val">—</div></div>
+      <div id="recovery-badge" style="margin-top:6px"><span style="font-size:11px;color:var(--muted)" data-i18n="dashboard.log_to_see">Log workouts to see data</span></div>
     </div>
     <div class="card dash-col">
-      <div class="card-title" id="tm-section-title">Maxes</div>
+      <div class="card-title" id="tm-section-title" data-i18n="dashboard.maxes">Maxes</div>
       <div class="lifts-grid" id="tm-grid"></div>
     </div>
   </div>
@@ -113,29 +113,30 @@
     <div class="quick-log-row">
       <div class="quick-log-card ql-sport" onclick="quickLogSport()">
         <div class="ql-icon">S</div>
-        <div><div class="ql-title">Log Extra Cardio</div><div class="ql-sub">Unscheduled cardio session</div></div>
+        <div><div class="ql-title" data-i18n="workout.log_extra_sport">Log Extra Sport</div><div class="ql-sub" data-i18n="workout.unscheduled_sport_session">Unscheduled sport session</div></div>
       </div>
     </div>
-    <div class="divider-label"><span>Training Session</span></div>
+    <div class="divider-label"><span data-i18n="workout.training_session">Training Session</span></div>
     <div class="card" style="padding:20px">
-      <div style="font-weight:800;font-size:16px;margin-bottom:4px">Start a Session</div>
-      <label style="margin-top:8px">Training Day</label>
+      <div style="font-weight:800;font-size:16px;margin-bottom:4px" data-i18n="workout.start_session">Start a Session</div>
+      <label style="margin-top:8px" data-i18n="workout.training_day">Training Day</label>
       <select id="program-day-select" onchange="onDaySelectChange()"></select>
       <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
-      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">🏋️ Start Workout</button></div>
+      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()" data-i18n="workout.start_workout">🏋️ Start Workout</button></div>
     </div>
   </div>
 
     <div id="workout-active" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:8px">
         <div>
-          <div style="font-weight:800;font-size:18px" id="active-session-title">Session</div>
+          <div style="font-weight:800;font-size:18px" id="active-session-title" data-i18n="common.session">Session</div>
+          <div id="active-session-description" style="font-size:12px;color:var(--muted);margin-top:3px;max-width:280px"></div>
           <div style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="active-session-timer">00:00</div>
         </div>
-        <button class="btn btn-sm btn-secondary" onclick="showNameModal('Add Exercise',addExerciseByName)">+ Exercise</button>
+        <button class="btn btn-sm btn-secondary" onclick="showNameModal(I18N.t('modal.name.title',null,'Add Exercise'),addExerciseByName)" data-i18n="workout.add_exercise">+ Exercise</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px">
-        <span style="font-size:12px;color:var(--muted);flex:1;font-weight:600">⏱ Rest timer</span>
+        <span style="font-size:12px;color:var(--muted);flex:1;font-weight:600" data-i18n="workout.rest_timer">⏱ Rest timer</span>
         <select id="rest-duration" style="width:auto;padding:4px 10px;font-size:13px;border-radius:8px;background:var(--surface2)" onchange="updateRestDuration()">
           <option value="60">1 min</option>
           <option value="90">90s</option>
@@ -143,112 +144,121 @@
           <option value="180">3 min</option>
           <option value="240">4 min</option>
           <option value="300">5 min</option>
-          <option value="0">Off</option>
+          <option value="0" data-i18n="common.off">Off</option>
         </select>
       </div>
       <div id="exercises-container"></div>
-      <button class="btn btn-primary" style="margin-top:8px" onclick="finishWorkout()">✅ Finish Session</button>
-      <button class="btn btn-ghost" style="margin-top:8px" onclick="showConfirm('Cancel Session','Discard this workout? Data won\'t be saved.',cancelWorkout)">Cancel</button>
+      <button class="btn btn-primary" style="margin-top:8px" onclick="finishWorkout()" data-i18n="workout.finish_session">✅ Finish Session</button>
+      <button class="btn btn-ghost" style="margin-top:8px" onclick="showConfirm(I18N.t('workout.cancel_session',null,'Discard Workout'),I18N.t('workout.discard_session',null,'Discard this in-progress workout? Sets won\'t be saved.'),cancelWorkout)" data-i18n="workout.cancel_session">Discard Workout</button>
     </div>
 </div>
 
 <!-- ===== HISTORY ===== -->
 <div class="page" id="page-history">
   <div class="header" style="padding:20px 0 10px">
-    <h1 class="page-title">History</h1>
-    <p>Your training record</p>
+    <h1 class="page-title" data-i18n="nav.history">History</h1>
+    <p data-i18n="history.subtitle">Your training record</p>
   </div>
   <div id="history-heatmap"></div>
   <div class="tabs">
-    <div class="tab active" onclick="switchHistoryTab('log',event)">Workout Log</div>
-    <div class="tab" onclick="switchHistoryTab('stats',event)">Stats</div>
+    <div class="tab active" onclick="switchHistoryTab('log',event)" data-i18n="history.tab.log">Workout Log</div>
+    <div class="tab" onclick="switchHistoryTab('stats',event)" data-i18n="history.tab.stats">Stats</div>
   </div>
   <div id="history-log"><div id="history-list"></div></div>
   <div id="history-stats" style="display:none">
-    <div class="card"><div class="card-title">Total Sessions</div><div style="font-size:36px;font-weight:900;color:var(--gold);font-family:'JetBrains Mono',monospace" id="stat-total">0</div></div>
-    <div class="card"><div class="card-title">Sport Sessions</div><div style="font-size:36px;font-weight:900;color:var(--blue);font-family:'JetBrains Mono',monospace" id="stat-sport">0</div></div>
+    <div class="card"><div class="card-title" data-i18n="history.total_sessions">Total Sessions</div><div style="font-size:36px;font-weight:900;color:var(--gold);font-family:'JetBrains Mono',monospace" id="stat-total">0</div></div>
+    <div class="card"><div class="card-title" data-i18n="history.sport_sessions">Sport Sessions</div><div style="font-size:36px;font-weight:900;color:var(--blue);font-family:'JetBrains Mono',monospace" id="stat-sport">0</div></div>
 
-    <div class="card"><div class="card-title">Sets This Month</div><div style="font-size:36px;font-weight:900;color:var(--accent);font-family:'JetBrains Mono',monospace" id="stat-sets">0</div></div>
-    <div class="card"><div class="card-title">Avg Session RPE</div><div style="font-size:36px;font-weight:900;color:var(--purple);font-family:'JetBrains Mono',monospace" id="stat-rpe">—</div></div>
+    <div class="card"><div class="card-title" data-i18n="history.sets_this_month">Sets This Month</div><div style="font-size:36px;font-weight:900;color:var(--accent);font-family:'JetBrains Mono',monospace" id="stat-sets">0</div></div>
+    <div class="card"><div class="card-title" data-i18n="history.avg_rpe">Avg Session RPE</div><div style="font-size:36px;font-weight:900;color:var(--purple);font-family:'JetBrains Mono',monospace" id="stat-rpe">—</div></div>
   </div>
 </div>
 
 <!-- ===== SETTINGS ===== -->
 <div class="page" id="page-settings">
   <div class="tabs" id="settings-tabs">
-    <div class="tab active" onclick="showSettingsTab('schedule',this)">Schedule</div>
-    <div class="tab" onclick="showSettingsTab('program',this)">Program</div>
-    <div class="tab" onclick="showSettingsTab('account',this)">Account</div>
+    <div class="tab active" onclick="showSettingsTab('schedule',this)" data-i18n="settings.tabs.schedule">Schedule</div>
+    <div class="tab" onclick="showSettingsTab('program',this)" data-i18n="settings.tabs.program">Program</div>
+    <div class="tab" onclick="showSettingsTab('account',this)" data-i18n="settings.tabs.account">Account</div>
   </div>
 
   <!-- ── Schedule tab ── -->
   <div id="settings-tab-schedule">
     <div class="card">
-      <div class="card-title">Sport / Cardio</div>
-      <label>Activity name</label>
-      <input id="sport-name" type="text" placeholder="e.g. Hockey, Soccer, Running" style="margin-bottom:14px">
-      <label>Intensity</label>
+      <div class="card-title" data-i18n="settings.sport_card">Sport / Cardio</div>
+      <label data-i18n="settings.activity_name">Activity name</label>
+      <input id="sport-name" type="text" data-i18n-placeholder="settings.activity_placeholder" placeholder="e.g. Hockey, Soccer, Running" style="margin-bottom:14px">
+      <label data-i18n="settings.intensity">Intensity</label>
       <div class="segment-control" id="sport-intensity-btns" style="display:flex;gap:6px;margin-bottom:14px">
-        <button class="btn btn-secondary" data-intensity="easy" onclick="setSportIntensity('easy',this)" style="flex:1">Easy</button>
-        <button class="btn btn-secondary" data-intensity="moderate" onclick="setSportIntensity('moderate',this)" style="flex:1">Moderate</button>
-        <button class="btn btn-secondary" data-intensity="hard" onclick="setSportIntensity('hard',this)" style="flex:1">Hard</button>
+        <button class="btn btn-secondary" data-intensity="easy" onclick="setSportIntensity('easy',this)" style="flex:1" data-i18n="settings.intensity.easy">Easy</button>
+        <button class="btn btn-secondary" data-intensity="moderate" onclick="setSportIntensity('moderate',this)" style="flex:1" data-i18n="settings.intensity.moderate">Moderate</button>
+        <button class="btn btn-secondary" data-intensity="hard" onclick="setSportIntensity('hard',this)" style="flex:1" data-i18n="settings.intensity.hard">Hard</button>
       </div>
       <label class="toggle-row" for="sport-legs-heavy">
         <div>
-          <div class="toggle-row-title">Leg-heavy</div>
-          <div class="toggle-row-sub">Warns when scheduling legs after sport</div>
+          <div class="toggle-row-title" data-i18n="settings.leg_heavy">Leg-heavy</div>
+          <div class="toggle-row-sub" data-i18n="settings.leg_heavy_sub">Warns when scheduling legs after sport</div>
         </div>
         <div class="toggle-switch">
           <input type="checkbox" id="sport-legs-heavy">
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
         </div>
       </label>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600">Regular Sport Days</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600" data-i18n="settings.regular_sport_days">Regular Sport Days</div>
       <div class="day-toggle-grid" id="sport-day-toggles"></div>
-      <button class="btn btn-primary" style="margin-top:18px" onclick="saveSchedule()">Save</button>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="saveSchedule()" data-i18n="common.save">Save</button>
     </div>
   </div>
 
   <!-- ── Program tab ── -->
   <div id="settings-tab-program" style="display:none">
     <div class="card">
-      <div class="card-title">Training Program</div>
+      <div class="card-title" data-i18n="settings.training_program">Training Program</div>
       <div id="program-switcher-container"></div>
     </div>
     <div class="card" style="display:flex;align-items:center;justify-content:space-between">
-      <label style="margin:0;font-size:13px;font-weight:600">Default Rest Timer</label>
+      <label style="margin:0;font-size:13px;font-weight:600" data-i18n="settings.default_rest">Default Rest Timer</label>
       <select id="default-rest" onchange="saveRestTimer()" style="width:auto;margin:0">
         <option value="60">1 min</option>
         <option value="90">90 sec</option>
         <option value="120" selected>2 min</option>
         <option value="180">3 min</option>
         <option value="300">5 min</option>
-        <option value="0">Off</option>
+        <option value="0" data-i18n="common.off">Off</option>
       </select>
     </div>
-    <button class="btn btn-secondary" style="width:100%;margin-top:4px" onclick="openProgramSetupSheet()">Edit Program Setup</button>
+    <button class="btn btn-secondary" style="width:100%;margin-top:4px" onclick="openProgramSetupSheet()" data-i18n="settings.edit_program">Edit Program Setup</button>
   </div>
 
   <!-- ── Account tab ── -->
   <div id="settings-tab-account" style="display:none">
     <div class="card">
-      <div class="card-title">Data Backup</div>
+      <div class="card-title" data-i18n="settings.language.title">Language</div>
+      <label data-i18n="settings.language.label">App language</label>
+      <select id="app-language" onchange="saveLanguageSetting()">
+        <option value="en" data-i18n="settings.language.option.en">English</option>
+        <option value="fi" data-i18n="settings.language.option.fi">Finnish</option>
+      </select>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px" data-i18n="settings.language.help">UI and exercise guidance use this language when available.</div>
+    </div>
+    <div class="card">
+      <div class="card-title" data-i18n="settings.data_backup">Data Backup</div>
       <div style="display:flex;gap:10px;margin-bottom:10px">
-        <button class="btn btn-secondary" style="flex:1" onclick="exportData()">📤 Export</button>
-        <label class="btn btn-secondary" style="flex:1;text-align:center;cursor:pointer;margin:0">📥 Import
+        <button class="btn btn-secondary" style="flex:1" onclick="exportData()" data-i18n="settings.export">📤 Export</button>
+        <label class="btn btn-secondary" style="flex:1;text-align:center;cursor:pointer;margin:0" data-i18n="settings.import">📥 Import
           <input type="file" accept=".json" onchange="importData(event)" style="display:none">
         </label>
       </div>
-      <div style="font-size:11px;color:var(--muted)">Export saves all data as a JSON file. Import from another device to sync your training history.</div>
+      <div style="font-size:11px;color:var(--muted)" data-i18n="settings.backup_help">Export saves all data as a JSON file. Import from another device to sync your training history.</div>
     </div>
     <div class="card">
-      <div class="card-title">Account</div>
+      <div class="card-title" data-i18n="settings.tabs.account">Account</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px" id="account-email"></div>
-      <button class="btn btn-ghost" onclick="logout()">Sign Out</button>
+      <button class="btn btn-ghost" onclick="logout()" data-i18n="settings.sign_out">Sign Out</button>
     </div>
     <div class="card">
-      <div class="card-title">Danger Zone</div>
-      <button class="btn btn-ghost" onclick="showConfirm('Clear All Data','Delete ALL training data? This cannot be undone.',clearAllData)" style="color:var(--red,#ef4444);border-color:rgba(239,68,68,0.3)">Clear All Data</button>
+      <div class="card-title" data-i18n="settings.danger">Danger Zone</div>
+      <button class="btn btn-ghost" onclick="showConfirm(I18N.t('confirm.clear_all_title',null,'Clear All Data'),I18N.t('confirm.clear_all_msg',null,'Delete ALL training data? This cannot be undone.'),clearAllData)" style="color:var(--red,#ef4444);border-color:rgba(239,68,68,0.3)" data-i18n="settings.clear_all">Clear All Data</button>
     </div>
   </div>
 </div>
@@ -258,8 +268,8 @@
   <div class="modal-sheet" style="max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding-bottom:48px">
     <div class="modal-handle"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div class="modal-title" id="program-setup-sheet-title">Program Setup</div>
-      <button onclick="closeProgramSetupSheet()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 14px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit">Done</button>
+      <div class="modal-title" id="program-setup-sheet-title" data-i18n="settings.program_setup">Program Setup</div>
+      <button onclick="closeProgramSetupSheet()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 14px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit" data-i18n="common.done">Done</button>
     </div>
     <div id="program-settings-container"></div>
   </div>
@@ -270,19 +280,19 @@
 <nav class="bottom-nav">
   <button class="nav-btn active" onclick="showPage('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-    <span>Dashboard</span>
+    <span data-i18n="nav.dashboard">Dashboard</span>
   </button>
   <button class="nav-btn" onclick="showPage('log',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="10" width="4" height="4" rx="1"/><rect x="19" y="10" width="4" height="4" rx="1"/><rect x="7" y="8" width="3" height="8" rx="1"/><rect x="14" y="8" width="3" height="8" rx="1"/><line x1="5" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="19" y2="12"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-    <span>Train</span>
+    <span data-i18n="nav.train">Train</span>
   </button>
   <button class="nav-btn" onclick="showPage('history',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    <span>History</span>
+    <span data-i18n="nav.history">History</span>
   </button>
   <button class="nav-btn" onclick="showPage('settings',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    <span>Settings</span>
+    <span data-i18n="nav.settings">Settings</span>
   </button>
 </nav>
 </div>
@@ -293,16 +303,18 @@
   <div class="login-hero" aria-hidden="true"></div>
   <div class="login-wrap">
     <div class="login-form">
-      <input class="login-input" type="email" id="login-email" placeholder="Email" autocomplete="email">
-      <input class="login-input" type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+      <input class="login-input" type="email" id="login-email" data-i18n-placeholder="login.email" placeholder="Email" autocomplete="email">
+      <input class="login-input" type="password" id="login-password" data-i18n-placeholder="login.password" placeholder="Password" autocomplete="current-password">
       <div id="login-error"></div>
-      <button class="btn-primary" onclick="loginWithEmail()">Sign In</button>
-      <button class="btn-secondary" onclick="signUpWithEmail()">Create Account</button>
+      <button class="btn-primary" onclick="loginWithEmail()" data-i18n="login.sign_in">Sign In</button>
+      <button class="btn-secondary" onclick="signUpWithEmail()" data-i18n="login.create_account">Create Account</button>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="core/i18n-layer.js"></script>
+<script src="core/exercise-library.js"></script>
 <script src="core/data-layer.js"></script>
 <script src="core/program-layer.js"></script>
 <script src="core/dashboard-layer.js"></script>

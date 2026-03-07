@@ -1,5 +1,6 @@
 ﻿function getSportQuickLogMeta(){
   const sportName=(schedule.sportName||'Cardio').trim()||'Cardio';
+  const displayName=displaySportName(sportName);
   const normalized=sportName.toLowerCase();
   let icon='S';
   if(normalized.includes('hock'))icon='🏒';
@@ -10,8 +11,8 @@
   else if(normalized.includes('soccer')||normalized.includes('football'))icon='⚽';
   else if(normalized.includes('basket'))icon='🏀';
   else if(normalized.includes('tennis'))icon='🎾';
-  const subtitle=normalized==='cardio'?`Unscheduled ${normalized} session`:`Unscheduled ${sportName} session`;
-  return {sportName,icon,subtitle};
+  const subtitle=i18nText('workout.unscheduled_session','Unscheduled {sport} session',{sport:normalized==='cardio'?normalized:displayName});
+  return {sportName:displayName,icon,subtitle};
 }
 
 function resetNotStartedView(){
@@ -21,18 +22,87 @@ function resetNotStartedView(){
     <div class="quick-log-row">
       <div class="quick-log-card ql-sport" onclick="quickLogSport()">
         <div class="ql-icon">${icon}</div>
-        <div><div class="ql-title">Log Extra ${sportName}</div><div class="ql-sub">${subtitle}</div></div>
+        <div><div class="ql-title">${i18nText('workout.log_extra','Log Extra {sport}',{sport:sportName})}</div><div class="ql-sub">${subtitle}</div></div>
       </div>
     </div>
-    <div class="divider-label"><span>${(prog.icon||'Lift')+' '+(prog.name||'Training')+' Session'}</span></div>
+    <div class="divider-label"><span>${(prog.icon||'Lift')+' '+(prog.name||'Training')+' '+i18nText('common.session','Session')}</span></div>
     <div class="card" style="padding:20px">
-      <div style="font-weight:800;font-size:16px;margin-bottom:4px">Start a Session</div>
-      <label style="margin-top:8px">Training Day</label>
+      <div style="font-weight:800;font-size:16px;margin-bottom:4px">${i18nText('workout.start_session','Start a Session')}</div>
+      <label style="margin-top:8px">${i18nText('workout.training_day','Training Day')}</label>
       <select id="program-day-select" onchange="onDaySelectChange()"></select>
       <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
-      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">Start Workout</button></div>
+      <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">${i18nText('workout.start_workout','Start Workout')}</button></div>
     </div>`;
   updateProgramDisplay();
+}
+
+function exerciseIdForName(name){
+  if(!window.EXERCISE_LIBRARY||!EXERCISE_LIBRARY.resolveExerciseId)return null;
+  return EXERCISE_LIBRARY.resolveExerciseId(name)||null;
+}
+
+function withResolvedExerciseId(ex){
+  if(!ex)return ex;
+  const exerciseId=ex.exerciseId||exerciseIdForName(ex.name);
+  return exerciseId?{...ex,exerciseId}:{...ex,exerciseId:null};
+}
+
+function i18nText(key,fallback,params){
+  if(window.I18N&&I18N.t)return I18N.t(key,params,fallback);
+  return fallback;
+}
+
+function escapeHtml(text){
+  return String(text??'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#39;');
+}
+
+function displayExerciseName(input){
+  if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(input);
+  return String(input||'');
+}
+
+function displaySportName(input){
+  const raw=String(input||'').trim();
+  if(!raw)return raw;
+  const locale=window.I18N&&I18N.getLanguage?I18N.getLanguage():'en';
+  if(locale==='fi'&&raw.toLowerCase()==='hockey')return 'Jääkiekko';
+  return raw;
+}
+
+function renderExerciseGuidance(ex){
+  if(!window.EXERCISE_LIBRARY||!EXERCISE_LIBRARY.getExerciseGuidance){
+    return'';
+  }
+  const guide=EXERCISE_LIBRARY.getExerciseGuidance(ex.exerciseId||ex.name,window.I18N&&I18N.getLanguage?I18N.getLanguage():'en');
+  if(!guide){
+    return`<div class="last-session" style="margin-top:2px">${escapeHtml(i18nText('guidance.none','No guidance is available for this exercise yet.'))}</div>`;
+  }
+  const execRows=(guide.execution||[]).map(step=>`<li>${escapeHtml(step)}</li>`).join('');
+  const cueRows=(guide.cues||[]).map(cue=>`<li>${escapeHtml(cue)}</li>`).join('');
+  const mediaLinks=[];
+  if(guide.media?.videoUrl){
+    mediaLinks.push(`<a class="exercise-guide-link" href="${escapeHtml(guide.media.videoUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(i18nText('guidance.media.video','Open video'))}</a>`);
+  }
+  if(guide.media?.imageUrl){
+    mediaLinks.push(`<a class="exercise-guide-link" href="${escapeHtml(guide.media.imageUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(i18nText('guidance.media.image','Open image'))}</a>`);
+  }
+  const mediaHtml=mediaLinks.length?`<div class="exercise-guide-links">${mediaLinks.join('')}</div>`:'';
+  return`
+    <details class="exercise-guide">
+      <summary>${escapeHtml(i18nText('guidance.title','Movement Guide'))}</summary>
+      <div class="exercise-guide-grid">
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.setup','Setup'))}</div><div class="exercise-guide-text">${escapeHtml(guide.setup||'')}</div></div>
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.execution','Execution'))}</div><ol class="exercise-guide-list">${execRows}</ol></div>
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.cues','Key cues'))}</div><ul class="exercise-guide-list">${cueRows}</ul></div>
+        <div><div class="exercise-guide-title">${escapeHtml(i18nText('guidance.safety','Safety'))}</div><div class="exercise-guide-text">${escapeHtml(guide.safety||'')}</div></div>
+        ${mediaHtml}
+      </div>
+    </details>`;
 }
 
 // WORKOUT STARTER
@@ -41,9 +111,12 @@ function startWorkout(){
   const state=getActiveProgramState();
   const selectedOption=document.getElementById('program-day-select')?.value;
 
-  const exercises=prog.buildSession(selectedOption,state);
+  const exercises=(prog.buildSession(selectedOption,state)||[]).map(withResolvedExerciseId);
   const label=prog.getSessionLabel(selectedOption,state);
   const bi=prog.getBlockInfo?prog.getBlockInfo(state):{isDeload:false};
+  const sessionDescription=prog.getSessionDescription
+    ? (prog.getSessionDescription(selectedOption,state)||'')
+    : (bi.modeDesc||bi.name||'');
 
   activeWorkout={
     program:prog.id,
@@ -52,6 +125,7 @@ function startWorkout(){
     programDayNum:parseInt(selectedOption)||1,
     programMode:state.mode||undefined,
     programLabel:label,
+    sessionDescription,
     exercises,
     startTime:Date.now()
   };
@@ -60,9 +134,15 @@ function startWorkout(){
   document.getElementById('workout-not-started').style.display='none';
   document.getElementById('workout-active').style.display='block';
   document.getElementById('active-session-title').textContent=label;
+  const descEl=document.getElementById('active-session-description');
+  if(descEl){
+    const prefix=i18nText('session.description','Session focus');
+    descEl.textContent=sessionDescription?(prefix+': '+sessionDescription):'';
+    descEl.style.display=sessionDescription?'':'none';
+  }
   restDuration=parseInt(document.getElementById('rest-duration')?.value)||profile.defaultRest||120;
   startWorkoutTimer();renderExercises();
-  showToast(bi.isDeload?'Deload - keep it light':(prog.name||'Training'),bi.isDeload?'var(--blue)':'var(--purple)');
+  showToast(bi.isDeload?i18nText('workout.deload_light','Deload - keep it light'):(prog.name||'Training'),bi.isDeload?'var(--blue)':'var(--purple)');
 
   // Sport warning for leg-heavy days
   const legLifts=prog.legLifts||[];
@@ -72,7 +152,7 @@ function startWorkout(){
   if((_isSportDay||_hadSportRecently)&&!bi.isDeload&&schedule.sportLegsHeavy!==false){
     const hasLegs=activeWorkout.exercises.some(e=>legLifts.includes(e.name.toLowerCase()));
     const _sn2=schedule.sportName||'Sport';
-    if(hasLegs)setTimeout(()=>showToast(`${_sn2} legs - consider fewer sets or swapping day order`,'var(--blue)'),1500);
+    if(hasLegs)setTimeout(()=>showToast(i18nText('workout.sport_legs_warning','{sport} legs - consider fewer sets or swapping day order',{sport:_sn2}),'var(--blue)'),1500);
   }
 }
 
@@ -80,10 +160,10 @@ function startWorkout(){
 // QUICK LOG
 function quickLogSport(){
   const {sportName}=getSportQuickLogMeta();
-  showConfirm('Log '+sportName,'Log an extra '+sportName.toLowerCase()+' session for today?',async()=>{
+  showConfirm(i18nText('workout.log_extra','Log Extra {sport}',{sport:sportName}),i18nText('workout.log_extra_confirm','Log an extra {sport} session for today?',{sport:sportName.toLowerCase()}),async()=>{
     workouts.push({id:Date.now(),date:new Date().toISOString(),type:'sport',subtype:'extra',duration:5400,exercises:[],rpe:7,sets:0});
     await saveWorkouts();
-    showToast('Extra '+sportName+' logged!','var(--accent)');
+    showToast(i18nText('workout.extra_logged','Extra {sport} logged!',{sport:sportName}),'var(--accent)');
     updateDashboard();
   });
 }
@@ -104,8 +184,9 @@ function startWorkoutTimer(){
 
 function addExerciseByName(name){
   if(!activeWorkout)return;
-  const suggested=getSuggested(name);
-  activeWorkout.exercises.push({id:Date.now()+Math.random(),name,note:'',sets:[
+  const exerciseId=exerciseIdForName(name);
+  const suggested=getSuggested({name,exerciseId});
+  activeWorkout.exercises.push({id:Date.now()+Math.random(),exerciseId,name,note:'',sets:[
     {weight:suggested||'',reps:5,done:false,rpe:null},
     {weight:suggested||'',reps:5,done:false,rpe:null},
     {weight:suggested||'',reps:5,done:false,rpe:null}
@@ -116,34 +197,41 @@ function addExerciseByName(name){
 function renderExercises(){
   const c=document.getElementById('exercises-container');c.innerHTML='';
   activeWorkout.exercises.forEach((ex,ei)=>{
-    const prev=getPreviousSets(ex.name);
-    const prevText=prev?'Last: '+prev.map(s=>s.weight+'kg\u00d7'+s.reps).join(', '):'No previous data';
-    const suggested=getSuggested(ex.name);
+    const prev=getPreviousSets(ex);
+    const prevText=prev?i18nText('workout.last_prefix','Last:')+' '+prev.map(s=>s.weight+'kg\u00d7'+s.reps).join(', '):i18nText('workout.no_previous_data','No previous data');
+    const suggested=getSuggested(ex);
     const block=document.createElement('div');block.className='exercise-block';
     let badges='';
-    if(suggested)badges+=`<div class="suggest-badge">\ud83d\udcc8 Last best: ${suggested}kg</div>`;
-    if(ex.note)badges+=`<div class="ai-badge" style="background:rgba(167,139,250,0.1);color:var(--purple);border-color:rgba(167,139,250,0.2)">\ud83d\udccb ${ex.note}</div>`;
-
-    // Swap button for auxiliary exercises
+    if(suggested)badges+=`<div class="suggest-badge">📈 ${i18nText('workout.last_best','Last best: {weight}kg',{weight:suggested})}</div>`;
+    if(ex.note)badges+=`<div class="ai-badge">📋 ${escapeHtml(ex.note)}</div>`;
+    const guidanceHtml=renderExerciseGuidance(ex);
     let swapBtn='';
     if(ex.isAux&&ex.auxSlotIdx>=0){
-      swapBtn=`<button class="btn btn-icon btn-secondary" onclick="swapAuxExercise(${ei})" title="Swap exercise" style="font-size:14px">Swap</button>`;
+      swapBtn=`<button class="btn btn-icon btn-secondary exercise-action-btn" onclick="swapAuxExercise(${ei})" title="${escapeHtml(i18nText('workout.swap','Swap'))}" aria-label="${escapeHtml(i18nText('workout.swap','Swap'))}">${escapeHtml(i18nText('workout.swap','Swap'))}</button>`;
     }
-    // Swap button for back accessory
     if(ex.isAccessory){
-      swapBtn=`<button class="btn btn-icon btn-secondary" onclick="swapBackExercise(${ei})" title="Swap back exercise" style="font-size:14px">Swap</button>`;
+      swapBtn=`<button class="btn btn-icon btn-secondary exercise-action-btn" onclick="swapBackExercise(${ei})" title="${escapeHtml(i18nText('workout.swap_back','Swap back exercise'))}" aria-label="${escapeHtml(i18nText('workout.swap_back','Swap back exercise'))}">${escapeHtml(i18nText('workout.swap','Swap'))}</button>`;
     }
-    const typeLabel=ex.isAux?'<span style="font-size:10px;color:var(--muted);font-weight:600;margin-left:6px">AUX</span>':ex.isAccessory?'<span style="font-size:10px;color:var(--blue);font-weight:600;margin-left:6px">BACK</span>':'';
+    const typeLabel=ex.isAux?`<span class="exercise-chip">${escapeHtml(i18nText('workout.aux','AUX'))}</span>`:ex.isAccessory?`<span class="exercise-chip exercise-chip-blue">${escapeHtml(i18nText('workout.back','BACK'))}</span>`:'';
+    const badgesHtml=badges?`<div class="exercise-badges">${badges}</div>`:'';
 
     block.innerHTML=`
-      <div class="exercise-header">
-        <div class="exercise-name">${ex.name}${typeLabel}</div>
-        <div style="display:flex;gap:4px">${swapBtn}<button class="btn btn-icon btn-secondary" onclick="removeEx(${ei})">\u2715</button></div>
+      <div class="exercise-top">
+        <div class="exercise-header">
+          <div class="exercise-title-stack">
+            <div class="exercise-title-row">
+              <div class="exercise-name">${escapeHtml(displayExerciseName(ex.name))}</div>
+              ${typeLabel}
+            </div>
+            <div class="last-session">${prevText}</div>
+          </div>
+          <div class="exercise-action-row">${swapBtn}<button class="btn btn-icon btn-secondary exercise-action-btn exercise-remove-btn" onclick="removeEx(${ei})" title="${escapeHtml(i18nText('workout.remove_exercise','Remove exercise'))}" aria-label="${escapeHtml(i18nText('workout.remove_exercise','Remove exercise'))}">✕</button></div>
+        </div>
+        ${badgesHtml}
       </div>
-      <div class="last-session">${prevText}</div>
-      ${badges}
+      ${guidanceHtml}
       <div id="sets-${ei}"></div>
-      <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addSet(${ei})">+ Set</button>`;
+      <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addSet(${ei})">${i18nText('workout.add_set','+ Set')}</button>`;
     c.appendChild(block);
     const sc=document.getElementById('sets-'+ei);
     ex.sets.forEach((set,si)=>{
@@ -152,17 +240,17 @@ function renderExercises(){
       const mode=activeWorkout?.programMode||'sets';
       const isLastSet=si===ex.sets.length-1;
       const showRir=mode==='rir'&&isLastSet&&!ex.isAccessory;
-      const setLabel=isAmrap?'MAX':String(si+1);
+      const setLabel=isAmrap?i18nText('workout.max_short','MAX'):String(si+1);
       const repVal=isAmrap&&set.reps==='AMRAP'?'':set.reps;
       if(isAmrap)row.style.cssText='background:rgba(167,139,250,0.12);border-radius:8px;padding:2px 0';
       row.innerHTML=`
         <span class="set-num"${isAmrap?' style="color:var(--purple);font-weight:800"':''}>${setLabel}</span>
-        <input type="number" placeholder="kg" value="${set.weight}" onchange="updateSet(${ei},${si},'weight',this.value)" style="width:62px">
-        <input type="number" placeholder="${isAmrap?'reps hit':'reps'}" value="${repVal}" onchange="updateSet(${ei},${si},'reps',this.value)" style="width:56px${isAmrap?';border-color:var(--purple)':''}">
-        ${showRir?`<select onchange="updateSet(${ei},${si},'rir',this.value)" style="width:56px;padding:6px 4px;font-size:12px;border-radius:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);color:var(--blue);font-weight:700;text-align:center">
-          <option value="">RIR</option><option value="0"${set.rir==='0'||set.rir===0?' selected':''}>0</option><option value="1"${set.rir==='1'||set.rir===1?' selected':''}>1</option><option value="2"${set.rir==='2'||set.rir===2?' selected':''}>2</option><option value="3"${set.rir==='3'||set.rir===3?' selected':''}>3</option><option value="4"${set.rir==='4'||set.rir===4?' selected':''}>4</option><option value="5"${set.rir==='5'||set.rir===5?' selected':''}>5+</option>
+        <input class="set-input" type="number" placeholder="${escapeHtml(i18nText('workout.weight_placeholder','kg'))}" value="${set.weight}" onchange="updateSet(${ei},${si},'weight',this.value)">
+        <input class="set-input" type="number" placeholder="${escapeHtml(isAmrap?i18nText('workout.reps_hit','reps hit'):i18nText('workout.reps_placeholder','reps'))}" value="${repVal}" onchange="updateSet(${ei},${si},'reps',this.value)"${isAmrap?' style="border-color:var(--purple)"':''}>
+        ${showRir?`<select class="set-rir" onchange="updateSet(${ei},${si},'rir',this.value)">
+          <option value="">${escapeHtml(i18nText('workout.rir','RIR'))}</option><option value="0"${set.rir==='0'||set.rir===0?' selected':''}>0</option><option value="1"${set.rir==='1'||set.rir===1?' selected':''}>1</option><option value="2"${set.rir==='2'||set.rir===2?' selected':''}>2</option><option value="3"${set.rir==='3'||set.rir===3?' selected':''}>3</option><option value="4"${set.rir==='4'||set.rir===4?' selected':''}>4</option><option value="5"${set.rir==='5'||set.rir===5?' selected':''}>5+</option>
         </select>`:''}
-        <div class="set-check ${set.done?'done':''}" onclick="toggleSet(${ei},${si})">\u2713</div>`;
+        <div class="set-check ${set.done?'done':''}" onclick="toggleSet(${ei},${si})">✓</div>`;
       sc.appendChild(row);
     });
   });
@@ -202,36 +290,38 @@ function swapAuxExercise(ei){
   const swapInfo=prog.getAuxSwapOptions?prog.getAuxSwapOptions(ex):null;
   if(!swapInfo)return;
   const cat=swapInfo.category||'',opts=swapInfo.options||[];
-  const title=cat?'Swap '+cat.charAt(0).toUpperCase()+cat.slice(1)+' Auxiliary':'Swap Exercise';
-  let optHtml=opts.map(o=>`<div class="swap-option${o===ex.name?' swap-active':''}" onclick="doAuxSwap(${ei},'${o.replace(/'/g,"\\'")}',${ex.auxSlotIdx})">${o}</div>`).join('');
+  const title=cat?i18nText('workout.swap_aux_category','Swap {cat} auxiliary',{cat:cat.charAt(0).toUpperCase()+cat.slice(1)}):i18nText('workout.swap_exercise','Swap exercise');
+  let optHtml=opts.map(o=>`<div class="swap-option${o===ex.name?' swap-active':''}" onclick="doAuxSwap(${ei},'${o.replace(/'/g,"\\'")}',${ex.auxSlotIdx})">${escapeHtml(displayExerciseName(o))}</div>`).join('');
   showCustomModal(title,`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
 }
 
 function doAuxSwap(ei,newName,slotIdx){
   activeWorkout.exercises[ei].name=newName;
+  activeWorkout.exercises[ei].exerciseId=exerciseIdForName(newName);
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=prog.onAuxSwap?prog.onAuxSwap(slotIdx,newName,state):state;
   setProgramState(prog.id,newState);
   saveProfileData();
   closeCustomModal();renderExercises();
-  showToast('Swapped to '+newName,'var(--purple)');
+  showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(newName)}),'var(--purple)');
 }
 
 function swapBackExercise(ei){
   const prog=getActiveProgram();
   const opts=prog.getBackSwapOptions?prog.getBackSwapOptions():[];
-  let optHtml=opts.map(o=>`<div class="swap-option${o===activeWorkout.exercises[ei].name?' swap-active':''}" onclick="doBackSwap(${ei},'${o.replace(/'/g,"\\'")}')"> ${o}</div>`).join('');
-  showCustomModal('Swap Back Exercise',`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
+  let optHtml=opts.map(o=>`<div class="swap-option${o===activeWorkout.exercises[ei].name?' swap-active':''}" onclick="doBackSwap(${ei},'${o.replace(/'/g,"\\'")}')"> ${escapeHtml(displayExerciseName(o))}</div>`).join('');
+  showCustomModal(i18nText('workout.swap_back_title','Swap Back Exercise'),`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
 }
 
 function doBackSwap(ei,newName){
   activeWorkout.exercises[ei].name=newName;
+  activeWorkout.exercises[ei].exerciseId=exerciseIdForName(newName);
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=prog.onBackSwap?prog.onBackSwap(newName,state):state;
   setProgramState(prog.id,newState);
   saveProfileData();
   closeCustomModal();renderExercises();
-  showToast('Swapped to '+newName,'var(--purple)');
+  showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(newName)}),'var(--purple)');
 }
 
 function showCustomModal(title,bodyHtml){
@@ -242,7 +332,7 @@ function showCustomModal(title,bodyHtml){
   m.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%">
     <div style="font-weight:800;font-size:16px;margin-bottom:14px">${title}</div>
     ${bodyHtml}
-    <button class="btn btn-secondary" style="margin-top:14px;width:100%" onclick="closeCustomModal()">Cancel</button>
+    <button class="btn btn-secondary" style="margin-top:14px;width:100%" onclick="closeCustomModal()">${i18nText('common.cancel','Cancel')}</button>
   </div>`;
   m.onclick=e=>{if(e.target===m)closeCustomModal();};
   document.body.appendChild(m);
@@ -251,16 +341,18 @@ function showCustomModal(title,bodyHtml){
 function closeCustomModal(){const m=document.getElementById('custom-swap-modal');if(m)m.remove();}
 
 async function finishWorkout(){
-  if(!activeWorkout.exercises.length){showToast('Add at least one exercise!','var(--orange)');return;}
+  if(!activeWorkout.exercises.length){showToast(i18nText('workout.add_at_least_one','Add at least one exercise!'),'var(--orange)');return;}
   clearInterval(workoutTimer);skipRest();
+  activeWorkout.exercises=activeWorkout.exercises.map(withResolvedExerciseId);
   let totalSets=0;
   activeWorkout.exercises.forEach(e=>{totalSets+=e.sets.length;});
 
   const sessionRPE = await new Promise(resolve=>{
-    showRPEPicker('Session',-1,(val)=>resolve(val||7));
+    showRPEPicker(i18nText('common.session','Session'),-1,(val)=>resolve(val||7));
   });
 
   const prog=getActiveProgram();
+  const programName=window.I18N&&I18N.t?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):prog.name||'Training';
   const state=getActiveProgramState();
   const stateBeforeSession=JSON.parse(JSON.stringify(state));
 
@@ -295,10 +387,10 @@ async function finishWorkout(){
   // Toast on week or cycle advance (any program)
   if(advancedState.cycle!==undefined&&advancedState.cycle!==(newState.cycle)){
     const bi=prog.getBlockInfo?prog.getBlockInfo(advancedState):{name:''};
-    setTimeout(()=>showToast(prog.name+' - Cycle '+advancedState.cycle+' starting - TMs updated!','var(--purple)'),500);
+    setTimeout(()=>showToast(i18nText('workout.next_cycle','{program} - cycle {cycle} starts now.',{program:programName,cycle:advancedState.cycle}),'var(--purple)'),500);
   } else if(advancedState.week!==undefined&&advancedState.week!==newState.week){
     const bi=prog.getBlockInfo?prog.getBlockInfo(advancedState):{name:'',weekLabel:''};
-    setTimeout(()=>showToast(prog.name+' - '+(bi.name||'Week '+advancedState.week)+' up next!','var(--purple)'),500);
+    setTimeout(()=>showToast(i18nText('workout.next_week','{program} - {label} up next!',{program:programName,label:(bi.name||('Week '+advancedState.week))}),'var(--purple)'),500);
   }
 
   setProgramState(prog.id,advancedState);
@@ -309,7 +401,7 @@ async function finishWorkout(){
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
   resetNotStartedView();
-  showToast('Session saved!');
+  showToast(i18nText('workout.session_saved','Session saved!'));
   updateDashboard();
 }
 
@@ -319,4 +411,5 @@ function cancelWorkout(){
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
   resetNotStartedView();
+  showToast(i18nText('workout.session_discarded','Workout discarded.'));
 }

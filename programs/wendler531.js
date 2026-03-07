@@ -6,11 +6,22 @@
 (function(){
 'use strict';
 
+function trW531(key,fallback,params){
+  if(window.I18N)return I18N.t(key,params,fallback);
+  return fallback;
+}
+
+function getW531SchemeName(week){
+  const keyMap={1:'program.w531.scheme.5s',2:'program.w531.scheme.3s',3:'program.w531.scheme.531',4:'program.w531.scheme.deload'};
+  const k=keyMap[week];const label=(W531.weekScheme[week]||{}).label||'';
+  return k?trW531(k,label):label;
+}
+
 // ─── INTERNAL CONSTANTS & HELPERS ────────────────────────────────────────────
 const W531 = {
   seasons: {
-    off: { name:'Off-Season',  short:'5\'s PRO + BBB' },
-    in:  { name:'In-Season',   short:'Min Reps + Triumvirate' }
+    off: { name:trW531('program.season.off','Off-Season'),  short:trW531('program.w531.off_short','5\'s PRO + BBB') },
+    in:  { name:trW531('program.season.in','In-Season'),   short:trW531('program.w531.in_short','Min Reps + Triumvirate') }
   },
 
   // 4-week scheme: percentages of TM and label
@@ -114,8 +125,8 @@ let _readiness = 'default'; // 'default' | 'light' | 'none'
 // ─── PROGRAM OBJECT ───────────────────────────────────────────────────────────
 const WENDLER_531 = {
   id:   'wendler531',
-  name: '5/3/1 (Wendler)',
-  description: "4-week strength cycles with automatic weight progression.",
+  name: trW531('program.w531.name','5/3/1 (Wendler)'),
+  description: trW531('program.w531.description',"4-week strength cycles with automatic weight progression."),
   icon: '💪',
 
   // Leg-containing lifts for hockey fatigue awareness
@@ -236,8 +247,9 @@ const WENDLER_531 = {
           isAmrap:true, repOutTarget:5,
           isTestSet:true, isLastHeavySet:false
         }];
-        note = '🔬 TM TEST · '+lift.tm+'kg × AMRAP — '
-             + '3-5 reps → normal cycle; 1-2 reps → TM recalculates to 90% estimated 1RM';
+        note = trW531('program.w531.note.test',
+          '🔬 TM TEST · '+lift.tm+'kg × AMRAP — 3-5 reps → normal cycle; 1-2 reps → TM recalculates to 90% estimated 1RM',
+          {tm:lift.tm});
 
       } else {
         sets = scheme.pcts.map((pct, si) => {
@@ -249,11 +261,17 @@ const WENDLER_531 = {
         const pctStr = scheme.pcts.map(p => Math.round(p*100)+'%').join('/');
         const repStr = sets.map(s => s.reps).join('/');
         if (isDeload)
-          note = '🌊 Deload · '+lift.tm+'kg TM · '+pctStr+' · easy 5s — recovery week';
+          note = trW531('program.w531.note.deload',
+            '🌊 Deload · '+lift.tm+'kg TM · '+pctStr+' · easy 5s — recovery week',
+            {tm:lift.tm,pcts:pctStr});
         else if (season === 'off')
-          note = lift.tm+'kg TM · '+pctStr+' · '+repStr+" (5's PRO — strict 5 reps all sets, no AMRAP)";
+          note = trW531('program.w531.note.off',
+            lift.tm+'kg TM · '+pctStr+' · '+repStr+" (5's PRO — strict 5 reps all sets, no AMRAP)",
+            {tm:lift.tm,pcts:pctStr,reps:repStr});
         else
-          note = lift.tm+'kg TM · '+pctStr+' · '+repStr+' (minimum required reps — conserve energy)';
+          note = trW531('program.w531.note.in',
+            lift.tm+'kg TM · '+pctStr+' · '+repStr+' (minimum required reps — conserve energy)',
+            {tm:lift.tm,pcts:pctStr,reps:repStr});
       }
 
       exercises.push({
@@ -269,7 +287,7 @@ const WENDLER_531 = {
         W531.recoveryCircuit.forEach(rc => {
           exercises.push({
             id: Date.now()+Math.random(), name:rc.name,
-            note: 'Light recovery · '+rc.sets+'×'+rc.reps,
+            note: trW531('program.w531.note.recovery','Light recovery · {sets}×{reps}',{sets:rc.sets,reps:rc.reps}),
             isAux:true, isAccessory:false, tm:0, auxSlotIdx:-1,
             sets: Array.from({length:rc.sets}, () => ({weight:0, reps:rc.reps, done:false, rpe:null}))
           });
@@ -286,7 +304,7 @@ const WENDLER_531 = {
           exercises.push({
             id: Date.now()+Math.random(),
             name: opp.name+' (BBB)',
-            note: 'Boring But Big · 5×10 @ '+bw+'kg (50% of '+opp.name+' TM: '+opp.tm+'kg)',
+            note: trW531('program.w531.note.bbb','Boring But Big · 5×10 @ {weight}kg (50% of {name} TM: {tm}kg)',{weight:bw,name:opp.name,tm:opp.tm}),
             isAux:true, isAccessory:false, tm:opp.tm, auxSlotIdx:-1,
             sets: Array.from({length:5}, () => ({weight:bw, reps:10, done:false, rpe:null}))
           });
@@ -300,7 +318,7 @@ const WENDLER_531 = {
           if (!exName) return;
           exercises.push({
             id: Date.now()+Math.random(), name:exName,
-            note: 'Triumvirate · 3 sets × 10-15 reps',
+            note: trW531('program.w531.note.triumvirate','Triumvirate · 3 sets × 10-15 reps'),
             isAux:true, isAccessory:false, tm:0, auxSlotIdx: liftIdx * 2 + triSlotIdx,
             sets: Array.from({length:3}, () => ({weight:'', reps:12, done:false, rpe:null}))
           });
@@ -323,7 +341,7 @@ const WENDLER_531 = {
     const names  = this._dayLifts(dayNum, freq)
                        .map(i => state.lifts.main[i]?.name||'').join('+');
     const icon   = isTest ? '🔬' : scheme.isDeload ? '🌊' : season==='off' ? '🏗️' : '🏒';
-    const tag    = isTest ? 'TM Test' : scheme.label;
+    const tag    = isTest ? trW531('program.w531.tm_test','TM Test') : getW531SchemeName(week);
     return icon+' C'+cycle+' W'+week+' · '+names+' ['+tag+']';
   },
 
@@ -334,7 +352,7 @@ const WENDLER_531 = {
     const scheme = W531.weekScheme[week] || W531.weekScheme[1];
     const isTest = week===4 && !!state.testWeekPending;
     return {
-      name:      isTest ? 'TM Test Week' : scheme.label,
+      name:      isTest ? trW531('program.w531.tm_test_week','TM Test Week') : scheme.label,
       weekLabel: 'Cycle '+cycle+' · Week '+week+' · '+(W531.seasons[season]?.name||season),
       pct:       Math.round((scheme.pcts[2]||0.85)*100),
       isDeload:  scheme.isDeload && !isTest,
@@ -514,17 +532,19 @@ const WENDLER_531 = {
     const left      = needed - doneCount;
     const bestOpt   = options.find(o => o.isRecommended) || options[0];
     const stalled   = Object.keys(state.stalledLifts||{}).length;
-    const stalledStr = stalled ? ' · ⚠️ '+stalled+' lift'+(stalled>1?'s':'')+' stalled' : '';
+    const stalledStr = stalled
+      ? trW531(stalled>1?'program.w531.banner.stalled_pl':'program.w531.banner.stalled',' · ⚠️ {count} lift'+(stalled>1?'s':'')+' stalled',{count:stalled})
+      : '';
 
     // All sessions done this week
     if (doneCount >= needed) {
       const nextWeek = week >= 4 ? 1 : week+1;
       const nextLabel = week >= 4
-        ? 'Cycle '+(cycle+1)+' starts — TMs update!'+stalledStr
-        : 'Week '+nextWeek+' ('+((W531.weekScheme[nextWeek]||{}).label||'')+') up next.';
+        ? trW531('program.w531.next_cycle','Cycle {cycle} starts — TMs update!',{cycle:(cycle+1)})+stalledStr
+        : trW531('program.w531.next_week','Week {week} ({label}) up next.',{week:nextWeek,label:getW531SchemeName(nextWeek)});
       return {
         style:'rgba(34,197,94,0.1)', border:'rgba(34,197,94,0.25)', color:'var(--green)',
-        html:'✅ Week '+week+' done! '+nextLabel
+        html:trW531('program.w531.week_done','✅ Week {week} done! {next}',{week,next:nextLabel})
       };
     }
 
@@ -533,7 +553,7 @@ const WENDLER_531 = {
     const sportDays = schedule?.sportDays||schedule?.hockeyDays||[];
     const legsHeavy = schedule?.sportLegsHeavy!==false;
     const recentHours = {easy:18,moderate:24,hard:30}[schedule?.sportIntensity||'hard'];
-    const sportName = schedule?.sportName||'Sport';
+    const sportName = schedule?.sportName||trW531('common.sport','Sport');
     const isSportDay = sportDays.includes(todayDow);
     const hadSportRecently = workouts?.some(w =>
       (w.type==='sport'||w.type==='hockey') && (Date.now()-new Date(w.date).getTime())/3600000 <= recentHours
@@ -549,17 +569,19 @@ const WENDLER_531 = {
         return {
           style:'rgba(59,130,246,0.1)', border:'rgba(59,130,246,0.25)', color:'var(--blue)',
           html: '🏃 '+sportLabel
-              +' — recommended session is leg-heavy. '
-              +(upperOpt?'Consider <strong>'+upperOpt.label+'</strong> instead.':'Only leg sessions remain — go lighter or rest today.')
+              +' — '+trW531('program.w531.banner_leg_heavy','recommended session is leg-heavy. ')
+              +(upperOpt
+                ? trW531('program.w531.banner_consider_upper','Consider <strong>{label}</strong> instead.',{label:upperOpt.label})
+                : trW531('program.w531.banner_only_legs','Only leg sessions remain — go lighter or rest today.'))
         };
       }
     }
 
     // Readiness override selector
     const rBtns = [
-      ['default', '💪 Full session',   'Full workout as prescribed'],
-      ['light',   '🌿 Light recovery', 'Replace assistance with bodyweight circuit'],
-      ['none',    '😴 Lifts only',     'Main lifts only — skip all assistance']
+      ['default', trW531('program.w531.readiness.default','💪 Full session')],
+      ['light',   trW531('program.w531.readiness.light','🌿 Light recovery')],
+      ['none',    trW531('program.w531.readiness.none','😴 Lifts only')]
     ].map(([m, label]) => {
       const active = _readiness === m;
       return `<button class="btn btn-sm ${active?'btn-primary':'btn-secondary'}" `
@@ -567,17 +589,24 @@ const WENDLER_531 = {
            + `style="font-size:11px;padding:4px 8px">${label}</button>`;
     }).join('');
 
-    const seasonLabel = season==='off' ? '🏗️ Off-Season' : '🏒 In-Season';
-    const testLabel   = isTest ? ' · 🔬 TM Test Week' : '';
+    const seasonLabel = season==='off'
+      ? '🏗️ '+trW531('program.season.off','Off-Season')
+      : '🏒 '+trW531('program.season.in','In-Season');
+    const testLabel   = isTest ? ' · 🔬 '+trW531('program.w531.tm_test_week','TM Test Week') : '';
+    const cycleWeekStr = trW531('program.w531.banner.cycleweek','C{cycle} W{week}',{cycle,week});
+    const nextStr = bestOpt ? trW531('program.w531.banner.next',' · Next: <strong>{label}</strong>',{label:bestOpt.label}) : '';
+    const leftStr = left===1
+      ? trW531('program.w531.banner.session_left',' · {left} session left',{left})
+      : trW531('program.w531.banner.sessions_left',' · {left} sessions left',{left});
     return {
       style:'rgba(167,139,250,0.08)', border:'rgba(167,139,250,0.15)', color:'var(--purple)',
       html: '💪 '+seasonLabel+testLabel
-          + ' · C'+cycle+' W'+week
-          + (bestOpt ? ' · Next: <strong>'+bestOpt.label+'</strong>' : '')
-          + ' · '+left+' session'+(left!==1?'s':'')+' left'
+          + ' · '+cycleWeekStr
+          + nextStr
+          + leftStr
           + stalledStr
           + '<div style="margin-top:8px">'
-          +   '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Session readiness:</div>'
+          +   '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">'+trW531('program.w531.banner.readiness','Session readiness:')+'</div>'
           +   '<div style="display:flex;gap:6px;flex-wrap:wrap">'+rBtns+'</div>'
           + '</div>'
     };
@@ -595,9 +624,9 @@ const WENDLER_531 = {
     const stalled     = state.stalledLifts || {};
 
     const freqOpts = [
-      [2, '2×/week — Combined (Squat+Bench  /  Deadlift+Overhead Press)'],
-      [3, '3×/week — Rotating (4 lifts across 3 days)'],
-      [4, '4×/week — Standard (one lift per day)']
+      [2, trW531('program.w531.settings.freq.2','2×/week — Combined (Squat+Bench  /  Deadlift+Overhead Press)')],
+      [3, trW531('program.w531.settings.freq.3','3×/week — Rotating (4 lifts across 3 days)')],
+      [4, trW531('program.w531.settings.freq.4','4×/week — Standard (one lift per day)')]
     ].map(([n,l]) => `<option value="${n}"${n===freq?' selected':''}>${l}</option>`).join('');
 
     const roundOpts = [1,2.5,5]
@@ -606,14 +635,16 @@ const WENDLER_531 = {
     const stalledAlerts = Object.keys(stalled).map(i => {
       const l = lifts[parseInt(i)];
       return l ? `<div style="color:var(--orange);font-size:11px;margin-top:2px">`
-               + `⚠️ ${l.name} plateaued — Training Max will drop 10% at cycle end</div>` : '';
+               + trW531('program.w531.settings.stalled','⚠️ {name} plateaued — Training Max will drop 10% at cycle end',{name:l.name})
+               + `</div>` : '';
     }).join('');
 
+    const liftLabels=[trW531('program.w531.lift.sq','Squat (SQ)'),trW531('program.w531.lift.bp','Bench Press (BP)'),trW531('program.w531.lift.dl','Deadlift (DL)'),trW531('program.w531.lift.ohp','Overhead Press (OHP)')];
     const liftRows = lifts.map((l,i) => {
       const stalledBadge = stalled[i]
-        ? ' <span style="color:var(--orange);font-size:11px">⚠️ plateaued</span>' : '';
+        ? ' <span style="color:var(--orange);font-size:11px">'+trW531('program.w531.settings.plateau_badge','⚠️ plateaued')+'</span>' : '';
       return `<div class="lift-row">
-        <span class="lift-label">${['Squat (SQ)','Bench Press (BP)','Deadlift (DL)','Overhead Press (OHP)'][i]||'#'+(i+1)}</span>
+        <span class="lift-label">${liftLabels[i]||'#'+(i+1)}</span>
         <span style="flex:1;font-size:13px;padding:4px 0;color:var(--text)">${l.name}${stalledBadge}</span>
         <input type="number" value="${l.tm}"
           onchange="updateProgramLift('main',${i},'tm',parseFloat(this.value)||0)">
@@ -621,7 +652,7 @@ const WENDLER_531 = {
     }).join('');
 
     const triumvirate = state.triumvirate || W531.defaultTriumvirate;
-    const dayLabels   = ['Squat Day','Bench Day','Deadlift Day','OHP Day'];
+    const dayLabels   = [trW531('program.w531.day.sq','Squat Day'),trW531('program.w531.day.bp','Bench Day'),trW531('program.w531.day.dl','Deadlift Day'),trW531('program.w531.day.ohp','OHP Day')];
     const triRows = [0,1,2,3].map(i => {
       const exs = triumvirate[i] || W531.defaultTriumvirate[i] || [];
       return `<div style="margin-bottom:10px">
@@ -637,36 +668,36 @@ const WENDLER_531 = {
 
     container.innerHTML = `
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;background:rgba(167,139,250,0.08);padding:8px 12px;border-radius:8px">
-        4-week cycles · +5kg lower / +2.5kg upper each cycle · plateau tracking
+        ${trW531('program.w531.settings.overview','4-week cycles · +5kg lower / +2.5kg upper each cycle · plateau tracking')}
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;line-height:1.5">
-        <strong>Terms:</strong> TM = Training Max. 1RM = one-rep max. AMRAP = as many reps as possible.
+        ${trW531('program.w531.settings.terms','<strong>Terms:</strong> TM = Training Max. 1RM = one-rep max. AMRAP = as many reps as possible.')}
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Cycle ${cycle} · Week ${week} of 4</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${trW531('program.w531.settings.cycle_week','Cycle {cycle} · Week {week} of 4',{cycle,week})}</div>
       ${stalledAlerts}
 
-      <label style="margin-top:14px">Season Mode</label>
+      <label style="margin-top:14px">${trW531('program.w531.settings.season','Season Mode')}</label>
       <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:14px">
         <button class="btn ${season==='off'?'btn-primary':'btn-secondary'}" id="w531-s-off"
           onclick="window._w531SeasonUI('off')"
           style="flex:1;line-height:1.5;padding:10px 8px">
-          🏗️ Off-Season<br><small style="opacity:.7">5's PRO + BBB (5x10 assistance)</small>
+          ${trW531('program.w531.settings.off_label','🏗️ Off-Season')}<br><small style="opacity:.7">${trW531('program.w531.settings.off_desc',"5's PRO + BBB (5x10 assistance)")}</small>
         </button>
         <button class="btn ${season==='in'?'btn-primary':'btn-secondary'}" id="w531-s-in"
           onclick="window._w531SeasonUI('in')"
           style="flex:1;line-height:1.5;padding:10px 8px">
-          🏒 In-Season<br><small style="opacity:.7">Minimum reps + 2 accessory lifts</small>
+          ${trW531('program.w531.settings.in_label','🏒 In-Season')}<br><small style="opacity:.7">${trW531('program.w531.settings.in_desc','Minimum reps + 2 accessory lifts')}</small>
         </button>
       </div>
       <input type="hidden" id="prog-season" value="${season}">
 
-      <label>Sessions Per Week</label>
+      <label>${trW531('program.w531.settings.sessions_pw','Sessions Per Week')}</label>
       <select id="prog-days">${freqOpts}</select>
 
-      <label style="margin-top:12px">Weight Rounding (kg)</label>
+      <label style="margin-top:12px">${trW531('program.w531.settings.rounding','Weight Rounding (kg)')}</label>
       <select id="prog-rounding">${roundOpts}</select>
 
-      <label style="margin-top:12px">Current Week in Cycle (1–4)</label>
+      <label style="margin-top:12px">${trW531('program.w531.settings.week_current','Current Week in Cycle (1–4)')}</label>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="number" id="prog-week" min="1" max="4" value="${week}" style="flex:1">
         <button class="btn btn-sm btn-secondary"
@@ -674,32 +705,31 @@ const WENDLER_531 = {
           style="width:auto">Reset</button>
       </div>
 
-      <label style="margin-top:14px">TM Test Week <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+      <label style="margin-top:14px">${trW531('program.w531.settings.tm_test_title','TM Test Week')} <span style="font-weight:400;color:var(--muted)">(${trW531('program.forge.settings.peak_optional','optional')})</span></label>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Replaces the next Deload with a 100% TM AMRAP test.
-        1–2 reps: recalculate TM. 3+ reps: keep normal progression.
+        ${trW531('program.w531.settings.tm_test_help','Replaces the next Deload with a 100% TM AMRAP test. 1–2 reps: recalculate TM. 3+ reps: keep normal progression.')}
       </div>
       <input type="hidden" id="prog-test-week" value="${testPending?'1':'0'}">
       <button class="btn ${testPending?'btn-primary':'btn-secondary'}" id="w531-test-btn"
         onclick="window._w531ToggleTestWeek()"
         style="width:100%;text-align:left;padding:10px 14px">
-        ${testPending?'🔬 TM Test Week enabled — will replace next Deload':'🔬 Enable TM Test Week instead of Deload'}
+        ${testPending?trW531('program.w531.tm_test_enabled','🔬 TM Test Week enabled — will replace next Deload'):trW531('program.w531.tm_test_enable','🔬 Enable TM Test Week instead of Deload')}
       </button>
 
-      <div class="divider-label" style="margin-top:18px"><span>Training Max (kg)</span></div>
+      <div class="divider-label" style="margin-top:18px"><span>${trW531('program.w531.settings.training_max','Training Max (kg)')}</span></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Set to about 90% of your 1RM. Auto increases and resets apply each cycle.
+        ${trW531('program.w531.settings.tm_hint','Set to about 90% of your 1RM. Auto increases and resets apply each cycle.')}
       </div>
       ${liftRows}
 
-      <div class="divider-label" style="margin-top:14px"><span>In-Season Accessory Exercises</span></div>
+      <div class="divider-label" style="margin-top:14px"><span>${trW531('program.w531.settings.in_season_accessories','In-Season Accessory Exercises')}</span></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Pick 2 accessory exercises per in-season session (3 sets × 10–15 reps each).
+        ${trW531('program.w531.settings.in_season_help','Pick 2 accessory exercises per in-season session (3 sets × 10–15 reps each).')}
       </div>
       ${triRows}
 
       <button class="btn btn-purple" style="margin-top:16px" onclick="saveProgramSetup()">
-        Save Program Setup
+        ${trW531('program.w531.save_setup','Save Program Setup')}
       </button>
     `;
   },
@@ -746,8 +776,8 @@ window._w531ToggleTestWeek = function() {
   btn.className = 'btn ' + (next ? 'btn-primary' : 'btn-secondary');
   btn.style.cssText = 'width:100%;text-align:left;padding:10px 14px';
   btn.textContent = next
-    ? '🔬 TM Test Week enabled — will replace next Deload'
-    : '🔬 Enable TM Test Week instead of Deload';
+    ? trW531('program.w531.tm_test_enabled','TM Test Week enabled - will replace next Deload')
+    : trW531('program.w531.tm_test_enable','Enable TM Test Week instead of Deload');
 };
 
 // Season toggle in Settings — updates hidden input + button classes

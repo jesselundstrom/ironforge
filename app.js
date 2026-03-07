@@ -1,4 +1,15 @@
-﻿const DAY_NAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+﻿let DAY_NAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function refreshDayNames(){
+  DAY_NAMES=[
+    tr('day.sun.short','Sun'),
+    tr('day.mon.short','Mon'),
+    tr('day.tue.short','Tue'),
+    tr('day.wed.short','Wed'),
+    tr('day.thu.short','Thu'),
+    tr('day.fri.short','Fri'),
+    tr('day.sat.short','Sat')
+  ];
+}
 
 // SUPABASE
 const _SB=supabase.createClient(
@@ -10,7 +21,7 @@ let currentUser=null;
 // STATE (persisted via localStorage)
 let workouts=[];
 let schedule={sportName:'Hockey',sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};
-let profile={defaultRest:120};
+let profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en')};
 let activeWorkout=null, workoutTimer=null, workoutSeconds=0;
 let restInterval=null, restSecondsLeft=0, restTotal=0, restDuration=120;
 let pendingRPECallback=null;
@@ -21,6 +32,12 @@ let exerciseIndex={};
 
 const RPE_FEELS={6:'Easy',7:'Moderate',8:'Hard',9:'Very Hard',10:'Max'};
 function logWarn(context,error){console.warn('[Ironforge]',context,error);}
+function tr(key,fallback,params){
+  if(window.I18N)return I18N.t(key,params,fallback);
+  return fallback;
+}
+
+refreshDayNames();
 
 // LOGIN SPARKS CANVAS
 const loginSparks=(()=>{
@@ -248,7 +265,7 @@ function showToast(msg,color,undoFn){
   t.style.background=color||'var(--green)';
   if(undoFn){
     t.style.pointerEvents='auto';
-    t.innerHTML=msg+' <span id="t-undo" style="background:rgba(255,255,255,0.2);border-radius:6px;padding:2px 10px;margin-left:6px;cursor:pointer;font-weight:700;font-size:13px">Undo</span>';
+    t.innerHTML=msg+' <span id="t-undo" style="background:rgba(255,255,255,0.2);border-radius:6px;padding:2px 10px;margin-left:6px;cursor:pointer;font-weight:700;font-size:13px">'+tr('common.undo','Undo')+'</span>';
     document.getElementById('t-undo').onclick=()=>{clearTimeout(_toastTimeout);t.classList.remove('show');t.style.pointerEvents='none';undoFn();};
   }else{
     t.style.pointerEvents='none';
@@ -270,7 +287,7 @@ function confirmCancel(){document.getElementById('confirm-modal').classList.remo
 
 // NAME INPUT MODAL
 function showNameModal(title,cb){
-  document.getElementById('name-modal-title').textContent=title;
+  document.getElementById('name-modal-title').textContent=title||tr('modal.name.title','Add Exercise');
   document.getElementById('name-modal-input').value='';
   nameModalCallback=cb;
   document.getElementById('name-modal').classList.add('active');
@@ -309,7 +326,7 @@ function updateRestDisplay(){
 }
 function restDone(){
   const el=document.getElementById('rest-timer-count');
-  el.className='rest-timer-count done';el.textContent='GO!';
+  el.className='rest-timer-count done';el.textContent=tr('dashboard.badge.go','GO');
   playBeep();
   setTimeout(()=>document.getElementById('rest-timer-bar').classList.remove('active'),3000);
 }
@@ -331,7 +348,7 @@ function playBeep(){
 // RPE MODAL
 function showRPEPicker(exName,setNum,cb){
   pendingRPECallback=cb;
-  document.getElementById('rpe-modal-sub').textContent=setNum<0?'Rate overall session effort (6 = easy, 10 = max)':exName+' - Set '+(setNum+1);
+  document.getElementById('rpe-modal-sub').textContent=setNum<0?tr('rpe.session_prompt','Rate overall session effort (6 = easy, 10 = max)'):exName+' - '+tr('rpe.set','Set')+' '+(setNum+1);
   const grid=document.getElementById('rpe-grid');grid.innerHTML='';
   [6,7,8,9,10].forEach(v=>{
     const btn=document.createElement('div');btn.className='rpe-btn';
@@ -384,7 +401,7 @@ function openProgramSetupSheet(){
   const container=document.getElementById('program-settings-container');
   if(container&&prog.renderSettings)prog.renderSettings(state,container);
   const title=document.getElementById('program-setup-sheet-title');
-  if(title)title.textContent=prog.name+' Setup';
+  if(title)title.textContent=prog.name+' '+tr('settings.program_setup_suffix','Setup');
   document.getElementById('program-setup-sheet').classList.add('active');
 }
 function closeProgramSetupSheet(e){
@@ -393,15 +410,21 @@ function closeProgramSetupSheet(e){
   }
 }
 function initSettings(){
+  refreshDayNames();
   {const inp=document.getElementById('sport-name');if(inp)inp.value=schedule.sportName||'Hockey';}
   {const btns=document.querySelectorAll('#sport-intensity-btns button');
     btns.forEach(b=>{b.classList.toggle('active',b.dataset.intensity===(schedule.sportIntensity||'hard'));});
   }
   {const cb=document.getElementById('sport-legs-heavy');if(cb)cb.checked=schedule.sportLegsHeavy!==false;}
+  {
+    const langSel=document.getElementById('app-language');
+    if(langSel)langSel.value=profile.language||(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en');
+  }
   renderSportDayToggles();
   document.getElementById('default-rest').value=profile.defaultRest||120;
   renderProgramSwitcher();
   showSettingsTab(_settingsTab);
+  if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
 }
 
 // Program UI/state helpers moved to core/program-layer.js.
@@ -417,7 +440,15 @@ function saveRestTimer(){
   profile.defaultRest=parseInt(document.getElementById('default-rest').value)||120;
   restDuration=profile.defaultRest;
   saveProfileData();
-  showToast('Rest timer updated','var(--blue)');
+  showToast(tr('toast.rest_updated','Rest timer updated'),'var(--blue)');
+}
+function saveLanguageSetting(){
+  const lang=document.getElementById('app-language')?.value||'en';
+  if(window.I18N&&I18N.setLanguage)I18N.setLanguage(lang,{persist:true});
+  profile.language=lang;
+  saveProfileData();
+  const msg=window.I18N&&I18N.t?I18N.t('settings.language.saved'):'Language updated';
+  showToast(msg,'var(--blue)');
 }
 function saveSchedule(){
   const nameInp=document.getElementById('sport-name');
@@ -425,7 +456,7 @@ function saveSchedule(){
   const cb=document.getElementById('sport-legs-heavy');
   if(cb)schedule.sportLegsHeavy=cb.checked;
   if(!activeWorkout)resetNotStartedView();
-  saveScheduleData();saveProfileData();updateProgramDisplay();updateDashboard();showToast('Schedule saved!','var(--blue)');
+  saveScheduleData();saveProfileData();updateProgramDisplay();updateDashboard();showToast(tr('toast.schedule_saved','Schedule saved!'),'var(--blue)');
 }
 
 function exportData(){
@@ -435,7 +466,7 @@ function exportData(){
   const a=document.createElement("a");
   a.href=url;a.download="ironforge-backup-"+new Date().toISOString().slice(0,10)+".json";
   a.click();URL.revokeObjectURL(url);
-  showToast("Backup exported!","var(--green)");
+  showToast(tr('toast.backup_exported','Backup exported!'),"var(--green)");
 }
 
 function importData(event){
@@ -445,20 +476,20 @@ function importData(event){
   reader.onload=async(e)=>{
     try{
       const data=JSON.parse(e.target.result);
-      if(typeof data!=='object'||!data){showToast('Invalid backup file','var(--orange)');return;}
-      if(!Array.isArray(data.workouts)&&!data.profile){showToast('Invalid backup file','var(--orange)');return;}
-      if(data.workouts&&!Array.isArray(data.workouts)){showToast('Backup file has invalid workout data','var(--orange)');return;}
-      if(data.workouts){const bad=data.workouts.some(w=>!w.id||!w.date||!w.type||!Array.isArray(w.exercises));if(bad){showToast('Backup file has malformed workout entries','var(--orange)');return;}}
-      if(data.profile&&typeof data.profile!=='object'){showToast('Backup file has invalid profile data','var(--orange)');return;}
-      showConfirm("Import Data","Replace all data with backup from "+(data.exported?new Date(data.exported).toLocaleDateString():"unknown")+"?",async()=>{
+      if(typeof data!=='object'||!data){showToast(tr('import.invalid_file','Invalid backup file'),'var(--orange)');return;}
+      if(!Array.isArray(data.workouts)&&!data.profile){showToast(tr('import.invalid_file','Invalid backup file'),'var(--orange)');return;}
+      if(data.workouts&&!Array.isArray(data.workouts)){showToast(tr('import.invalid_workout_data','Backup file has invalid workout data'),'var(--orange)');return;}
+      if(data.workouts){const bad=data.workouts.some(w=>!w.id||!w.date||!w.type||!Array.isArray(w.exercises));if(bad){showToast(tr('import.malformed_entries','Backup file has malformed workout entries'),'var(--orange)');return;}}
+      if(data.profile&&typeof data.profile!=='object'){showToast(tr('import.invalid_profile_data','Backup file has invalid profile data'),'var(--orange)');return;}
+      showConfirm(tr('import.title','Import Data'),tr('import.replace_with_backup','Replace all data with backup from {date}?',{date:(data.exported?new Date(data.exported).toLocaleDateString():'unknown')}),async()=>{
         if(data.workouts) workouts=data.workouts;
         if(data.schedule) schedule=data.schedule;
         if(data.profile) profile=data.profile;
         await saveWorkouts();await saveScheduleData();await saveProfileData();
-        showToast("Data imported! Reloading...","var(--green)");
+        showToast(tr('toast.data_imported','Data imported! Reloading...'),"var(--green)");
         setTimeout(()=>location.reload(),1000);
       });
-    }catch(err){showToast("Could not read file","var(--orange)");}
+    }catch(err){showToast(tr('toast.could_not_read_file','Could not read file'),"var(--orange)");}
   };
   reader.readAsText(file);
   event.target.value="";
@@ -467,10 +498,33 @@ function importData(event){
 async function clearAllData(){
   try{localStorage.removeItem('ic_workouts');localStorage.removeItem('ic_schedule');localStorage.removeItem('ic_profile');}catch(e){}
   workouts=[];schedule={sportName:'Hockey',sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};
-  profile={defaultRest:120,activeProgram:'forge',programs:{}};
+  profile={defaultRest:120,activeProgram:'forge',programs:{},language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en')};
   Object.values(PROGRAMS).forEach(prog=>{profile.programs[prog.id]=prog.getInitialState();});
-  updateDashboard();showToast('All data cleared','var(--accent)');
+  updateDashboard();showToast(tr('toast.all_data_cleared','All data cleared'),'var(--accent)');
 }
+
+function updateLanguageDependentUI(){
+  refreshDayNames();
+  if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
+  renderSportDayToggles();
+  if(activeWorkout){
+    const prog=getActiveProgram();
+    const titleEl=document.getElementById('active-session-title');
+    if(titleEl&&prog&&typeof prog.getSessionLabel==='function'){
+      titleEl.textContent=prog.getSessionLabel(activeWorkout.programOption,getActiveProgramState());
+    }
+    renderExercises();
+    const descEl=document.getElementById('active-session-description');
+    if(descEl){
+      const prefix=window.I18N&&I18N.t?I18N.t('session.description'):'Session focus';
+      const sessionDescription=activeWorkout.sessionDescription||'';
+      descEl.textContent=sessionDescription?(prefix+': '+sessionDescription):'';
+      descEl.style.display=sessionDescription?'':'none';
+    }
+  }
+  else if(document.getElementById('page-log')?.classList.contains('active'))resetNotStartedView();
+}
+window.updateLanguageDependentUI=updateLanguageDependentUI;
 
 // INIT
 initAuth();
@@ -478,3 +532,5 @@ initAuth();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
 }
+
+

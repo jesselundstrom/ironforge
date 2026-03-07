@@ -6,16 +6,26 @@
   if(tab==='stats')updateStats();
 }
 
+function trHist(key,fallback,params){
+  if(window.I18N)return I18N.t(key,params,fallback);
+  return fallback;
+}
+
+function histDisplayName(input){
+  if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(input);
+  return String(input||'');
+}
+
 // History helpers
 
 function histLiftIcon(name){
-  if(!name)return'Lift';
+  if(!name)return trHist('history.legend.lift','Lift');
   if(name.includes('Squat'))return'SQ';
   if(name.includes('Bench'))return'BP';
   if(name.includes('Deadlift'))return'DL';
   if(name.includes('Press')||name.includes('OHP'))return'PR';
   if(name.includes('Row'))return'RW';
-  return'Lift';
+  return trHist('history.legend.lift','Lift');
 }
 
 // Build a Set of workout IDs that contain a rep PR on an AMRAP/last-heavy set
@@ -86,9 +96,9 @@ function histGroupWorkouts(){
 
   for(const w of sorted){
     if(isSportWorkout(w)){
-      const sportLabel=w.type==='hockey'?'Hockey':(schedule.sportName||'Sport');
+      const sportLabel=w.type==='hockey'?'Hockey':(schedule.sportName||trHist('common.sport','Sport'));
       const mo=new Date(w.date).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-      addToGroup('sport-'+mo,sportLabel+' - '+mo,'Sport','sport','all','',w);
+      addToGroup('sport-'+mo,sportLabel+' - '+mo,trHist('history.sport','Sport'),'sport','all','',w);
       continue;
     }
     const prog=w.program||w.type||'other';
@@ -97,12 +107,12 @@ function histGroupWorkouts(){
     const week=meta.week||w.forgeWeek;
 
     if(prog==='wendler531'){
-      const seasonMap={off:'Off-Season',in:'In-Season'};
+      const seasonMap={off:trHist('program.season.off','Off-Season'),in:trHist('program.season.in','In-Season')};
       const seasonLabel=seasonMap[meta.season]||'';
       const gKey='w531-c'+(cycle||'x');
       const gLabel='5/3/1 - Cycle '+(cycle||'?')+(seasonLabel?' - '+seasonLabel:'');
       const gIcon=meta.season==='in'?'IN':'OFF';
-      const weekMap={1:'5s Wave',2:'3s Wave',3:'5/3/1 Week',4:meta.testWeekPending?'TM Test':'Deload'};
+      const weekMap={1:trHist('program.w531.wave5','5s Wave'),2:trHist('program.w531.wave3','3s Wave'),3:trHist('program.w531.week531','5/3/1 Week'),4:meta.testWeekPending?trHist('program.w531.tm_test','TM Test'):trHist('program.w531.deload','Deload')};
       const wKey=week?'w'+week:'wx';
       const wLabel=week?'Week '+week+' - '+(weekMap[week]||''):'Ungrouped';
       addToGroup(gKey,gLabel,gIcon,'wendler531',wKey,wLabel,w);
@@ -115,7 +125,7 @@ function histGroupWorkouts(){
     } else if(prog==='stronglifts5x5'){
       addToGroup('sl5x5','StrongLifts 5x5','SL','stronglifts5x5','all','',w);
     } else {
-      addToGroup('other','Other Sessions','Lift','other','all','',w);
+      addToGroup('other',trHist('history.other_sessions','Other Sessions'),trHist('history.legend.lift','Lift'),'other','all','',w);
     }
   }
 
@@ -136,12 +146,12 @@ function histRenderCard(w,isPR,recovery){
   const isExtra=w.subtype==='extra';
 
   if(isSportWorkout(w)){
-    const sportLabel=w.type==='hockey'?'Hockey':(schedule.sportName||'Sport');
-    const sLabel=isExtra?`Extra ${sportLabel} Session`:`${sportLabel} Session`;
+    const sportLabel=w.type==='hockey'?'Hockey':(schedule.sportName||trHist('common.sport','Sport'));
+    const sLabel=isExtra?trHist('history.extra_sport_session','Extra {sport} Session',{sport:sportLabel}):trHist('history.sport_session','{sport} Session',{sport:sportLabel});
     return`<div class="hist-card hist-sport-card">
       <div class="hist-card-header">
         <div class="hist-card-left">
-          <span class="hist-lift-icon">Sport</span>
+          <span class="hist-lift-icon">${trHist('history.sport','Sport')}</span>
           <div>
             <div class="hist-card-title">${sLabel}</div>
             <div class="hist-card-date">${dateStr}</div>
@@ -149,7 +159,7 @@ function histRenderCard(w,isPR,recovery){
           </div>
         </div>
         <div class="hist-card-badges">
-          <button class="hist-delete-btn" onclick="deleteWorkout(${w.id})" title="Delete">X</button>
+          <button class="hist-delete-btn" onclick="deleteWorkout(${w.id})" title="${trHist('common.delete','Delete')}">X</button>
         </div>
       </div>
     </div>`;
@@ -185,7 +195,7 @@ function histRenderCard(w,isPR,recovery){
     const amrapStr=lastHeavy&&parseInt(lastHeavy.reps)>0
       ?` - <span class="hist-amrap-reps">${lastHeavy.reps}+ reps</span>` :'';
     return`<div class="hist-exercise-row">
-      <span>${ex.name}</span>
+      <span>${histDisplayName(ex.name)}</span>
       <span class="hist-exercise-vol">${done.length}x${maxKg>0?maxKg+'kg':'bw'}${amrapStr}</span>
     </div>`;
   }).join('');
@@ -206,7 +216,7 @@ function histRenderCard(w,isPR,recovery){
         ${prBadge}
         ${recovBadge}
         <span class="hist-meta-tag">${mins}min${w.rpe?' - RPE '+w.rpe:''}</span>
-        <button class="hist-delete-btn" onclick="deleteWorkout(${w.id})" title="Delete">X</button>
+        <button class="hist-delete-btn" onclick="deleteWorkout(${w.id})" title="${trHist('common.delete','Delete')}">X</button>
       </div>
     </div>
     ${exRows?`<div class="hist-exercises">${exRows}</div>`:''}
@@ -227,7 +237,7 @@ function histRenderWeekGroup(wk,isOpen,prSet,recovMap){
         <span class="hist-week-chevron">v</span>
         <span class="hist-week-label">${wk.weekLabel}</span>
       </div>
-      <span class="hist-week-count">${count} session${count!==1?'s':''}</span>
+      <span class="hist-week-count">${count} ${count!==1?trHist('dashboard.sessions_left','sessions'):trHist('dashboard.session_left','session',{count:1})}</span>
     </summary>
     <div class="hist-week-body">${cards}</div>
   </details>`;
@@ -241,7 +251,7 @@ function histRenderGroup(g,prSet,recovMap){
       <span class="hist-cycle-icon">${g.groupIcon}</span>
       <div>
         <div class="hist-cycle-label">${g.groupLabel}</div>
-        <div class="hist-cycle-sub">${total} session${total!==1?'s':''}</div>
+        <div class="hist-cycle-sub">${total} ${total!==1?trHist('dashboard.sessions_left','sessions'):trHist('dashboard.session_left','session',{count:1})}</div>
       </div>
     </div>
     ${weeks}
@@ -254,15 +264,15 @@ function histEmptyState(){
   const bi=prog.getBlockInfo?prog.getBlockInfo(state):null;
   const phaseCard=bi&&(bi.name||bi.modeDesc||bi.weekLabel)?`
     <div class="hist-phase-card">
-      <div class="hist-phase-card-label">Current Phase</div>
+      <div class="hist-phase-card-label">${trHist('history.current_phase','Current Phase')}</div>
       <div class="hist-phase-card-name">${bi.name||bi.weekLabel||'Week '+state.week}</div>
       ${bi.modeDesc?`<div class="hist-phase-card-desc">${bi.modeDesc}</div>`:''}
     </div>`:'';
   return`<div class="hist-empty">
     <div class="hist-empty-icon">Log</div>
-    <div class="hist-empty-title">No sessions yet</div>
-    <div class="hist-empty-sub">Complete your first workout to start building your training history.</div>
-    <button class="btn btn-primary hist-empty-cta" onclick="showPage('log',document.querySelectorAll('.nav-btn')[1])">Start Today's Workout</button>
+    <div class="hist-empty-title">${trHist('history.empty_title','No sessions yet')}</div>
+    <div class="hist-empty-sub">${trHist('history.empty_sub','Complete your first workout to start building your training history.')}</div>
+    <button class="btn btn-primary hist-empty-cta" onclick="showPage('log',document.querySelectorAll('.nav-btn')[1])">${trHist('history.start_today','Start Today\'s Workout')}</button>
     ${phaseCard}
   </div>`;
 }
@@ -333,13 +343,13 @@ function renderHeatmap(){
 
   const streakHtml=weekStreak>0
     ?`<span class="heatmap-stat"><span class="heatmap-stat-val">${weekStreak}w</span> streak</span>`
-    :`<span class="heatmap-stat" style="color:var(--muted)">No streak yet</span>`;
-  const rateHtml=`<span class="heatmap-stat"><span class="heatmap-stat-val">${perWeek}</span> lifts/wk</span>`;
+    :`<span class="heatmap-stat" style="color:var(--muted)">${trHist('history.no_streak','No streak yet')}</span>`;
+  const rateHtml=`<span class="heatmap-stat"><span class="heatmap-stat-val">${perWeek}</span> ${trHist('history.lifts_per_week','lifts/wk')}</span>`;
 
   const legendHtml=`<div class="heatmap-legend">
-    <div class="heatmap-legend-item"><div class="heatmap-legend-dot" style="background:var(--accent2)"></div>Lift</div>
-    <div class="heatmap-legend-item"><div class="heatmap-legend-dot" style="background:var(--blue)"></div>${schedule.sportName||'Sport'}</div>
-    <div class="heatmap-legend-item"><div class="heatmap-legend-dot" style="background:var(--purple)"></div>Both</div>
+    <div class="heatmap-legend-item"><div class="heatmap-legend-dot" style="background:var(--accent2)"></div>${trHist('history.legend.lift','Lift')}</div>
+    <div class="heatmap-legend-item"><div class="heatmap-legend-dot" style="background:var(--blue)"></div>${schedule.sportName||trHist('common.sport','Sport')}</div>
+    <div class="heatmap-legend-item"><div class="heatmap-legend-dot" style="background:var(--purple)"></div>${trHist('history.legend.both','Both')}</div>
   </div>`;
 
   el.innerHTML=`<div class="heatmap-wrap">
@@ -366,9 +376,8 @@ function deleteWorkout(id){
   const w=workouts.find(w=>w.id===id);
   if(!w)return;
   const d=new Date(w.date);
-  const label=isSportWorkout(w)?(schedule.sportName||'Sport')+' session':'Workout';
   const dateStr=d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
-  showConfirm('Delete '+label,'Remove '+label.toLowerCase()+' from '+dateStr+'?',async()=>{
+  showConfirm(trHist('history.delete_workout','Delete Workout'),trHist('history.remove_workout_from','Remove workout from {date}?',{date:dateStr}),async()=>{
     const programsBackup=JSON.parse(JSON.stringify(profile.programs||{}));
     const backup=workouts.find(x=>x.id===id);
     const affectedProgramId=getWorkoutProgramId(backup);
@@ -378,7 +387,7 @@ function deleteWorkout(id){
     await saveWorkouts();
     await saveProfileData();
     renderHistory();updateStats();updateDashboard();updateProgramDisplay();
-    showToast('Session deleted','var(--muted)',async()=>{
+    showToast(trHist('history.session_deleted','Session deleted'),'var(--muted)',async()=>{
       workouts.push(backup);
       workouts.sort((a,b)=>new Date(a.date)-new Date(b.date));
       profile.programs=programsBackup;
@@ -386,7 +395,7 @@ function deleteWorkout(id){
       await saveWorkouts();
       await saveProfileData();
       renderHistory();updateStats();updateDashboard();updateProgramDisplay();
-      showToast('Session restored!','var(--green)');
+      showToast(trHist('history.session_restored','Session restored!'),'var(--green)');
     });
   });
 }

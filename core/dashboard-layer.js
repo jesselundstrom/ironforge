@@ -1,5 +1,13 @@
 ﻿function isSportWorkout(w){return w.type==='sport'||w.type==='hockey';}
 let _lastTmSignature='';
+function trDash(key,fallback,params){
+  if(window.I18N)return I18N.t(key,params,fallback);
+  return fallback;
+}
+function dashExerciseName(name){
+  if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(name);
+  return name;
+}
 function computeFatigue(){
   const now=Date.now();
   const liftS=workouts.filter(w=>!isSportWorkout(w)).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -38,10 +46,10 @@ function getRecoveryGradient(r){
 }
 function getReadinessLabel(o){
   const r=100-o;
-  if(r>=75)return{label:'Fully Recovered',color:'var(--green)'};
-  if(r>=50)return{label:'Mostly Recovered',color:'var(--orange)'};
-  if(r>=30)return{label:'Partially Fatigued',color:'var(--orange)'};
-  return{label:'High Fatigue',color:'var(--accent)'};
+  if(r>=75)return{label:trDash('dashboard.fully_recovered','Fully Recovered'),color:'var(--green)'};
+  if(r>=50)return{label:trDash('dashboard.mostly_recovered','Mostly Recovered'),color:'var(--orange)'};
+  if(r>=30)return{label:trDash('dashboard.partially_fatigued','Partially Fatigued'),color:'var(--orange)'};
+  return{label:trDash('dashboard.high_fatigue','High Fatigue'),color:'var(--accent)'};
 }
 function updateFatigueBars(f){
   ['muscular','cns','overall'].forEach(k=>{
@@ -59,32 +67,56 @@ function updateFatigueBars(f){
   });
   const overallRec=100-f.overall;
   let badgeText,badgeCls;
-  if(overallRec>=85){badgeText='GO';badgeCls='rbadge-go';}
-  else if(overallRec>=60){badgeText='CAUTION';badgeCls='rbadge-caution';}
-  else{badgeText='REST';badgeCls='rbadge-rest';}
+  if(overallRec>=85){badgeText=trDash('dashboard.badge.go','GO');badgeCls='rbadge-go';}
+  else if(overallRec>=60){badgeText=trDash('dashboard.badge.caution','CAUTION');badgeCls='rbadge-caution';}
+  else{badgeText=trDash('dashboard.badge.rest','REST');badgeCls='rbadge-rest';}
   const badgeEl=document.getElementById('recovery-badge');
   if(badgeEl)badgeEl.innerHTML=`<span class="readiness-badge ${badgeCls}">${badgeText}</span>`;
 }
 
 // DATA HELPERS
+function exerciseLookupKeys(exercise){
+  if(!exercise)return[];
+  const src=typeof exercise==='string'?{name:exercise}:exercise;
+  const keys=[];
+  const id=src.exerciseId||(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.resolveExerciseId?EXERCISE_LIBRARY.resolveExerciseId(src.name):null);
+  if(id)keys.push('id:'+id);
+  if(src.name)keys.push('name:'+String(src.name).trim().toLowerCase());
+  return keys;
+}
 function buildExerciseIndex(){
   exerciseIndex={};
   workouts.forEach(w=>{
     w.exercises?.forEach(e=>{
-      if(!exerciseIndex[e.name]||new Date(w.date)>new Date(exerciseIndex[e.name].date))
-        exerciseIndex[e.name]={sets:e.sets,date:w.date};
+      const ts=new Date(w.date).getTime();
+      exerciseLookupKeys(e).forEach(key=>{
+        const prev=exerciseIndex[key];
+        if(!prev||ts>prev.ts)exerciseIndex[key]={sets:e.sets,date:w.date,ts};
+      });
     });
   });
 }
-function getPreviousSets(name){return exerciseIndex[name]?.sets||null;}
-function getSuggested(name){const prev=getPreviousSets(name);if(!prev?.length)return null;const max=Math.max(...prev.map(s=>parseFloat(s.weight)||0));return prev.every(s=>s.done)?Math.round((max+2.5)*2)/2:max;}
+function getPreviousSets(exercise){
+  const keys=exerciseLookupKeys(exercise);
+  for(let i=0;i<keys.length;i++){
+    const hit=exerciseIndex[keys[i]];
+    if(hit?.sets)return hit.sets;
+  }
+  return null;
+}
+function getSuggested(exercise){
+  const prev=getPreviousSets(exercise);
+  if(!prev?.length)return null;
+  const max=Math.max(...prev.map(s=>parseFloat(s.weight)||0));
+  return prev.every(s=>s.done)?Math.round((max+2.5)*2)/2:max;
+}
 
 // WEEK STRIP
 function renderWeekStrip(){
   const strip=document.getElementById('week-strip');
   const today=new Date(),todayDow=today.getDay();
   const start=new Date(today);start.setDate(today.getDate()-((todayDow+6)%7));
-  const sn=schedule.sportName||'Sport';
+  const sn=schedule.sportName||trDash('common.sport','Sport');
   strip.innerHTML='';
   for(let i=0;i<7;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
@@ -102,10 +134,10 @@ function renderWeekStrip(){
   const todayLogged=workouts.filter(w=>new Date(w.date).toDateString()===today.toDateString());
   const tHasLift=todayLogged.some(w=>!isSportWorkout(w)),tHasSport=todayLogged.some(w=>isSportWorkout(w));
   let s='';
-  if(tHasLift&&tHasSport)s=`<span style="color:var(--green);font-weight:700">Workout + ${sn} logged</span>`;
-  else if(tHasLift)s=`<span style="color:var(--green);font-weight:700">Workout logged</span>`;
-  else if(tHasSport)s=`<span style="color:var(--blue);font-weight:700">${sn} logged</span>`;
-  else if(todayIsSportDay)s=`<span style="color:var(--blue);font-weight:700">${sn} day</span>`;
+  if(tHasLift&&tHasSport)s=`<span style="color:var(--green);font-weight:700">${trDash('dashboard.status.workout_plus_sport_logged','Workout + {sport} logged',{sport:sn})}</span>`;
+  else if(tHasLift)s=`<span style="color:var(--green);font-weight:700">${trDash('dashboard.status.workout_logged','Workout logged')}</span>`;
+  else if(tHasSport)s=`<span style="color:var(--blue);font-weight:700">${trDash('dashboard.status.sport_logged','{sport} logged',{sport:sn})}</span>`;
+  else if(todayIsSportDay)s=`<span style="color:var(--blue);font-weight:700">${trDash('dashboard.status.sport_day','{sport} day',{sport:sn})}</span>`;
   document.getElementById('today-status').innerHTML=s;
 }
 
@@ -128,17 +160,17 @@ function toggleDayDetail(dayIdx){
     const items=[];
     logged.forEach(w=>{
       if(isSportWorkout(w)){
-        items.push(`<div class="day-detail-item"><span style="color:var(--blue)">${w.name||(schedule.sportName||'Sport')}</span></div>`);
+        items.push(`<div class="day-detail-item"><span style="color:var(--blue)">${w.name||(schedule.sportName||trDash('common.sport','Sport'))}</span></div>`);
       } else {
         const names=(w.exercises||[]).map(e=>e.name);
         if(names.length)names.forEach(n=>items.push(`<div class="day-detail-item">${n}</div>`));
-        else items.push(`<div class="day-detail-item" style="color:var(--muted)">Workout</div>`);
+        else items.push(`<div class="day-detail-item" style="color:var(--muted)">${trDash('common.workout','Workout')}</div>`);
       }
     });
     panel.innerHTML=items.join('');
   } else {
     const dow=d.getDay(),isSportDay=schedule.sportDays.includes(dow),isPast=d<today&&!d.toDateString()===today.toDateString();
-    const label=isSportDay?(schedule.sportName||'Sport')+' day':'No session logged';
+    const label=isSportDay?trDash('dashboard.status.sport_day','{sport} day',{sport:(schedule.sportName||trDash('common.sport','Sport'))}):trDash('dashboard.no_session_logged','No session logged');
     panel.innerHTML=`<div class="day-detail-item" style="color:var(--muted)">${label}</div>`;
   }
   panel.style.display='block';
@@ -149,6 +181,7 @@ function updateDashboard(){
   renderWeekStrip();
   const f=computeFatigue();updateFatigueBars(f);
   const prog=getActiveProgram(),ps=getActiveProgramState();
+  const programName=window.I18N&&I18N.t?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):prog.name||'Training';
 
   // Training Maxes - dynamic per program
   const tmGrid=document.getElementById('tm-grid');
@@ -158,8 +191,8 @@ function updateDashboard(){
     const tmSignature=tms.map(t=>`${t.name}:${t.value}`).join('|');
     const tmChanged=!!_lastTmSignature&&tmSignature!==_lastTmSignature;
     _lastTmSignature=tmSignature;
-    tmGrid.innerHTML=tms.map((t,i)=>`<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${t.value}</div><div class="label">${t.name}</div></div>`).join('');
-    if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||'Training Maxes';
+    tmGrid.innerHTML=tms.map((t,i)=>`<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${t.value}</div><div class="label">${dashExerciseName(t.name)}</div></div>`).join('');
+    if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||trDash('dashboard.training_maxes','Training Maxes');
   }
 
   // Weekly session progress
@@ -167,10 +200,10 @@ function updateDashboard(){
   const freq=ps.daysPerWeek||3;
   const doneThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
   const sportThisWeek=workouts.filter(w=>isSportWorkout(w)&&new Date(w.date)>=sow).length;
-  const sn=schedule.sportName||'Sport';
+  const sn=schedule.sportName||trDash('common.sport','Sport');
   const pillsEl=document.getElementById('session-pills');
   if(pillsEl)pillsEl.innerHTML=Array.from({length:freq},(_,i)=>`<div class="session-pill${i<doneThisWeek?' done':''}"></div>`).join('');
-  let volText=doneThisWeek+'/'+freq+' sessions';
+  let volText=trDash('dashboard.sessions','{done}/{total} sessions',{done:doneThisWeek,total:freq});
   if(sportThisWeek)volText+=' · '+sportThisWeek+' '+sn.toLowerCase();
   if(doneThisWeek>=freq)volText+=' ✓';
   document.getElementById('volume-text').textContent=volText;
@@ -181,15 +214,16 @@ function updateDashboard(){
   const hadSportRecently=wasSportRecently(36);
   const bi=prog.getBlockInfo?prog.getBlockInfo(ps):{name:'',weekLabel:'',isDeload:false,pct:null,modeDesc:'',modeName:''};
   const modeDescHtml=bi.modeDesc?`<div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:0 2px">${bi.modeDesc}</div>`:'';
-  const startBtn=`<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="goToLog()">Start Session</button>`;
+  const startBtn=`<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="goToLog()">${trDash('dashboard.start_session','Start Session')}</button>`;
   let rec='',cardAccent=false;
-  if(doneThisWeek>=freq) rec=modeDescHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">Week complete!</div><div style="font-size:13px;color:var(--muted)">All ${freq} sessions done. Rest up.</div>`;
-  else if(recovery<40) rec=modeDescHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">High fatigue - rest or deload</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${bi.isDeload?'Good timing - deload!':'Consider resting today.'} ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>`;
-  else if(isSportDay){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">${sn} day</div><div style="font-size:13px;color:var(--muted)">Pick an upper-body day on the Log tab, or rest. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>${startBtn}`;}
-  else if(hadSportRecently){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">Post-${sn.toLowerCase()}</div><div style="font-size:13px;color:var(--muted)">Legs may be fatigued. The Log tab will suggest an upper-focused day. ${freq-doneThisWeek} left.</div>${startBtn}`;}
-  else if(bi.isDeload){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">Deload week</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}%. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left.</div>${startBtn}`;}
-  else{cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">Training day</div><div style="font-size:13px;color:var(--muted)">Recovery ${recovery}% - ${recovery>=75?'feeling fresh, push it':'moderate effort'}. ${freq-doneThisWeek} session${freq-doneThisWeek>1?'s':''} left this week.</div>${startBtn}`;}
+  if(doneThisWeek>=freq) rec=modeDescHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">${trDash('dashboard.week_complete','Week complete!')}</div><div style="font-size:13px;color:var(--muted)">${trDash('dashboard.sessions_done','All {total} sessions done. Rest up.',{total:freq})}</div>`;
+  else if(recovery<40) rec=modeDescHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">${trDash('dashboard.high_fatigue_title','High fatigue - rest or deload')}</div><div style="font-size:13px;color:var(--muted)">${trDash('dashboard.recovery_pct','Recovery {recovery}%',{recovery})}. ${bi.isDeload?trDash('dashboard.good_deload_timing','Good timing - deload!'):trDash('dashboard.consider_rest','Consider resting today.')} ${freq-doneThisWeek} ${freq-doneThisWeek>1?trDash('dashboard.sessions_left','sessions left'):trDash('dashboard.session_left','session left')}.</div>`;
+  else if(isSportDay){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">${trDash('dashboard.status.sport_day','{sport} day',{sport:sn})}</div><div style="font-size:13px;color:var(--muted)">${trDash('dashboard.sport_day_advice','Pick an upper-body day on the Log tab, or rest.')} ${freq-doneThisWeek} ${freq-doneThisWeek>1?trDash('dashboard.sessions_left','sessions left'):trDash('dashboard.session_left','session left')}.</div>${startBtn}`;}
+  else if(hadSportRecently){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--blue);margin-bottom:6px">${trDash('dashboard.post_sport','Post-{sport}',{sport:sn.toLowerCase()})}</div><div style="font-size:13px;color:var(--muted)">${trDash('dashboard.post_sport_advice','Legs may be fatigued. The Log tab will suggest an upper-focused day.')} ${freq-doneThisWeek} ${freq-doneThisWeek>1?trDash('dashboard.sessions_left','sessions left'):trDash('dashboard.session_left','session left')}.</div>${startBtn}`;}
+  else if(bi.isDeload){cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--green);margin-bottom:6px">${trDash('dashboard.deload_week','Deload week')}</div><div style="font-size:13px;color:var(--muted)">${trDash('dashboard.recovery_pct','Recovery {recovery}%',{recovery})}. ${freq-doneThisWeek} ${freq-doneThisWeek>1?trDash('dashboard.sessions_left','sessions left'):trDash('dashboard.session_left','session left')}.</div>${startBtn}`;}
+  else{cardAccent=true;rec=modeDescHtml+`<div style="font-weight:700;color:var(--accent);margin-bottom:6px">${trDash('dashboard.training_day','Training day')}</div><div style="font-size:13px;color:var(--muted)">${trDash('dashboard.recovery_pct','Recovery {recovery}%',{recovery})} - ${recovery>=75?trDash('dashboard.feeling_fresh','feeling fresh, push it'):trDash('dashboard.moderate_effort','moderate effort')}. ${freq-doneThisWeek} ${freq-doneThisWeek>1?trDash('dashboard.sessions_left','sessions left'):trDash('dashboard.session_left','session left')}.</div>${startBtn}`;}
   document.getElementById('next-session-content').innerHTML=rec;
   document.getElementById('next-session-content').parentElement.style.borderColor=cardAccent?'var(--accent)':'';
-  document.getElementById('header-sub').textContent=`${prog.name||'Training'} - ${bi.name||''} - ${bi.weekLabel||''} - Recovery ${recovery}%`;
+  document.getElementById('header-sub').textContent=trDash('dashboard.header_sub','{program} - {block} - {week} - Recovery {recovery}%',{program:programName,block:bi.name||'',week:bi.weekLabel||'',recovery});
 }
+
