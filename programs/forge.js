@@ -132,7 +132,7 @@ const FORGE_PROGRAM={
   getSessionOptions(state,workouts,schedule){
     const freq=state.daysPerWeek||3,week=state.week||1,lifts=state.lifts;
     const todayDow=new Date().getDay();
-    const sportDays=schedule?.sportDays||schedule?.hockeyDays||[];
+    const sportDays=schedule?.sportDays||[];
     const legsHeavy=schedule?.sportLegsHeavy!==false;
     const recentHours={easy:18,moderate:24,hard:30}[schedule?.sportIntensity||'hard'];
     const isSportDay=sportDays.includes(todayDow);
@@ -263,7 +263,7 @@ const FORGE_PROGRAM={
     const doneCount=options.filter(o=>o.done).length;
     const allDone=options.every(o=>o.done);
     const todayDow=new Date().getDay();
-    const sportDays=schedule?.sportDays||schedule?.hockeyDays||[];
+    const sportDays=schedule?.sportDays||[];
     const legsHeavy=schedule?.sportLegsHeavy!==false;
     const recentHours={easy:18,moderate:24,hard:30}[schedule?.sportIntensity||'hard'];
     const sportName=schedule?.sportName||trForge('common.sport','Sport');

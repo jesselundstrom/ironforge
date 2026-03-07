@@ -106,7 +106,7 @@ const STRONGLIFTS_5X5={
     const sqWt=(lifts.squat?.weight||0)+'kg';
     // Sport awareness: both A and B include Squat (leg-heavy)
     const todayDow=new Date().getDay();
-    const sportDays=schedule?.sportDays||schedule?.hockeyDays||[];
+    const sportDays=schedule?.sportDays||[];
     const legsHeavy=schedule?.sportLegsHeavy!==false;
     const recentHours={easy:18,moderate:24,hard:30}[schedule?.sportIntensity||'hard'];
     const sportName=schedule?.sportName||trSL('common.sport','Sport');

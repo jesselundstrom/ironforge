@@ -261,7 +261,7 @@ const CASUAL_FULL_BODY = {
     const last   = state.lastExercisesUsed || [];
 
     const todayDow          = new Date().getDay();
-    const sportDays         = schedule?.sportDays||schedule?.hockeyDays||[];
+    const sportDays         = schedule?.sportDays||[];
     const legsHeavy         = schedule?.sportLegsHeavy!==false;
     const recentHours       = {easy:18,moderate:24,hard:30}[schedule?.sportIntensity||'hard'];
     const sportName         = schedule?.sportName||trCFB('common.sport','Sport');

@@ -32,11 +32,25 @@ function mergeWorkoutLists(primary,fallback,deletedIds){
   return merged;
 }
 
+function isWorkoutTableReady(profileLike){
+  return !!(profileLike&&profileLike.syncMeta&&profileLike.syncMeta.workoutsTableReady);
+}
+
+function cleanupLegacyProfileFields(profileLike){
+  if(!profileLike||typeof profileLike!=='object')return profileLike;
+  const legacyKeys=[
+    'atsLifts','atsWeek','atsRounding','atsDaysPerWeek','atsDayNum','atsBackExercise','atsBackWeight','atsMode','atsWeekStartDate',
+    'forgeLifts','forgeWeek','forgeRounding','forgeDaysPerWeek','forgeDayNum','forgeBackExercise','forgeBackWeight','forgeMode','forgeWeekStartDate'
+  ];
+  legacyKeys.forEach(key=>{if(key in profileLike)delete profileLike[key];});
+  return profileLike;
+}
+
 async function loadData(options){
   const opts=options||{};
   const allowCloudSync=opts.allowCloudSync!==false;
   loadLocalData();
-  // Pull fresher data from cloud if logged in, but do not let an empty cloud snapshot wipe local workouts.
+  // Pull profile/schedule from cloud and workouts from the dedicated workouts table.
   const cloudResult=allowCloudSync?await pullFromCloud():{usedCloud:false};
   const tableResult=allowCloudSync?await pullWorkoutsFromTable(workouts):{usedTable:false,didBackfill:false};
   const gotCloud=!!cloudResult.usedCloud;
@@ -61,6 +75,7 @@ async function loadData(options){
     profile.programs={forge:{week:profile.forgeWeek||1,dayNum:profile.forgeDayNum||1,daysPerWeek:profile.forgeDaysPerWeek||3,mode:profile.forgeMode||'sets',rounding:profile.forgeRounding||2.5,weekStartDate:profile.forgeWeekStartDate||new Date().toISOString(),backExercise:profile.forgeBackExercise||'Barbell Rows',backWeight:profile.forgeBackWeight||0,lifts:profile.forgeLifts}};
     profile.activeProgram='forge';
   }
+  cleanupLegacyProfileFields(profile);
   // Stamp old workout records with program field
   workouts.forEach(w=>{if(!w.program&&w.type&&w.type!=='hockey'&&w.type!=='sport')w.program=w.type;});
   // Ensure activeProgram is set
@@ -169,6 +184,10 @@ async function pullWorkoutsFromTable(fallbackWorkouts){
     const missingFromTable=merged.filter(workout=>!knownIds.has(workoutClientId(workout)));
 
     if(missingFromTable.length)await upsertWorkoutRecords(missingFromTable);
+    if((rows.length>0||missingFromTable.length>0)&&!isWorkoutTableReady(profile)){
+      profile.syncMeta={...(profile.syncMeta||{}),workoutsTableReady:true};
+      await saveProfileData();
+    }
 
     return{
       usedTable:rows.length>0,
@@ -192,14 +211,8 @@ async function pullFromCloud(){
     const{data,error}=await _SB.from('profiles').select('data').eq('id',currentUser.id).single();
     if(error||!data?.data)return{usedCloud:false};
     const c=data.data;
-    const localHasWorkouts=Array.isArray(workouts)&&workouts.length>0;
-    const cloudHasWorkoutList=Array.isArray(c.workouts);
-    const cloudHasWorkouts=cloudHasWorkoutList&&c.workouts.length>0;
     if(c.profile)profile=c.profile;
     if(c.schedule)schedule=c.schedule;
-    if(cloudHasWorkouts||!localHasWorkouts){
-      if(cloudHasWorkoutList)workouts=c.workouts;
-    }
     return{usedCloud:true};
   }catch(e){return{usedCloud:false};}
 }

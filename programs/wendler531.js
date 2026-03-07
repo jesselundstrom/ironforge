@@ -555,7 +555,7 @@ const WENDLER_531 = {
 
     // Sport awareness — warn if recommended session is leg-heavy
     const todayDow = new Date().getDay();
-    const sportDays = schedule?.sportDays||schedule?.hockeyDays||[];
+    const sportDays = schedule?.sportDays||[];
     const legsHeavy = schedule?.sportLegsHeavy!==false;
     const recentHours = {easy:18,moderate:24,hard:30}[schedule?.sportIntensity||'hard'];
     const sportName = schedule?.sportName||trW531('common.sport','Sport');
