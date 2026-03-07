@@ -158,6 +158,22 @@ function updateProgramDisplay(){
     const progName=trProg('program.'+prog.id+'.name',prog.name);
     info.innerHTML=`${prog.icon||'Lift'} <strong>${progName}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${trProg('program.training_max_pct','{pct}% of Training Max',{pct:bi.pct})}</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
   }
+  let prefBanner=document.getElementById('program-preferences-banner');
+  if(!prefBanner){
+    prefBanner=document.createElement('div');prefBanner.id='program-preferences-banner';
+    prefBanner.style.cssText='margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:var(--text)';
+    const ref=document.getElementById('program-week-display');
+    if(ref)ref.parentNode.insertBefore(prefBanner,ref.nextSibling);
+  }
+  if(prefBanner){
+    const fatigue=computeFatigue();
+    const guidance=(typeof getPreferenceGuidance==='function'
+      ? getPreferenceGuidance(profile,{canPushVolume:(100-fatigue.overall)>=70})
+      : []);
+    prefBanner.innerHTML=guidance.length
+      ? guidance.map(line=>`<div style="margin-top:4px">${escapeHtml(line)}</div>`).join('')
+      : `<div>${escapeHtml(getTrainingPreferencesSummary(profile))}</div>`;
+  }
   let banner=document.getElementById('program-recommend-banner');
   if(!banner){
     banner=document.createElement('div');banner.id='program-recommend-banner';

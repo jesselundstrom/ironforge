@@ -54,6 +54,22 @@ h1,h2{margin-top:0}
 .card:hover{border-color:rgba(255,255,255,0.12);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
 .card-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:8px;font-weight:700}
 .card-title::before{content:'◆ ';color:var(--accent);opacity:0.5;font-size:7px;vertical-align:middle;letter-spacing:0}
+#todays-plan-card{padding:16px 18px 18px}
+.dashboard-plan-meta{font-size:11px;line-height:1.45;color:var(--muted);margin-bottom:14px;padding-left:2px}
+.dashboard-plan-focus{margin-bottom:14px;padding:14px 15px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.07)}
+.dashboard-plan-focus-label{font-size:10px;line-height:1.2;text-transform:uppercase;letter-spacing:1.1px;color:var(--gold);font-weight:800;margin-bottom:6px}
+.dashboard-plan-focus-copy{font-size:14px;line-height:1.45;font-weight:700;color:var(--text);text-wrap:balance}
+.dashboard-plan-focus-detail{font-size:11px;line-height:1.5;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)}
+.dashboard-plan-status{margin-top:2px;padding:13px 14px 13px 15px;border-radius:14px;border:1px solid rgba(255,255,255,0.07);border-left-width:3px;background:linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.015))}
+.dashboard-plan-status-title{font-size:13px;line-height:1.3;font-weight:800;margin-bottom:4px;color:var(--text)}
+.dashboard-plan-status-body{font-size:12px;line-height:1.5;color:var(--muted)}
+.dashboard-plan-status-warning{border-left-color:var(--orange);background:linear-gradient(180deg,rgba(245,158,11,0.11),rgba(245,158,11,0.04))}
+.dashboard-plan-status-warning .dashboard-plan-status-title{color:#ffbf5f}
+.dashboard-plan-status-info{border-left-color:var(--blue);background:linear-gradient(180deg,rgba(59,130,246,0.12),rgba(59,130,246,0.04))}
+.dashboard-plan-status-info .dashboard-plan-status-title{color:#7cb3ff}
+.dashboard-plan-status-positive{border-left-color:var(--green);background:linear-gradient(180deg,rgba(52,211,153,0.12),rgba(52,211,153,0.04))}
+.dashboard-plan-status-positive .dashboard-plan-status-title{color:#71e6b8}
+.dashboard-plan-status-neutral{border-left-color:rgba(255,255,255,0.16)}
 
 /* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:var(--radius);border:none;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:inherit;transition:transform 0.1s,opacity 0.15s,box-shadow 0.2s}
