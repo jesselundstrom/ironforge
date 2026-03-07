@@ -1,6 +1,14 @@
 ﻿// Data and auth layer extracted from app.js.
 // Keeps runtime behavior the same while reducing app.js size/responsibility.
 
+const PROFILE_CORE_DOC_KEY='profile_core';
+const SCHEDULE_DOC_KEY='schedule';
+const PROGRAM_DOC_PREFIX='program:';
+let profileDocumentsSupported=null;
+let syncRealtimeChannel=null;
+let realtimeSyncTimer=null;
+let isApplyingRemoteSync=false;
+
 function loadLocalData(){
   try{const w=localStorage.getItem('ic_workouts');if(w)workouts=JSON.parse(w);}catch(e){logWarn('Failed to load workouts from localStorage',e);}
   try{const s=localStorage.getItem('ic_schedule');if(s)schedule=JSON.parse(s);}catch(e){logWarn('Failed to load schedule from localStorage',e);}
@@ -30,6 +38,71 @@ function mergeWorkoutLists(primary,fallback,deletedIds){
   add(fallback);
   merged.sort((a,b)=>new Date(a.date)-new Date(b.date));
   return merged;
+}
+
+function cloneJson(value){
+  if(value===undefined)return undefined;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function uniqueDocKeys(keys){
+  return [...new Set((keys||[]).filter(Boolean))];
+}
+
+function programDocKey(programId){
+  return PROGRAM_DOC_PREFIX+String(programId||'');
+}
+
+function programIdFromDocKey(docKey){
+  const key=String(docKey||'');
+  return key.startsWith(PROGRAM_DOC_PREFIX)?key.slice(PROGRAM_DOC_PREFIX.length):'';
+}
+
+function isProgramDocKey(docKey){
+  return !!programIdFromDocKey(docKey);
+}
+
+function getProfilePrograms(profileLike){
+  return profileLike&&typeof profileLike.programs==='object'&&profileLike.programs?profileLike.programs:{};
+}
+
+function listProgramIds(profileLike){
+  return Object.keys(getProfilePrograms(profileLike)).sort();
+}
+
+function filterCoreSyncMeta(syncMetaLike){
+  if(!syncMetaLike||typeof syncMetaLike!=='object')return undefined;
+  const next={...syncMetaLike};
+  delete next.profileUpdatedAt;
+  delete next.scheduleUpdatedAt;
+  delete next.programUpdatedAt;
+  return Object.keys(next).length?next:undefined;
+}
+
+function getProfileCorePayload(profileLike){
+  const next=cloneJson(profileLike||{})||{};
+  delete next.programs;
+  if(next.syncMeta){
+    const filteredSyncMeta=filterCoreSyncMeta(next.syncMeta);
+    if(filteredSyncMeta)next.syncMeta=filteredSyncMeta;
+    else delete next.syncMeta;
+  }
+  return next;
+}
+
+function getDocumentPayload(docKey,profileLike,scheduleLike){
+  if(docKey===PROFILE_CORE_DOC_KEY)return getProfileCorePayload(profileLike);
+  if(docKey===SCHEDULE_DOC_KEY)return cloneJson(scheduleLike||{})||{};
+  const programId=programIdFromDocKey(docKey);
+  if(programId){
+    const state=getProfilePrograms(profileLike)[programId];
+    return state===undefined?undefined:(cloneJson(state)||{});
+  }
+  return undefined;
+}
+
+function getAllProfileDocumentKeys(profileLike){
+  return uniqueDocKeys([PROFILE_CORE_DOC_KEY,SCHEDULE_DOC_KEY,...listProgramIds(profileLike).map(programDocKey)]);
 }
 
 function normalizeWorkoutRecord(workout){
@@ -100,6 +173,14 @@ function ensureProfileSyncMeta(){
   return profile.syncMeta;
 }
 
+function ensureProgramSyncMeta(profileLike){
+  const target=profileLike&&typeof profileLike==='object'?profileLike:profile;
+  if(!target||typeof target!=='object')return{};
+  if(!target.syncMeta||typeof target.syncMeta!=='object')target.syncMeta={};
+  if(!target.syncMeta.programUpdatedAt||typeof target.syncMeta.programUpdatedAt!=='object')target.syncMeta.programUpdatedAt={};
+  return target.syncMeta.programUpdatedAt;
+}
+
 function parseSyncStamp(value){
   const ts=Date.parse(String(value||''));
   return Number.isFinite(ts)?ts:0;
@@ -107,6 +188,10 @@ function parseSyncStamp(value){
 
 function getSectionSyncStamp(profileLike,key){
   return parseSyncStamp(profileLike?.syncMeta?.[key]);
+}
+
+function getProgramSyncStamp(profileLike,programId){
+  return parseSyncStamp(profileLike?.syncMeta?.programUpdatedAt?.[programId]);
 }
 
 function laterIso(a,b){
@@ -121,6 +206,18 @@ function mergeSyncMeta(localMeta,remoteMeta){
   const scheduleUpdatedAt=laterIso(localMeta?.scheduleUpdatedAt,remoteMeta?.scheduleUpdatedAt);
   if(profileUpdatedAt)merged.profileUpdatedAt=profileUpdatedAt;
   if(scheduleUpdatedAt)merged.scheduleUpdatedAt=scheduleUpdatedAt;
+  const programIds=new Set([
+    ...Object.keys(localMeta?.programUpdatedAt||{}),
+    ...Object.keys(remoteMeta?.programUpdatedAt||{})
+  ]);
+  if(programIds.size){
+    merged.programUpdatedAt={};
+    programIds.forEach(programId=>{
+      const next=laterIso(localMeta?.programUpdatedAt?.[programId],remoteMeta?.programUpdatedAt?.[programId]);
+      if(next)merged.programUpdatedAt[programId]=next;
+    });
+    if(!Object.keys(merged.programUpdatedAt).length)delete merged.programUpdatedAt;
+  }
   if((localMeta&&'workoutsTableReady'in localMeta)||(remoteMeta&&'workoutsTableReady'in remoteMeta)){
     merged.workoutsTableReady=!!(localMeta?.workoutsTableReady||remoteMeta?.workoutsTableReady);
   }
@@ -139,6 +236,18 @@ function chooseNewerSection(localValue,remoteValue,localProfileLike,remoteProfil
 
 function touchSectionSync(syncKey){
   ensureProfileSyncMeta()[syncKey]=new Date().toISOString();
+}
+
+function touchProgramSync(programId){
+  if(!programId)return;
+  ensureProgramSyncMeta()[programId]=new Date().toISOString();
+}
+
+function resolveProfileSaveDocKeys(options){
+  const opts=options||{};
+  if(Array.isArray(opts.docKeys)&&opts.docKeys.length)return uniqueDocKeys(opts.docKeys);
+  if(Array.isArray(opts.programIds)&&opts.programIds.length)return uniqueDocKeys(opts.programIds.map(programDocKey));
+  return uniqueDocKeys([PROFILE_CORE_DOC_KEY,...listProgramIds(profile).map(programDocKey)]);
 }
 
 async function loadData(options){
@@ -222,13 +331,117 @@ async function saveScheduleData(options){
   if(opts.touchSync!==false)touchSectionSync('scheduleUpdatedAt');
   persistLocalScheduleCache();
   persistLocalProfileCache();
-  if(opts.push!==false)await pushToCloud();
+  if(opts.push!==false)await pushToCloud({docKeys:[SCHEDULE_DOC_KEY]});
 }
 async function saveProfileData(options){
   const opts=options||{};
-  if(opts.touchSync!==false)touchSectionSync('profileUpdatedAt');
+  if(opts.touchSync!==false){
+    if(Array.isArray(opts.programIds)&&opts.programIds.length){
+      opts.programIds.forEach(touchProgramSync);
+      touchSectionSync('profileUpdatedAt');
+    }else touchSectionSync('profileUpdatedAt');
+  }
   persistLocalProfileCache();
-  if(opts.push!==false)await pushToCloud();
+  if(opts.push!==false)await pushToCloud({docKeys:resolveProfileSaveDocKeys(opts)});
+}
+
+function toProfileDocumentRows(docKeys,profileLike,scheduleLike){
+  if(!currentUser)return[];
+  return uniqueDocKeys(docKeys).map(docKey=>{
+    const payload=getDocumentPayload(docKey,profileLike,scheduleLike);
+    if(payload===undefined)return null;
+    let clientUpdatedAt=new Date().toISOString();
+    if(docKey===PROFILE_CORE_DOC_KEY)clientUpdatedAt=profileLike?.syncMeta?.profileUpdatedAt||clientUpdatedAt;
+    else if(docKey===SCHEDULE_DOC_KEY)clientUpdatedAt=profileLike?.syncMeta?.scheduleUpdatedAt||clientUpdatedAt;
+    else{
+      const programId=programIdFromDocKey(docKey);
+      clientUpdatedAt=profileLike?.syncMeta?.programUpdatedAt?.[programId]||clientUpdatedAt;
+    }
+    return{
+      user_id:currentUser.id,
+      doc_key:docKey,
+      payload,
+      client_updated_at:clientUpdatedAt
+    };
+  }).filter(Boolean);
+}
+
+async function upsertProfileDocuments(docKeys,profileLike,scheduleLike){
+  if(!currentUser)return false;
+  const rows=toProfileDocumentRows(docKeys,profileLike,scheduleLike);
+  if(!rows.length)return true;
+  try{
+    await _SB.from('profile_documents').upsert(rows,{onConflict:'user_id,doc_key'});
+    profileDocumentsSupported=true;
+    return true;
+  }catch(e){
+    if(profileDocumentsSupported!==false)logWarn('Failed to upsert profile documents',e);
+    profileDocumentsSupported=false;
+    return false;
+  }
+}
+
+function buildStateFromProfileDocuments(rows,fallbackProfile,fallbackSchedule){
+  const baseProfile=cloneJson(fallbackProfile||{})||{};
+  const nextProfile={...baseProfile,programs:{...cloneJson(getProfilePrograms(baseProfile))}};
+  const nextSchedule=cloneJson(fallbackSchedule||schedule||{})||{};
+  const rowsByKey=new Map((rows||[]).map(row=>[row.doc_key,row]));
+  const corePayload=rowsByKey.get(PROFILE_CORE_DOC_KEY)?.payload;
+  if(corePayload&&typeof corePayload==='object'){
+    const existingPrograms=nextProfile.programs||{};
+    const existingSyncMeta={...(nextProfile.syncMeta||{})};
+    const incomingSyncMeta={...(corePayload.syncMeta||{})};
+    Object.assign(nextProfile,corePayload);
+    nextProfile.programs=existingPrograms;
+    nextProfile.syncMeta={...existingSyncMeta,...incomingSyncMeta};
+  }
+  const schedulePayload=rowsByKey.get(SCHEDULE_DOC_KEY)?.payload;
+  const resolvedSchedule=(schedulePayload&&typeof schedulePayload==='object')?schedulePayload:nextSchedule;
+  const programIds=new Set([
+    ...Object.keys(nextProfile.programs||{}),
+    ...Array.from(rowsByKey.keys()).filter(isProgramDocKey).map(programIdFromDocKey)
+  ]);
+  programIds.forEach(programId=>{
+    const payload=rowsByKey.get(programDocKey(programId))?.payload;
+    if(payload&&typeof payload==='object'){
+      nextProfile.programs[programId]=payload;
+    }
+  });
+  cleanupLegacyProfileFields(nextProfile);
+  return{profile:nextProfile,schedule:resolvedSchedule,rowsByKey};
+}
+
+async function pullProfileDocuments(options){
+  if(!currentUser)return{usedDocs:false,supported:false};
+  try{
+    const{data,error}=await _SB.from('profile_documents')
+      .select('doc_key,payload,client_updated_at,updated_at')
+      .eq('user_id',currentUser.id);
+    if(error){
+      if(profileDocumentsSupported!==false)logWarn('Failed to pull profile documents',error);
+      profileDocumentsSupported=false;
+      return{usedDocs:false,supported:false};
+    }
+    profileDocumentsSupported=true;
+    const rows=Array.isArray(data)?data:[];
+    if(!rows.length)return{usedDocs:false,supported:true};
+
+    const fallbackProfile=options?.legacyProfile||profile;
+    const fallbackSchedule=options?.legacySchedule||schedule;
+    const next=buildStateFromProfileDocuments(rows,fallbackProfile,fallbackSchedule);
+    profile=next.profile;
+    schedule=next.schedule;
+
+    const desiredDocKeys=getAllProfileDocumentKeys(profile);
+    const missingDocKeys=desiredDocKeys.filter(docKey=>!next.rowsByKey.has(docKey));
+    if(missingDocKeys.length)await upsertProfileDocuments(missingDocKeys,profile,schedule);
+
+    return{usedDocs:true,supported:true};
+  }catch(e){
+    if(profileDocumentsSupported!==false)logWarn('Failed to pull profile documents',e);
+    profileDocumentsSupported=false;
+    return{usedDocs:false,supported:false};
+  }
 }
 
 function toWorkoutRow(workout){
@@ -313,7 +526,7 @@ async function pullWorkoutsFromTable(fallbackWorkouts){
     if(missingFromTable.length)await upsertWorkoutRecords(missingFromTable);
     if((rows.length>0||missingFromTable.length>0)&&!isWorkoutTableReady(profile)){
       profile.syncMeta={...(profile.syncMeta||{}),workoutsTableReady:true};
-      await saveProfileData();
+      await saveProfileData({docKeys:[PROFILE_CORE_DOC_KEY]});
     }
 
     return{
@@ -327,11 +540,34 @@ async function pullWorkoutsFromTable(fallbackWorkouts){
   }
 }
 
-async function pushToCloud(){
-  if(!currentUser)return;
+async function fetchLegacyProfileBlob(){
+  if(!currentUser)return{usedCloud:false};
   try{
     const{data,error}=await _SB.from('profiles').select('data').eq('id',currentUser.id).single();
-    if(error&&error.code!=='PGRST116'){logWarn('Failed to read cloud profile before push',error);}
+    if(error||!data?.data)return{usedCloud:false};
+    return{
+      usedCloud:true,
+      profile:data.data.profile||{},
+      schedule:data.data.schedule
+    };
+  }catch(e){
+    return{usedCloud:false};
+  }
+}
+
+function applyLegacyProfileBlob(remoteProfile,remoteSchedule,options){
+  const localProfile=profile;
+  const localSchedule=schedule;
+  const nextProfile=chooseNewerSection(localProfile,remoteProfile,localProfile,remoteProfile,'profileUpdatedAt',options);
+  const nextSchedule=chooseNewerSection(localSchedule,remoteSchedule,localProfile,remoteProfile,'scheduleUpdatedAt',options);
+  profile={...nextProfile,syncMeta:mergeSyncMeta(localProfile?.syncMeta,remoteProfile?.syncMeta)};
+  if(nextSchedule!==undefined)schedule=nextSchedule;
+}
+
+async function pushLegacyProfileBlob(){
+  try{
+    const{data,error}=await _SB.from('profiles').select('data').eq('id',currentUser.id).single();
+    if(error&&error.code!=='PGRST116'){logWarn('Failed to read cloud profile before legacy push',error);}
     const remoteData=data?.data||{};
     const remoteProfile=remoteData.profile||{};
     const remoteSchedule=remoteData.schedule;
@@ -342,40 +578,133 @@ async function pushToCloud(){
     persistLocalProfileCache();
     persistLocalScheduleCache();
     await _SB.from('profiles').upsert({id:currentUser.id,data:{profile,schedule},updated_at:new Date().toISOString()});
-  }catch(e){logWarn('Failed to push data to cloud',e);}
+  }catch(e){logWarn('Failed to push legacy profile blob',e);}
+}
+
+async function pushToCloud(options){
+  if(!currentUser||isApplyingRemoteSync)return;
+  const opts=options||{};
+  await upsertProfileDocuments(opts.docKeys||getAllProfileDocumentKeys(profile),profile,schedule);
+  await pushLegacyProfileBlob();
 }
 
 async function pullFromCloud(){
   if(!currentUser)return{usedCloud:false};
+  const legacySnapshot=await fetchLegacyProfileBlob();
+  const docsResult=await pullProfileDocuments({
+    legacyProfile:legacySnapshot.profile,
+    legacySchedule:legacySnapshot.schedule
+  });
+  if(docsResult.usedDocs)return{usedCloud:true,usedDocs:true};
+  if(legacySnapshot.usedCloud){
+    applyLegacyProfileBlob(legacySnapshot.profile,legacySnapshot.schedule,{preferRemoteWhenUnset:true});
+    if(profileDocumentsSupported!==false){
+      await upsertProfileDocuments(getAllProfileDocumentKeys(profile),profile,schedule);
+    }
+    return{usedCloud:true,usedDocs:false};
+  }
+  return{usedCloud:false,usedDocs:false};
+}
+
+function refreshSyncedUI(options){
+  const opts=options||{};
+  restDuration=profile.defaultRest||120;
+  buildExerciseIndex();
+  if(typeof initSettings==='function'&&document.getElementById('settings-modal')?.classList.contains('active'))initSettings();
+  if(typeof updateProgramDisplay==='function')updateProgramDisplay();
+  if(typeof updateDashboard==='function')updateDashboard();
+  if(typeof renderHistory==='function'&&document.getElementById('page-history')?.classList.contains('active')){
+    renderHistory();
+    if(typeof updateStats==='function')updateStats();
+  }
+  if(!activeWorkout&&document.getElementById('page-log')?.classList.contains('active')&&typeof resetNotStartedView==='function'){
+    resetNotStartedView();
+  }
+  if(opts.toast&&typeof showToast==='function'){
+    showToast(i18nText('toast.synced_other_device','Synced latest changes from another device'),'var(--blue)');
+  }
+}
+
+function teardownRealtimeSync(){
+  if(realtimeSyncTimer){
+    clearTimeout(realtimeSyncTimer);
+    realtimeSyncTimer=null;
+  }
+  if(syncRealtimeChannel&&_SB?.removeChannel){
+    _SB.removeChannel(syncRealtimeChannel);
+  }
+  syncRealtimeChannel=null;
+}
+
+async function applyRealtimeSync(reason){
+  if(!currentUser||isApplyingRemoteSync)return;
+  isApplyingRemoteSync=true;
   try{
-    const{data,error}=await _SB.from('profiles').select('data').eq('id',currentUser.id).single();
-    if(error||!data?.data)return{usedCloud:false};
-    const c=data.data;
-    const remoteProfile=c.profile||{};
-    const remoteSchedule=c.schedule;
-    const localProfile=profile;
-    const localSchedule=schedule;
-    const nextProfile=chooseNewerSection(localProfile,remoteProfile,localProfile,remoteProfile,'profileUpdatedAt',{preferRemoteWhenUnset:true});
-    const nextSchedule=chooseNewerSection(localSchedule,remoteSchedule,localProfile,remoteProfile,'scheduleUpdatedAt',{preferRemoteWhenUnset:true});
-    profile={...nextProfile,syncMeta:mergeSyncMeta(localProfile?.syncMeta,remoteProfile?.syncMeta)};
-    if(nextSchedule!==undefined)schedule=nextSchedule;
-    return{usedCloud:true};
-  }catch(e){return{usedCloud:false};}
+    const beforeProfile=JSON.stringify(profile||{});
+    const beforeSchedule=JSON.stringify(schedule||{});
+    const beforeWorkouts=JSON.stringify(workouts||[]);
+    await pullFromCloud();
+    const tableResult=await pullWorkoutsFromTable(workouts);
+    if(tableResult.usedTable||tableResult.didBackfill)workouts=tableResult.workouts||workouts;
+    const changed=
+      beforeProfile!==JSON.stringify(profile||{})||
+      beforeSchedule!==JSON.stringify(schedule||{})||
+      beforeWorkouts!==JSON.stringify(workouts||[]);
+    if(changed){
+      persistLocalProfileCache();
+      persistLocalScheduleCache();
+      persistLocalWorkoutsCache();
+      refreshSyncedUI({toast:reason!=='auth-load'});
+    }
+  }finally{
+    isApplyingRemoteSync=false;
+  }
+}
+
+function scheduleRealtimeSync(reason){
+  if(!currentUser)return;
+  if(realtimeSyncTimer)clearTimeout(realtimeSyncTimer);
+  realtimeSyncTimer=setTimeout(()=>{applyRealtimeSync(reason);},150);
+}
+
+function setupRealtimeSync(){
+  teardownRealtimeSync();
+  if(!currentUser||!_SB?.channel)return;
+  syncRealtimeChannel=_SB.channel('ironforge-sync-'+currentUser.id)
+    .on('postgres_changes',{
+      event:'*',
+      schema:'public',
+      table:'workouts',
+      filter:`user_id=eq.${currentUser.id}`
+    },()=>scheduleRealtimeSync('workouts'))
+    .on('postgres_changes',{
+      event:'*',
+      schema:'public',
+      table:'profile_documents',
+      filter:`user_id=eq.${currentUser.id}`
+    },()=>scheduleRealtimeSync('profile-documents'))
+    .on('postgres_changes',{
+      event:'*',
+      schema:'public',
+      table:'profiles',
+      filter:`id=eq.${currentUser.id}`
+    },()=>scheduleRealtimeSync('legacy-profile'))
+    .subscribe();
 }
 
 async function initAuth(){
   await loadData({allowCloudSync:false});
   const{data:{session}}=await _SB.auth.getSession();
   currentUser=session?.user??null;
-  if(currentUser){hideLoginScreen();await loadData({allowCloudSync:true});}
-  else showLoginScreen();
+  if(currentUser){hideLoginScreen();await loadData({allowCloudSync:true});setupRealtimeSync();}
+  else{teardownRealtimeSync();showLoginScreen();}
 
   _SB.auth.onAuthStateChange(async(_event,session)=>{
     const wasLoggedIn=!!currentUser;
     currentUser=session?.user??null;
-    if(currentUser&&!wasLoggedIn){hideLoginScreen();await loadData({allowCloudSync:true});}
-    else if(!currentUser&&wasLoggedIn){await loadData({allowCloudSync:false});showLoginScreen();}
-    else if(!currentUser){showLoginScreen();}
+    if(currentUser&&!wasLoggedIn){hideLoginScreen();await loadData({allowCloudSync:true});setupRealtimeSync();}
+    else if(!currentUser&&wasLoggedIn){teardownRealtimeSync();await loadData({allowCloudSync:false});showLoginScreen();}
+    else if(!currentUser){teardownRealtimeSync();showLoginScreen();}
   });
 }
 
@@ -414,6 +743,7 @@ async function signUpWithEmail(){
 }
 
 async function logout(){
+  teardownRealtimeSync();
   await _SB.auth.signOut();
   workouts=[];schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en')};currentUser=null;
   updateDashboard();

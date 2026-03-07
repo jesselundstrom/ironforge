@@ -356,7 +356,7 @@ function doAuxSwap(ei,newName,slotIdx){
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=prog.onAuxSwap?prog.onAuxSwap(slotIdx,newName,state):state;
   setProgramState(prog.id,newState);
-  saveProfileData();
+  saveProfileData({programIds:[prog.id]});
   closeCustomModal();renderExercises();
   showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(newName)}),'var(--purple)');
 }
@@ -374,7 +374,7 @@ function doBackSwap(ei,newName){
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=prog.onBackSwap?prog.onBackSwap(newName,state):state;
   setProgramState(prog.id,newState);
-  saveProfileData();
+  saveProfileData({programIds:[prog.id]});
   closeCustomModal();renderExercises();
   showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(newName)}),'var(--purple)');
 }
@@ -496,7 +496,7 @@ async function finishWorkout(){
   }
 
   setProgramState(prog.id,advancedState);
-  saveProfileData();
+  saveProfileData({programIds:[prog.id]});
   await upsertWorkoutRecord(savedWorkout);
   await saveWorkouts();
   buildExerciseIndex();

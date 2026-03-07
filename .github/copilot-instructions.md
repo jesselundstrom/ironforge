@@ -40,8 +40,10 @@
 - Do not rename persisted keys or change stored structures without migration logic.
 - Be careful with Supabase-related code in `app.js` and `core/data-layer.js`.
 - Treat `public.workouts` as the source of truth for workout history sync.
-- Treat `profiles.data` as profile and schedule sync only; do not reintroduce `profiles.data.workouts`.
+- Treat `public.profile_documents` as the primary sync source for profile core, schedule, and per-program state.
+- Treat `profiles.data` as a compatibility mirror/fallback for profile and schedule only; do not reintroduce `profiles.data.workouts`.
 - Keep workout-table changes compatible with the additive migration flow under `supabase/migrations/`.
+- Keep profile-document sync compatible with the additive migration flow under `supabase/migrations/`.
 - Preserve soft-delete behavior for synced workouts unless the task explicitly requires a different deletion model.
 - Avoid changes that could silently invalidate existing user data on devices.
 

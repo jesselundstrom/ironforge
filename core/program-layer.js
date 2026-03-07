@@ -54,15 +54,18 @@ function recomputeProgramStateFromWorkouts(programId){
 function renderProgramSwitcher(){
   const container=document.getElementById('program-switcher-container');if(!container)return;
   const active=profile.activeProgram||'forge';
-  container.innerHTML=Object.values(PROGRAMS).map(p=>`
+  container.innerHTML=Object.values(PROGRAMS).map(p=>{
+    const pName=trProg('program.'+p.id+'.name',p.name);
+    const pDesc=trProg('program.'+p.id+'.description',p.description);
+    return`
     <div class="program-card${p.id===active?' active':''}" onclick="switchProgram('${escapeHtml(p.id)}')">
       <div class="program-card-icon">${escapeHtml(p.icon||'🏋️')}</div>
       <div style="flex:1;min-width:0">
-        <div class="program-card-name">${escapeHtml(p.name)}</div>
-        <div class="program-card-desc">${escapeHtml(p.description)}</div>
+        <div class="program-card-name">${escapeHtml(pName)}</div>
+        <div class="program-card-desc">${escapeHtml(pDesc)}</div>
       </div>
       ${p.id===active?'<div class="program-card-badge">'+escapeHtml(trProg('program.active','Active'))+'</div>':''}
-    </div>`).join('');
+    </div>`;}).join('');
 }
 
 function switchProgram(id){
@@ -72,7 +75,7 @@ function switchProgram(id){
     profile.activeProgram=id;
     if(!profile.programs)profile.programs={};
     if(!profile.programs[id])profile.programs[id]=prog.getInitialState();
-    saveProfileData();
+    saveProfileData({docKeys:[PROFILE_CORE_DOC_KEY,programDocKey(id)]});
     initSettings();
     updateDashboard();
     showToast(trProg('program.switched','Switched to {name}',{name:prog.name}),'var(--purple)');
@@ -83,7 +86,7 @@ function saveProgramSetup(){
   const prog=getActiveProgram(),state=getActiveProgramState();
   const newState=prog.saveSettings?prog.saveSettings(state):state;
   setProgramState(prog.id,newState);
-  saveProfileData();
+  saveProfileData({programIds:[prog.id]});
   closeProgramSetupSheet();
   showToast(trProg('program.setup_saved','Program setup saved!'),'var(--purple)');
   updateProgramDisplay();
@@ -151,7 +154,8 @@ function updateProgramDisplay(){
   const info=document.getElementById('program-week-display');
   if(info&&prog.getBlockInfo){
     const bi=prog.getBlockInfo(state);
-    info.innerHTML=`${prog.icon||'Lift'} <strong>${prog.name}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${trProg('program.training_max_pct','{pct}% of Training Max',{pct:bi.pct})}</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
+    const progName=trProg('program.'+prog.id+'.name',prog.name);
+    info.innerHTML=`${prog.icon||'Lift'} <strong>${progName}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${trProg('program.training_max_pct','{pct}% of Training Max',{pct:bi.pct})}</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
   }
   let banner=document.getElementById('program-recommend-banner');
   if(!banner){

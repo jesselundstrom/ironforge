@@ -488,14 +488,14 @@ function toggleDay(kind,dow,el){
 function saveRestTimer(){
   profile.defaultRest=parseInt(document.getElementById('default-rest').value)||120;
   restDuration=profile.defaultRest;
-  saveProfileData();
+  saveProfileData({docKeys:['profile_core']});
   showToast(tr('toast.rest_updated','Rest timer updated'),'var(--blue)');
 }
 function saveLanguageSetting(){
   const lang=document.getElementById('app-language')?.value||'en';
   if(window.I18N&&I18N.setLanguage)I18N.setLanguage(lang,{persist:true});
   profile.language=lang;
-  saveProfileData();
+  saveProfileData({docKeys:['profile_core']});
   const msg=window.I18N&&I18N.t?I18N.t('settings.language.saved'):'Language updated';
   showToast(msg,'var(--blue)');
 }
@@ -505,7 +505,7 @@ function saveSchedule(){
   const cb=document.getElementById('sport-legs-heavy');
   if(cb)schedule.sportLegsHeavy=cb.checked;
   if(!activeWorkout)resetNotStartedView();
-  saveScheduleData();saveProfileData();updateProgramDisplay();updateDashboard();showToast(tr('toast.schedule_saved','Schedule saved!'),'var(--blue)');
+  saveScheduleData();updateProgramDisplay();updateDashboard();showToast(tr('toast.schedule_saved','Schedule saved!'),'var(--blue)');
 }
 
 function exportData(){
@@ -535,7 +535,7 @@ function importData(event){
         if(data.schedule) schedule=data.schedule;
         if(data.profile) profile=data.profile;
         await replaceWorkoutTableSnapshot(workouts);
-        await saveWorkouts();await saveScheduleData();await saveProfileData();
+        await saveWorkouts();await saveScheduleData();await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
         showToast(tr('toast.data_imported','Data imported! Reloading...'),"var(--green)");
         setTimeout(()=>location.reload(),1000);
       });
@@ -551,7 +551,7 @@ async function clearAllData(){
   profile={defaultRest:120,activeProgram:'forge',programs:{},language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en')};
   Object.values(PROGRAMS).forEach(prog=>{profile.programs[prog.id]=prog.getInitialState();});
   await replaceWorkoutTableSnapshot([]);
-  await saveWorkouts();await saveScheduleData();await saveProfileData();
+  await saveWorkouts();await saveScheduleData();await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
   updateDashboard();showToast(tr('toast.all_data_cleared','All data cleared'),'var(--accent)');
 }
 

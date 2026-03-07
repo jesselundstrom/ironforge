@@ -6,8 +6,10 @@ description: "Use when changing Supabase sync, persistence, import/export, worko
 # Ironforge Backend And Sync Instructions
 
 - Workout history sync now uses the dedicated `public.workouts` table in Supabase. Treat that table as the source of truth for synced workouts.
-- `profiles.data` is for `profile` and `schedule` only. Do not add `workouts` back into the profile blob.
+- Profile and schedule sync now use `public.profile_documents` as the primary source of truth. Use separate document keys such as `profile_core`, `schedule`, and `program:<id>`.
+- `profiles.data` is a compatibility mirror/fallback for `profile` and `schedule` only. Do not add `workouts` back into the profile blob.
 - `profile` and `schedule` sync use section-level timestamps stored in `profile.syncMeta`. Preserve that merge behavior when changing profile persistence.
+- Keep targeted saves targeted. Program-state writes should update the relevant `program:<id>` document instead of re-writing every program state blob.
 - Keep the app local-first: localStorage remains the client cache and offline fallback, but synced workout history must round-trip through `public.workouts`.
 - Preserve the current `client_workout_id` model. It is the stable per-user identifier used for upserts and soft deletes.
 - Preserve soft-delete behavior through `deleted_at` unless the task explicitly requires a migration away from that model.

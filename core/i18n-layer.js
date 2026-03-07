@@ -194,6 +194,7 @@ const STRINGS={
     'toast.data_imported':'Data imported! Reloading...',
     'toast.could_not_read_file':'Could not read file',
     'toast.all_data_cleared':'All data cleared',
+    'toast.synced_other_device':'Synced latest changes from another device',
     'import.invalid_file':'Invalid backup file',
     'import.invalid_workout_data':'Backup file has invalid workout data',
     'import.malformed_entries':'Backup file has malformed workout entries',
@@ -426,7 +427,8 @@ const STRINGS={
     'program.w531.banner.next':' · Next: <strong>{label}</strong>',
     'program.w531.banner.session_left':' · {left} session left',
     'program.w531.banner.sessions_left':' · {left} sessions left',
-    'program.w531.banner.cycleweek':'C{cycle} W{week}'
+    'program.w531.banner.cycleweek':'C{cycle} W{week}',
+    'program.w531.block.week_label':'Cycle {cycle} · Week {week} · {season}'
   },
   fi:{
     'common.undo':'Kumoa',
@@ -573,12 +575,18 @@ const STRINGS={
     'workout.next_week':'{program} - seuraavaksi {label}!',
     'program.active':'Aktiivinen',
     'program.setup_saved':'Ohjelman asetukset tallennettu!',
+    'program.switch_to':'Vaihda ohjelmaan {name}',
+    'program.switch_msg':'Nykyinen ohjelma keskeytetään. {name} jatkaa siitä mihin jäit.',
+    'program.switched':'Vaihdettu ohjelmaan {name}',
+    'program.week_info':'{icon} {name} - {block} - {week}',
+    'program.training_max_pct':'{pct}% harjoittelumaksimista',
     'toast.rest_updated':'Lepoajastin päivitetty',
     'toast.schedule_saved':'Aikataulu tallennettu!',
     'toast.backup_exported':'Varmuuskopio vietiin!',
     'toast.data_imported':'Data tuotu! Ladataan uudelleen...',
     'toast.could_not_read_file':'Tiedostoa ei voitu lukea',
     'toast.all_data_cleared':'Kaikki data poistettu',
+    'toast.synced_other_device':'Uusimmat muutokset synkattiin toiselta laitteelta',
     'import.invalid_file':'Virheellinen varmuuskopio',
     'import.invalid_workout_data':'Varmuuskopion treenidata on virheellinen',
     'import.malformed_entries':'Varmuuskopiossa on virheellisiä treenimerkintöjä',
@@ -810,7 +818,8 @@ const STRINGS={
     'program.w531.banner.next':' · Seuraava: <strong>{label}</strong>',
     'program.w531.banner.session_left':' · {left} sessio jäljellä',
     'program.w531.banner.sessions_left':' · {left} sessiota jäljellä',
-    'program.w531.banner.cycleweek':'S{cycle} V{week}'
+    'program.w531.banner.cycleweek':'S{cycle} V{week}',
+    'program.w531.block.week_label':'Sykli {cycle} · Viikko {week} · {season}'
   }
 };
 

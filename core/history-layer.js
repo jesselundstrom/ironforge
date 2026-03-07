@@ -387,7 +387,7 @@ function deleteWorkout(id){
     if(affectedProgramId)recomputeProgramStateFromWorkouts(affectedProgramId);
     await softDeleteWorkoutRecord(id);
     await saveWorkouts();
-    await saveProfileData();
+    if(affectedProgramId)await saveProfileData({programIds:[affectedProgramId]});
     renderHistory();updateStats();updateDashboard();updateProgramDisplay();
     showToast(trHist('history.session_deleted','Session deleted'),'var(--muted)',async()=>{
       workouts.push(backup);
@@ -396,7 +396,7 @@ function deleteWorkout(id){
       buildExerciseIndex();
       await upsertWorkoutRecord(backup);
       await saveWorkouts();
-      await saveProfileData();
+      if(affectedProgramId)await saveProfileData({programIds:[affectedProgramId]});
       renderHistory();updateStats();updateDashboard();updateProgramDisplay();
       showToast(trHist('history.session_restored','Session restored!'),'var(--green)');
     });
