@@ -37,7 +37,11 @@
 ## Data And Persistence
 - Respect the current localStorage-backed state and existing data shapes.
 - Do not rename persisted keys or change stored structures without migration logic.
-- Be careful with Supabase-related code in `app.js`.
+- Be careful with Supabase-related code in `app.js` and `core/data-layer.js`.
+- Treat `public.workouts` as the source of truth for workout history sync.
+- Treat `profiles.data` as profile and schedule sync only; do not reintroduce `profiles.data.workouts`.
+- Keep workout-table changes compatible with the additive migration flow under `supabase/migrations/`.
+- Preserve soft-delete behavior for synced workouts unless the task explicitly requires a different deletion model.
 - Avoid changes that could silently invalidate existing user data on devices.
 
 ## Program Files
@@ -49,4 +53,7 @@
 - Fix root causes instead of layering on narrow patches when feasible.
 - Avoid unrelated refactors.
 - If adding a feature, update all affected layers, translations, and UI states.
+- When a change alters architecture, persistence, sync behavior, migrations, or contributor workflow, also update the relevant AI instructions under `.github/` before committing.
+- Before committing and pushing meaningful project changes, explicitly check whether `.github/copilot-instructions.md` or a matching file under `.github/instructions/` should be updated to reflect the new reality.
+- Do not add instruction-only churn for trivial edits, but do document durable workflow or architecture changes once they become part of the project standard.
 - Prefer minimal diffs that preserve the current coding style and user flows.
