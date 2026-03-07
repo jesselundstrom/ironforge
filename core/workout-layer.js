@@ -34,7 +34,8 @@ function resetNotStartedView(){
     <div class="card" style="padding:20px">
       <div style="font-weight:800;font-size:16px;margin-bottom:4px">${i18nText('workout.start_session','Start a Session')}</div>
       <label style="margin-top:8px">${i18nText('workout.training_day','Training Day')}</label>
-      <select id="program-day-select" onchange="onDaySelectChange()"></select>
+      <input type="hidden" id="program-day-select" value="">
+      <div id="program-day-options" class="program-day-options"></div>
       <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
       ${sportCheckBanner}
       <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">${i18nText('workout.start_workout','Start Workout')}</button></div>

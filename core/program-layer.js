@@ -265,24 +265,43 @@ function updateForgeModeSetting(){
   if(prog._updateModeDesc)prog._updateModeDesc(mode);
 }
 
+function cleanProgramOptionLabel(label){
+  return String(label||'')
+    .replace(/^([⭐✅🏃⚠️]+\s*)+/u,'')
+    .trim();
+}
+
+function setProgramDayOption(value){
+  const input=document.getElementById('program-day-select');
+  if(input)input.value=String(value||'');
+  updateProgramDisplay();
+}
+
 function updateProgramDisplay(){
   const prog=getActiveProgram(),state=getActiveProgramState();
   const ds=document.getElementById('program-day-select');if(!ds)return;
+  const optionWrap=document.getElementById('program-day-options');
   // Preserve any selection the user has already made before rebuilding the list
   const prevVal=ds.value;
   const rawOptions=prog.getSessionOptions?prog.getSessionOptions(state,workouts,schedule):[];
   const options=applyPreferenceRecommendation(prog,rawOptions,state);
-  ds.innerHTML='';
   const recommended=options.find(o=>o.isRecommended)||options[0];
   // Use user's current pick if it still exists in the option list; otherwise recommend
   const hasMatch=prevVal&&options.some(o=>o.value===prevVal);
-  options.forEach(o=>{
-    const opt=document.createElement('option');
-    opt.value=o.value;opt.textContent=o.label;
-    if(hasMatch?o.value===prevVal:o===recommended)opt.selected=true;
-    if(o.done)opt.style.color='var(--muted)';
-    ds.appendChild(opt);
-  });
+  const selectedValue=String(hasMatch?prevVal:(recommended?.value||options[0]?.value||''));
+  ds.value=selectedValue;
+  if(optionWrap){
+    optionWrap.innerHTML=options.map(o=>{
+      const selected=String(o.value)===selectedValue;
+      const badges=[];
+      if(o.isRecommended&&!o.done)badges.push(`<span class="program-day-badge program-day-badge-recommended">${escapeHtml(trProg('program.recommended','Recommended'))}</span>`);
+      if(o.done)badges.push(`<span class="program-day-badge program-day-badge-done">${escapeHtml(trProg('program.done','Done'))}</span>`);
+      const warningBadge=(o.sportLegs&&o.hasLegs&&!o.done)
+        ? `<span class="program-day-badge program-day-badge-warning">${escapeHtml(trProg('program.leg_heavy','Leg-heavy'))}</span>`
+        : '';
+      return `<button type="button" class="program-day-option${selected?' active':''}${o.done?' is-done':''}" onclick="setProgramDayOption('${escapeHtml(o.value)}')"><div class="program-day-option-top"><div class="program-day-option-label">${escapeHtml(cleanProgramOptionLabel(o.label))}</div><div class="program-day-option-badges">${badges.join('')}${warningBadge}</div></div></button>`;
+    }).join('');
+  }
   const info=document.getElementById('program-week-display');
   if(info&&prog.getBlockInfo){
     const bi=prog.getBlockInfo(state);
@@ -304,7 +323,7 @@ function updateProgramDisplay(){
     const selectedOption=(hasMatch?options.find(o=>o.value===prevVal):recommended)||recommended;
     const reasonTitle=selectedOption===recommended
       ? trProg('program.recommend_reason.title','Why this session')
-      : trProg('program.recommend_reason.starred_title','Why the starred session is recommended');
+      : trProg('program.recommend_reason.starred_title','Why the recommended session is suggested');
     const reasonLines=recommended?.preferenceReasons||[];
     const reasonHtml=reasonLines.length
       ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)"><div style="font-size:10px;letter-spacing:0.9px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:6px">${escapeHtml(reasonTitle)}</div>${reasonLines.map(line=>`<div style="margin-top:4px;color:var(--text)">${escapeHtml(line)}</div>`).join('')}</div>`
