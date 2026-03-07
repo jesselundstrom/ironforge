@@ -1,4 +1,4 @@
-const CACHE = 'ironforge-v22';
+const CACHE = 'ironforge-v23';
 
 // Only cache local assets — Google Fonts URLs can fail offline and would
 // break the entire SW install. Fonts are cached on first successful fetch.
@@ -45,12 +45,12 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   const isSameOrigin = url.origin === self.location.origin;
   const isDocument = event.request.mode === 'navigate' || event.request.destination === 'document';
-  const isStaticAsset = isSameOrigin && (
+  const isCodeAsset = isSameOrigin && (
     event.request.destination === 'script' ||
     event.request.destination === 'style' ||
-    event.request.destination === 'image' ||
     url.pathname.endsWith('.json')
   );
+  const isImageAsset = isSameOrigin && event.request.destination === 'image';
 
   // Network-first for HTML/documents keeps app updates fresher.
   if (isDocument) {
@@ -68,8 +68,24 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Stale-while-revalidate for static assets gives fast loads with background refresh.
-  if (isStaticAsset) {
+  // Network-first for app code avoids serving stale JS/CSS after local changes or deploys.
+  if (isCodeAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200 && response.type !== 'opaque') {
+            const copy = response.clone();
+            caches.open(CACHE).then(cache => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Stale-while-revalidate is fine for images and keeps repeat loads fast.
+  if (isImageAsset) {
     event.respondWith(
       caches.match(event.request).then(cached => {
         const networkFetch = fetch(event.request).then(response => {

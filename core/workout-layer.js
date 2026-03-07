@@ -455,7 +455,7 @@ async function finishWorkout(){
   const workoutId=Date.now();
   const workoutDate=new Date().toISOString();
 
-  // Push workout record (keep legacy forge fields for history backwards-compat)
+  // Push workout record with canonical program metadata fields only.
   const savedWorkout={id:workoutId,date:workoutDate,
     program:prog.id,type:prog.id,
     programOption:activeWorkout.programOption,
@@ -463,7 +463,6 @@ async function finishWorkout(){
     programLabel:activeWorkout.programLabel||'',
     programMeta,
     programStateBefore:stateBeforeSession,
-    forgeWeek:state.week||undefined,forgeDayNum:activeWorkout.programDayNum||undefined,
     duration:getWorkoutElapsedSeconds(),exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets};
   workouts.push(savedWorkout);
 

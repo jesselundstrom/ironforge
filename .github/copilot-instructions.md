@@ -13,6 +13,7 @@
 - Avoid changes that assume desktop-first layouts, hover-only interactions, wide tables, or precise pointer input.
 - Preserve installability, offline-friendly behavior, and fast startup.
 - Be careful with anything that could break touch targets, viewport fit, safe-area behavior, or perceived responsiveness on slower mobile devices.
+- This app is service-worker cached. When changing app-shell assets or core runtime files, review `sw.js` so users do not get stuck on stale JS/CSS after an update.
 
 ## Architecture Rules
 - Prefer extending the existing layer structure instead of adding new abstractions.
@@ -55,5 +56,6 @@
 - If adding a feature, update all affected layers, translations, and UI states.
 - When a change alters architecture, persistence, sync behavior, migrations, or contributor workflow, also update the relevant AI instructions under `.github/` before committing.
 - Before committing and pushing meaningful project changes, explicitly check whether `.github/copilot-instructions.md` or a matching file under `.github/instructions/` should be updated to reflect the new reality.
+- When changing cached runtime assets or PWA update behavior, also decide whether `sw.js` cache versioning or fetch strategy needs an update.
 - Do not add instruction-only churn for trivial edits, but do document durable workflow or architecture changes once they become part of the project standard.
 - Prefer minimal diffs that preserve the current coding style and user flows.

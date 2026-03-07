@@ -104,7 +104,7 @@ function histGroupWorkouts(){
     const prog=w.program||w.type||'other';
     const meta=w.programMeta||{};
     const cycle=meta.cycle;
-    const week=meta.week||w.forgeWeek;
+    const week=meta.week;
 
     if(prog==='wendler531'){
       const seasonMap={off:trHist('program.season.off','Off-Season'),in:trHist('program.season.in','In-Season')};

@@ -139,7 +139,7 @@ const FORGE_PROGRAM={
     const hadSportRecently=workouts.some(w=>(w.type==='sport'||w.type==='hockey')&&(Date.now()-new Date(w.date).getTime())/3600000<=recentHours);
     const sportLegs=(isSportDay||hadSportRecently)&&legsHeavy;
     const now=new Date(),sow=getWeekStart(now);
-    const doneThisWeek=workouts.filter(w=>(w.program==='forge'||(!w.program&&w.type==='forge'))&&new Date(w.date)>=sow).map(w=>w.programDayNum||w.forgeDayNum);
+    const doneThisWeek=workouts.filter(w=>(w.program==='forge'||(!w.program&&w.type==='forge'))&&new Date(w.date)>=sow).map(w=>w.programDayNum);
     let bestDay=1,bestScore=-999;
     const dayScores=[];
     for(let d=1;d<=freq;d++){
