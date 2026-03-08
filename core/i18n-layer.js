@@ -611,7 +611,7 @@ const STRINGS={
     'catalog.filter_group.muscle':'Päälihasryhmä',
     'catalog.filter_group.equipment':'Väline',
     'catalog.filter.movement.squat':'Kyykky',
-    'catalog.filter.movement.hinge':'Hinge',
+    'catalog.filter.movement.hinge':'Lantionojennus',
     'catalog.filter.movement.horizontal_press':'Vaakapunnerrus',
     'catalog.filter.movement.vertical_press':'Pystypunnerrus',
     'catalog.filter.movement.horizontal_pull':'Vaakaveto',

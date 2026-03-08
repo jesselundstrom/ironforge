@@ -112,6 +112,8 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield;font-family:'J
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 input[type=range]{padding:0;height:4px;background:var(--surface2);border:none;border-radius:99px;accent-color:var(--accent)}
 select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23777' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+select option,select optgroup{background:var(--surface2);color:var(--text)}
+select optgroup{font-weight:700}
 
 /* ── WEEK STRIP ── */
 .week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
@@ -212,6 +214,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* ── RPE MODAL ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:none;align-items:flex-end;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .modal-overlay.active{display:flex}
+#name-modal{z-index:320}
 .modal-sheet{background:var(--surface);border-radius:24px 24px 0 0;padding:24px 16px 40px;width:100%;max-width:520px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.08);box-shadow:0 -8px 40px rgba(0,0,0,0.5)}
 .modal-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 16px}
 .modal-title{font-size:17px;font-weight:800}
@@ -225,7 +228,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .catalog-filter-group{display:grid;gap:7px}
 .catalog-filter-label{font-size:10px;line-height:1.2;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:800}
 .catalog-filter-select-wrap{display:block}
-.catalog-filter-select{padding:11px 38px 11px 12px;font-size:13px;border-radius:12px;background-color:rgba(255,255,255,0.03)}
+.catalog-filter-select{padding:11px 38px 11px 12px;font-size:13px;border-radius:12px;background-color:rgba(255,255,255,0.03);color-scheme:dark}
 .catalog-scroll{flex:1;min-height:0;overflow-y:auto;padding-right:2px;margin-right:-2px}
 .catalog-section{margin-bottom:16px}
 .catalog-section-title{font-size:11px;line-height:1.2;text-transform:uppercase;letter-spacing:1px;color:var(--gold);font-weight:800;margin-bottom:8px}

@@ -134,6 +134,52 @@ const W531 = {
 // Per-session readiness override — module-level, intentionally NOT persisted.
 // Resets to 'default' each page load, which is the right UX.
 let _readiness = 'default'; // 'default' | 'light' | 'none'
+let _w531SettingsTriumvirate = null;
+
+function cloneW531TriumvirateState(source){
+  const next={};
+  [0,1,2,3].forEach(liftIdx=>{
+    const row=Array.isArray(source?.[liftIdx])?source[liftIdx]:(W531.defaultTriumvirate[liftIdx]||[]);
+    next[liftIdx]=[
+      String(row?.[0]||'').trim(),
+      String(row?.[1]||'').trim()
+    ];
+  });
+  return next;
+}
+
+function getW531TriumvirateSlotValue(liftIdx,slotIdx){
+  const tri=_w531SettingsTriumvirate||cloneW531TriumvirateState(W531.defaultTriumvirate);
+  return tri?.[liftIdx]?.[slotIdx]||'';
+}
+
+function setW531TriumvirateSlotValue(liftIdx,slotIdx,name){
+  if(!_w531SettingsTriumvirate)_w531SettingsTriumvirate=cloneW531TriumvirateState(W531.defaultTriumvirate);
+  if(!Array.isArray(_w531SettingsTriumvirate[liftIdx]))_w531SettingsTriumvirate[liftIdx]=['',''];
+  _w531SettingsTriumvirate[liftIdx][slotIdx]=String(name||'').trim();
+}
+
+function getW531TriumvirateDisplayLabel(name){
+  const raw=String(name||'').trim();
+  return raw?w531ExName(raw):trW531('program.w531.settings.pick_exercise','Pick exercise');
+}
+
+function syncW531TriumvirateSlotUI(liftIdx,slotIdx){
+  const value=getW531TriumvirateSlotValue(liftIdx,slotIdx);
+  const label=document.getElementById(`w531-tri-value-${liftIdx}-${slotIdx}`);
+  const hidden=document.getElementById(`w531-tri-input-${liftIdx}-${slotIdx}`);
+  if(label){
+    label.textContent=getW531TriumvirateDisplayLabel(value);
+    label.style.color=value?'var(--text)':'var(--muted)';
+  }
+  if(hidden)hidden.value=value||'';
+}
+
+function getW531SettingsSwapInfo(liftIdx,slotIdx){
+  const slotKey=liftIdx*2+slotIdx;
+  const currentName=getW531TriumvirateSlotValue(liftIdx,slotIdx);
+  return W531.getTriumvirateSwapInfo(slotKey,currentName);
+}
 
 // ─── PROGRAM OBJECT ───────────────────────────────────────────────────────────
 const WENDLER_531 = {
@@ -636,6 +682,7 @@ const WENDLER_531 = {
     const testPending = !!state.testWeekPending;
     const lifts       = (state.lifts && state.lifts.main) || this.getInitialState().lifts.main;
     const stalled     = state.stalledLifts || {};
+    _w531SettingsTriumvirate = cloneW531TriumvirateState(state.triumvirate || W531.defaultTriumvirate);
 
     const freqOpts = [
       [2, trW531('program.w531.settings.freq.2','2×/week — Combined (Squat+Bench  /  Deadlift+Overhead Press)')],
@@ -665,18 +712,22 @@ const WENDLER_531 = {
       </div>`;
     }).join('');
 
-    const triumvirate = state.triumvirate || W531.defaultTriumvirate;
     const dayLabels   = [trW531('program.w531.day.sq','Squat Day'),trW531('program.w531.day.bp','Bench Day'),trW531('program.w531.day.dl','Deadlift Day'),trW531('program.w531.day.ohp','OHP Day')];
     const triRows = [0,1,2,3].map(i => {
-      const exs = triumvirate[i] || W531.defaultTriumvirate[i] || [];
+      const exs = _w531SettingsTriumvirate[i] || W531.defaultTriumvirate[i] || [];
       return `<div style="margin-bottom:10px">
         <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${dayLabels[i]}</div>
-        <input type="text" id="w531-tri-${i}-0" value="${exs[0]||''}"
-          placeholder="Exercise 1 (e.g. ${W531.defaultTriumvirate[i]?.[0]||''})"
-          style="width:100%;margin-bottom:4px">
-        <input type="text" id="w531-tri-${i}-1" value="${exs[1]||''}"
-          placeholder="Exercise 2 (e.g. ${W531.defaultTriumvirate[i]?.[1]||''})"
-          style="width:100%">
+        ${[0,1].map(slotIdx => {
+          const rawName=exs[slotIdx]||'';
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:${slotIdx===0?4:0}px">
+            <div style="flex:1;min-width:0;padding:11px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,0.03)">
+              <div style="font-size:10px;letter-spacing:0.9px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:4px">${trW531('program.w531.settings.exercise_slot','Exercise')} ${slotIdx+1}</div>
+              <div id="w531-tri-value-${i}-${slotIdx}" style="font-size:13px;color:${rawName?'var(--text)':'var(--muted)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(getW531TriumvirateDisplayLabel(rawName))}</div>
+              <input type="hidden" id="w531-tri-input-${i}-${slotIdx}" value="${escapeHtml(rawName)}">
+            </div>
+            <button class="btn btn-secondary btn-sm" type="button" onclick="window._w531PickTriumvirate(${i},${slotIdx})" style="width:auto;white-space:nowrap">${trW531('workout.swap','Swap')}</button>
+          </div>`;
+        }).join('')}
       </div>`;
     }).join('');
 
@@ -754,13 +805,13 @@ const WENDLER_531 = {
     const daysPerWeek  = parseInt(document.getElementById('prog-days')?.value) || 4;
     const testWeekPending = document.getElementById('prog-test-week')?.value === '1';
     const season       = document.getElementById('prog-season')?.value || 'off';
-
-    // Read Triumvirate inputs
-    const triumvirate = {};
-    [0,1,2,3].forEach(i => {
-      const a = document.getElementById('w531-tri-'+i+'-0')?.value?.trim() || '';
-      const b = document.getElementById('w531-tri-'+i+'-1')?.value?.trim() || '';
-      triumvirate[i] = [a, b];
+    const triumvirate = cloneW531TriumvirateState(_w531SettingsTriumvirate || state.triumvirate || W531.defaultTriumvirate);
+    [0,1,2,3].forEach(liftIdx => {
+      [0,1].forEach(slotIdx => {
+        const rawName=triumvirate[liftIdx]?.[slotIdx]||'';
+        const resolved=(typeof resolveExerciseSelection==='function')?resolveExerciseSelection(rawName):{name:rawName};
+        triumvirate[liftIdx][slotIdx]=String(resolved?.name||rawName||'').trim();
+      });
     });
 
     return { ...state, week, rounding, daysPerWeek, testWeekPending, season, triumvirate };
@@ -801,6 +852,25 @@ window._w531SeasonUI = function(season) {
   ['off','in'].forEach(s => {
     const btn = document.getElementById('w531-s-'+s);
     if (btn) btn.className = 'btn ' + (s===season ? 'btn-primary' : 'btn-secondary');
+  });
+};
+
+window._w531PickTriumvirate = function(liftIdx,slotIdx) {
+  const swapInfo=getW531SettingsSwapInfo(liftIdx,slotIdx);
+  if(!swapInfo||typeof window.openExerciseCatalogForSwap!=='function')return;
+  const currentName=getW531TriumvirateSlotValue(liftIdx,slotIdx);
+  const title=swapInfo.category
+    ? trW531('workout.swap_aux_category','Swap {cat} auxiliary',{cat:swapInfo.category.charAt(0).toUpperCase()+swapInfo.category.slice(1)})
+    : trW531('catalog.title.swap','Swap Exercise');
+  window.openExerciseCatalogForSwap({
+    exercise:{name:currentName||swapInfo.options?.[0]||''},
+    swapInfo,
+    title,
+    onSelect:(exercise)=>{
+      const resolved=(typeof window.resolveExerciseSelection==='function')?window.resolveExerciseSelection(exercise):{name:exercise?.name||''};
+      setW531TriumvirateSlotValue(liftIdx,slotIdx,resolved?.name||'');
+      syncW531TriumvirateSlotUI(liftIdx,slotIdx);
+    }
   });
 };
 
