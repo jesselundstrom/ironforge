@@ -518,6 +518,8 @@ function initSettings(){
     const prefs=normalizeTrainingPreferences(profile);
     const goalSel=document.getElementById('training-goal');
     if(goalSel)goalSel.value=prefs.goal;
+    const trainingDaysSel=document.getElementById('training-days-per-week');
+    if(trainingDaysSel)trainingDaysSel.value=String(prefs.trainingDaysPerWeek);
     const minutesSel=document.getElementById('training-session-minutes');
     if(minutesSel)minutesSel.value=String(prefs.sessionMinutes);
     const equipmentSel=document.getElementById('training-equipment');
@@ -557,15 +559,18 @@ function saveRestTimer(){
 function saveTrainingPreferences(){
   const prefs=normalizeTrainingPreferences(profile);
   const goal=document.getElementById('training-goal')?.value||prefs.goal;
+  const trainingDaysPerWeek=parseInt(document.getElementById('training-days-per-week')?.value,10)||prefs.trainingDaysPerWeek;
   const sessionMinutes=parseInt(document.getElementById('training-session-minutes')?.value,10)||prefs.sessionMinutes;
   const equipmentAccess=document.getElementById('training-equipment')?.value||prefs.equipmentAccess;
   const sportReadinessCheckEnabled=document.getElementById('training-sport-check')?.checked===true;
   const warmupSetsEnabled=document.getElementById('training-warmup-sets')?.checked===true;
   const notes=document.getElementById('training-preferences-notes')?.value||'';
-  profile.preferences=normalizeTrainingPreferences({...profile,preferences:{...prefs,goal,sessionMinutes,equipmentAccess,sportReadinessCheckEnabled,warmupSetsEnabled,notes}});
+  profile.preferences=normalizeTrainingPreferences({...profile,preferences:{...prefs,goal,trainingDaysPerWeek,sessionMinutes,equipmentAccess,sportReadinessCheckEnabled,warmupSetsEnabled,notes}});
   saveProfileData({docKeys:['profile_core']});
   renderTrainingPreferencesSummary();
+  renderProgramBasics();
   updateDashboard();
+  updateProgramDisplay();
   showToast(tr('toast.preferences_saved','Training preferences saved'),'var(--purple)');
 }
 function saveSimpleProgramSettings(){
@@ -592,8 +597,18 @@ function saveSchedule(){
   if(nameInp)schedule.sportName=nameInp.value.trim()||getDefaultSportName();
   const cb=document.getElementById('sport-legs-heavy');
   if(cb)schedule.sportLegsHeavy=cb.checked;
+  const prefs=normalizeTrainingPreferences(profile);
+  const sportCheckEl=document.getElementById('training-sport-check');
+  if(sportCheckEl){
+    profile.preferences=normalizeTrainingPreferences({
+      ...profile,
+      preferences:{...prefs,sportReadinessCheckEnabled:sportCheckEl.checked===true}
+    });
+  }
   if(!activeWorkout)resetNotStartedView();
-  saveScheduleData();updateProgramDisplay();updateDashboard();showToast(tr('toast.schedule_saved','Schedule saved!'),'var(--blue)');
+  saveScheduleData();
+  saveProfileData({docKeys:['profile_core']});
+  updateProgramDisplay();updateDashboard();showToast(tr('toast.schedule_saved','Schedule saved!'),'var(--blue)');
 }
 
 function exportData(){

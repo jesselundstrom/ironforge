@@ -11,6 +11,12 @@ function trCFB(key,fallback,params){
   return fallback;
 }
 
+function getCFBDaysPerWeek(){
+  return typeof getProgramTrainingDaysPerWeek==='function'
+    ? getProgramTrainingDaysPerWeek('casualfullbody')
+    : 3;
+}
+
 // ─── SLOT POOLS ──────────────────────────────────────────────────────────────
 const SLOTS = [
   {
@@ -103,8 +109,8 @@ function isNextWeek(keyA, keyB) {
 // ─── PROGRAM OBJECT ───────────────────────────────────────────────────────────
 const CASUAL_FULL_BODY = {
   id:          'casualfullbody',
-  name:        trCFB('program.cfb.name','Casual Full Body'),
-  description: trCFB('program.cfb.description','Flexible full body training, 2-3 sessions/week. No maxes needed.'),
+  name:        trCFB('program.cfb.name','Gym Basics'),
+  description: trCFB('program.cfb.description','Easy gym program with rotating full-body sessions. No maxes or planning needed.'),
   icon:        '🎯',
   dashboardStatsLabel: trCFB('program.cfb.session_stats','Session Stats'),
 
@@ -132,7 +138,7 @@ const CASUAL_FULL_BODY = {
     const streakBadge = streak > 1 ? ' · ' + trCFB('program.cfb.week_streak_short','{count}-wk streak',{count:streak}) : '';
     return [{
       value:         'fullbody',
-      label:         trCFB('program.cfb.session_label','Full Body · Session {count}',{count:(sc+1)}) + streakBadge,
+      label:         trCFB('program.cfb.session_label','Gym Basics · Session {count}',{count:(sc+1)}) + streakBadge,
       isRecommended: true,
       done:          false
     }];
@@ -183,7 +189,7 @@ const CASUAL_FULL_BODY = {
     const sc     = (state.sessionCount || 0) + 1;
     const streak = state.currentStreak || 0;
     const fireStr = streak > 1 ? ' · ' + trCFB('program.cfb.week_streak_short','{count}-wk streak',{count:streak}) : '';
-    return trCFB('program.cfb.session_label','Full Body · Session {count}',{count:sc}) + fireStr;
+    return trCFB('program.cfb.session_label','Gym Basics · Session {count}',{count:sc}) + fireStr;
   },
 
   getBlockInfo(state) {
@@ -191,7 +197,7 @@ const CASUAL_FULL_BODY = {
     const streak = state.currentStreak || 0;
     const streakStr = streak > 0 ? ' · ' + trCFB('program.cfb.week_streak_long','{count}-week streak',{count:streak}) : '';
     return {
-      name:       trCFB('program.cfb.block_name','Full Body'),
+      name:       trCFB('program.cfb.block_name','Gym Basics'),
       weekLabel:  trCFB('program.cfb.block_label','Session {count}',{count:sc}) + streakStr,
       pct:        null,
       isDeload:   false,
@@ -297,20 +303,51 @@ const CASUAL_FULL_BODY = {
       style:  'rgba(167,139,250,0.08)',
       border: 'rgba(167,139,250,0.15)',
       color:  'var(--purple)',
-      html:   trCFB('program.cfb.session_label','Full Body · Session {count}',{count:(sc+1)}) + streakStr + lastStr
+      html:   trCFB('program.cfb.session_label','Gym Basics · Session {count}',{count:(sc+1)}) + streakStr + lastStr
     };
   },
 
   // ─── Settings ─────────────────────────────────────────────────────────────
+  renderSimpleSettings(state, container) {
+    const sc   = state.sessionCount || 0;
+    const freq = getCFBDaysPerWeek();
+
+    container.innerHTML = `
+      <div class="program-settings-grid">
+        <div class="settings-section-card">
+          <div class="settings-section-title">${trCFB('program.cfb.simple.overview_title','Weekly rhythm')}</div>
+          <div class="settings-section-sub">${trCFB('program.cfb.simple.overview','Gym Basics is the easy default: show up, train a balanced full-body session, and let the exercise rotation handle the planning. Weekly frequency now comes from Training Preferences.')}</div>
+          <div class="settings-row-note">${trCFB('program.global_frequency_hint','Uses your Training preference: {value}.',{value:(typeof getTrainingDaysPerWeekLabel==='function'?getTrainingDaysPerWeekLabel(freq):freq+' sessions / week')})}</div>
+          <div class="settings-row-note">${trCFB('program.cfb.no_tm_needed','No Training Max setup needed. Add weight when 12 reps feels easy.')}</div>
+        </div>
+        <div class="settings-section-card">
+          <div class="settings-section-title">${trCFB('program.cfb.session_stats','Session Stats')}</div>
+          <div class="settings-section-sub">${trCFB('program.cfb.simple.stats_help','Exercise choices rotate automatically, so the main setup decision is simply how often you want to train.')}</div>
+          <div class="settings-picker-stack">
+            <div class="settings-picker-row">
+              <div class="settings-picker-main">
+                <div class="settings-picker-label">${trCFB('program.cfb.stats.sessions','Sessions')}</div>
+                <div class="settings-picker-value">${escapeHtml(String(sc))}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="margin-top:14px" onclick="saveSimpleProgramSettings()">${trCFB('program.cfb.simple.save','Save Gym Basics')}</button>
+    `;
+  },
+
+  getSimpleSettingsSummary(state) {
+    const freq = getCFBDaysPerWeek();
+    return trCFB('program.cfb.simple.summary','{count} sessions/week · balanced full-body training',{count:freq});
+  },
+
   renderSettings(state, container) {
     const sc     = state.sessionCount || 0;
     const streak = state.currentStreak || 0;
     const last   = state.lastExercisesUsed || [];
-    const freq   = state.daysPerWeek || 3;
-
-    const freqOpts = [2, 3].map(n =>
-      `<option value="${n}"${n === freq ? ' selected' : ''}>${trCFB('program.cfb.freq_per_week','{count}x per week',{count:n})}</option>`
-    ).join('');
+    const freq   = getCFBDaysPerWeek();
 
     const lastStr = last.length
       ? last.map(ex => `<div style="font-size:12px;color:var(--text);padding:2px 0">• ${ex}</div>`).join('')
@@ -327,7 +364,7 @@ const CASUAL_FULL_BODY = {
 
     container.innerHTML = `
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;background:rgba(167,139,250,0.08);padding:8px 12px;border-radius:8px">
-        ${trCFB('program.cfb.setup_summary','Slot-based variety · 3 sets × 8-12 reps · Exercises rotate each session automatically')}
+        ${trCFB('program.cfb.setup_summary','Low-planning full-body training · 3 sets × 8-12 reps · Exercises rotate automatically')}
       </div>
 
       <div style="display:flex;gap:12px;margin-bottom:16px">
@@ -341,10 +378,8 @@ const CASUAL_FULL_BODY = {
         </div>
       </div>
 
-      <label>${trCFB('program.cfb.target_frequency','Target Frequency')}</label>
-      <select id="cfb-freq">${freqOpts}</select>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:14px">
-        ${trCFB('program.cfb.freq_reference','Reference only. This program does not auto-schedule sessions.')}
+      <div style="font-size:11px;color:var(--muted);margin-bottom:14px">
+        ${trCFB('program.global_frequency_hint','Uses your Training preference: {value}.',{value:(typeof getTrainingDaysPerWeekLabel==='function'?getTrainingDaysPerWeekLabel(freq):freq+' sessions / week')})}
       </div>
 
       <div class="divider-label"><span>${trCFB('program.cfb.movement_pools','Movement Pattern Pools')}</span></div>
@@ -371,8 +406,11 @@ const CASUAL_FULL_BODY = {
   },
 
   saveSettings(state) {
-    const freq = parseInt(document.getElementById('cfb-freq')?.value) || 3;
-    return { ...state, daysPerWeek: freq };
+    return { ...state };
+  },
+
+  saveSimpleSettings(state) {
+    return { ...state };
   }
 };
 

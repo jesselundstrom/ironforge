@@ -108,6 +108,7 @@ function getAllProfileDocumentKeys(profileLike){
 function getDefaultTrainingPreferences(){
   return{
     goal:'strength',
+    trainingDaysPerWeek:3,
     sessionMinutes:60,
     equipmentAccess:'full_gym',
     sportReadinessCheckEnabled:false,
@@ -122,9 +123,12 @@ function normalizeTrainingPreferences(profileLike){
   const next={...defaults,...(profileLike.preferences||{})};
   const allowedGoals=new Set(['strength','hypertrophy','general_fitness','sport_support']);
   const allowedEquipment=new Set(['full_gym','basic_gym','home_gym','minimal']);
+  const allowedTrainingDays=new Set([2,3,4,5,6]);
   const allowedMinutes=new Set([30,45,60,75,90]);
   if(!allowedGoals.has(next.goal))next.goal=defaults.goal;
   if(!allowedEquipment.has(next.equipmentAccess))next.equipmentAccess=defaults.equipmentAccess;
+  const trainingDays=parseInt(next.trainingDaysPerWeek,10);
+  next.trainingDaysPerWeek=allowedTrainingDays.has(trainingDays)?trainingDays:defaults.trainingDaysPerWeek;
   const minutes=parseInt(next.sessionMinutes,10);
   next.sessionMinutes=allowedMinutes.has(minutes)?minutes:defaults.sessionMinutes;
   next.sportReadinessCheckEnabled=next.sportReadinessCheckEnabled===true;
@@ -159,12 +163,36 @@ function getEquipmentAccessLabel(value){
 function getTrainingPreferencesSummary(profileLike){
   const prefs=normalizeTrainingPreferences(profileLike||profile||{});
   const goal=getTrainingGoalLabel(prefs.goal);
+  const days=getTrainingDaysPerWeekLabel(prefs.trainingDaysPerWeek);
   const minutes=window.I18N&&I18N.t?I18N.t('settings.preferences.duration_value',{minutes:prefs.sessionMinutes},'{minutes} min'):prefs.sessionMinutes+' min';
   const equipment=getEquipmentAccessLabel(prefs.equipmentAccess);
-  const fallback='Goal: '+goal+' · '+minutes+' · '+equipment;
+  const fallback='Goal: '+goal+' · '+days+' · '+minutes+' · '+equipment;
   return window.I18N&&I18N.t
-    ? I18N.t('dashboard.preferences_context',{goal,minutes,equipment},fallback)
+    ? I18N.t('dashboard.preferences_context',{goal,days,minutes,equipment},fallback)
     : fallback;
+}
+
+function getTrainingDaysPerWeekLabel(value){
+  const count=parseInt(value,10)||3;
+  return window.I18N&&I18N.t
+    ? I18N.t('settings.preferences.training_days_value',{count},'{count} sessions / week')
+    : count+' sessions / week';
+}
+
+function getPreferredTrainingDaysPerWeek(profileLike){
+  return normalizeTrainingPreferences(profileLike||profile||{}).trainingDaysPerWeek;
+}
+
+function getProgramTrainingDaysPerWeek(programId,profileLike){
+  const preferred=getPreferredTrainingDaysPerWeek(profileLike);
+  const limits={
+    forge:[2,6],
+    hypertrophysplit:[2,6],
+    w531:[2,4],
+    casualfullbody:[2,3]
+  };
+  const [min,max]=limits[programId]||[2,6];
+  return Math.max(min,Math.min(max,preferred));
 }
 
 function normalizeWorkoutRecord(workout){

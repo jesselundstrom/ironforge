@@ -164,6 +164,12 @@ function getW531TriumvirateDisplayLabel(name){
   return raw?w531ExName(raw):trW531('program.w531.settings.pick_exercise','Pick exercise');
 }
 
+function getW531DaysPerWeek(){
+  return typeof getProgramTrainingDaysPerWeek==='function'
+    ? getProgramTrainingDaysPerWeek('w531')
+    : 4;
+}
+
 function syncW531TriumvirateSlotUI(liftIdx,slotIdx){
   const value=getW531TriumvirateSlotValue(liftIdx,slotIdx);
   const label=document.getElementById(`w531-tri-value-${liftIdx}-${slotIdx}`);
@@ -234,7 +240,7 @@ const WENDLER_531 = {
   // ─── Session Options ──────────────────────────────────────────────────────
   getSessionOptions(state, workouts) {
     const week   = state.week || 1;
-    const freq   = state.daysPerWeek || 4;
+    const freq   = getW531DaysPerWeek();
     const season = state.season || 'off';
     const lifts  = (state.lifts && state.lifts.main) || this.getInitialState().lifts.main;
     const scheme = W531.weekScheme[week] || W531.weekScheme[1];
@@ -279,7 +285,7 @@ const WENDLER_531 = {
   buildSession(selectedOption, state, context) {
     const dayNum   = parseInt(selectedOption) || 1;
     const week     = state.week || 1;
-    const freq     = state.daysPerWeek || 4;
+    const freq     = getW531DaysPerWeek();
     const season   = state.season || 'off';
     const rounding = state.rounding || 2.5;
     const lifts    = state.lifts.main;
@@ -393,7 +399,7 @@ const WENDLER_531 = {
     const dayNum = parseInt(selectedOption) || 1;
     const week   = state.week || 1;
     const cycle  = state.cycle || 1;
-    const freq   = state.daysPerWeek || 4;
+    const freq   = getW531DaysPerWeek();
     const season = state.season || 'off';
     const scheme = W531.weekScheme[week] || W531.weekScheme[1];
     const isTest = week===4 && !!state.testWeekPending;
@@ -486,7 +492,7 @@ const WENDLER_531 = {
 
   // ─── Advance State ────────────────────────────────────────────────────────
   advanceState(state, sessionsThisWeek) {
-    const freq   = state.daysPerWeek || 4;
+    const freq   = getW531DaysPerWeek();
     const week   = state.week || 1;
     const cycle  = state.cycle || 1;
     const needed = this._weekSessions(freq);
@@ -549,7 +555,7 @@ const WENDLER_531 = {
       cycle:           state.cycle   || 1,
       season:          state.season  || 'off',
       testWeekPending: !!state.testWeekPending,
-      daysPerWeek:     state.daysPerWeek || 4
+      daysPerWeek:     getW531DaysPerWeek()
     };
   },
 
@@ -584,7 +590,7 @@ const WENDLER_531 = {
   getBannerHTML(options, state, schedule, workouts) {
     const week   = state.week || 1;
     const cycle  = state.cycle || 1;
-    const freq   = state.daysPerWeek || 4;
+    const freq   = getW531DaysPerWeek();
     const season = state.season || 'off';
     const isTest = week===4 && !!state.testWeekPending;
     const needed = this._weekSessions(freq);
@@ -676,7 +682,7 @@ const WENDLER_531 = {
   renderSettings(state, container) {
     const week        = state.week || 1;
     const cycle       = state.cycle || 1;
-    const freq        = state.daysPerWeek || 4;
+    const freq        = getW531DaysPerWeek();
     const season      = state.season || 'off';
     const rounding    = state.rounding || 2.5;
     const testPending = !!state.testWeekPending;
@@ -756,8 +762,7 @@ const WENDLER_531 = {
       </div>
       <input type="hidden" id="prog-season" value="${season}">
 
-      <label>${trW531('program.w531.settings.sessions_pw','Sessions Per Week')}</label>
-      <select id="prog-days">${freqOpts}</select>
+      <div class="settings-row-note">${trW531('program.global_frequency_hint','Uses your Training preference: {value}.',{value:(typeof getTrainingDaysPerWeekLabel==='function'?getTrainingDaysPerWeekLabel(freq):freq+' sessions / week')})}</div>
 
       <label style="margin-top:12px">${trW531('program.w531.settings.rounding','Weight Rounding (kg)')}</label>
       <select id="prog-rounding">${roundOpts}</select>
@@ -799,10 +804,65 @@ const WENDLER_531 = {
     `;
   },
 
+  renderSimpleSettings(state,container){
+    const week=state.week||1;
+    const freq=getW531DaysPerWeek();
+    const season=state.season||'off';
+    const rounding=state.rounding||2.5;
+    const lifts=(state.lifts&&state.lifts.main)||this.getInitialState().lifts.main;
+    const freqOpts=[
+      [2,trW531('program.w531.settings.freq.2','2×/week — Combined (Squat+Bench / Deadlift+Overhead Press)')],
+      [3,trW531('program.w531.settings.freq.3','3×/week — Rotating (4 lifts across 3 days)')],
+      [4,trW531('program.w531.settings.freq.4','4×/week — Standard (one lift per day)')]
+    ].map(([n,label])=>`<option value="${n}"${n===freq?' selected':''}>${label}</option>`).join('');
+    const roundOpts=[1,2.5,5].map(n=>`<option value="${n}"${n===rounding?' selected':''}>${n} kg</option>`).join('');
+    const seasonOpts=[
+      ['off',trW531('program.w531.settings.off_label','Off-Season')],
+      ['in',trW531('program.w531.settings.in_label','In-Season')]
+    ].map(([value,label])=>`<option value="${value}"${value===season?' selected':''}>${label}</option>`).join('');
+    const liftLabels=[trW531('program.w531.lift.sq','Squat (SQ)'),trW531('program.w531.lift.bp','Bench Press (BP)'),trW531('program.w531.lift.dl','Deadlift (DL)'),trW531('program.w531.lift.ohp','Overhead Press (OHP)')];
+    const tmRows=lifts.map((lift,idx)=>`
+      <div class="lift-row">
+        <span class="lift-label">${escapeHtml(liftLabels[idx]||('#'+(idx+1)))}</span>
+        <span style="flex:1;font-size:13px;color:var(--text)">${escapeHtml(w531ExName(lift.name))}</span>
+        <input type="number" id="w531-basic-tm-${idx}" value="${lift.tm}" min="0" step="0.1">
+      </div>`).join('');
+    container.innerHTML=`
+      <div class="program-settings-grid">
+        <div class="settings-section-card">
+          <div class="settings-section-title">${trW531('program.w531.simple.overview_title','Cycle rhythm')}</div>
+          <div class="settings-section-sub">${trW531('program.w531.simple.overview','Set the season mode and current cycle week here. Weekly frequency now comes from Training Preferences, and accessory exercise selection stays in Advanced Setup.')}</div>
+          <label>${trW531('program.w531.settings.season','Season Mode')}</label>
+          <select id="w531-basic-season">${seasonOpts}</select>
+          <div class="settings-row-note">${trW531('program.global_frequency_hint','Uses your Training preference: {value}.',{value:(typeof getTrainingDaysPerWeekLabel==='function'?getTrainingDaysPerWeekLabel(freq):freq+' sessions / week')})}</div>
+          <label style="margin-top:12px">${trW531('program.w531.settings.rounding','Weight Rounding (kg)')}</label>
+          <select id="w531-basic-rounding">${roundOpts}</select>
+          <label style="margin-top:12px">${trW531('program.w531.settings.week_current','Current Week in Cycle (1–4)')}</label>
+          <input type="number" id="w531-basic-week" min="1" max="4" value="${week}">
+        </div>
+        <div class="settings-section-card">
+          <div class="settings-section-title">${trW531('program.w531.settings.training_max','Training Max (kg)')}</div>
+          <div class="settings-section-sub">${trW531('program.w531.simple.tm_help','Update the current training maxes for the four main lifts. Assistance work stays in Advanced Setup.')}</div>
+          <div>${tmRows}</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:14px" onclick="saveSimpleProgramSettings()">${trW531('program.w531.simple.save','Save Wendler Basics')}</button>
+    `;
+  },
+
+  getSimpleSettingsSummary(state){
+    const season=state.season||'off';
+    const freq=getW531DaysPerWeek();
+    const week=state.week||1;
+    const seasonLabel=season==='in'
+      ? trW531('program.w531.settings.in_label','In-Season')
+      : trW531('program.w531.settings.off_label','Off-Season');
+    return trW531('program.w531.simple.summary','{season} · {freq} sessions/week · Week {week}',{season:seasonLabel,freq,week});
+  },
+
   saveSettings(state) {
     const week         = parseInt(document.getElementById('prog-week')?.value) || 1;
     const rounding     = parseFloat(document.getElementById('prog-rounding')?.value) || 2.5;
-    const daysPerWeek  = parseInt(document.getElementById('prog-days')?.value) || 4;
     const testWeekPending = document.getElementById('prog-test-week')?.value === '1';
     const season       = document.getElementById('prog-season')?.value || 'off';
     const triumvirate = cloneW531TriumvirateState(_w531SettingsTriumvirate || state.triumvirate || W531.defaultTriumvirate);
@@ -814,7 +874,20 @@ const WENDLER_531 = {
       });
     });
 
-    return { ...state, week, rounding, daysPerWeek, testWeekPending, season, triumvirate };
+    return { ...state, week, rounding, testWeekPending, season, triumvirate };
+  },
+
+  saveSimpleSettings(state){
+    const next=JSON.parse(JSON.stringify(state||this.getInitialState()));
+    next.season=document.getElementById('w531-basic-season')?.value||next.season||'off';
+    next.rounding=parseFloat(document.getElementById('w531-basic-rounding')?.value)||next.rounding||2.5;
+    next.week=parseInt(document.getElementById('w531-basic-week')?.value,10)||next.week||1;
+    if(!next.lifts||!Array.isArray(next.lifts.main))next.lifts=this.getInitialState().lifts;
+    next.lifts.main=(next.lifts.main||[]).map((lift,idx)=>({
+      ...lift,
+      tm:parseFloat(document.getElementById(`w531-basic-tm-${idx}`)?.value)||0
+    }));
+    return next;
   }
 };
 

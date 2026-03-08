@@ -686,10 +686,12 @@ body.login-active::before{
 .program-card-name{font-size:14px;font-weight:700;color:var(--text)}
 .program-card-desc{font-size:11px;color:var(--muted);margin-top:2px;white-space:normal;overflow:hidden;text-overflow:unset;display:-webkit-box;line-clamp:2;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25;max-height:2.5em}
 .program-card-badge{font-size:10px;font-weight:700;color:var(--purple);background:rgba(167,139,250,0.15);border-radius:6px;padding:2px 8px;white-space:nowrap;flex-shrink:0}
+.program-settings-lede{font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:12px}
 .settings-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
 .settings-panel summary{list-style:none;cursor:pointer}
 .settings-panel summary::-webkit-details-marker{display:none}
 .settings-panel-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px}
+.settings-panel-summary-static{cursor:default}
 .settings-panel-title{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:700}
 .settings-panel-title::before{content:'◆ ';color:var(--accent);opacity:0.5;font-size:7px;vertical-align:middle;letter-spacing:0}
 .settings-panel-sub{margin-top:6px;font-size:12px;line-height:1.45;color:var(--text);opacity:0.88;text-wrap:balance}
@@ -697,7 +699,22 @@ body.login-active::before{
 .settings-panel[open] .settings-panel-chevron{transform:rotate(180deg)}
 .settings-panel-body{padding:0 16px 16px;border-top:1px solid rgba(255,255,255,0.06)}
 .settings-panel-inline-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)}
+.program-advanced-btn{width:100%}
+.program-settings-grid{display:grid;gap:12px}
+.settings-section-card{padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))}
+.settings-section-title{font-size:10px;line-height:1.2;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:800;margin-bottom:6px}
+.settings-section-sub{font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:10px}
+.settings-picker-stack{display:grid;gap:8px}
+.settings-picker-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03)}
+.settings-picker-main{flex:1;min-width:0}
+.settings-picker-label{font-size:10px;line-height:1.2;text-transform:uppercase;letter-spacing:0.9px;color:var(--muted);font-weight:800;margin-bottom:4px}
+.settings-picker-value{font-size:13px;line-height:1.35;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.settings-picker-value.is-empty{color:var(--muted)}
+.settings-picker-meta{font-size:11px;line-height:1.4;color:var(--muted);margin-top:4px}
+.settings-row-note{font-size:11px;line-height:1.45;color:var(--muted);margin-top:8px}
+.settings-toggle-block{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)}
 @media (max-width:480px){
   .program-day-option-top{flex-direction:column;align-items:stretch;gap:8px}
   .program-day-option-badges{justify-content:flex-start}
+  .settings-picker-row{align-items:flex-start}
 }

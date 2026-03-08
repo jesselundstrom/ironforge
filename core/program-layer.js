@@ -282,6 +282,35 @@ function saveProgramSetup(){
   updateProgramDisplay();
 }
 
+function resolveProgramExerciseName(input){
+  if(typeof window.resolveExerciseSelection==='function'){
+    const resolved=window.resolveExerciseSelection(input);
+    return String(resolved?.name||'').trim();
+  }
+  return String(typeof input==='object'?(input?.name||''):input||'').trim();
+}
+
+function openProgramExercisePicker(config){
+  const next=config||{};
+  if(typeof window.openExerciseCatalogForSwap!=='function')return false;
+  const currentName=resolveProgramExerciseName(next.currentName||next.exercise?.name||'');
+  const swapInfo={
+    category:next.category||'',
+    filters:{...(next.filters||{})},
+    options:Array.isArray(next.options)?next.options.slice():[]
+  };
+  return window.openExerciseCatalogForSwap({
+    exercise:{name:currentName||next.fallbackName||swapInfo.options[0]||''},
+    swapInfo,
+    title:next.title||trProg('catalog.title.swap','Swap Exercise'),
+    titleParams:next.titleParams||null,
+    onSelect:(exercise)=>{
+      const resolvedName=resolveProgramExerciseName(exercise);
+      if(next.onSelect)next.onSelect(resolvedName,exercise);
+    }
+  });
+}
+
 function updateProgramLift(array,idx,field,val){
   const prog=getActiveProgram(),state=getActiveProgramState();
   if(!state.lifts||!state.lifts[array]||!state.lifts[array][idx])return;

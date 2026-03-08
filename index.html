@@ -221,10 +221,10 @@
 <!-- ===== SETTINGS ===== -->
 <div class="page" id="page-settings">
   <div class="tabs" id="settings-tabs">
-    <div class="tab active" onclick="showSettingsTab('schedule',this)" data-i18n="settings.tabs.schedule">Schedule</div>
-    <div class="tab" onclick="showSettingsTab('preferences',this)" data-i18n="settings.tabs.preferences">Preferences</div>
+    <div class="tab active" onclick="showSettingsTab('schedule',this)" data-i18n="settings.tabs.sport">Sport</div>
+    <div class="tab" onclick="showSettingsTab('preferences',this)" data-i18n="settings.tabs.training">Training</div>
     <div class="tab" onclick="showSettingsTab('program',this)" data-i18n="settings.tabs.program">Program</div>
-    <div class="tab" onclick="showSettingsTab('account',this)" data-i18n="settings.tabs.account">Account</div>
+    <div class="tab" onclick="showSettingsTab('account',this)" data-i18n="settings.tabs.app_data">App & Data</div>
   </div>
 
   <!-- ── Schedule tab ── -->
@@ -251,6 +251,16 @@
       </label>
       <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600" data-i18n="settings.regular_sport_days">Regular Sport Days</div>
       <div class="day-toggle-grid" id="sport-day-toggles"></div>
+      <label class="toggle-row" for="training-sport-check" style="margin-top:14px">
+        <div>
+          <div class="toggle-row-title" data-i18n="settings.preferences.sport_check">Pre-workout sport check-in</div>
+          <div class="toggle-row-sub" data-i18n="settings.preferences.sport_check_help">Ask before training whether you had a leg-heavy sport session yesterday or have one tomorrow.</div>
+        </div>
+        <div class="toggle-switch">
+          <input type="checkbox" id="training-sport-check">
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </div>
+      </label>
       <button class="btn btn-primary" style="margin-top:18px" onclick="saveSchedule()" data-i18n="common.save">Save</button>
     </div>
   </div>
@@ -274,6 +284,14 @@
           <option value="general_fitness" data-i18n="settings.preferences.goal.general_fitness">General Fitness</option>
           <option value="sport_support" data-i18n="settings.preferences.goal.sport_support">Sport Support</option>
         </select>
+        <label style="margin-top:12px" data-i18n="settings.preferences.training_days">Target Training Frequency</label>
+        <select id="training-days-per-week">
+          <option value="2" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":2}'>2 sessions / week</option>
+          <option value="3" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":3}'>3 sessions / week</option>
+          <option value="4" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":4}'>4 sessions / week</option>
+          <option value="5" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":5}'>5 sessions / week</option>
+          <option value="6" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":6}'>6 sessions / week</option>
+        </select>
         <label style="margin-top:12px" data-i18n="settings.preferences.session_duration">Target Session Length</label>
         <select id="training-session-minutes">
           <option value="30" data-i18n="settings.preferences.duration_value.30">30 min</option>
@@ -289,16 +307,6 @@
           <option value="home_gym" data-i18n="settings.preferences.equipment.home_gym">Home Gym</option>
           <option value="minimal" data-i18n="settings.preferences.equipment.minimal">Minimal Equipment</option>
         </select>
-        <label class="toggle-row" for="training-sport-check" style="margin-top:14px">
-          <div>
-            <div class="toggle-row-title" data-i18n="settings.preferences.sport_check">Pre-workout sport check-in</div>
-            <div class="toggle-row-sub" data-i18n="settings.preferences.sport_check_help">Ask before training whether you had a leg-heavy sport session yesterday or have one tomorrow.</div>
-          </div>
-          <div class="toggle-switch">
-            <input type="checkbox" id="training-sport-check">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          </div>
-        </label>
         <label class="toggle-row" for="training-warmup-sets" style="margin-top:14px">
           <div>
             <div class="toggle-row-title" data-i18n="settings.preferences.warmup_sets">Automatic warm-up sets</div>
@@ -309,25 +317,22 @@
             <span class="toggle-track"><span class="toggle-thumb"></span></span>
           </div>
         </label>
+        <div class="settings-panel-inline-row">
+          <label style="margin:0;font-size:13px;font-weight:600" for="default-rest" data-i18n="settings.default_rest">Default Rest Timer</label>
+          <select id="default-rest" onchange="saveRestTimer()" style="width:auto;margin:0">
+            <option value="60">1 min</option>
+            <option value="90">90 sec</option>
+            <option value="120" selected>2 min</option>
+            <option value="180">3 min</option>
+            <option value="300">5 min</option>
+            <option value="0" data-i18n="common.off">Off</option>
+          </select>
+        </div>
         <label style="margin-top:12px" data-i18n="settings.preferences.notes">Notes, limitations, preferences</label>
         <textarea id="training-preferences-notes" rows="4" data-i18n-placeholder="settings.preferences.notes_placeholder" placeholder="e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap"></textarea>
         <button class="btn btn-primary" style="margin-top:14px" onclick="saveTrainingPreferences()" data-i18n="settings.preferences.save">Save Preferences</button>
       </div>
     </details>
-    <div class="card">
-      <div class="card-title" data-i18n="settings.training_defaults">Training Defaults</div>
-      <div class="settings-panel-inline-row" style="margin-top:0;padding-top:0;border-top:none">
-        <label style="margin:0;font-size:13px;font-weight:600" data-i18n="settings.default_rest">Default Rest Timer</label>
-        <select id="default-rest" onchange="saveRestTimer()" style="width:auto;margin:0">
-          <option value="60">1 min</option>
-          <option value="90">90 sec</option>
-          <option value="120" selected>2 min</option>
-          <option value="180">3 min</option>
-          <option value="300">5 min</option>
-          <option value="0" data-i18n="common.off">Off</option>
-        </select>
-      </div>
-    </div>
   </div>
 
   <!-- ── Program tab ── -->
@@ -356,7 +361,17 @@
         <div id="program-basics-container"></div>
       </div>
     </details>
-    <button class="btn btn-secondary" style="width:100%;margin-top:4px" onclick="openProgramSetupSheet()" data-i18n="settings.edit_program_advanced">Advanced Program Setup</button>
+    <div class="settings-panel settings-panel-static" id="program-advanced-panel">
+      <div class="settings-panel-summary settings-panel-summary-static">
+        <div>
+          <div class="settings-panel-title" data-i18n="settings.program_advanced_title">Advanced Setup</div>
+          <div class="settings-panel-sub" data-i18n="settings.program_advanced_help">Exercise library picks, cycle controls, and deeper program-specific options.</div>
+        </div>
+      </div>
+      <div class="settings-panel-body">
+        <button class="btn btn-primary program-advanced-btn" onclick="openProgramSetupSheet()" data-i18n="settings.open_program_setup">Open Advanced Setup</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── Account tab ── -->
@@ -381,7 +396,7 @@
       <div style="font-size:11px;color:var(--muted)" data-i18n="settings.backup_help">Export saves all data as a JSON file. Import from another device to sync your training history.</div>
     </div>
     <div class="card">
-      <div class="card-title" data-i18n="settings.tabs.account">Account</div>
+      <div class="card-title" data-i18n="settings.account_section">Account</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px" id="account-email"></div>
       <button class="btn btn-ghost" onclick="logout()" data-i18n="settings.sign_out">Sign Out</button>
     </div>
@@ -454,5 +469,6 @@
 <script src="programs/wendler531.js"></script>
 <script src="programs/stronglifts5x5.js"></script>
 <script src="programs/casualfullbody.js"></script>
+<script src="programs/hypertrophysplit.js"></script>
 </body>
 </html>
