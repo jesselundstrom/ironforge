@@ -585,11 +585,12 @@ function renderExerciseCatalogFilters(){
     {id:'equipment',labelKey:'catalog.filter_group.equipment',fallback:'Equipment',active:exerciseCatalogState?.equipmentTag||'',options:EXERCISE_CATALOG_FILTERS.equipment}
   ];
   wrap.innerHTML=groups.map(group=>{
-    const chips=[
-      `<button type="button" class="catalog-filter-chip${!group.active?' active':''}" onclick="setExerciseCatalogFilter('${group.id}','')">${escapeHtml(i18nText('catalog.filter.all','All'))}</button>`,
-      ...group.options.map(option=>`<button type="button" class="catalog-filter-chip${group.active===option.value?' active':''}" onclick="setExerciseCatalogFilter('${group.id}','${option.value}')">${escapeHtml(i18nText(option.labelKey,option.fallback))}</button>`)
+    const selectId='catalog-filter-'+group.id;
+    const selectOptions=[
+      `<option value="">${escapeHtml(i18nText('catalog.filter.all','All'))}</option>`,
+      ...group.options.map(option=>`<option value="${escapeHtml(option.value)}"${group.active===option.value?' selected':''}>${escapeHtml(i18nText(option.labelKey,option.fallback))}</option>`)
     ];
-    return`<div class="catalog-filter-group"><div class="catalog-filter-label">${escapeHtml(i18nText(group.labelKey,group.fallback))}</div><div class="catalog-filter-chip-row">${chips.join('')}</div></div>`;
+    return`<div class="catalog-filter-group"><label class="catalog-filter-label" for="${selectId}">${escapeHtml(i18nText(group.labelKey,group.fallback))}</label><div class="catalog-filter-select-wrap"><select id="${selectId}" class="catalog-filter-select" onchange="setExerciseCatalogFilter('${group.id}',this.value)">${selectOptions.join('')}</select></div></div>`;
   }).join('');
 }
 
