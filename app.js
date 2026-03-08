@@ -320,14 +320,26 @@ function confirmCancel(){document.getElementById('confirm-modal').classList.remo
 
 // NAME INPUT MODAL
 function showNameModal(title,cb){
-  document.getElementById('name-modal-title').textContent=title||tr('modal.name.title','Add Exercise');
-  document.getElementById('name-modal-input').value='';
   nameModalCallback=cb;
+  if(typeof openExerciseCatalogForAdd==='function'){
+    openExerciseCatalogForAdd(title,cb);
+    return;
+  }
+  document.getElementById('name-modal-title').textContent=title||tr('catalog.title.add','Add Exercise');
+  document.getElementById('name-modal-input').value='';
   document.getElementById('name-modal').classList.add('active');
   setTimeout(()=>document.getElementById('name-modal-input').focus(),100);
 }
-function closeNameModal(){document.getElementById('name-modal').classList.remove('active');nameModalCallback=null;}
+function closeNameModal(){
+  document.getElementById('name-modal').classList.remove('active');
+  if(typeof resetExerciseCatalogState==='function')resetExerciseCatalogState();
+  nameModalCallback=null;
+}
 function submitNameModal(){
+  if(typeof submitExerciseCatalogSelection==='function'){
+    submitExerciseCatalogSelection();
+    return;
+  }
   const v=document.getElementById('name-modal-input').value.trim();
   if(!v)return;
   document.getElementById('name-modal').classList.remove('active');
@@ -649,6 +661,9 @@ function updateLanguageDependentUI(){
       descEl.textContent=sessionDescription?(prefix+': '+sessionDescription):'';
       descEl.style.display=sessionDescription?'':'none';
     }
+  }
+  if(document.getElementById('name-modal')?.classList.contains('active')&&typeof renderExerciseCatalog==='function'){
+    renderExerciseCatalog();
   }
   else if(document.getElementById('page-log')?.classList.contains('active'))resetNotStartedView();
 }

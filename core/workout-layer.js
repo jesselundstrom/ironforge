@@ -65,6 +65,16 @@ function i18nText(key,fallback,params){
   return fallback;
 }
 
+function arrayify(value){
+  if(Array.isArray(value))return value.filter(Boolean);
+  if(value===undefined||value===null||value==='')return [];
+  return [value];
+}
+
+function uniqueList(items){
+  return [...new Set((items||[]).filter(Boolean))];
+}
+
 let pendingSportReadinessCallback=null;
 let pendingSportReadinessSignal='none';
 
@@ -408,11 +418,401 @@ function startWorkoutTimer(){
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)renderWorkoutTimer();});
 window.addEventListener('pageshow',renderWorkoutTimer);
 
+const EXERCISE_CATALOG_FILTERS={
+  movement:[
+    {value:'squat',labelKey:'catalog.filter.movement.squat',fallback:'Squat'},
+    {value:'hinge',labelKey:'catalog.filter.movement.hinge',fallback:'Hinge'},
+    {value:'horizontal_press',labelKey:'catalog.filter.movement.horizontal_press',fallback:'Horizontal Press'},
+    {value:'vertical_press',labelKey:'catalog.filter.movement.vertical_press',fallback:'Vertical Press'},
+    {value:'horizontal_pull',labelKey:'catalog.filter.movement.horizontal_pull',fallback:'Horizontal Pull'},
+    {value:'vertical_pull',labelKey:'catalog.filter.movement.vertical_pull',fallback:'Vertical Pull'},
+    {value:'single_leg',labelKey:'catalog.filter.movement.single_leg',fallback:'Single-Leg'},
+    {value:'core',labelKey:'catalog.filter.movement.core',fallback:'Core'}
+  ],
+  muscle:[
+    {value:'chest',labelKey:'dashboard.muscle_group.chest',fallback:'Chest'},
+    {value:'back',labelKey:'dashboard.muscle_group.back',fallback:'Back'},
+    {value:'shoulders',labelKey:'dashboard.muscle_group.shoulders',fallback:'Shoulders'},
+    {value:'biceps',labelKey:'dashboard.muscle_group.biceps',fallback:'Biceps'},
+    {value:'triceps',labelKey:'dashboard.muscle_group.triceps',fallback:'Triceps'},
+    {value:'quads',labelKey:'dashboard.muscle_group.quads',fallback:'Quads'},
+    {value:'hamstrings',labelKey:'dashboard.muscle_group.hamstrings',fallback:'Hamstrings'},
+    {value:'glutes',labelKey:'dashboard.muscle_group.glutes',fallback:'Glutes'},
+    {value:'core',labelKey:'dashboard.muscle_group.core',fallback:'Core'}
+  ],
+  equipment:[
+    {value:'barbell',labelKey:'catalog.filter.equipment.barbell',fallback:'Barbell'},
+    {value:'dumbbell',labelKey:'catalog.filter.equipment.dumbbell',fallback:'Dumbbell'},
+    {value:'machine',labelKey:'catalog.filter.equipment.machine',fallback:'Machine'},
+    {value:'cable',labelKey:'catalog.filter.equipment.cable',fallback:'Cable'},
+    {value:'bodyweight',labelKey:'catalog.filter.equipment.bodyweight',fallback:'Bodyweight'},
+    {value:'pullup_bar',labelKey:'catalog.filter.equipment.pullup_bar',fallback:'Pull-up Bar'},
+    {value:'band',labelKey:'catalog.filter.equipment.band',fallback:'Band'},
+    {value:'trap_bar',labelKey:'catalog.filter.equipment.trap_bar',fallback:'Trap Bar'}
+  ]
+};
+
+let exerciseCatalogState=null;
+let exerciseCatalogListenersBound=false;
+
+function mergeExerciseCatalogFilterGroup(baseValues,selectedValue){
+  const base=arrayify(baseValues).filter(Boolean);
+  if(!selectedValue)return base;
+  if(!base.length)return [selectedValue];
+  return base.includes(selectedValue)?[selectedValue]:['__no_match__'];
+}
+
+function getExerciseCatalogUserFilters(){
+  return{
+    movementTags:exerciseCatalogState?.movementTag?[exerciseCatalogState.movementTag]:[],
+    muscleGroups:exerciseCatalogState?.muscleGroup?[exerciseCatalogState.muscleGroup]:[],
+    equipmentTags:exerciseCatalogState?.equipmentTag?[exerciseCatalogState.equipmentTag]:[]
+  };
+}
+
+function getExerciseCatalogFilterPayload(){
+  const base=exerciseCatalogState?.baseFilters||{};
+  const ui=getExerciseCatalogUserFilters();
+  return{
+    categories:arrayify(base.categories),
+    includeIds:arrayify(base.includeIds),
+    excludeIds:arrayify(base.excludeIds),
+    movementTags:mergeExerciseCatalogFilterGroup(base.movementTags,ui.movementTags[0]||''),
+    muscleGroups:mergeExerciseCatalogFilterGroup(base.muscleGroups,ui.muscleGroups[0]||''),
+    equipmentTags:mergeExerciseCatalogFilterGroup(base.equipmentTags,ui.equipmentTags[0]||'')
+  };
+}
+
+function hasExerciseCatalogFilters(){
+  return !!(exerciseCatalogState?.movementTag||exerciseCatalogState?.muscleGroup||exerciseCatalogState?.equipmentTag);
+}
+
+function isExerciseCatalogSwapMode(){
+  return exerciseCatalogState?.mode==='swap';
+}
+
+function mergeExerciseCatalogLists(primary,extra){
+  const seen=new Set();
+  return [...(primary||[]),...(extra||[])].filter(ex=>{
+    const id=ex?.id;
+    if(!id||seen.has(id))return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function getExerciseCatalogCandidateExercises(filters){
+  const candidateIds=arrayify(exerciseCatalogState?.candidateIds);
+  if(!candidateIds.length||!window.EXERCISE_LIBRARY?.getExerciseList)return [];
+  return EXERCISE_LIBRARY.getExerciseList({
+    sort:'featured',
+    filters:{
+      ...filters,
+      includeIds:candidateIds,
+      excludeIds:arrayify(exerciseCatalogState?.baseFilters?.excludeIds)
+    }
+  });
+}
+
+function getExerciseCatalogRecent(limit){
+  const ids=[];
+  const seen=new Set();
+  workouts.slice().sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(workout=>{
+    (workout?.exercises||[]).forEach(ex=>{
+      const resolved=window.EXERCISE_LIBRARY?.resolveExerciseId?(EXERCISE_LIBRARY.resolveExerciseId(ex.exerciseId||ex.name)):null;
+      if(!resolved||seen.has(resolved))return;
+      seen.add(resolved);
+      ids.push(resolved);
+    });
+  });
+  return ids.slice(0,limit).map(id=>EXERCISE_LIBRARY.getExercise(id)).filter(Boolean);
+}
+
+function getExerciseCatalogFeatured(limit,filters){
+  if(!window.EXERCISE_LIBRARY||!EXERCISE_LIBRARY.getExerciseList)return [];
+  return EXERCISE_LIBRARY.getExerciseList({sort:'featured',filters:{...filters,featuredOnly:true}}).slice(0,limit);
+}
+
+function getExerciseCatalogAll(filters){
+  if(!window.EXERCISE_LIBRARY||!EXERCISE_LIBRARY.getExerciseList)return [];
+  return EXERCISE_LIBRARY.getExerciseList({sort:'name',filters});
+}
+
+function getExerciseCatalogResults(){
+  if(!window.EXERCISE_LIBRARY)return [];
+  const search=exerciseCatalogState?.search||'';
+  const filters=getExerciseCatalogFilterPayload();
+  const userFilters=getExerciseCatalogUserFilters();
+  if(search){
+    const baseResults=EXERCISE_LIBRARY.searchExercises(search,{...filters,limit:120});
+    const candidateResults=getExerciseCatalogCandidateExercises({...userFilters,limit:120});
+    const searchedCandidates=search?EXERCISE_LIBRARY.searchExercises(search,{
+      ...userFilters,
+      includeIds:candidateResults.map(ex=>ex.id),
+      excludeIds:arrayify(exerciseCatalogState?.baseFilters?.excludeIds),
+      limit:120
+    }):candidateResults;
+    return mergeExerciseCatalogLists(baseResults,searchedCandidates).slice(0,120);
+  }
+  return mergeExerciseCatalogLists(getExerciseCatalogAll(filters),getExerciseCatalogCandidateExercises(userFilters));
+}
+
+function getExerciseCatalogMetaLine(exercise){
+  const parts=[];
+  const firstMovement=exercise?.movementTags?.[0];
+  const firstMuscle=exercise?.displayMuscleGroups?.[0];
+  const firstEquipment=exercise?.equipmentTags?.[0];
+  if(firstMovement)parts.push(i18nText('catalog.filter.movement.'+firstMovement,firstMovement));
+  if(firstMuscle)parts.push(i18nText('dashboard.muscle_group.'+firstMuscle,firstMuscle));
+  if(firstEquipment)parts.push(i18nText('catalog.filter.equipment.'+firstEquipment,firstEquipment));
+  return parts.join(' · ');
+}
+
+function renderExerciseCatalogSection(titleKey,fallback,items,emptyCopy){
+  if(!items.length&&emptyCopy===false)return'';
+  const body=items.length
+    ? items.map(ex=>`<button type="button" class="catalog-item" onclick="selectExerciseCatalogExercise('${escapeHtml(ex.id)}')"><span class="catalog-item-main">${escapeHtml(displayExerciseName(ex.name))}</span><span class="catalog-item-meta">${escapeHtml(getExerciseCatalogMetaLine(ex))}</span></button>`).join('')
+    : `<div class="catalog-section-empty">${escapeHtml(emptyCopy||i18nText('catalog.section.empty','No exercises in this section yet.'))}</div>`;
+  return`<section class="catalog-section"><div class="catalog-section-title">${escapeHtml(i18nText(titleKey,fallback))}</div>${body}</section>`;
+}
+
+function renderExerciseCatalogFilters(){
+  const wrap=document.getElementById('exercise-catalog-filters');
+  if(!wrap)return;
+  const groups=[
+    {id:'movement',labelKey:'catalog.filter_group.movement',fallback:'Movement',active:exerciseCatalogState?.movementTag||'',options:EXERCISE_CATALOG_FILTERS.movement},
+    {id:'muscle',labelKey:'catalog.filter_group.muscle',fallback:'Muscle',active:exerciseCatalogState?.muscleGroup||'',options:EXERCISE_CATALOG_FILTERS.muscle},
+    {id:'equipment',labelKey:'catalog.filter_group.equipment',fallback:'Equipment',active:exerciseCatalogState?.equipmentTag||'',options:EXERCISE_CATALOG_FILTERS.equipment}
+  ];
+  wrap.innerHTML=groups.map(group=>{
+    const chips=[
+      `<button type="button" class="catalog-filter-chip${!group.active?' active':''}" onclick="setExerciseCatalogFilter('${group.id}','')">${escapeHtml(i18nText('catalog.filter.all','All'))}</button>`,
+      ...group.options.map(option=>`<button type="button" class="catalog-filter-chip${group.active===option.value?' active':''}" onclick="setExerciseCatalogFilter('${group.id}','${option.value}')">${escapeHtml(i18nText(option.labelKey,option.fallback))}</button>`)
+    ];
+    return`<div class="catalog-filter-group"><div class="catalog-filter-label">${escapeHtml(i18nText(group.labelKey,group.fallback))}</div><div class="catalog-filter-chip-row">${chips.join('')}</div></div>`;
+  }).join('');
+}
+
+function refreshExerciseCatalogCopy(){
+  const titleEl=document.getElementById('name-modal-title');
+  const subEl=document.getElementById('exercise-catalog-sub');
+  if(titleEl)titleEl.textContent=i18nText(exerciseCatalogState?.titleKey||'catalog.title.add',exerciseCatalogState?.titleFallback||'Add Exercise',exerciseCatalogState?.titleParams);
+  if(subEl)subEl.textContent=i18nText(exerciseCatalogState?.subtitleKey||'catalog.sub',exerciseCatalogState?.subtitleFallback||'Pick an exercise from the library or search by name.',exerciseCatalogState?.subtitleParams);
+}
+
+function renderExerciseCatalog(){
+  refreshExerciseCatalogCopy();
+  renderExerciseCatalogFilters();
+  const content=document.getElementById('exercise-catalog-content');
+  const empty=document.getElementById('exercise-catalog-empty');
+  const clearBtn=document.getElementById('catalog-clear-btn');
+  if(!content||!empty)return;
+  if(clearBtn)clearBtn.style.visibility=(exerciseCatalogState?.search||hasExerciseCatalogFilters())?'visible':'hidden';
+  const search=exerciseCatalogState?.search||'';
+  const filters=getExerciseCatalogFilterPayload();
+  const userFilters=getExerciseCatalogUserFilters();
+  if(search||hasExerciseCatalogFilters()){
+    const results=search?getExerciseCatalogResults():mergeExerciseCatalogLists(getExerciseCatalogAll(filters),getExerciseCatalogCandidateExercises(userFilters));
+    content.innerHTML=renderExerciseCatalogSection('catalog.section.results','Results',results,false);
+    empty.style.display=results.length?'none':'block';
+    return;
+  }
+  if(isExerciseCatalogSwapMode()){
+    const results=getExerciseCatalogResults();
+    content.innerHTML=renderExerciseCatalogSection('catalog.section.swap','Available options',results,false);
+    empty.style.display=results.length?'none':'block';
+    return;
+  }
+  const recent=getExerciseCatalogRecent(8);
+  const featured=getExerciseCatalogFeatured(10,{});
+  const all=getExerciseCatalogAll({});
+  content.innerHTML=
+    renderExerciseCatalogSection('catalog.section.recent','Recently used',recent,i18nText('catalog.section.recent_empty','Log a few workouts and your recent exercises will show up here.'))+
+    renderExerciseCatalogSection('catalog.section.featured','Popular basics',featured,false)+
+    renderExerciseCatalogSection('catalog.section.all','All exercises',all,false);
+  empty.style.display='none';
+}
+
+function ensureExerciseCatalogListeners(){
+  if(exerciseCatalogListenersBound)return;
+  const modal=document.getElementById('name-modal');
+  const input=document.getElementById('name-modal-input');
+  if(modal){
+    modal.addEventListener('click',e=>{if(e.target===modal)closeNameModal();});
+  }
+  if(input){
+    input.addEventListener('input',e=>{
+      if(!exerciseCatalogState)return;
+      exerciseCatalogState.search=e.target.value||'';
+      renderExerciseCatalog();
+    });
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Escape'){closeNameModal();return;}
+      if(e.key!=='Enter')return;
+      const first=getExerciseCatalogResults()[0];
+      if(first)selectExerciseCatalogExercise(first.id);
+    });
+  }
+  exerciseCatalogListenersBound=true;
+}
+
+function resolveExerciseSelection(input){
+  const raw=typeof input==='object'?(input?.name||input?.exerciseId||''):input;
+  const resolved=window.EXERCISE_LIBRARY?.getExercise?(EXERCISE_LIBRARY.getExercise(input)||EXERCISE_LIBRARY.getExercise(exerciseIdForName(raw))):null;
+  return{
+    exerciseId:resolved?.id||exerciseIdForName(raw),
+    name:resolved?.name||String(raw||'').trim()
+  };
+}
+
+function openExerciseCatalogForAdd(title,cb){
+  ensureExerciseCatalogListeners();
+  nameModalCallback=cb||nameModalCallback||addExerciseByName;
+  exerciseCatalogState={
+    mode:'add',
+    search:'',
+    movementTag:'',
+    muscleGroup:'',
+    equipmentTag:'',
+    baseFilters:{},
+    candidateIds:[],
+    titleKey:'catalog.title.add',
+    titleFallback:'Add Exercise',
+    titleParams:null,
+    subtitleKey:'catalog.sub',
+    subtitleFallback:'Pick an exercise from the library or search by name.',
+    subtitleParams:null
+  };
+  const input=document.getElementById('name-modal-input');
+  if(title)exerciseCatalogState.titleFallback=title;
+  if(input)input.value='';
+  renderExerciseCatalog();
+  document.getElementById('name-modal')?.classList.add('active');
+  setTimeout(()=>input?.focus(),80);
+}
+
+function inferExerciseCatalogSwapFilters(exercise,category){
+  const meta=window.EXERCISE_LIBRARY?.getExerciseMeta?EXERCISE_LIBRARY.getExerciseMeta(exercise?.exerciseId||exercise?.name||exercise):null;
+  const categoryFilters={
+    squat:{movementTags:['squat'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['quads','glutes']},
+    bench:{movementTags:['horizontal_press'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['chest','triceps','shoulders']},
+    deadlift:{movementTags:['hinge'],equipmentTags:['barbell','trap_bar','dumbbell','machine','bodyweight'],muscleGroups:['hamstrings','glutes','back']},
+    ohp:{movementTags:['vertical_press'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['shoulders','triceps']},
+    back:{movementTags:['horizontal_pull','vertical_pull'],equipmentTags:['barbell','dumbbell','cable','machine','pullup_bar','bodyweight'],muscleGroups:['back','biceps']},
+    core:{movementTags:['core'],equipmentTags:['bodyweight','cable','band','pullup_bar'],muscleGroups:['core']},
+    pressing:{movementTags:['horizontal_press','vertical_press'],equipmentTags:['barbell','dumbbell','machine','bodyweight','cable'],muscleGroups:['chest','shoulders','triceps']},
+    triceps:{movementTags:['isolation','horizontal_press','vertical_press'],equipmentTags:['bodyweight','cable','dumbbell','barbell'],muscleGroups:['triceps']},
+    'single-leg':{movementTags:['single_leg','squat'],equipmentTags:['dumbbell','bodyweight','machine'],muscleGroups:['quads','glutes']},
+    'upper back':{movementTags:['horizontal_pull'],equipmentTags:['barbell','dumbbell','cable','machine'],muscleGroups:['back','biceps']},
+    'posterior chain':{movementTags:['hinge'],equipmentTags:['barbell','machine','bodyweight'],muscleGroups:['hamstrings','glutes','back']},
+    'vertical pull':{movementTags:['vertical_pull'],equipmentTags:['pullup_bar','bodyweight','cable','machine'],muscleGroups:['back','biceps']}
+  };
+  if(categoryFilters[category])return categoryFilters[category];
+  return{
+    movementTags:(meta?.movementTags||[]).slice(0,2),
+    equipmentTags:(meta?.equipmentTags||[]).slice(0,3),
+    muscleGroups:(meta?.displayMuscleGroups||[]).slice(0,2)
+  };
+}
+
+function getResolvedCatalogOptionExercises(options){
+  const seen=new Set();
+  return arrayify(options).map(option=>{
+    const resolved=window.EXERCISE_LIBRARY?.getExercise?(
+      EXERCISE_LIBRARY.getExercise(option)||
+      EXERCISE_LIBRARY.getExercise(exerciseIdForName(option))||
+      (window.EXERCISE_LIBRARY?.registerExercise?EXERCISE_LIBRARY.registerExercise({name:option}):null)
+    ):null;
+    if(!resolved||seen.has(resolved.id))return null;
+    seen.add(resolved.id);
+    return resolved;
+  }).filter(Boolean);
+}
+
+function openExerciseCatalogForSwap(config){
+  const next=config||{};
+  const exercise=next.exercise||activeWorkout?.exercises?.[next.exerciseIndex];
+  const info=Array.isArray(next.swapInfo)?{options:next.swapInfo}:next.swapInfo||{};
+  if(!exercise)return false;
+  ensureExerciseCatalogListeners();
+  const current=resolveExerciseSelection(exercise);
+  const fallbackOptions=getResolvedCatalogOptionExercises(info.options||[]);
+  const baseFilters={...(info.filters||inferExerciseCatalogSwapFilters(exercise,info.category||''))};
+  baseFilters.excludeIds=uniqueList([...(arrayify(info.excludeIds)),...(current.exerciseId?[current.exerciseId]:[])]);
+  const candidateIds=uniqueList([...(arrayify(info.includeIds)),...fallbackOptions.map(ex=>ex.id)]);
+  exerciseCatalogState={
+    mode:'swap',
+    search:'',
+    movementTag:'',
+    muscleGroup:'',
+    equipmentTag:'',
+    baseFilters,
+    candidateIds,
+    titleKey:'catalog.title.swap',
+    titleFallback:next.title||'Swap Exercise',
+    titleParams:next.titleParams||null,
+    subtitleKey:'catalog.sub.swap',
+    subtitleFallback:'Showing options limited by the current exercise and program rules.',
+    subtitleParams:{name:displayExerciseName(current.name)},
+    onSelect:next.onSelect||null
+  };
+  const input=document.getElementById('name-modal-input');
+  if(input)input.value='';
+  renderExerciseCatalog();
+  document.getElementById('name-modal')?.classList.add('active');
+  setTimeout(()=>input?.focus(),80);
+  return true;
+}
+
+function setExerciseCatalogFilter(group,value){
+  if(!exerciseCatalogState)return;
+  if(group==='movement')exerciseCatalogState.movementTag=value||'';
+  if(group==='muscle')exerciseCatalogState.muscleGroup=value||'';
+  if(group==='equipment')exerciseCatalogState.equipmentTag=value||'';
+  renderExerciseCatalog();
+}
+
+function clearExerciseCatalogFilters(){
+  if(!exerciseCatalogState)return;
+  exerciseCatalogState.search='';
+  exerciseCatalogState.movementTag='';
+  exerciseCatalogState.muscleGroup='';
+  exerciseCatalogState.equipmentTag='';
+  const input=document.getElementById('name-modal-input');
+  if(input)input.value='';
+  renderExerciseCatalog();
+  input?.focus();
+}
+
+function resetExerciseCatalogState(){
+  exerciseCatalogState=null;
+}
+
+function selectExerciseCatalogExercise(exerciseId){
+  if(!window.EXERCISE_LIBRARY)return;
+  const exercise=EXERCISE_LIBRARY.getExercise(exerciseId);
+  if(!exercise)return;
+  document.getElementById('name-modal')?.classList.remove('active');
+  const onSelect=exerciseCatalogState?.onSelect||null;
+  const cb=nameModalCallback;
+  nameModalCallback=null;
+  exerciseCatalogState=null;
+  if(onSelect){onSelect(exercise);return;}
+  if(cb)cb(exercise.name);
+}
+
+function submitExerciseCatalogSelection(){
+  const first=getExerciseCatalogResults()[0];
+  if(first)selectExerciseCatalogExercise(first.id);
+}
+
 function addExerciseByName(name){
   if(!activeWorkout)return;
-  const exerciseId=exerciseIdForName(name);
-  const suggested=getSuggested({name,exerciseId});
-  activeWorkout.exercises.push({id:Date.now()+Math.random(),exerciseId,name,note:'',sets:[
+  const resolved=resolveExerciseSelection(name);
+  const exerciseId=resolved.exerciseId;
+  const canonicalName=resolved.name;
+  const suggested=getSuggested({name:canonicalName,exerciseId});
+  activeWorkout.exercises.push({id:Date.now()+Math.random(),exerciseId,name:canonicalName,note:'',sets:[
     {weight:suggested||'',reps:5,done:false,rpe:null},
     {weight:suggested||'',reps:5,done:false,rpe:null},
     {weight:suggested||'',reps:5,done:false,rpe:null}
@@ -554,39 +954,52 @@ function swapAuxExercise(ei){
   const prog=getActiveProgram();
   const swapInfo=prog.getAuxSwapOptions?prog.getAuxSwapOptions(ex):null;
   if(!swapInfo)return;
-  const cat=swapInfo.category||'',opts=swapInfo.options||[];
+  const cat=swapInfo.category||'';
   const title=cat?i18nText('workout.swap_aux_category','Swap {cat} auxiliary',{cat:cat.charAt(0).toUpperCase()+cat.slice(1)}):i18nText('workout.swap_exercise','Swap exercise');
-  let optHtml=opts.map(o=>`<div class="swap-option${o===ex.name?' swap-active':''}" onclick="doAuxSwap(${ei},'${o.replace(/'/g,"\\'")}',${ex.auxSlotIdx})">${escapeHtml(displayExerciseName(o))}</div>`).join('');
-  showCustomModal(title,`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
+  openExerciseCatalogForSwap({
+    exerciseIndex:ei,
+    exercise:ex,
+    swapInfo,
+    title,
+    onSelect:selected=>doAuxSwap(ei,selected.name,ex.auxSlotIdx)
+  });
 }
 
 function doAuxSwap(ei,newName,slotIdx){
-  activeWorkout.exercises[ei].name=newName;
-  activeWorkout.exercises[ei].exerciseId=exerciseIdForName(newName);
+  const resolved=resolveExerciseSelection(newName);
+  activeWorkout.exercises[ei].name=resolved.name;
+  activeWorkout.exercises[ei].exerciseId=resolved.exerciseId;
   const prog=getActiveProgram(),state=getActiveProgramState();
-  const newState=prog.onAuxSwap?prog.onAuxSwap(slotIdx,newName,state):state;
+  const newState=prog.onAuxSwap?prog.onAuxSwap(slotIdx,resolved.name,state):state;
   setProgramState(prog.id,newState);
   saveProfileData({programIds:[prog.id]});
-  closeCustomModal();renderExercises();
-  showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(newName)}),'var(--purple)');
+  renderExercises();
+  showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(resolved.name)}),'var(--purple)');
 }
 
 function swapBackExercise(ei){
   const prog=getActiveProgram();
-  const opts=prog.getBackSwapOptions?prog.getBackSwapOptions():[];
-  let optHtml=opts.map(o=>`<div class="swap-option${o===activeWorkout.exercises[ei].name?' swap-active':''}" onclick="doBackSwap(${ei},'${o.replace(/'/g,"\\'")}')"> ${escapeHtml(displayExerciseName(o))}</div>`).join('');
-  showCustomModal(i18nText('workout.swap_back_title','Swap Back Exercise'),`<div style="max-height:300px;overflow-y:auto">${optHtml}</div>`);
+  const swapInfo=prog.getBackSwapOptions?prog.getBackSwapOptions(activeWorkout.exercises[ei]):[];
+  if(!swapInfo)return;
+  openExerciseCatalogForSwap({
+    exerciseIndex:ei,
+    exercise:activeWorkout.exercises[ei],
+    swapInfo,
+    title:i18nText('workout.swap_back_title','Swap Back Exercise'),
+    onSelect:selected=>doBackSwap(ei,selected.name)
+  });
 }
 
 function doBackSwap(ei,newName){
-  activeWorkout.exercises[ei].name=newName;
-  activeWorkout.exercises[ei].exerciseId=exerciseIdForName(newName);
+  const resolved=resolveExerciseSelection(newName);
+  activeWorkout.exercises[ei].name=resolved.name;
+  activeWorkout.exercises[ei].exerciseId=resolved.exerciseId;
   const prog=getActiveProgram(),state=getActiveProgramState();
-  const newState=prog.onBackSwap?prog.onBackSwap(newName,state):state;
+  const newState=prog.onBackSwap?prog.onBackSwap(resolved.name,state):state;
   setProgramState(prog.id,newState);
   saveProfileData({programIds:[prog.id]});
-  closeCustomModal();renderExercises();
-  showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(newName)}),'var(--purple)');
+  renderExercises();
+  showToast(i18nText('workout.swapped_to','Swapped to {name}',{name:displayExerciseName(resolved.name)}),'var(--purple)');
 }
 
 function showCustomModal(title,bodyHtml){

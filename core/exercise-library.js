@@ -156,6 +156,12 @@ function uniqueList(items){
   return [...new Set((items||[]).filter(Boolean))];
 }
 
+function arrayify(value){
+  if(Array.isArray(value))return value.filter(Boolean);
+  if(value===undefined||value===null||value==='')return [];
+  return [value];
+}
+
 const DISPLAY_MUSCLE_GROUP_BY_MUSCLE={
   chest:'chest',
   upper_chest:'chest',
@@ -264,6 +270,63 @@ function inferMuscleGroups(name,category){
   return{primary:['general'],secondary:[]};
 }
 
+function exerciseEntry(name,config){
+  return Object.assign({name},config||{});
+}
+
+// These entries are now the primary source of truth for common lifts.
+// Regex inference still exists, but only as a fallback for older or less
+// important names that are not explicitly modeled yet.
+const CORE_EXERCISE_ENTRIES=[
+  exerciseEntry('Squat',{aliases:['Back Squat','Barbell Back Squat','Takakyykky'],category:'squat',movementTags:['squat'],equipmentTags:['barbell'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings','core'],featured:true,popularity:100}),
+  exerciseEntry('Front Squat',{aliases:['Etukyykky'],category:'squat',movementTags:['squat'],equipmentTags:['barbell'],primaryMuscles:['quads','glutes'],secondaryMuscles:['upper_back','core'],featured:true,popularity:82}),
+  exerciseEntry('Paused Squat',{aliases:['Pause Squat','Pysaytyskyykky'],category:'squat',movementTags:['squat'],equipmentTags:['barbell'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings','core'],popularity:60}),
+  exerciseEntry('Leg Press',{aliases:['Machine Leg Press','Jalkaprassi'],category:'squat',movementTags:['squat'],equipmentTags:['machine'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings'],featured:true,popularity:65}),
+  exerciseEntry('Bulgarian Split Squats',{aliases:['Bulgarian Split Squat','Bulgarialainen haarakyykky'],category:'squat',movementTags:['squat','single_leg'],equipmentTags:['dumbbell','bodyweight'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings','core'],featured:true,popularity:58}),
+  exerciseEntry('Walking Lunges',{aliases:['Kavelyaskelkyykky'],category:'squat',movementTags:['squat','single_leg'],equipmentTags:['dumbbell','bodyweight'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings','core'],popularity:36}),
+  exerciseEntry('Reverse Lunges',{aliases:['Taakseaskellus'],category:'squat',movementTags:['squat','single_leg'],equipmentTags:['dumbbell','bodyweight'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings','core'],popularity:34}),
+  exerciseEntry('Step-Ups',{aliases:['Step Ups','Askelkyykky (koroke)'],category:'squat',movementTags:['squat','single_leg'],equipmentTags:['dumbbell','bodyweight'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings','core'],popularity:30}),
+  exerciseEntry('Bench Press',{aliases:['Bench','Barbell Bench Press','Penkkipunnerrus'],category:'press',movementTags:['horizontal_press'],equipmentTags:['barbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],featured:true,popularity:100}),
+  exerciseEntry('Close-Grip Bench',{aliases:['Close-Grip Bench Press','Kapean otteen penkkipunnerrus'],category:'press',movementTags:['horizontal_press'],equipmentTags:['barbell'],primaryMuscles:['chest','triceps'],secondaryMuscles:['front_delts'],popularity:54}),
+  exerciseEntry('Incline Press',{aliases:['Vinopenkkipunnerrus'],category:'press',movementTags:['horizontal_press'],equipmentTags:['barbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:['upper_chest'],featured:true,popularity:50}),
+  exerciseEntry('DB Bench',{aliases:['Dumbbell Bench Press','Dumbbell Bench','Penkkipunnerrus (kasipainot)'],category:'press',movementTags:['horizontal_press'],equipmentTags:['dumbbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],featured:true,popularity:56}),
+  exerciseEntry('DB Incline Press',{aliases:['Dumbbell Incline Press','Vinopenkkipunnerrus (kasipainot)'],category:'press',movementTags:['horizontal_press'],equipmentTags:['dumbbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:['upper_chest'],popularity:34}),
+  exerciseEntry('Machine Chest Press',{aliases:['Rintapunnerrus (laite)'],category:'press',movementTags:['horizontal_press'],equipmentTags:['machine'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],popularity:28}),
+  exerciseEntry('Push-ups',{aliases:['Push Ups','Punnerrukset'],category:'press',movementTags:['horizontal_press'],equipmentTags:['bodyweight'],primaryMuscles:['chest','triceps'],secondaryMuscles:['front_delts','core'],featured:true,popularity:48}),
+  exerciseEntry('Dips',{aliases:['Dipsit'],category:'press',movementTags:['vertical_press'],equipmentTags:['bodyweight'],primaryMuscles:['chest','triceps'],secondaryMuscles:['front_delts'],featured:true,popularity:44}),
+  exerciseEntry('Deadlift',{aliases:['Maastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['hamstrings','glutes','lower_back'],secondaryMuscles:['upper_back','core'],featured:true,popularity:100}),
+  exerciseEntry('Sumo Deadlift',{aliases:['Sumomaastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['glutes','adductors','quads'],secondaryMuscles:['hamstrings','core'],featured:true,popularity:60}),
+  exerciseEntry('Romanian Deadlift',{aliases:['Romanian Deadlifts (RDL)','Romanialainen maastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['hamstrings','glutes'],secondaryMuscles:['lower_back','core'],featured:true,popularity:68}),
+  exerciseEntry('Trap Bar Deadlift',{aliases:['Trap bar -maastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['trap_bar'],primaryMuscles:['quads','glutes','hamstrings'],secondaryMuscles:['core'],popularity:26}),
+  exerciseEntry('Good Morning',{aliases:['Good Mornings'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['hamstrings','glutes','lower_back'],secondaryMuscles:['core'],popularity:24}),
+  exerciseEntry('Back Extensions',{aliases:['Selan ojennus'],category:'hinge',movementTags:['hinge'],equipmentTags:['bodyweight'],primaryMuscles:['glutes','hamstrings','lower_back'],secondaryMuscles:['core'],featured:true,popularity:28}),
+  exerciseEntry('45deg Hip Extensions',{aliases:['45° Hip Extensions','45° lonkan ojennus'],category:'hinge',movementTags:['hinge'],equipmentTags:['bodyweight'],primaryMuscles:['glutes','hamstrings','lower_back'],secondaryMuscles:['core'],popularity:20}),
+  exerciseEntry('Hamstring Curls',{aliases:['Takareiden koukistus'],category:'hinge',movementTags:['hinge','isolation'],equipmentTags:['machine'],primaryMuscles:['hamstrings'],secondaryMuscles:['calves'],popularity:32}),
+  exerciseEntry('OHP',{aliases:['Overhead Press','Overhead Press (OHP)','Pystypunnerrus'],category:'press',movementTags:['vertical_press'],equipmentTags:['barbell'],primaryMuscles:['front_delts','triceps'],secondaryMuscles:['upper_chest','core'],featured:true,popularity:72}),
+  exerciseEntry('Push Press',{aliases:['Tyontopunnerrus'],category:'press',movementTags:['vertical_press'],equipmentTags:['barbell'],primaryMuscles:['front_delts','triceps'],secondaryMuscles:['quads','glutes','core'],popularity:28}),
+  exerciseEntry('DB OHP',{aliases:['Overhead Dumbbell Press','Pystypunnerrus (kasipainot)'],category:'press',movementTags:['vertical_press'],equipmentTags:['dumbbell'],primaryMuscles:['front_delts','triceps'],secondaryMuscles:['upper_chest','core'],popularity:30}),
+  exerciseEntry('Barbell Rows',{aliases:['Barbell Row','Kulmasoutu'],category:'pull',movementTags:['horizontal_pull'],equipmentTags:['barbell'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts'],featured:true,popularity:66}),
+  exerciseEntry('Dumbbell Rows',{aliases:['Dumbbell Row','DB Rows','DB Row','Kasipainosoutu'],category:'pull',movementTags:['horizontal_pull'],equipmentTags:['dumbbell'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts'],featured:true,popularity:54}),
+  exerciseEntry('Chest-Supported Rows',{aliases:['Chest Supported Rows','Rintatuettu soutu'],category:'pull',movementTags:['horizontal_pull'],equipmentTags:['machine','dumbbell'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts'],popularity:34}),
+  exerciseEntry('Seated Cable Rows',{aliases:['Taljasoutu istuen'],category:'pull',movementTags:['horizontal_pull'],equipmentTags:['cable'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts'],featured:true,popularity:38}),
+  exerciseEntry('Machine Rows',{aliases:['Soutulaite'],category:'pull',movementTags:['horizontal_pull'],equipmentTags:['machine'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts'],popularity:20}),
+  exerciseEntry('T-Bar Rows',{aliases:['T-tankosoutu'],category:'pull',movementTags:['horizontal_pull'],equipmentTags:['barbell','machine'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts'],popularity:24}),
+  exerciseEntry('Pull-ups',{aliases:['Pull Ups','Leuanveto (ylikaden ote)'],category:'pull',movementTags:['vertical_pull'],equipmentTags:['pullup_bar','bodyweight'],primaryMuscles:['lats','upper_back'],secondaryMuscles:['biceps','rear_delts'],featured:true,popularity:48}),
+  exerciseEntry('Chin-ups',{aliases:['Chin Ups','Leuanveto (myotaote)'],category:'pull',movementTags:['vertical_pull'],equipmentTags:['pullup_bar','bodyweight'],primaryMuscles:['lats','upper_back'],secondaryMuscles:['biceps','rear_delts'],featured:true,popularity:46}),
+  exerciseEntry('Neutral-Grip Pull-ups',{aliases:['Neutral Grip Pull-ups','Leuanveto (neutraaliote)'],category:'pull',movementTags:['vertical_pull'],equipmentTags:['pullup_bar','bodyweight'],primaryMuscles:['lats','upper_back'],secondaryMuscles:['biceps','rear_delts'],popularity:28}),
+  exerciseEntry('Assisted Chin-ups',{aliases:['Avustettu leuanveto'],category:'pull',movementTags:['vertical_pull'],equipmentTags:['pullup_bar','bodyweight','machine'],primaryMuscles:['lats','upper_back'],secondaryMuscles:['biceps','rear_delts'],popularity:18}),
+  exerciseEntry('Pull-downs',{aliases:['Lat Pulldowns','Lat Pulldown','Lat Pull-down','Lat Pull-down (Wide Grip)','Lat Pull-down (Close Grip)','Alasvedot'],category:'pull',movementTags:['vertical_pull'],equipmentTags:['cable'],primaryMuscles:['lats','upper_back'],secondaryMuscles:['biceps','rear_delts'],featured:true,popularity:44}),
+  exerciseEntry('Weighted Planks',{aliases:['Painollinen lankku'],category:'core',movementTags:['core'],equipmentTags:['bodyweight'],primaryMuscles:['core','abs'],secondaryMuscles:['obliques'],featured:true,popularity:26}),
+  exerciseEntry('Pallof Press',{aliases:['Pallof-punnerrus'],category:'core',movementTags:['core'],equipmentTags:['cable','band'],primaryMuscles:['obliques','core'],secondaryMuscles:['shoulders'],popularity:18}),
+  exerciseEntry('Ab Wheel Rollouts',{aliases:['Ab Wheel','Vatsapyora'],category:'core',movementTags:['core'],equipmentTags:['bodyweight'],primaryMuscles:['abs','core'],secondaryMuscles:['lats','shoulders'],featured:true,popularity:24}),
+  exerciseEntry('Hanging Leg Raises',{aliases:['Roikkuvat jalkojen nostot'],category:'core',movementTags:['core'],equipmentTags:['pullup_bar','bodyweight'],primaryMuscles:['abs','core'],secondaryMuscles:['obliques','hip_flexors'],popularity:20}),
+  exerciseEntry('Cable Crunches',{aliases:['Kaapelirutistus'],category:'core',movementTags:['core'],equipmentTags:['cable'],primaryMuscles:['abs','core'],secondaryMuscles:['obliques'],popularity:18}),
+  exerciseEntry('Dead Bugs',{aliases:['Dead bug'],category:'core',movementTags:['core'],equipmentTags:['bodyweight'],primaryMuscles:['core','abs'],secondaryMuscles:['obliques'],popularity:16}),
+  exerciseEntry('Dumbbell Bicep Curls',{aliases:['Kasipainohauiskanto'],category:'isolation',movementTags:['isolation'],equipmentTags:['dumbbell'],primaryMuscles:['biceps'],secondaryMuscles:['forearms'],popularity:20}),
+  exerciseEntry('Dumbbell Lateral Raises',{aliases:['Kasipainosivunousu'],category:'isolation',movementTags:['isolation'],equipmentTags:['dumbbell'],primaryMuscles:['side_delts'],secondaryMuscles:['upper_traps'],popularity:20}),
+  exerciseEntry('Overhead Triceps Extensions',{aliases:['Ojentaja paan yli'],category:'isolation',movementTags:['isolation'],equipmentTags:['dumbbell','cable'],primaryMuscles:['triceps'],secondaryMuscles:[],popularity:16})
+];
+
 const EXERCISE_METADATA_OVERRIDES={
   'bench press':{movementTags:['horizontal_press'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[]},
   'barbell bench press':{movementTags:['horizontal_press'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[]},
@@ -283,14 +346,14 @@ const EXERCISE_METADATA_OVERRIDES={
 function buildExerciseMetadata(name,category,entry){
   const inferredMuscles=inferMuscleGroups(name,category);
   const override=EXERCISE_METADATA_OVERRIDES[normalize(name)]||{};
-  const primaryMuscles=uniqueList(override.primaryMuscles||entry.primaryMuscles||inferredMuscles.primary);
-  const secondaryMuscles=uniqueList(override.secondaryMuscles||entry.secondaryMuscles||inferredMuscles.secondary);
+  const primaryMuscles=uniqueList(entry.primaryMuscles||override.primaryMuscles||inferredMuscles.primary);
+  const secondaryMuscles=uniqueList(entry.secondaryMuscles||override.secondaryMuscles||inferredMuscles.secondary);
   return{
     primaryMuscles,
     secondaryMuscles,
     displayMuscleGroups:getDisplayMuscleGroups(primaryMuscles,secondaryMuscles),
-    movementTags:uniqueList(override.movementTags||entry.movementTags||inferMovementTags(name,category)),
-    equipmentTags:uniqueList(override.equipmentTags||entry.equipmentTags||inferEquipmentTags(name))
+    movementTags:uniqueList(entry.movementTags||override.movementTags||inferMovementTags(name,category)),
+    equipmentTags:uniqueList(entry.equipmentTags||override.equipmentTags||inferEquipmentTags(name))
   };
 }
 
@@ -493,6 +556,21 @@ function guidanceFor(name,category){
   };
 }
 
+function getLocaleAliases(name){
+  const aliases=[];
+  Object.keys(localizedNameByLocale).forEach(locale=>{
+    const localized=localizedNameByLocale[locale]?.[normalize(name)];
+    if(localized)aliases.push(localized);
+  });
+  return uniqueList(aliases);
+}
+
+function registerLookupValue(value,id){
+  const key=normalize(value);
+  if(!key||!id)return;
+  lookupByName[key]=id;
+}
+
 function registerExercise(entry){
   if(!entry||!entry.name)return null;
   const id=entry.id||slugify(entry.name);
@@ -501,28 +579,33 @@ function registerExercise(entry){
   const category=entry.category||inferCategory(entry.name);
   const guidance=entry.guidance||guidanceFor(entry.name,category);
   const metadata=buildExerciseMetadata(entry.name,category,entry);
+  const aliases=uniqueList([...(Array.isArray(entry.aliases)?entry.aliases:[]),...getLocaleAliases(entry.name)]);
   const record={
     id,
     name:entry.name,
     category,
-    aliases:Array.isArray(entry.aliases)?entry.aliases.slice():[],
+    aliases,
     guidance,
     primaryMuscles:metadata.primaryMuscles,
     secondaryMuscles:metadata.secondaryMuscles,
     displayMuscleGroups:metadata.displayMuscleGroups,
     movementTags:metadata.movementTags,
-    equipmentTags:metadata.equipmentTags
+    equipmentTags:metadata.equipmentTags,
+    featured:!!entry.featured,
+    popularity:Number(entry.popularity||0)
   };
   catalogById[id]=record;
-  lookupByName[normalize(record.name)]=id;
-  record.aliases.forEach(alias=>{lookupByName[normalize(alias)]=id;});
+  registerLookupValue(record.name,id);
+  record.aliases.forEach(alias=>registerLookupValue(alias,id));
   return record;
 }
 
 function registerAlias(alias,target){
   const id=resolveExerciseId(target);
   if(!id)return;
-  lookupByName[normalize(alias)]=id;
+  registerLookupValue(alias,id);
+  const record=catalogById[id];
+  if(record&&!record.aliases.includes(alias))record.aliases.push(alias);
 }
 
 function resolveExerciseId(input){
@@ -543,6 +626,33 @@ function getExercise(input){
   return id?catalogById[id]:null;
 }
 
+// Unknown custom exercise names should still produce inferred metadata and
+// guidance so old logs, history and dashboard load calculations keep working.
+function buildVirtualExerciseRecord(input){
+  const raw=typeof input==='object'?String(input?.name||'').trim():String(input||'').trim();
+  if(!raw)return null;
+  const category=inferCategory(raw);
+  const metadata=buildExerciseMetadata(raw,category,{});
+  return{
+    id:null,
+    name:raw,
+    category,
+    aliases:getLocaleAliases(raw),
+    guidance:guidanceFor(raw,category),
+    primaryMuscles:metadata.primaryMuscles,
+    secondaryMuscles:metadata.secondaryMuscles,
+    displayMuscleGroups:metadata.displayMuscleGroups,
+    movementTags:metadata.movementTags,
+    equipmentTags:metadata.equipmentTags,
+    featured:false,
+    popularity:0
+  };
+}
+
+function getExerciseRecord(input){
+  return getExercise(input)||buildVirtualExerciseRecord(input);
+}
+
 function pickLocale(entry,locale){
   const current=(window.I18N&&I18N.normalizeLocale)?I18N.normalizeLocale(locale||I18N.getLanguage()):'en';
   const en=entry.guidance.en||{};
@@ -559,7 +669,7 @@ function pickLocale(entry,locale){
 }
 
 function getExerciseGuidance(input,locale){
-  const exercise=getExercise(input);
+  const exercise=getExerciseRecord(input);
   if(!exercise)return null;
   const localized=pickLocale(exercise,locale);
   return{
@@ -576,7 +686,7 @@ function getExerciseGuidance(input,locale){
 }
 
 function getExerciseMeta(input,locale){
-  const exercise=getExercise(input);
+  const exercise=getExerciseRecord(input);
   if(!exercise)return null;
   return{
     id:exercise.id,
@@ -595,28 +705,158 @@ function getAllExercises(){
   return Object.values(catalogById);
 }
 
-const KNOWN_EXERCISE_NAMES=[
-  'Squat','Bench Press','Deadlift','OHP','Overhead Press (OHP)','Barbell Row',
-  'Front Squat','Paused Squat','Pause Squat','High Bar Squat','Beltless Squat','Wider Stance Squat','Narrower Stance Squat','Box Squat','Pin Squat','Half Squat','Good Morning','Squat With Slow Eccentric','Leg Press',
-  'Close-Grip Bench','Close-Grip Bench Press','Long Pause Bench','Spoto Press','Incline Press','Wider Grip Bench','Board Press','Pin Press','Slingshot Bench','Bench With Feet Up','Bench With Slow Eccentric','DB Bench','DB Incline Press',
-  'Sumo Deadlift','Conventional Deadlift','Block Pull','Rack Pull','Deficit Deadlift','Romanian Deadlift','Romanian Deadlifts (RDL)','Stiff Leg Deadlift','Snatch Grip Deadlift','Trap Bar Deadlift',
-  'Push Press','Behind The Neck OHP','Seated OHP','DB OHP',
-  'Barbell Rows','Dumbbell Rows','DB Rows','Chest Supported Rows','Chest-Supported Rows','T-Bar Rows','Pull-ups','Chin-ups','Neutral Grip Pull-ups','Neutral-Grip Pull-ups','Assisted Chin-ups','Pull-downs','Lat Pulldowns','Lat Pull-down (Wide Grip)','Lat Pull-down (Close Grip)','Seated Cable Rows','Machine Rows',
-  'Bulgarian Split Squats','Bodyweight Squats','Barbell Back Squat','Dumbbell Goblet Squat','Machine Leg Press','Dumbbell Lunges','Walking Lunges','Step-Ups','Reverse Lunges',
-  'Barbell Bench Press','Dumbbell Bench Press','Machine Chest Press','Push-ups','Dips','Close-Grip Push-ups',
-  'Barbell Romanian Deadlift','Dumbbell Romanian Deadlift','Dumbbell Glute Bridges','Back Extensions','45deg Hip Extensions','Hamstring Curls',
-  'Band Pull-Aparts','Dead Hangs','Weighted Planks','Pallof Press','Ab Wheel Rollouts','Ab Crunches','Cable Crunches','Hanging Leg Raises','Dead Bugs',
-  'Dumbbell Bicep Curls','Dumbbell Lateral Raises','Overhead Dumbbell Press','Overhead Triceps Extensions','Skull Crushers'
+function matchesAny(items,needles){
+  const list=arrayify(needles).map(normalize).filter(Boolean);
+  if(!list.length)return true;
+  const haystack=new Set((items||[]).map(normalize));
+  return list.some(item=>haystack.has(item));
+}
+
+function matchesFilters(record,filters){
+  const next=filters||{};
+  const includeIds=new Set(arrayify(next.includeIds));
+  const excludeIds=new Set(arrayify(next.excludeIds));
+  if(includeIds.size&&!includeIds.has(record.id))return false;
+  if(excludeIds.has(record.id))return false;
+  if(next.featuredOnly&&!record.featured)return false;
+  if(arrayify(next.categories).length&&!arrayify(next.categories).map(normalize).includes(normalize(record.category)))return false;
+  if(!matchesAny(record.movementTags,next.movementTags))return false;
+  if(!matchesAny(record.equipmentTags,next.equipmentTags))return false;
+  if(!matchesAny(record.displayMuscleGroups,next.muscleGroups))return false;
+  return true;
+}
+
+function cloneRecord(record){
+  return{
+    id:record.id,
+    name:record.name,
+    category:record.category,
+    aliases:(record.aliases||[]).slice(),
+    primaryMuscles:(record.primaryMuscles||[]).slice(),
+    secondaryMuscles:(record.secondaryMuscles||[]).slice(),
+    displayMuscleGroups:(record.displayMuscleGroups||[]).slice(),
+    movementTags:(record.movementTags||[]).slice(),
+    equipmentTags:(record.equipmentTags||[]).slice(),
+    featured:!!record.featured,
+    popularity:record.popularity||0
+  };
+}
+
+function scoreSearch(record,query){
+  const q=normalize(query);
+  if(!q)return 0;
+  const names=[record.name,...(record.aliases||[])];
+  let score=0;
+  names.forEach(name=>{
+    const normalizedName=normalize(name);
+    if(normalizedName===q)score=Math.max(score,100);
+    else if(normalizedName.startsWith(q))score=Math.max(score,70);
+    else if(normalizedName.includes(q))score=Math.max(score,40);
+  });
+  if(score)score+=(record.featured?6:0)+Math.min(20,Math.round((record.popularity||0)/5));
+  return score;
+}
+
+function sortRecords(records,sort){
+  const next=records.slice();
+  if(sort==='name')return next.sort((a,b)=>a.name.localeCompare(b.name));
+  if(sort==='popularity')return next.sort((a,b)=>(b.popularity||0)-(a.popularity||0)||a.name.localeCompare(b.name));
+  return next.sort((a,b)=>{
+    const featuredDiff=(b.featured===true)-(a.featured===true);
+    if(featuredDiff)return featuredDiff;
+    const popularityDiff=(b.popularity||0)-(a.popularity||0);
+    if(popularityDiff)return popularityDiff;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// UI-agnostic catalog search for future list/swap pickers.
+function searchExercises(query,filters){
+  const q=String(query||'').trim();
+  const limit=Math.max(1,Number(filters?.limit||50));
+  return Object.values(catalogById)
+    .filter(record=>matchesFilters(record,filters))
+    .map(record=>({record,score:scoreSearch(record,q)}))
+    .filter(item=>!q||item.score>0)
+    .sort((a,b)=>b.score-a.score||(b.record.popularity||0)-(a.record.popularity||0)||a.record.name.localeCompare(b.record.name))
+    .slice(0,limit)
+    .map(item=>cloneRecord(item.record));
+}
+
+function getExerciseList(options){
+  const next=options||{};
+  return sortRecords(Object.values(catalogById).filter(record=>matchesFilters(record,next.filters)),next.sort||'featured')
+    .map(cloneRecord);
+}
+
+function getRelatedExercises(exerciseId,options){
+  const base=getExercise(exerciseId);
+  if(!base)return [];
+  const next=options||{};
+  const sameMovement=next.sameMovement!==false;
+  const sameEquipment=!!next.sameEquipment;
+  const exclude=new Set([base.id,...arrayify(next.excludeIds)]);
+  const limit=Math.max(1,Number(next.limit||8));
+  return Object.values(catalogById)
+    .filter(record=>!exclude.has(record.id))
+    .map(record=>{
+      const sharedMovement=record.movementTags.filter(tag=>base.movementTags.includes(tag));
+      const sharedEquipment=record.equipmentTags.filter(tag=>base.equipmentTags.includes(tag));
+      const sharedMuscles=record.displayMuscleGroups.filter(tag=>base.displayMuscleGroups.includes(tag));
+      if(sameMovement&&!sharedMovement.length)return null;
+      if(sameEquipment&&!sharedEquipment.length)return null;
+      return{
+        record,
+        score:sharedMovement.length*30+sharedEquipment.length*15+sharedMuscles.length*8+(record.featured?5:0)+(record.popularity||0)/10
+      };
+    })
+    .filter(Boolean)
+    .sort((a,b)=>b.score-a.score||a.record.name.localeCompare(b.record.name))
+    .slice(0,limit)
+    .map(item=>cloneRecord(item.record));
+}
+
+const FALLBACK_EXERCISE_NAMES=[
+  'Overhead Press (OHP)','High Bar Squat','Beltless Squat','Wider Stance Squat','Narrower Stance Squat','Box Squat','Pin Squat','Half Squat','Good Morning','Squat With Slow Eccentric',
+  'Long Pause Bench','Spoto Press','Wider Grip Bench','Board Press','Pin Press','Slingshot Bench','Bench With Feet Up','Bench With Slow Eccentric','DB Incline Press',
+  'Conventional Deadlift','Block Pull','Rack Pull','Deficit Deadlift','Stiff Leg Deadlift','Snatch Grip Deadlift','Behind The Neck OHP','Seated OHP',
+  'Chest Supported Rows','Chest-Supported Rows','T-Bar Rows','Neutral Grip Pull-ups','Neutral-Grip Pull-ups','Assisted Chin-ups','Machine Rows',
+  'Bodyweight Squats','Barbell Row','Barbell Back Squat','Machine Leg Press','Dumbbell Lunges','Close-Grip Push-ups','Barbell Romanian Deadlift','Dumbbell Romanian Deadlift','Dumbbell Glute Bridges','45deg Hip Extensions',
+  'Band Pull-Aparts','Dead Hangs','Ab Crunches','Hanging Leg Raises','Dead Bugs','Skull Crushers','Cable Triceps Pressdowns'
 ];
 
-KNOWN_EXERCISE_NAMES.forEach(name=>registerExercise({name}));
+CORE_EXERCISE_ENTRIES.forEach(entry=>registerExercise(entry));
+FALLBACK_EXERCISE_NAMES.forEach(name=>registerExercise({name}));
 
-registerAlias('overhead press','OHP');
-registerAlias('db row','Dumbbell Rows');
-registerAlias('db rows','Dumbbell Rows');
-registerAlias('pause squat','Paused Squat');
-registerAlias('lat pulldown','Pull-downs');
-registerAlias('lat pull-down','Pull-downs');
+[
+  ['overhead press','OHP'],
+  ['pystypunnerrus','OHP'],
+  ['db row','Dumbbell Rows'],
+  ['db rows','Dumbbell Rows'],
+  ['kasipainosoutu','Dumbbell Rows'],
+  ['pause squat','Paused Squat'],
+  ['pysaytyskyykky','Paused Squat'],
+  ['lat pulldown','Pull-downs'],
+  ['lat pull-down','Pull-downs'],
+  ['alasvedot','Pull-downs'],
+  ['takakyykky','Squat'],
+  ['penkki','Bench Press'],
+  ['penkkipunnerrus','Bench Press'],
+  ['maastaveto','Deadlift'],
+  ['sumomaastaveto','Sumo Deadlift'],
+  ['romanialainen maastaveto','Romanian Deadlift'],
+  ['etukyykky','Front Squat'],
+  ['vatsapyora','Ab Wheel Rollouts'],
+  ['good mornings','Good Morning'],
+  ['machine chest press','Machine Chest Press'],
+  ['chest supported rows','Chest-Supported Rows'],
+  ['neutral grip pull-ups','Neutral-Grip Pull-ups'],
+  ['45° hip extensions','45deg Hip Extensions'],
+  ['45Â° hip extensions','45deg Hip Extensions'],
+  ['walking lunges','Walking Lunges'],
+  ['reverse lunges','Reverse Lunges'],
+  ['step ups','Step-Ups']
+].forEach(([alias,target])=>registerAlias(alias,target));
 
 window.EXERCISE_LIBRARY={
   resolveExerciseId,
@@ -626,6 +866,9 @@ window.EXERCISE_LIBRARY={
   getDisplayName,
   getExerciseGuidance,
   getAllExercises,
+  searchExercises,
+  getExerciseList,
+  getRelatedExercises,
   registerExercise,
   registerAlias
 };

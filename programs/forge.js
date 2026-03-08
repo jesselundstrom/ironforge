@@ -40,6 +40,17 @@ function getForgeSimpleMainOptions(slotIdx,currentName){
   return [...new Set(opts)];
 }
 
+function getForgeSwapFilters(category){
+  const filtersByCategory={
+    squat:{movementTags:['squat'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['quads','glutes']},
+    bench:{movementTags:['horizontal_press'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['chest','triceps','shoulders']},
+    deadlift:{movementTags:['hinge'],equipmentTags:['barbell','trap_bar','dumbbell','machine','bodyweight'],muscleGroups:['hamstrings','glutes','back']},
+    ohp:{movementTags:['vertical_press'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['shoulders','triceps']},
+    back:{movementTags:['horizontal_pull','vertical_pull'],equipmentTags:['barbell','dumbbell','cable','machine','pullup_bar','bodyweight'],muscleGroups:['back','biceps']}
+  };
+  return filtersByCategory[category]||{};
+}
+
 const FORGE_INTERNAL={
   mainIntensity:[0,0.70,0.75,0.80,0.725,0.775,0.825,0.60,0.75,0.80,0.85,0.775,0.825,0.875,0.60,0.80,0.85,0.90,0.85,0.90,0.95,0.60],
   auxIntensity:[0,0.60,0.65,0.70,0.625,0.675,0.725,0.50,0.65,0.70,0.75,0.675,0.725,0.775,0.50,0.70,0.75,0.80,0.75,0.80,0.85,0.50],
@@ -262,9 +273,9 @@ const FORGE_PROGRAM={
   getAuxSwapOptions(exercise){
     if(exercise.auxSlotIdx<0)return null;
     const cat=FORGE_INTERNAL.getAuxCategory(exercise.auxSlotIdx);
-    return{category:cat,options:FORGE_INTERNAL.auxOptions[cat]||[]};
+    return{category:cat,filters:getForgeSwapFilters(cat),options:FORGE_INTERNAL.auxOptions[cat]||[]};
   },
-  getBackSwapOptions(){return FORGE_INTERNAL.auxOptions.back||[];},
+  getBackSwapOptions(){return{category:'back',filters:getForgeSwapFilters('back'),options:FORGE_INTERNAL.auxOptions.back||[]};},
   onAuxSwap(slotIdx,newName,state){const s=JSON.parse(JSON.stringify(state));if(s.lifts&&s.lifts.aux[slotIdx])s.lifts.aux[slotIdx].name=newName;return s;},
   onBackSwap(newName,state){return{...state,backExercise:newName};},
 

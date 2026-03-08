@@ -61,34 +61,42 @@ const W531 = {
   triumvirateSwapOptions: {
     '0-0': {
       category: 'single-leg',
+      filters: {movementTags:['single_leg','squat'],equipmentTags:['dumbbell','bodyweight','machine'],muscleGroups:['quads','glutes']},
       options: ['Bulgarian Split Squats', 'Walking Lunges', 'Reverse Lunges', 'Step-Ups', 'Leg Press']
     },
     '0-1': {
       category: 'core',
+      filters: {movementTags:['core'],equipmentTags:['bodyweight','cable','band','pullup_bar'],muscleGroups:['core']},
       options: ['Weighted Planks', 'Ab Wheel Rollouts', 'Hanging Leg Raises', 'Cable Crunches', 'Pallof Press']
     },
     '1-0': {
       category: 'upper back',
+      filters: {movementTags:['horizontal_pull'],equipmentTags:['dumbbell','barbell','cable','machine'],muscleGroups:['back','biceps']},
       options: ['Dumbbell Rows', 'Chest-Supported Rows', 'Seated Cable Rows', 'Barbell Rows', 'Machine Rows']
     },
     '1-1': {
       category: 'pressing',
+      filters: {movementTags:['horizontal_press','vertical_press'],equipmentTags:['dumbbell','bodyweight','machine','barbell'],muscleGroups:['chest','triceps','shoulders']},
       options: ['DB Incline Press', 'Machine Chest Press', 'Push-ups', 'Close-Grip Bench Press', 'Dips']
     },
     '2-0': {
       category: 'posterior chain',
+      filters: {movementTags:['hinge'],equipmentTags:['barbell','machine','bodyweight'],muscleGroups:['hamstrings','glutes','back']},
       options: ['Romanian Deadlifts (RDL)', 'Back Extensions', '45° Hip Extensions', 'Hamstring Curls', 'Good Mornings']
     },
     '2-1': {
       category: 'core',
+      filters: {movementTags:['core'],equipmentTags:['bodyweight','cable','band','pullup_bar'],muscleGroups:['core']},
       options: ['Ab Wheel Rollouts', 'Weighted Planks', 'Hanging Leg Raises', 'Cable Crunches', 'Dead Bugs']
     },
     '3-0': {
       category: 'vertical pull',
+      filters: {movementTags:['vertical_pull'],equipmentTags:['pullup_bar','bodyweight','cable','machine'],muscleGroups:['back','biceps']},
       options: ['Chin-ups', 'Lat Pulldowns', 'Neutral-Grip Pull-ups', 'Assisted Chin-ups', 'Pull-ups']
     },
     '3-1': {
       category: 'triceps',
+      filters: {movementTags:['isolation','horizontal_press','vertical_press'],equipmentTags:['bodyweight','cable','dumbbell','barbell'],muscleGroups:['triceps']},
       options: ['Dips', 'Cable Triceps Pressdowns', 'Close-Grip Push-ups', 'Skull Crushers', 'Overhead Triceps Extensions']
     }
   },
@@ -114,7 +122,7 @@ const W531 = {
     if (!swapInfo) return null;
     const options = swapInfo.options.slice();
     if (currentName && !options.includes(currentName)) options.unshift(currentName);
-    return { category: swapInfo.category, options };
+    return { category: swapInfo.category, filters: swapInfo.filters||{}, options };
   },
 
   // Epley estimated 1RM from a performed set

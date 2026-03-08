@@ -74,16 +74,25 @@
   </div>
 </div>
 
-<!-- EXERCISE NAME MODAL -->
+<!-- EXERCISE CATALOG MODAL -->
 <div class="modal-overlay" id="name-modal">
-  <div class="modal-sheet">
+  <div class="modal-sheet catalog-sheet">
     <div class="modal-handle"></div>
-    <div class="modal-title" id="name-modal-title" data-i18n="modal.name.title">Add Exercise</div>
-    <div class="modal-sub" data-i18n="modal.name.sub">Enter the exercise name</div>
-    <input type="text" id="name-modal-input" data-i18n-placeholder="modal.name.placeholder" placeholder="e.g. Back Squat">
-    <div class="name-input-row">
+    <div class="catalog-header">
+      <div class="modal-title" id="name-modal-title" data-i18n="catalog.title.add">Add Exercise</div>
+      <div class="modal-sub" id="exercise-catalog-sub" data-i18n="catalog.sub">Pick an exercise from the library or search by name.</div>
+    </div>
+    <div class="catalog-search-wrap">
+      <input type="text" id="name-modal-input" class="exercise-catalog-search-input" data-i18n-placeholder="catalog.search.placeholder" placeholder="Search exercises">
+      <button class="btn btn-ghost btn-sm catalog-clear-btn" id="catalog-clear-btn" onclick="clearExerciseCatalogFilters()" data-i18n="catalog.clear_filters">Clear</button>
+    </div>
+    <div class="catalog-filter-groups" id="exercise-catalog-filters"></div>
+    <div class="catalog-scroll" id="exercise-catalog-scroll">
+      <div id="exercise-catalog-content"></div>
+      <div class="catalog-empty-state" id="exercise-catalog-empty" style="display:none" data-i18n="catalog.empty">No exercises matched your filters.</div>
+    </div>
+    <div class="catalog-footer">
       <button class="btn btn-secondary" onclick="closeNameModal()" data-i18n="common.cancel">Cancel</button>
-      <button class="btn btn-primary" onclick="submitNameModal()" data-i18n="common.add">Add</button>
     </div>
   </div>
 </div>
@@ -168,7 +177,7 @@
           <div id="active-session-description" style="font-size:12px;color:var(--muted);margin-top:3px;max-width:280px"></div>
           <div style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="active-session-timer">00:00</div>
         </div>
-        <button class="btn btn-sm btn-secondary" onclick="showNameModal(I18N.t('modal.name.title',null,'Add Exercise'),addExerciseByName)" data-i18n="workout.add_exercise">+ Exercise</button>
+        <button class="btn btn-sm btn-secondary" onclick="openExerciseCatalogForAdd()" data-i18n="workout.add_exercise">+ Exercise</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px">
         <span style="font-size:12px;color:var(--muted);flex:1;font-weight:600" data-i18n="workout.rest_timer">⏱ Rest timer</span>
