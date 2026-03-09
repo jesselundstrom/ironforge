@@ -186,6 +186,12 @@ function getWorkoutCompletedWorkSets(){
   return activeWorkout.exercises.reduce((sum,exercise)=>sum+getCompletedSetCount(exercise),0);
 }
 
+function getExercisePriority(exercise){
+  if(exercise?.isAccessory)return 1;
+  if(exercise?.isAux)return 2;
+  return 3;
+}
+
 function getActiveWorkoutNextTarget(){
   if(!activeWorkout?.exercises)return null;
   for(let exerciseIndex=0;exerciseIndex<activeWorkout.exercises.length;exerciseIndex++){
@@ -206,6 +212,99 @@ function getActiveWorkoutNextTarget(){
     }
   }
   return null;
+}
+
+function getRemainingWorkExerciseEntries(workoutLike){
+  if(!workoutLike?.exercises)return [];
+  return workoutLike.exercises.map((exercise,exerciseIndex)=>({
+    exercise,
+    exerciseIndex,
+    remainingSets:getRemainingSetCount(exercise),
+    priority:getExercisePriority(exercise)
+  })).filter(item=>item.remainingSets>0);
+}
+
+function getActiveWorkoutFinishPoint(workoutLike){
+  const activeLike=workoutLike||activeWorkout;
+  const remainingEntries=getRemainingWorkExerciseEntries(activeLike);
+  if(!remainingEntries.length)return null;
+  const decision=activeLike?.planningDecision||{};
+  const nextTarget=getActiveWorkoutNextTarget();
+  const currentEntry=nextTarget?remainingEntries.find(item=>item.exerciseIndex===nextTarget.exerciseIndex):remainingEntries[0];
+  const essentialEntries=remainingEntries.filter(item=>item.priority>=2);
+  const targetEntry=(essentialEntries.length?essentialEntries[essentialEntries.length-1]:remainingEntries[0])||currentEntry;
+  const sportAware=decision.restrictionFlags?.includes('avoid_heavy_legs');
+  if(!targetEntry)return null;
+  if(remainingEntries.length===1||targetEntry.exerciseIndex===currentEntry?.exerciseIndex){
+    return{
+      title:i18nText(
+        sportAware?'workout.runner.sport_finish_title':'workout.runner.stop_after_this',
+        sportAware?'Good finish point after this lift':'You can stop after this lift'
+      ),
+      copy:i18nText(
+        sportAware?'workout.runner.sport_finish_copy':'workout.runner.stop_after_this_copy',
+        sportAware
+          ? 'Sport load is high enough that finishing after this lift is a smart call today.'
+          : 'Once this lift is done, you have already kept the high-value work in the session.'
+      )
+    };
+  }
+  const targetName=displayExerciseName(targetEntry.exercise?.name||'');
+  return{
+    title:i18nText('workout.runner.stop_after_target','You can stop after {target}',{target:targetName}),
+    copy:i18nText(
+      sportAware?'workout.runner.sport_finish_copy':'workout.runner.stop_after_target_copy',
+      sportAware
+        ? 'Sport load is high enough that ending after the key work is a smart call today.'
+        : 'That leaves the important work in place and turns the rest into optional volume.'
+    )
+  };
+}
+
+function getLastWorkSetIndex(exercise){
+  if(!exercise?.sets?.length)return -1;
+  for(let index=exercise.sets.length-1;index>=0;index--){
+    if(!exercise.sets[index]?.isWarmup)return index;
+  }
+  return -1;
+}
+
+function shouldPromptForSetRIR(exercise,setIndex){
+  if((activeWorkout?.programMode||'sets')!=='rir')return false;
+  if(!exercise||exercise.isAccessory)return false;
+  return setIndex===getLastWorkSetIndex(exercise);
+}
+
+function showSetRIRPrompt(exerciseIndex,setIndex){
+  const exercise=activeWorkout?.exercises?.[exerciseIndex];
+  const set=exercise?.sets?.[setIndex];
+  if(!exercise||!set)return;
+  const exerciseName=displayExerciseName(exercise.name);
+  const currentValue=set.rir!==undefined&&set.rir!==null&&set.rir!==''?String(set.rir):'';
+  const options=['0','1','2','3','4','5+'];
+  const buttons=options.map(value=>{
+    const normalizedValue=value==='5+'?'5':value;
+    const isActive=currentValue===normalizedValue;
+    return `<button class="btn btn-secondary${isActive?' active':''}" type="button" onclick="applySetRIR(${exerciseIndex},${setIndex},'${normalizedValue}')">${escapeHtml(value)}</button>`;
+  }).join('');
+  showCustomModal(
+    escapeHtml(i18nText('workout.rir_prompt_title','Last set check-in')),
+    `<div style="font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:12px">${escapeHtml(i18nText('workout.rir_prompt_body','How many reps did you still have left after the last work set of {exercise}?',{exercise:exerciseName}))}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${buttons}</div>
+    <button class="btn btn-secondary" style="margin-top:12px;width:100%" type="button" onclick="skipSetRIRPrompt()">${escapeHtml(i18nText('workout.rir_prompt_skip','Skip for now'))}</button>`
+  );
+}
+
+function applySetRIR(exerciseIndex,setIndex,rirValue){
+  const set=activeWorkout?.exercises?.[exerciseIndex]?.sets?.[setIndex];
+  if(!set)return;
+  set.rir=rirValue;
+  closeCustomModal();
+  showToast(i18nText('workout.rir_saved','RIR saved'),'var(--blue)');
+}
+
+function skipSetRIRPrompt(){
+  closeCustomModal();
 }
 
 function trimExerciseRemainingSets(exercise,keepUndoneCount){
@@ -346,6 +445,7 @@ function getRunnerPlanSummary(activeLike){
   const decision=workoutLike.planningDecision||{};
   const action=workoutLike.runnerState?.mode||decision.action||'train';
   const nextTarget=getActiveWorkoutNextTarget();
+  const finishPoint=getActiveWorkoutFinishPoint(workoutLike);
   const completedSets=getWorkoutCompletedWorkSets();
   const remainingSets=getWorkoutRemainingWorkSets();
   let title=i18nText('workout.runner.normal_title','Normal session flow');
@@ -366,6 +466,7 @@ function getRunnerPlanSummary(activeLike){
     completedSets,
     remainingSets,
     nextTarget,
+    finishPoint,
     adjustments:workoutLike.runnerState?.adjustments||[]
   };
 }
@@ -399,6 +500,10 @@ function renderActiveWorkoutPlanPanel(){
     </div>
     <div class="active-session-progress">
       <div class="active-session-next">${escapeHtml(i18nText('workout.runner.next','Next: {target}',{target:nextTargetText}))}</div>
+      ${summary?.finishPoint?`<div class="active-session-finish-point">
+        <div class="active-session-finish-title">${escapeHtml(summary.finishPoint.title||'')}</div>
+        <div class="active-session-finish-copy">${escapeHtml(summary.finishPoint.copy||'')}</div>
+      </div>`:''}
       ${adjustments.length?`<div class="active-session-adjustments">${adjustments.map(item=>`<div class="active-session-adjustment">• ${escapeHtml(item.label||getRunnerAdjustmentLabel(item))}</div>`).join('')}</div>`:''}
     </div>
     <div class="active-session-plan-actions">
@@ -1246,6 +1351,10 @@ function renderExercises(){
     }
     const typeLabel=ex.isAux?`<span class="exercise-chip">${escapeHtml(i18nText('workout.aux','AUX'))}</span>`:ex.isAccessory?`<span class="exercise-chip exercise-chip-blue">${escapeHtml(i18nText('workout.back','BACK'))}</span>`:'';
     const badgesHtml=badges?`<div class="exercise-badges">${badges}</div>`:'';
+    const quickActions=[
+      suggested?`<button class="exercise-quick-btn" type="button" onclick="applySuggestedWeightToExercise(${ei})">${escapeHtml(i18nText('workout.quick_fill_suggested','Use {weight}kg',{weight:suggested}))}</button>`:''
+    ].filter(Boolean).join('');
+    const quickActionsHtml=quickActions?`<div class="exercise-quick-actions">${quickActions}</div>`:'';
 
     block.innerHTML=`
       <div class="exercise-top">
@@ -1261,6 +1370,7 @@ function renderExercises(){
         </div>
         ${badgesHtml}
       </div>
+      ${quickActionsHtml}
       ${guidanceHtml}
       <div id="sets-${ei}"></div>
       <button class="btn btn-sm btn-secondary" style="margin-top:8px" onclick="addSet(${ei})">${i18nText('workout.add_set','+ Set')}</button>`;
@@ -1269,20 +1379,14 @@ function renderExercises(){
     ex.sets.forEach((set,si)=>{
       const row=document.createElement('div');row.className='set-row'+(set.isWarmup?' set-warmup':'');
       const isAmrap=set.isAmrap;
-      const mode=activeWorkout?.programMode||'sets';
-      const isLastSet=si===ex.sets.length-1;
-      const showRir=mode==='rir'&&isLastSet&&!ex.isAccessory;
       const warmupsBefore=ex.sets.filter((s,i)=>i<si&&s.isWarmup).length;
       const setLabel=set.isWarmup?'W':isAmrap?i18nText('workout.max_short','MAX'):String(si+1-warmupsBefore);
       const repVal=isAmrap&&set.reps==='AMRAP'?'':set.reps;
       if(isAmrap)row.style.cssText='background:rgba(167,139,250,0.12);border-radius:8px;padding:2px 0';
       row.innerHTML=`
         <span class="set-num"${isAmrap?' style="color:var(--purple);font-weight:800"':''}>${setLabel}</span>
-        <input class="set-input" type="number" inputmode="decimal" min="0" max="999" step="any" placeholder="${escapeHtml(i18nText('workout.weight_placeholder','kg'))}" value="${set.weight}" onchange="updateSet(${ei},${si},'weight',this.value)">
-        <input class="set-input" type="number" inputmode="numeric" min="0" max="999" placeholder="${escapeHtml(isAmrap?i18nText('workout.reps_hit','reps hit'):i18nText('workout.reps_placeholder','reps'))}" value="${repVal}" onchange="updateSet(${ei},${si},'reps',this.value)"${isAmrap?' style="border-color:var(--purple)"':''}>
-        ${showRir?`<select class="set-rir" onchange="updateSet(${ei},${si},'rir',this.value)">
-          <option value="">${escapeHtml(i18nText('workout.rir','RIR'))}</option><option value="0"${set.rir==='0'||set.rir===0?' selected':''}>0</option><option value="1"${set.rir==='1'||set.rir===1?' selected':''}>1</option><option value="2"${set.rir==='2'||set.rir===2?' selected':''}>2</option><option value="3"${set.rir==='3'||set.rir===3?' selected':''}>3</option><option value="4"${set.rir==='4'||set.rir===4?' selected':''}>4</option><option value="5"${set.rir==='5'||set.rir===5?' selected':''}>5+</option>
-        </select>`:''}
+        <input class="set-input" type="number" inputmode="decimal" min="0" max="999" step="any" placeholder="${escapeHtml(i18nText('workout.weight_placeholder','kg'))}" value="${set.weight}" onchange="updateSet(${ei},${si},'weight',this.value)" onkeydown="handleSetInputKey(event,${ei},${si},'weight')">
+        <input class="set-input" type="number" inputmode="numeric" min="0" max="999" placeholder="${escapeHtml(isAmrap?i18nText('workout.reps_hit','reps hit'):i18nText('workout.reps_placeholder','reps'))}" value="${repVal}" onchange="updateSet(${ei},${si},'reps',this.value)" onkeydown="handleSetInputKey(event,${ei},${si},'reps')"${isAmrap?' style="border-color:var(--purple)"':''}>
         <div class="set-check ${set.done?'done':''}" onclick="toggleSet(${ei},${si})">✓</div>`;
       sc.appendChild(row);
     });
@@ -1305,15 +1409,59 @@ function updateSet(ei,si,f,v){
   if(f!=='weight')return;
   for(let nextIndex=si+1;nextIndex<exercise.sets.length;nextIndex++){
     const nextSet=exercise.sets[nextIndex];
-    if(nextSet.done)continue;
+    if(nextSet.done||nextSet.isWarmup)continue;
     nextSet.weight=sanitizedValue;
   }
   const rows=document.querySelectorAll(`#sets-${ei} .set-row`);
   for(let nextIndex=si+1;nextIndex<rows.length;nextIndex++){
-    if(exercise.sets[nextIndex]?.done)continue;
+    if(exercise.sets[nextIndex]?.done||exercise.sets[nextIndex]?.isWarmup)continue;
     const weightInput=rows[nextIndex]?.querySelector('input');
     if(weightInput)weightInput.value=sanitizedValue;
   }
+}
+
+function applySuggestedWeightToExercise(ei){
+  const exercise=activeWorkout?.exercises?.[ei];
+  if(!exercise)return;
+  const suggested=getSuggested(exercise);
+  if(suggested===undefined||suggested===null||suggested==='')return;
+  let changed=false;
+  exercise.sets.forEach(set=>{
+    if(set.done||set.isWarmup)return;
+    set.weight=suggested;
+    changed=true;
+  });
+  if(!changed)return;
+  renderExercises();
+  showToast(i18nText('workout.quick_fill_suggested_toast','Applied the suggested load to the remaining sets'),'var(--blue)');
+}
+
+function findNextEditableSetInput(exerciseIndex,setIndex,field){
+  if(field==='weight'){
+    return document.querySelector(`#sets-${exerciseIndex} .set-row:nth-child(${setIndex+1}) input:nth-of-type(2)`);
+  }
+  for(let nextSetIndex=setIndex+1;nextSetIndex<(activeWorkout?.exercises?.[exerciseIndex]?.sets||[]).length;nextSetIndex++){
+    const nextSet=activeWorkout.exercises[exerciseIndex].sets[nextSetIndex];
+    if(nextSet?.isWarmup)continue;
+    const input=document.querySelector(`#sets-${exerciseIndex} .set-row:nth-child(${nextSetIndex+1}) input`);
+    if(input)return input;
+  }
+  for(let nextExerciseIndex=exerciseIndex+1;nextExerciseIndex<(activeWorkout?.exercises?.length||0);nextExerciseIndex++){
+    const nextExercise=activeWorkout.exercises[nextExerciseIndex];
+    const firstWorkIndex=nextExercise?.sets?.findIndex(set=>!set.isWarmup)??-1;
+    if(firstWorkIndex<0)continue;
+    const input=document.querySelector(`#sets-${nextExerciseIndex} .set-row:nth-child(${firstWorkIndex+1}) input`);
+    if(input)return input;
+  }
+  return null;
+}
+
+function handleSetInputKey(event,exerciseIndex,setIndex,field){
+  if(event.key!=='Enter')return;
+  event.preventDefault();
+  updateSet(exerciseIndex,setIndex,field,event.target.value);
+  const nextInput=findNextEditableSetInput(exerciseIndex,setIndex,field);
+  if(nextInput)nextInput.focus();
 }
 
 function tryHaptic(pattern){
@@ -1321,7 +1469,8 @@ function tryHaptic(pattern){
 }
 
 function toggleSet(ei,si){
-  const set=activeWorkout.exercises[ei].sets[si];
+  const exercise=activeWorkout.exercises[ei];
+  const set=exercise.sets[si];
   if(!set.done){
     set.done=true;
     tryHaptic(40);
@@ -1338,6 +1487,7 @@ function toggleSet(ei,si){
       }
     }
     startRestTimer();
+    if(shouldPromptForSetRIR(exercise,si))showSetRIRPrompt(ei,si);
   }else{
     set.done=false;set.rir=undefined;renderExercises();
     return;

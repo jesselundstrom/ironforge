@@ -295,8 +295,14 @@ select optgroup{font-weight:700}
 .active-session-plan-actions .btn-full{grid-column:1 / -1}
 .active-session-progress{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:grid;gap:8px}
 .active-session-next{font-size:12px;line-height:1.5;color:var(--text);font-weight:700}
+.active-session-finish-point{padding:10px 11px;border-radius:12px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.07)}
+.active-session-finish-title{font-size:12px;line-height:1.4;color:var(--text);font-weight:800}
+.active-session-finish-copy{margin-top:4px;font-size:11px;line-height:1.45;color:var(--muted)}
 .active-session-adjustments{display:grid;gap:6px}
 .active-session-adjustment{font-size:11px;line-height:1.45;color:#cfe2ff}
+.exercise-quick-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 2px}
+.exercise-quick-btn{padding:7px 10px;border-radius:999px;border:1px solid rgba(59,130,246,0.18);background:rgba(59,130,246,0.09);color:#d7e7ff;font-size:11px;font-weight:800;font-family:inherit}
+.exercise-quick-btn:active{transform:scale(0.98)}
 .rpe-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .sport-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .sport-check-btn{min-height:58px;font-size:13px;line-height:1.25;padding:12px}
