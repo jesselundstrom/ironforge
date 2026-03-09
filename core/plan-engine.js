@@ -102,6 +102,160 @@ function getPlanningProgressSignals(activeProgramState){
   };
 }
 
+function normalizePlanToken(value){
+  return String(value||'').trim().toLowerCase();
+}
+
+function pushUniquePlanValue(list,value){
+  if(!value)return;
+  if(!list.includes(value))list.push(value);
+}
+
+function topPlanIdsByCount(counts,minimumCount){
+  return Object.entries(counts||{})
+    .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))
+    .filter(([,count])=>count>=(minimumCount||1))
+    .slice(0,3)
+    .map(([id])=>id);
+}
+
+function getWorkoutSwapExerciseIds(workout){
+  const swapped=[];
+  const programId=typeof getWorkoutProgramId==='function'?getWorkoutProgramId(workout):workout?.program;
+  const beforeState=workout?.programStateBefore||{};
+  (workout?.exercises||[]).forEach(exercise=>{
+    const currentId=resolvePlanExerciseId(exercise);
+    if(!currentId)return;
+    let plannedName='';
+    if(programId==='forge'){
+      if(exercise.isAccessory)plannedName=beforeState?.backExercise||'';
+      else if(exercise.auxSlotIdx>=0)plannedName=beforeState?.lifts?.aux?.[exercise.auxSlotIdx]?.name||'';
+    }else if(programId==='wendler531'&&exercise.auxSlotIdx>=0){
+      const liftIdx=Math.floor(exercise.auxSlotIdx/2);
+      const slotIdx=exercise.auxSlotIdx%2;
+      plannedName=beforeState?.triumvirate?.[liftIdx]?.[slotIdx]||'';
+    }
+    if(plannedName&&normalizePlanToken(plannedName)!==normalizePlanToken(exercise.name))pushUniquePlanValue(swapped,currentId);
+  });
+  return swapped;
+}
+
+function getPlanningBehaviorSignals(programId,workoutList){
+  const recent=getProgramWorkoutHistory(programId,workoutList,12);
+  const skippedAccessoryCounts={};
+  const swapCounts={};
+  let shortenCount=0;
+  let lightenCount=0;
+  let sportCollisionCount=0;
+  recent.forEach(workout=>{
+    if((workout?.planningDecision?.restrictionFlags||[]).includes('avoid_heavy_legs'))sportCollisionCount++;
+    (workout?.runnerState?.adjustments||[]).forEach(item=>{
+      if(item?.type==='shorten')shortenCount++;
+      if(item?.type==='lighten')lightenCount++;
+    });
+    (workout?.exercises||[]).forEach(exercise=>{
+      const sets=(exercise?.sets||[]).filter(set=>!set?.isWarmup);
+      if(!sets.length)return;
+      const doneCount=sets.filter(set=>set.done!==false).length;
+      const doneRatio=doneCount/sets.length;
+      const exerciseId=resolvePlanExerciseId(exercise);
+      if(exercise.isAccessory&&doneRatio<0.5&&exerciseId){
+        skippedAccessoryCounts[exerciseId]=(skippedAccessoryCounts[exerciseId]||0)+1;
+      }
+    });
+    getWorkoutSwapExerciseIds(workout).forEach(exerciseId=>{
+      swapCounts[exerciseId]=(swapCounts[exerciseId]||0)+1;
+    });
+  });
+  return{
+    avoidedExerciseIds:[],
+    skippedAccessoryExerciseIds:topPlanIdsByCount(skippedAccessoryCounts,2),
+    preferredSwapExerciseIds:topPlanIdsByCount(swapCounts,2),
+    shortenCount,
+    lightenCount,
+    sportCollisionCount
+  };
+}
+
+function getPlanEquipmentTagsForAccess(equipmentAccess){
+  if(equipmentAccess==='basic_gym')return['barbell','dumbbell','machine','cable','bodyweight','pullup_bar','band','general'];
+  if(equipmentAccess==='home_gym')return['barbell','dumbbell','bodyweight','pullup_bar','band','trap_bar','general'];
+  if(equipmentAccess==='minimal')return['dumbbell','bodyweight','pullup_bar','band','general'];
+  return null;
+}
+
+function isPlanExerciseEquipmentCompatible(exercise,equipmentAccess){
+  const allowed=getPlanEquipmentTagsForAccess(equipmentAccess);
+  if(!allowed||!allowed.length)return true;
+  const tags=toPlanList(getPlanExerciseMeta(exercise)?.equipmentTags);
+  if(!tags.length||tags.includes('general'))return true;
+  return tags.some(tag=>allowed.includes(String(tag||'').trim()));
+}
+
+function getPlanProgramReplacementInfo(exercise,context){
+  const overrides=context?.programConstraints?.exerciseOverrides||{};
+  const keys=[
+    normalizePlanToken(resolvePlanExerciseId(exercise)),
+    normalizePlanToken(exercise?.name)
+  ].filter(Boolean);
+  for(let i=0;i<keys.length;i++){
+    if(overrides[keys[i]])return overrides[keys[i]];
+  }
+  return null;
+}
+
+function getExerciseConflictInfo(exercise,context,decision){
+  const excludedIds=new Set(toPlanList(context?.excludedExerciseIds));
+  const avoidTags=new Set(toPlanList(context?.limitations?.avoidMovementTags));
+  const behaviorAvoidIds=new Set(toPlanList(context?.behaviorSignals?.avoidedExerciseIds));
+  const exerciseId=resolvePlanExerciseId(exercise);
+  const tags=getPlanExerciseMovementTags(exercise);
+  const flags=new Set(toPlanList(decision?.restrictionFlags));
+  const currentMeta=getPlanExerciseMeta(exercise);
+  const info={
+    blocked:false,
+    deprioritized:false,
+    reasonCode:'',
+    exerciseId,
+    tags,
+    equipmentMismatch:false
+  };
+  if(exerciseId&&excludedIds.has(exerciseId)){
+    info.blocked=true;
+    info.reasonCode='excluded';
+    return info;
+  }
+  if(tags.some(tag=>avoidTags.has(tag))){
+    info.blocked=true;
+    info.reasonCode='movement_limit';
+    return info;
+  }
+  if(flags.has('avoid_overhead')&&tags.includes('vertical_press')){
+    info.blocked=true;
+    info.reasonCode='joint_limit';
+    return info;
+  }
+  if(flags.has('avoid_heavy_spinal_loading')&&(tags.includes('hinge')||tags.includes('squat'))){
+    info.blocked=true;
+    info.reasonCode='spinal_limit';
+    return info;
+  }
+  if(flags.has('avoid_knee_dominant_volume')&&(tags.includes('squat')||tags.includes('single_leg'))){
+    info.blocked=true;
+    info.reasonCode='knee_limit';
+    return info;
+  }
+  if(!isPlanExerciseEquipmentCompatible(exercise,context?.equipmentAccess)){
+    info.blocked=true;
+    info.reasonCode='equipment';
+    info.equipmentMismatch=true;
+    return info;
+  }
+  if(exerciseId&&behaviorAvoidIds.has(exerciseId))info.deprioritized=true;
+  if(currentMeta?.displayMuscleGroups?.includes('back')&&flags.has('avoid_heavy_legs')&&tags.includes('hinge'))info.deprioritized=true;
+  return info;
+}
+
 function getPlanSportLoad(scheduleLike,workoutList,manualContext){
   const auto=typeof getAutomaticSportPreferenceContext==='function'
     ? getAutomaticSportPreferenceContext(scheduleLike||{},workoutList||[])
@@ -185,6 +339,25 @@ function buildPlanningContext(input){
   const sportLoad=getPlanSportLoad(scheduleLike,workoutList,next.sportContext);
   const adherence=getPlanningAdherenceSignals(activeProgramId,workoutList);
   const progression=getPlanningProgressSignals(activeProgramState);
+  const derivedBehaviorSignals=getPlanningBehaviorSignals(activeProgramId,workoutList);
+  const profileBehaviorSignals=coaching.behaviorSignals||{};
+  const behaviorSignals={
+    avoidedExerciseIds:[...new Set([
+      ...toPlanList(profileBehaviorSignals.avoidedExerciseIds),
+      ...toPlanList(derivedBehaviorSignals.avoidedExerciseIds)
+    ])],
+    skippedAccessoryExerciseIds:[...new Set([
+      ...toPlanList(profileBehaviorSignals.skippedAccessoryExerciseIds),
+      ...toPlanList(derivedBehaviorSignals.skippedAccessoryExerciseIds)
+    ])],
+    preferredSwapExerciseIds:[...new Set([
+      ...toPlanList(profileBehaviorSignals.preferredSwapExerciseIds),
+      ...toPlanList(derivedBehaviorSignals.preferredSwapExerciseIds)
+    ])],
+    shortenCount:Math.max(parseInt(profileBehaviorSignals.shortenCount,10)||0,derivedBehaviorSignals.shortenCount||0),
+    lightenCount:Math.max(parseInt(profileBehaviorSignals.lightenCount,10)||0,derivedBehaviorSignals.lightenCount||0),
+    sportCollisionCount:Math.max(parseInt(profileBehaviorSignals.sportCollisionCount,10)||0,derivedBehaviorSignals.sportCollisionCount||0)
+  };
   const weekStart=typeof getWeekStart==='function'?getWeekStart(new Date()):new Date();
   const sessionsDoneThisWeek=(workoutList||[]).filter(workout=>{
     const ts=new Date(workout.date).getTime();
@@ -214,10 +387,15 @@ function buildPlanningContext(input){
     guidanceMode:coaching.guidanceMode||'balanced',
     limitations:coaching.limitations||{},
     exercisePreferences:coaching.exercisePreferences||{},
+    behaviorSignals,
     preferredExerciseIds:toPlanList(coaching.exercisePreferences?.preferredExerciseIds),
     excludedExerciseIds:[...new Set([
       ...toPlanList(coaching.exercisePreferences?.excludedExerciseIds),
       ...toPlanList(coaching.limitations?.avoidExerciseIds)
+    ])],
+    deprioritizedExerciseIds:[...new Set([
+      ...toPlanList(behaviorSignals.avoidedExerciseIds),
+      ...toPlanList(behaviorSignals.skippedAccessoryExerciseIds)
     ])],
     adherence,
     progression,
@@ -268,17 +446,7 @@ function getTodayTrainingDecision(context){
 }
 
 function shouldRemoveExerciseForContext(exercise,context,decision){
-  const excludedIds=new Set(toPlanList(context?.excludedExerciseIds));
-  const avoidTags=new Set(toPlanList(context?.limitations?.avoidMovementTags));
-  const exerciseId=resolvePlanExerciseId(exercise);
-  if(exerciseId&&excludedIds.has(exerciseId))return true;
-  const tags=getPlanExerciseMovementTags(exercise);
-  if(tags.some(tag=>avoidTags.has(tag)))return true;
-  const flags=new Set(toPlanList(decision?.restrictionFlags));
-  if(flags.has('avoid_overhead')&&tags.includes('vertical_press'))return true;
-  if(flags.has('avoid_heavy_spinal_loading')&&(tags.includes('hinge')||tags.includes('squat')))return true;
-  if(flags.has('avoid_knee_dominant_volume')&&(tags.includes('squat')||tags.includes('single_leg')))return true;
-  return false;
+  return getExerciseConflictInfo(exercise,context,decision).blocked;
 }
 
 function trimShortSessionExercises(exercises,reasons,timeBudgetMinutes){
@@ -320,34 +488,185 @@ function lightenLowerBodyForSport(exercises,reasons){
   if(changed)reasons.push(trPlan('workout.pref_adjustment.sport_yesterday','Leg-heavy sport sits close to this session, so lower-body work was kept lighter today.'));
 }
 
+function getConstraintReasonText(exercise,replacement,conflict){
+  const fromLabel=exercise?.name||trPlan('common.exercise','Exercise');
+  const toLabel=replacement?.name||'';
+  if(toLabel){
+    if(conflict?.reasonCode==='equipment'){
+      return trPlan('plan.adjustment.replaced_equipment','Swapped {from} to {to} to match your available equipment.',{from:fromLabel,to:toLabel});
+    }
+    return trPlan('plan.adjustment.replaced_limit','Swapped {from} to {to} to respect your current limits.',{from:fromLabel,to:toLabel});
+  }
+  return trPlan('plan.adjustment.removed_exercise','Removed {exercise} because it conflicts with your current limits.',{exercise:fromLabel});
+}
+
+function getExerciseReplacementCandidates(exercise,context,decision,replacementInfo){
+  if(!window.EXERCISE_LIBRARY)return [];
+  const excludeIds=[...new Set([
+    resolvePlanExerciseId(exercise),
+    ...toPlanList(context?.excludedExerciseIds)
+  ].filter(Boolean))];
+  const records=[];
+  const seen=new Set();
+  const allowedEquipment=getPlanEquipmentTagsForAccess(context?.equipmentAccess);
+
+  function addRecord(record){
+    if(!record?.id||seen.has(record.id))return;
+    seen.add(record.id);
+    records.push(record);
+  }
+
+  toPlanList(replacementInfo?.options).forEach(option=>{
+    addRecord(EXERCISE_LIBRARY.getExercise(option));
+  });
+  if(replacementInfo?.filters){
+    EXERCISE_LIBRARY.getExerciseList({
+      sort:'featured',
+      filters:{
+        ...replacementInfo.filters,
+        excludeIds,
+        equipmentTags:replacementInfo.filters.equipmentTags||allowedEquipment||undefined
+      }
+    }).slice(0,12).forEach(addRecord);
+  }
+  const baseId=resolvePlanExerciseId(exercise);
+  if(baseId&&EXERCISE_LIBRARY.getRelatedExercises){
+    EXERCISE_LIBRARY.getRelatedExercises(baseId,{
+      sameMovement:true,
+      sameEquipment:decision?.restrictionFlags?.includes('minimal_equipment')!==true,
+      excludeIds,
+      limit:10
+    }).forEach(addRecord);
+  }
+  const baseMeta=getPlanExerciseMeta(exercise);
+  if(baseMeta&&EXERCISE_LIBRARY.searchExercises){
+    EXERCISE_LIBRARY.searchExercises('',{
+      limit:18,
+      excludeIds,
+      movementTags:baseMeta.movementTags,
+      muscleGroups:baseMeta.displayMuscleGroups,
+      equipmentTags:allowedEquipment||undefined
+    }).forEach(addRecord);
+  }
+  return records;
+}
+
+function scoreExerciseReplacementCandidate(exercise,candidate,context,decision,replacementInfo){
+  if(!candidate?.id)return Number.NEGATIVE_INFINITY;
+  const conflict=getExerciseConflictInfo(candidate,context,decision);
+  if(conflict.blocked)return Number.NEGATIVE_INFINITY;
+  const currentMeta=getPlanExerciseMeta(exercise)||{movementTags:[],displayMuscleGroups:[],equipmentTags:[]};
+  const candidateMeta=getPlanExerciseMeta(candidate)||candidate;
+  const sharedMovement=(candidateMeta?.movementTags||[]).filter(tag=>currentMeta.movementTags.includes(tag)).length;
+  const sharedMuscles=(candidateMeta?.displayMuscleGroups||[]).filter(tag=>currentMeta.displayMuscleGroups.includes(tag)).length;
+  const sharedEquipment=(candidateMeta?.equipmentTags||[]).filter(tag=>(currentMeta.equipmentTags||[]).includes(tag)).length;
+  let score=sharedMovement*30+sharedMuscles*10+sharedEquipment*8+(candidate.popularity||0)/10+(candidate.featured?6:0);
+  const preferredIds=new Set(toPlanList(context?.preferredExerciseIds));
+  const preferredSwapIds=new Set(toPlanList(context?.behaviorSignals?.preferredSwapExerciseIds));
+  const deprioritizedIds=new Set(toPlanList(context?.deprioritizedExerciseIds));
+  if(preferredIds.has(candidate.id))score+=22;
+  if(preferredSwapIds.has(candidate.id))score+=16;
+  if(deprioritizedIds.has(candidate.id))score-=12;
+  if(isPlanExerciseEquipmentCompatible(candidate,context?.equipmentAccess))score+=18;
+  if(replacementInfo?.options){
+    const idx=toPlanList(replacementInfo.options).findIndex(option=>resolvePlanExerciseId(option)===candidate.id||normalizePlanToken(option)===normalizePlanToken(candidate.name));
+    if(idx>=0)score+=40-idx*4;
+  }
+  return score;
+}
+
+function buildExerciseReplacementPlan(input){
+  const next=input||{};
+  const exercise=next.exercise;
+  const context=next.context||{};
+  const decision=next.decision||{};
+  const conflict=next.conflict||getExerciseConflictInfo(exercise,context,decision);
+  if(!conflict.blocked)return{conflict,replacement:null,clearWeight:false,reason:''};
+  const replacementInfo=next.replacementInfo||getPlanProgramReplacementInfo(exercise,context);
+  const canUseReplacement=exercise?.isAccessory||exercise?.isAux||exercise?.auxSlotIdx>=0||!!replacementInfo;
+  if(!canUseReplacement)return{conflict,replacement:null,clearWeight:false,reason:getConstraintReasonText(exercise,null,conflict)};
+  const candidates=getExerciseReplacementCandidates(exercise,context,decision,replacementInfo);
+  const ranked=candidates
+    .map(candidate=>({candidate,score:scoreExerciseReplacementCandidate(exercise,candidate,context,decision,replacementInfo)}))
+    .filter(item=>Number.isFinite(item.score))
+    .sort((a,b)=>b.score-a.score||a.candidate.name.localeCompare(b.candidate.name));
+  const replacement=ranked[0]?.candidate||null;
+  if(!replacement)return{conflict,replacement:null,clearWeight:false,reason:getConstraintReasonText(exercise,null,conflict)};
+  const currentMeta=getPlanExerciseMeta(exercise)||{equipmentTags:[]};
+  const replacementMeta=getPlanExerciseMeta(replacement)||replacement;
+  const sharedEquipment=(replacementMeta?.equipmentTags||[]).filter(tag=>(currentMeta?.equipmentTags||[]).includes(tag)).length;
+  return{
+    conflict,
+    replacement,
+    clearWeight:sharedEquipment===0||replacementInfo?.clearWeightOnSwap===true,
+    reason:getConstraintReasonText(exercise,replacement,conflict)
+  };
+}
+
+function applyExerciseReplacement(exercise,replacementPlan){
+  const replacement=replacementPlan?.replacement;
+  if(!replacement)return null;
+  const next={...exercise,name:replacement.name,exerciseId:replacement.id};
+  if(replacementPlan.clearWeight&&Array.isArray(next.sets)){
+    next.sets=next.sets.map(set=>{
+      if(set?.done===true)return{...set};
+      return{
+        ...set,
+        weight:(replacement.equipmentTags||[]).includes('bodyweight')?0:''
+      };
+    });
+    if('prescribedWeight' in next)next.prescribedWeight='';
+  }
+  return next;
+}
+
+function resolveSessionConstraints(input){
+  const next=input||{};
+  const context=next.context||{};
+  const decision=next.decision||{};
+  const exercises=clonePlanSession(next.exercises||[]);
+  const adaptationReasons=[];
+  const resolvedExercises=[];
+  exercises.forEach(exercise=>{
+    const conflict=getExerciseConflictInfo(exercise,context,decision);
+    if(!conflict.blocked){
+      resolvedExercises.push(exercise);
+      return;
+    }
+    const replacementPlan=buildExerciseReplacementPlan({exercise,context,decision,conflict});
+    if(replacementPlan.replacement){
+      resolvedExercises.push(applyExerciseReplacement(exercise,replacementPlan));
+      adaptationReasons.push(replacementPlan.reason);
+      return;
+    }
+    adaptationReasons.push(replacementPlan.reason||getConstraintReasonText(exercise,null,conflict));
+  });
+  return{
+    exercises:resolvedExercises,
+    adaptationReasons:[...new Set(adaptationReasons)]
+  };
+}
+
 function buildAdaptiveSessionPlan(input){
   const next=input||{};
   const context=next.context||buildPlanningContext({});
   const decision=next.decision||getTodayTrainingDecision(context);
   const prog=(window.PROGRAMS&&window.PROGRAMS[next.programId])||(typeof getActiveProgram==='function'?getActiveProgram():null);
   const baseSession=clonePlanSession(next.baseSession||[]);
+  let exercises=baseSession;
+  const adaptationReasons=[];
+  let equipmentHint='';
   if(typeof prog?.adaptSession==='function'){
     const adapted=prog.adaptSession(baseSession,context,decision);
     if(adapted&&Array.isArray(adapted.exercises||adapted)){
-      const exercises=Array.isArray(adapted)?adapted:(adapted.exercises||[]);
-      return{
-        exercises,
-        adaptationReasons:toPlanList(adapted.adaptationReasons||adapted.changes),
-        equipmentHint:adapted.equipmentHint||'',
-        decision
-      };
+      exercises=Array.isArray(adapted)?adapted:(adapted.exercises||[]);
+      adaptationReasons.push(...toPlanList(adapted.adaptationReasons||adapted.changes));
+      equipmentHint=adapted.equipmentHint||equipmentHint;
     }
   }
-  let exercises=baseSession;
-  const adaptationReasons=[];
-  exercises=exercises.filter(exercise=>{
-    const remove=shouldRemoveExerciseForContext(exercise,context,decision);
-    if(remove){
-      const label=exercise?.name||trPlan('common.exercise','Exercise');
-      adaptationReasons.push(trPlan('plan.adjustment.removed_exercise','Removed {exercise} because it conflicts with your current limits.',{exercise:label}));
-    }
-    return !remove;
-  });
+  const resolvedConstraints=resolveSessionConstraints({exercises,context,decision});
+  exercises=resolvedConstraints.exercises;
+  adaptationReasons.push(...resolvedConstraints.adaptationReasons);
   if(decision.action==='shorten'||decision.timeBudgetMinutes<=35){
     exercises=trimShortSessionExercises(exercises,adaptationReasons,decision.timeBudgetMinutes||context.timeBudgetMinutes);
   }else if(decision.action==='train_light'){
@@ -360,14 +679,135 @@ function buildAdaptiveSessionPlan(input){
     exercises=exercises.filter(exercise=>!exercise.isAccessory);
     adaptationReasons.push(trPlan('workout.pref_adjustment.sport_support','Accessory work removed to keep the session sharper for sport support.'));
   }
-  const equipmentHint=(context.equipmentAccess==='basic_gym'||context.equipmentAccess==='home_gym'||context.equipmentAccess==='minimal')
+  equipmentHint=equipmentHint||((context.equipmentAccess==='basic_gym'||context.equipmentAccess==='home_gym'||context.equipmentAccess==='minimal')
     ? trPlan('workout.pref_adjustment.swap_hint','Use exercise swap freely if your setup does not match the planned lift exactly.')
-    : '';
+    : '');
   return{
     exercises,
     adaptationReasons:[...new Set(adaptationReasons)],
     equipmentHint,
     decision
+  };
+}
+
+function getPlanDayCounts(workoutList,programId,daysLookback){
+  const counts={};
+  const cutoff=Date.now()-Math.max(1,parseInt(daysLookback,10)||60)*86400000;
+  (workoutList||[]).forEach(workout=>{
+    const ts=new Date(workout?.date).getTime();
+    if(!Number.isFinite(ts)||ts<cutoff)return;
+    const workoutProgramId=typeof getWorkoutProgramId==='function'?getWorkoutProgramId(workout):workout?.program;
+    if(workoutProgramId!==programId)return;
+    const day=new Date(ts).getDay();
+    counts[day]=(counts[day]||0)+1;
+  });
+  return counts;
+}
+
+function getProgramProgressSummary(context){
+  const state=context?.activeProgramState||{};
+  const recent=getProgramWorkoutHistory(context?.activeProgramId,context?.workouts,10);
+  if(context?.activeProgramId==='forge'){
+    const earliest=recent[recent.length-1]?.programStateBefore?.lifts?.main||[];
+    if(!earliest.length)return trPlan('plan.insight.forge_stable','Forge training maxes are stable right now - keep execution crisp.',{});
+    const current=state?.lifts?.main||[];
+    let upCount=0;
+    let bestDelta=0;
+    current.forEach((lift,idx)=>{
+      const oldTm=parseFloat(earliest[idx]?.tm)||0;
+      const newTm=parseFloat(lift?.tm)||0;
+      const delta=Math.round((newTm-oldTm)*10)/10;
+      if(delta>0){
+        upCount++;
+        if(delta>bestDelta)bestDelta=delta;
+      }
+    });
+    if(upCount>0)return trPlan('plan.insight.forge_progress','{count} main lift TMs are up over your recent block, led by +{delta}kg.',{count:upCount,delta:bestDelta});
+    return trPlan('plan.insight.forge_stable','Forge training maxes are stable right now - keep execution crisp.',{});
+  }
+  if(context?.activeProgramId==='wendler531'){
+    const stalledCount=Object.keys(state?.stalledLifts||{}).filter(key=>state?.stalledLifts?.[key]).length;
+    if(stalledCount>0)return trPlan('plan.insight.w531_stalled','Cycle {cycle}, week {week}. {count} lift needs a lighter runway.',{cycle:state.cycle||1,week:state.week||1,count:stalledCount});
+    return trPlan('plan.insight.w531_cycle','Cycle {cycle}, week {week} is moving without stall flags.',{cycle:state.cycle||1,week:state.week||1});
+  }
+  if(context?.activeProgramId==='hypertrophysplit'){
+    const latest=recent[0]?.exercises?.[0];
+    if(latest?.name)return trPlan('plan.insight.hs_primary','Recent hypertrophy work is anchored by {exercise}.',{exercise:latest.name});
+  }
+  if(context?.progression?.hasStalls)return trPlan('plan.insight.stalls','Progression has at least one stall signal right now.');
+  return trPlan('plan.insight.stable','Progression looks stable - stay with the current path.');
+}
+
+function getCoachingInsights(input){
+  const next=input||{};
+  const context=next.context||buildPlanningContext(next);
+  const decision=next.decision||getTodayTrainingDecision(context);
+  const recentProgramWorkouts=(context.workouts||[]).filter(workout=>{
+    const ts=new Date(workout?.date).getTime();
+    if(!Number.isFinite(ts)||ts<(Date.now()-30*86400000))return false;
+    const workoutProgramId=typeof getWorkoutProgramId==='function'?getWorkoutProgramId(workout):workout?.program;
+    return workoutProgramId===context.activeProgramId;
+  });
+  const expectedSessions=Math.max(1,Math.round((context.effectiveFrequency||3)*30/7));
+  const adherenceRate30=clampPlan(Math.round((recentProgramWorkouts.length/expectedSessions)*100),0,140);
+  const dayCounts=getPlanDayCounts(context.workouts,context.activeProgramId,60);
+  const bestDayIndexes=Object.entries(dayCounts)
+    .sort((a,b)=>b[1]-a[1]||a[0]-b[0])
+    .slice(0,2)
+    .map(([day])=>parseInt(day,10))
+    .filter(Number.isFinite);
+  const skippedNames=toPlanList(context.behaviorSignals?.skippedAccessoryExerciseIds)
+    .map(id=>window.EXERCISE_LIBRARY?.getDisplayName?EXERCISE_LIBRARY.getDisplayName(id):id)
+    .filter(Boolean)
+    .slice(0,2);
+  const swapNames=toPlanList(context.behaviorSignals?.preferredSwapExerciseIds)
+    .map(id=>window.EXERCISE_LIBRARY?.getDisplayName?EXERCISE_LIBRARY.getDisplayName(id):id)
+    .filter(Boolean)
+    .slice(0,2);
+  const frictionItems=[];
+  if(skippedNames.length)frictionItems.push(trPlan('plan.insight.skipped_accessories','Accessories most often dropped: {names}.',{names:skippedNames.join(', ')}));
+  if(swapNames.length)frictionItems.push(trPlan('plan.insight.swap_preferences','You keep gravitating toward these swaps: {names}.',{names:swapNames.join(', ')}));
+  if((context.behaviorSignals?.sportCollisionCount||0)>=2)frictionItems.push(trPlan('plan.insight.sport_collision','Lower-body work keeps colliding with sport load in your recent sessions.'));
+  const progressionSummary=getProgramProgressSummary(context);
+  let recommendationType='continue';
+  if(decision.action==='deload')recommendationType='deload';
+  else if((context.behaviorSignals?.shortenCount||0)>=3&&adherenceRate30<65)recommendationType='switch_block';
+  else if(decision.action==='train_light'||(context.behaviorSignals?.lightenCount||0)>=2)recommendationType='lighten';
+  else if(decision.action==='shorten'||(context.behaviorSignals?.shortenCount||0)>=2)recommendationType='shorten';
+  const recommendationMap={
+    continue:{
+      label:trPlan('plan.recommend.continue','Stay the course'),
+      body:trPlan('plan.recommend.continue_body','Your current setup looks sustainable - keep stacking consistent sessions.')
+    },
+    shorten:{
+      label:trPlan('plan.recommend.shorten','Shorten this week'),
+      body:trPlan('plan.recommend.shorten_body','Time friction is showing up, so bias this week toward shorter but complete sessions.')
+    },
+    lighten:{
+      label:trPlan('plan.recommend.lighten','Run a lighter week'),
+      body:trPlan('plan.recommend.lighten_body','Recovery signals are climbing, so keep the structure but lower the physiological cost.')
+    },
+    deload:{
+      label:trPlan('plan.recommend.deload','Take the deload'),
+      body:trPlan('plan.recommend.deload_body','Fatigue and stall signals justify a lighter runway before pushing again.')
+    },
+    switch_block:{
+      label:trPlan('plan.recommend.switch','Switch to a better-fit block'),
+      body:trPlan('plan.recommend.switch_body','The current setup is fighting your schedule or recovery pattern. A simpler block is likely a better fit.')
+    }
+  };
+  const adherenceSummary=trPlan('plan.insight.adherence_30','30-day adherence: {done}/{expected} planned sessions ({rate}%).',{done:recentProgramWorkouts.length,expected:expectedSessions,rate:adherenceRate30});
+  const bestDaysSummary=bestDayIndexes.length
+    ? trPlan('plan.insight.best_days','You train most consistently on days {days}.',{days:bestDayIndexes.join(', ')})
+    : '';
+  return{
+    adherenceRate30,
+    adherenceSummary,
+    bestDayIndexes,
+    bestDaysSummary,
+    progressionSummary,
+    frictionItems,
+    recommendation:{type:recommendationType,...recommendationMap[recommendationType]}
   };
 }
 

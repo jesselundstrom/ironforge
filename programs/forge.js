@@ -391,6 +391,44 @@ const FORGE_PROGRAM={
   getBackSwapOptions(){return{category:'back',filters:getForgeSwapFilters('back'),options:FORGE_INTERNAL.auxOptions.back||[]};},
   onAuxSwap(slotIdx,newName,state){const s=JSON.parse(JSON.stringify(state));if(s.lifts&&s.lifts.aux[slotIdx])s.lifts.aux[slotIdx].name=newName;return s;},
   onBackSwap(newName,state){return{...state,backExercise:newName};},
+  getProgramConstraints(state){
+    const nextState=state&&state.lifts?state:this.getInitialState();
+    const overrides={};
+    (nextState.lifts?.main||[]).forEach((lift,idx)=>{
+      const info=getForgeMainPickerInfo(idx,lift?.name||'');
+      overrides[String(lift?.name||'').trim().toLowerCase()]={filters:info.filters,options:info.options,clearWeightOnSwap:true};
+    });
+    (nextState.lifts?.aux||[]).forEach((lift,idx)=>{
+      const info=getForgeAuxPickerInfo(idx,lift?.name||'');
+      overrides[String(lift?.name||'').trim().toLowerCase()]={filters:info.filters,options:info.options,clearWeightOnSwap:true};
+    });
+    const backName=nextState.backExercise||'Barbell Rows';
+    const backInfo=getForgeBackPickerInfo(backName);
+    overrides[String(backName).trim().toLowerCase()]={filters:backInfo.filters,options:backInfo.options,clearWeightOnSwap:true};
+    return{exerciseOverrides:overrides};
+  },
+  adaptSession(baseSession,planningContext,decision){
+    const exercises=JSON.parse(JSON.stringify(baseSession||[]));
+    const adaptationReasons=[];
+    let changed=false;
+    if(decision?.restrictionFlags?.includes('avoid_heavy_legs')){
+      exercises.forEach(exercise=>{
+        if(!exercise?.isAux||exercise?.isAccessory)return;
+        const meta=window.EXERCISE_LIBRARY?.getExerciseMeta?(EXERCISE_LIBRARY.getExerciseMeta(exercise.exerciseId||exercise.name)):null;
+        const tags=meta?.movementTags||[];
+        if(!(tags.includes('squat')||tags.includes('hinge')||tags.includes('single_leg')))return;
+        if(Array.isArray(exercise.sets)&&exercise.sets.length>2){
+          exercise.sets=exercise.sets.slice(0,2);
+          changed=true;
+        }
+      });
+      if(changed)adaptationReasons.push(trForge('program.forge.plan.sport_trim','Forge trimmed lower-body auxiliary work first because sport load is close.'));
+    }
+    const equipmentHint=(planningContext?.equipmentAccess==='home_gym'||planningContext?.equipmentAccess==='minimal')
+      ? trForge('program.forge.plan.equipment_hint','Forge will prioritize same-pattern swaps for your current setup.')
+      : '';
+    return{exercises,adaptationReasons,equipmentHint};
+  },
 
   getDashboardTMs(state){return(state.lifts?.main||[]).map(l=>({name:l.name,value:l.tm+'kg'}));},
 

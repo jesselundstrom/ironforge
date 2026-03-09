@@ -164,6 +164,11 @@ function getDefaultCoachingProfile(){
       preferredExerciseIds:[],
       excludedExerciseIds:[]
     },
+    behaviorSignals:{
+      avoidedExerciseIds:[],
+      skippedAccessoryExerciseIds:[],
+      preferredSwapExerciseIds:[]
+    },
     onboardingCompleted:false
   };
 }
@@ -186,6 +191,10 @@ function normalizeCoachingProfile(profileLike){
     exercisePreferences:{
       ...defaults.exercisePreferences,
       ...(incoming.exercisePreferences||{})
+    },
+    behaviorSignals:{
+      ...defaults.behaviorSignals,
+      ...(incoming.behaviorSignals||{})
     }
   };
   const allowedExperience=new Set(['beginner','returning','intermediate','advanced']);
@@ -201,6 +210,9 @@ function normalizeCoachingProfile(profileLike){
   next.limitations.avoidExerciseIds=[...new Set(arrayifyProfileValue(next.limitations.avoidExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
   next.exercisePreferences.preferredExerciseIds=[...new Set(arrayifyProfileValue(next.exercisePreferences.preferredExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
   next.exercisePreferences.excludedExerciseIds=[...new Set(arrayifyProfileValue(next.exercisePreferences.excludedExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.behaviorSignals.avoidedExerciseIds=[...new Set(arrayifyProfileValue(next.behaviorSignals.avoidedExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.behaviorSignals.skippedAccessoryExerciseIds=[...new Set(arrayifyProfileValue(next.behaviorSignals.skippedAccessoryExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.behaviorSignals.preferredSwapExerciseIds=[...new Set(arrayifyProfileValue(next.behaviorSignals.preferredSwapExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
   next.onboardingCompleted=next.onboardingCompleted===true;
   profileLike.coaching=next;
   return next;
@@ -1021,6 +1033,6 @@ async function signUpWithEmail(){
 async function logout(){
   teardownRealtimeSync();
   await _SB.auth.signOut();
-  workouts=[];schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences()};currentUser=null;
+  workouts=[];schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences(),coaching:getDefaultCoachingProfile()};currentUser=null;
   updateDashboard();
 }

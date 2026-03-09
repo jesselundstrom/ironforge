@@ -207,6 +207,35 @@ function renderRecentMuscleLoadSummary(days){
   return `<div class="dashboard-muscle-summary"><div class="dashboard-muscle-summary-label">${escapeHtml(trDash('dashboard.muscle_load.recent','Recent muscle load'))}</div><div class="dashboard-muscle-chip-row">${summary.map(item=>`<div class="dashboard-muscle-chip dashboard-muscle-chip-${item.level}"><span class="dashboard-muscle-chip-name">${escapeHtml(trDash('dashboard.muscle_group.'+item.group,item.group))}</span><span class="dashboard-muscle-chip-level">${escapeHtml(trDash('dashboard.muscle_load.'+item.level,item.level))}</span></div>`).join('')}</div></div>`;
 }
 
+function getDashboardDayLabel(dayIndex){
+  if(Number.isFinite(dayIndex)&&Array.isArray(DAY_NAMES)&&DAY_NAMES[dayIndex])return DAY_NAMES[dayIndex];
+  return String(dayIndex||'');
+}
+
+function renderCoachingInsightsCard(insights){
+  if(!insights)return'';
+  const bestDays=(insights.bestDayIndexes||[]).map(getDashboardDayLabel).filter(Boolean);
+  const chips=[
+    `<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.adherence','30d adherence'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.adherenceRate30||0))}%</span></div>`
+  ];
+  if(bestDays.length){
+    chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.best_days','Best days'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(bestDays.join(' / '))}</span></div>`);
+  }
+  const bullets=[
+    insights.adherenceSummary,
+    insights.progressionSummary,
+    bestDays.length?trDash('dashboard.insights.best_days_line','You train most consistently on {days}.',{days:bestDays.join(' / ')}):'',
+    ...(insights.frictionItems||[])
+  ].filter(Boolean).slice(0,4);
+  return `<div class="dashboard-coaching-card">
+    <div class="dashboard-coaching-label">${escapeHtml(trDash('dashboard.insights.title','Coaching insights'))}</div>
+    <div class="dashboard-coaching-title">${escapeHtml(insights.recommendation?.label||trDash('dashboard.insights.keep_going','Keep going'))}</div>
+    <div class="dashboard-coaching-body">${escapeHtml(insights.recommendation?.body||'')}</div>
+    <div class="dashboard-insight-chip-row">${chips.join('')}</div>
+    <div class="dashboard-coaching-list">${bullets.map(line=>`<div class="dashboard-coaching-item">${escapeHtml(line)}</div>`).join('')}</div>
+  </div>`;
+}
+
 function getPreferenceGuidance(profileLike,context){
   const prefs=normalizeTrainingPreferences(profileLike||profile||{});
   const ctx=context||{};
@@ -428,11 +457,15 @@ function updateDashboard(){
   const trainingDecision=typeof getTodayTrainingDecision==='function'
     ? getTodayTrainingDecision(planningContext)
     : {action:'train',reasonCodes:[],restrictionFlags:[],timeBudgetMinutes:normalizeTrainingPreferences(profile).sessionMinutes};
+  const coachingInsights=typeof getCoachingInsights==='function'
+    ? getCoachingInsights({context:planningContext,decision:trainingDecision})
+    : null;
   const decisionSummary=getTrainingDecisionSummary(trainingDecision,planningContext||{sessionsRemaining:Math.max(0,freq-doneThisWeek),sportLoad:{}});
   const reasonLabels=getTrainingDecisionReasonLabels(trainingDecision);
   const prefSummaryHtml=`<div class="dashboard-plan-meta">${escapeHtml(getTrainingPreferencesSummary(profile))}</div>`;
   const prefGuidanceHtml=renderPreferenceGuidance(profile,{variant:'compact',detail:bi.modeDesc||'',canPushVolume:recovery>=70&&trainingDecision.action==='train'&&!bi.isDeload});
   const muscleLoadHtml=renderRecentMuscleLoadSummary(4);
+  const coachingHtml=renderCoachingInsightsCard(coachingInsights);
   const startBtn=`<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="goToLog()">${trDash('dashboard.start_session','Start Session')}</button>`;
   const reasonChipHtml=reasonLabels.length
     ? `<div class="dashboard-muscle-chip-row" style="margin-top:10px">${reasonLabels.map(label=>`<div class="dashboard-muscle-chip dashboard-muscle-chip-light"><span class="dashboard-muscle-chip-name">${escapeHtml(label)}</span></div>`).join('')}</div>`
@@ -443,6 +476,7 @@ function updateDashboard(){
     +renderPlanStatus(decisionSummary.title,decisionSummary.body,decisionSummary.tone)
     +reasonChipHtml
     +muscleLoadHtml
+    +coachingHtml
     +(shouldShowStart?startBtn:'');
   document.getElementById('next-session-content').innerHTML=rec;
   document.getElementById('next-session-content').parentElement.style.borderColor=shouldShowStart?'var(--accent)':'';

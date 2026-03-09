@@ -575,6 +575,79 @@ const WENDLER_531 = {
     return nextState;
   },
   onBackSwap(_n, s)    { return s; },
+  getProgramConstraints(state) {
+    const nextState=state&&state.lifts?state:this.getInitialState();
+    const overrides={};
+    const mainOptionsByIndex={
+      0:{filters:{movementTags:['squat','single_leg'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['quads','glutes']},options:['Squat','Front Squat','Leg Press','Bulgarian Split Squats','Step-Ups']},
+      1:{filters:{movementTags:['horizontal_press'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['chest','triceps','shoulders']},options:['Bench Press','DB Bench','Machine Chest Press','Push-ups','Close-Grip Bench']},
+      2:{filters:{movementTags:['hinge'],equipmentTags:['barbell','trap_bar','machine','bodyweight','dumbbell'],muscleGroups:['hamstrings','glutes','back']},options:['Deadlift','Trap Bar Deadlift','Romanian Deadlift','Back Extensions','Hamstring Curls']},
+      3:{filters:{movementTags:['vertical_press','horizontal_press'],equipmentTags:['barbell','dumbbell','machine','bodyweight'],muscleGroups:['shoulders','triceps','chest']},options:['OHP','DB OHP','Push Press','Incline Press','Machine Chest Press']}
+    };
+    (nextState.lifts?.main||[]).forEach((lift,idx)=>{
+      const info=mainOptionsByIndex[idx]||mainOptionsByIndex[0];
+      overrides[String(lift?.name||'').trim().toLowerCase()]={filters:info.filters,options:info.options,clearWeightOnSwap:true};
+      overrides[String((lift?.name||'')+' (BBB)').trim().toLowerCase()]={filters:info.filters,options:info.options,clearWeightOnSwap:true};
+    });
+    const tri=nextState.triumvirate||W531.defaultTriumvirate;
+    [0,1,2,3].forEach(liftIdx=>{
+      [0,1].forEach(slotIdx=>{
+        const currentName=tri?.[liftIdx]?.[slotIdx]||'';
+        const info=W531.getTriumvirateSwapInfo(liftIdx*2+slotIdx,currentName);
+        if(currentName&&info)overrides[String(currentName).trim().toLowerCase()]={filters:info.filters,options:info.options,clearWeightOnSwap:true};
+      });
+    });
+    return{exerciseOverrides:overrides};
+  },
+  adaptSession(baseSession,planningContext,decision) {
+    const exercises=JSON.parse(JSON.stringify(baseSession||[]));
+    const adaptationReasons=[];
+    let changed=false;
+    if(decision?.restrictionFlags?.includes('avoid_heavy_legs')){
+      exercises.forEach(exercise=>{
+        const meta=window.EXERCISE_LIBRARY?.getExerciseMeta?(EXERCISE_LIBRARY.getExerciseMeta(exercise.exerciseId||exercise.name)):null;
+        const tags=meta?.movementTags||[];
+        const isLegPattern=tags.includes('squat')||tags.includes('hinge')||tags.includes('single_leg');
+        if(!isLegPattern||!Array.isArray(exercise?.sets))return;
+        if(exercise.name&&exercise.name.includes('(BBB)')&&exercise.sets.length>3){
+          exercise.sets=exercise.sets.slice(0,3);
+          changed=true;
+          return;
+        }
+        if(exercise.isAux&&exercise.sets.length>2){
+          exercise.sets=exercise.sets.slice(0,2);
+          changed=true;
+        }
+      });
+      if(changed)adaptationReasons.push(trW531('program.w531.plan.sport_trim','Wendler trimmed lower-body assistance first because sport load is high.'));
+    }
+    if((planningContext?.limitations?.jointFlags||[]).includes('shoulder')){
+      const removedBefore=exercises.length;
+      const kept=exercises.filter(exercise=>{
+        const meta=window.EXERCISE_LIBRARY?.getExerciseMeta?(EXERCISE_LIBRARY.getExerciseMeta(exercise.exerciseId||exercise.name)):null;
+        const tags=meta?.movementTags||[];
+        return !exercise.isAux||!tags.includes('vertical_press');
+      });
+      if(kept.length!==removedBefore){
+        changed=true;
+        adaptationReasons.push(trW531('program.w531.plan.shoulder_trim','Shoulder-sensitive vertical assistance was deprioritized for this session.'));
+      }
+      return{
+        exercises:kept,
+        adaptationReasons,
+        equipmentHint:(planningContext?.equipmentAccess==='home_gym'||planningContext?.equipmentAccess==='minimal')
+          ? trW531('program.w531.plan.equipment_hint','Wendler will favor same-pattern substitutions before dropping work.')
+          : ''
+      };
+    }
+    return{
+      exercises,
+      adaptationReasons,
+      equipmentHint:(planningContext?.equipmentAccess==='home_gym'||planningContext?.equipmentAccess==='minimal')
+        ? trW531('program.w531.plan.equipment_hint','Wendler will favor same-pattern substitutions before dropping work.')
+        : ''
+    };
+  },
 
   // ─── Dashboard TMs ────────────────────────────────────────────────────────
   getDashboardTMs(state) {
