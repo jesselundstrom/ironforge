@@ -849,6 +849,16 @@ function scoreProgramForOnboarding(programId,profileLike,scheduleLike){
   if((prefs.goal==='strength'&&coaching.guidanceMode==='guided')&&(programId==='forge'||programId==='stronglifts5x5'))score+=2;
   if((prefs.goal==='strength'&&coaching.experienceLevel==='advanced')&&programId==='wendler531')score+=3;
   if((prefs.goal==='hypertrophy'&&requestedDays>=4)&&programId==='hypertrophysplit')score+=3;
+  if(coaching.experienceLevel==='beginner'&&coaching.guidanceMode==='guided'){
+    if(programId==='casualfullbody')score+=5;
+    if(programId==='forge')score-=2;
+    if(programId==='hypertrophysplit'&&requestedDays<=3)score-=3;
+    if(programId==='wendler531')score-=4;
+  }
+  if(coaching.experienceLevel==='beginner'&&requestedDays<=3){
+    if(programId==='casualfullbody')score+=2;
+    if(programId==='forge'&&prefs.goal!=='strength')score-=2;
+  }
   score+=info.equipmentPenalty?.[prefs.equipmentAccess]||0;
   if((coaching.limitations?.jointFlags||[]).length&&programId==='wendler531')score-=1;
   if(scheduleLike?.sportLegsHeavy!==false&&coaching.sportProfile?.sessionsPerWeek>=2&&programId==='casualfullbody')score+=2;
@@ -863,9 +873,9 @@ function buildInitialWeekTemplate(programId,frequency,sessionMinutes){
     if(programId==='wendler531')type=trPlan('plan.week.type.main_lift','Main lift day');
     else if(programId==='hypertrophysplit')type=trPlan('plan.week.type.split','Split session');
     else if(programId==='casualfullbody')type=trPlan('plan.week.type.full_body','Full body');
-    else if(programId==='stronglifts5x5')type=index%2===0?'Workout A':'Workout B';
+    else if(programId==='stronglifts5x5')type=index%2===0?trPlan('plan.week.type.workout_a','Workout A'):trPlan('plan.week.type.workout_b','Workout B');
     else if(programId==='forge')type=trPlan('plan.week.type.strength','Strength day');
-    rows.push({dayLabel,type,durationHint:sessionMinutes+' min'});
+    rows.push({dayLabel,type,durationHint:trPlan('onboarding.duration_value','{count} min',{count:sessionMinutes})});
   }
   return rows;
 }
@@ -876,13 +886,16 @@ function getInitialPlanRecommendation(input){
   const scheduleLike=clonePlanValue(next.schedule||schedule||{})||{};
   if(typeof normalizeTrainingPreferences==='function')normalizeTrainingPreferences(profileLike);
   if(typeof normalizeCoachingProfile==='function')normalizeCoachingProfile(profileLike);
-  const prefs=profileLike.preferences||{};
-  const programEntries=Object.values(window.PROGRAMS||{});
+  const programIds=Object.keys(window.PROGRAMS||{}).length
+    ? Object.keys(window.PROGRAMS)
+    : ['casualfullbody','forge','stronglifts5x5','wendler531','hypertrophysplit'];
+  const programEntries=programIds.map(id=>(window.PROGRAMS&&window.PROGRAMS[id])?window.PROGRAMS[id]:{id,name:id});
   const ranked=programEntries
     .map(program=>({program,score:scoreProgramForOnboarding(program.id,profileLike,scheduleLike)}))
     .filter(entry=>Number.isFinite(entry.score))
     .sort((a,b)=>b.score-a.score||a.program.name.localeCompare(b.program.name));
   const chosen=(ranked[0]&&ranked[0].program)||programEntries[0]||null;
+  const prefs=profileLike.preferences||{};
   const programId=chosen?.id||'forge';
   const why=[];
   const goalLabel=typeof getTrainingGoalLabel==='function'?getTrainingGoalLabel(prefs.goal):prefs.goal;

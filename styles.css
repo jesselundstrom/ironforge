@@ -281,10 +281,18 @@ select optgroup{font-weight:700}
 .onboarding-chip{padding:10px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);font-size:12px;font-weight:700;font-family:inherit}
 .onboarding-chip.active{border-color:rgba(59,130,246,0.32);background:rgba(59,130,246,0.14);color:#d9e7ff}
 .onboarding-card{padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))}
+.onboarding-recommendation-hero{border-color:rgba(255,214,10,0.14);background:linear-gradient(180deg,rgba(255,214,10,0.1),rgba(255,255,255,0.025))}
 .onboarding-why-list,.onboarding-week-list{display:grid;gap:8px}
 .onboarding-why-item,.onboarding-week-item{font-size:13px;line-height:1.5;color:var(--text)}
 .onboarding-week-item{display:flex;justify-content:space-between;gap:12px}
 .onboarding-week-meta{color:var(--muted);font-size:12px}
+.onboarding-recommendation-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.onboarding-recommendation-pill{min-width:0;padding:9px 11px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);display:grid;gap:4px}
+.onboarding-recommendation-pill span{font-size:10px;line-height:1.2;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);font-weight:800}
+.onboarding-recommendation-pill strong{font-size:13px;line-height:1.3;color:var(--text);font-weight:800}
+.onboarding-start-card{border-color:rgba(59,130,246,0.16);background:linear-gradient(180deg,rgba(59,130,246,0.09),rgba(255,255,255,0.02))}
+.onboarding-start-session{font-size:18px;line-height:1.2;font-weight:900;color:var(--text)}
+.onboarding-start-adjustments{display:grid;gap:8px;margin-top:12px}
 .onboarding-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .onboarding-inline-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .onboarding-field-help{font-size:11px;color:var(--muted);line-height:1.5;margin-top:-4px}

@@ -504,17 +504,21 @@ function renderTrainingPreferencesSummary(){
 }
 
 const ONBOARDING_JOINT_FLAGS=[
-  {value:'shoulder',label:'Shoulder'},
-  {value:'knee',label:'Knee'},
-  {value:'low_back',label:'Low Back'}
+  {value:'shoulder',key:'onboarding.joint.shoulder',label:'Shoulder'},
+  {value:'knee',key:'onboarding.joint.knee',label:'Knee'},
+  {value:'low_back',key:'onboarding.joint.low_back',label:'Low Back'}
 ];
 const ONBOARDING_MOVEMENT_TAGS=[
-  {value:'squat',label:'Squat'},
-  {value:'hinge',label:'Hinge'},
-  {value:'vertical_press',label:'Overhead Press'},
-  {value:'single_leg',label:'Single-Leg'}
+  {value:'squat',key:'onboarding.movement.squat',label:'Squat'},
+  {value:'hinge',key:'onboarding.movement.hinge',label:'Hinge'},
+  {value:'vertical_press',key:'onboarding.movement.vertical_press',label:'Overhead Press'},
+  {value:'single_leg',key:'onboarding.movement.single_leg',label:'Single-Leg'}
 ];
 let onboardingState={step:0,draft:null,recommendation:null,retryTimer:null};
+
+function trOnboarding(key,fallback,params){
+  return (window.I18N&&I18N.t)?I18N.t(key,params,fallback):fallback;
+}
 
 function getOnboardingDraft(){
   if(onboardingState.draft)return onboardingState.draft;
@@ -632,27 +636,67 @@ function renderOnboardingOptionButton(isActive,title,description,onClick){
   </button>`;
 }
 
+function getOnboardingProgramMeta(recommendation){
+  const program=PROGRAMS?.[recommendation?.programId];
+  const programId=recommendation?.programId||'';
+  const programName=(window.I18N&&I18N.t)?I18N.t('program.'+programId+'.name',null,program?.name||programId):program?.name||programId;
+  const programDescription=(window.I18N&&I18N.t)?I18N.t('program.'+programId+'.description',null,program?.description||''):program?.description||'';
+  return{program,programId,programName,programDescription};
+}
+
+function renderOnboardingRecommendationStep(){
+  const recommendation=buildOnboardingRecommendation();
+  const {programName,programDescription}=getOnboardingProgramMeta(recommendation);
+  const weekCount=(recommendation.weekTemplate||[]).length;
+  const firstDuration=recommendation.weekTemplate?.[0]?.durationHint||'';
+  const firstSessionLabel=/^\d+$/.test(String(recommendation.firstSessionOption||''))?trOnboarding('onboarding.first_session_label','Session {value}',{value:recommendation.firstSessionOption}):String(recommendation.firstSessionOption||trOnboarding('onboarding.first_session_default','Session 1'));
+  const whyItems=(recommendation.why||[]).slice(0,2);
+  const adjustments=(recommendation.initialAdjustments||[]).slice(0,2);
+  return `
+    <div class="onboarding-grid">
+      <div class="onboarding-card onboarding-recommendation-hero">
+        <div class="onboarding-kicker">${escapeHtml(trOnboarding('onboarding.recommend.kicker','Recommended Program'))}</div>
+        <div class="onboarding-title" style="font-size:20px">${escapeHtml(programName)}</div>
+        <div class="onboarding-sub" style="margin-top:8px">${escapeHtml(programDescription||trOnboarding('onboarding.recommend.sub','This is the best starting point based on your goal, schedule, sport load, and desired guidance level.'))}</div>
+        <div class="onboarding-recommendation-pills">
+          <div class="onboarding-recommendation-pill"><span>${escapeHtml(trOnboarding('onboarding.recommend.week1','Week 1'))}</span><strong>${escapeHtml(trOnboarding('onboarding.recommend.sessions','{count} sessions',{count:weekCount}))}</strong></div>
+          <div class="onboarding-recommendation-pill"><span>${escapeHtml(trOnboarding('onboarding.recommend.start_here','Start here'))}</span><strong>${escapeHtml(firstSessionLabel)}</strong></div>
+          ${firstDuration?`<div class="onboarding-recommendation-pill"><span>${escapeHtml(trOnboarding('onboarding.recommend.time_target','Time target'))}</span><strong>${escapeHtml(firstDuration)}</strong></div>`:''}
+        </div>
+        ${adjustments.length?`<div class="onboarding-note" style="margin-top:12px">${adjustments.map(item=>escapeHtml(item)).join(' · ')}</div>`:''}
+      </div>
+      <div class="onboarding-card">
+        <div class="card-title" style="margin-bottom:10px">${escapeHtml(trOnboarding('onboarding.recommend.why_title','Why this is your best start'))}</div>
+        <div class="onboarding-why-list">${whyItems.map(item=>`<div class="onboarding-why-item">• ${escapeHtml(item)}</div>`).join('')}</div>
+      </div>
+      <div class="onboarding-card">
+        <div class="card-title" style="margin-bottom:10px">${escapeHtml(trOnboarding('onboarding.recommend.week_title','Your first week'))}</div>
+        <div class="onboarding-week-list">${(recommendation.weekTemplate||[]).map(item=>`<div class="onboarding-week-item"><span>${escapeHtml(item.dayLabel)} · ${escapeHtml(item.type)}</span><span class="onboarding-week-meta">${escapeHtml(item.durationHint)}</span></div>`).join('')}</div>
+      </div>
+    </div>`;
+}
+
 function renderOnboardingSelectionStep(){
   const draft=getOnboardingDraft();
   if(onboardingState.step===0){
     return `
       <div class="onboarding-grid">
         <div>
-          <label>Primary Goal</label>
+          <label>${escapeHtml(trOnboarding('onboarding.field.goal','Primary Goal'))}</label>
           <div class="onboarding-option-grid">
-            ${renderOnboardingOptionButton(draft.goal==='strength','Strength','Improve main lifts and progression.',"setOnboardingValue('goal','strength');renderOnboarding()")}
-            ${renderOnboardingOptionButton(draft.goal==='hypertrophy','Hypertrophy','Bias training toward muscle gain and volume.',"setOnboardingValue('goal','hypertrophy');renderOnboarding()")}
-            ${renderOnboardingOptionButton(draft.goal==='general_fitness','General Fitness','Keep training sustainable and broadly useful.',"setOnboardingValue('goal','general_fitness');renderOnboarding()")}
-            ${renderOnboardingOptionButton(draft.goal==='sport_support','Sport Support','Fit lifting around outside sport or cardio load.',"setOnboardingValue('goal','sport_support');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.goal==='strength',trOnboarding('onboarding.goal.strength','Strength'),trOnboarding('onboarding.goal.strength_desc','Improve main lifts and progression.'),"setOnboardingValue('goal','strength');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.goal==='hypertrophy',trOnboarding('onboarding.goal.hypertrophy','Hypertrophy'),trOnboarding('onboarding.goal.hypertrophy_desc','Bias training toward muscle gain and volume.'),"setOnboardingValue('goal','hypertrophy');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.goal==='general_fitness',trOnboarding('onboarding.goal.general_fitness','General Fitness'),trOnboarding('onboarding.goal.general_fitness_desc','Keep training sustainable and broadly useful.'),"setOnboardingValue('goal','general_fitness');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.goal==='sport_support',trOnboarding('onboarding.goal.sport_support','Sport Support'),trOnboarding('onboarding.goal.sport_support_desc','Fit lifting around outside sport or cardio load.'),"setOnboardingValue('goal','sport_support');renderOnboarding()")}
           </div>
         </div>
         <div>
-          <label>Experience Level</label>
+          <label>${escapeHtml(trOnboarding('onboarding.field.experience','Experience Level'))}</label>
           <div class="onboarding-option-grid">
-            ${renderOnboardingOptionButton(draft.experienceLevel==='beginner','Beginner','You want simple defaults and low complexity.',"setOnboardingValue('experienceLevel','beginner');renderOnboarding()")}
-            ${renderOnboardingOptionButton(draft.experienceLevel==='returning','Returning','You have trained before, but want a stable ramp back in.',"setOnboardingValue('experienceLevel','returning');renderOnboarding()")}
-            ${renderOnboardingOptionButton(draft.experienceLevel==='intermediate','Intermediate','You can handle more structure and moderate autoregulation.',"setOnboardingValue('experienceLevel','intermediate');renderOnboarding()")}
-            ${renderOnboardingOptionButton(draft.experienceLevel==='advanced','Advanced','You want a higher ceiling and more nuanced planning.',"setOnboardingValue('experienceLevel','advanced');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.experienceLevel==='beginner',trOnboarding('onboarding.experience.beginner','Beginner'),trOnboarding('onboarding.experience.beginner_desc','You want simple defaults and low complexity.'),"setOnboardingValue('experienceLevel','beginner');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.experienceLevel==='returning',trOnboarding('onboarding.experience.returning','Returning'),trOnboarding('onboarding.experience.returning_desc','You have trained before, but want a stable ramp back in.'),"setOnboardingValue('experienceLevel','returning');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.experienceLevel==='intermediate',trOnboarding('onboarding.experience.intermediate','Intermediate'),trOnboarding('onboarding.experience.intermediate_desc','You can handle more structure and moderate autoregulation.'),"setOnboardingValue('experienceLevel','intermediate');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.experienceLevel==='advanced',trOnboarding('onboarding.experience.advanced','Advanced'),trOnboarding('onboarding.experience.advanced_desc','You want a higher ceiling and more nuanced planning.'),"setOnboardingValue('experienceLevel','advanced');renderOnboarding()")}
           </div>
         </div>
       </div>`;
@@ -662,25 +706,25 @@ function renderOnboardingSelectionStep(){
       <div class="onboarding-grid">
         <div class="onboarding-inline-grid">
           <div>
-            <label>Training Frequency</label>
+            <label>${escapeHtml(trOnboarding('onboarding.field.frequency','Training Frequency'))}</label>
             <select onchange="setOnboardingValue('trainingDaysPerWeek',parseInt(this.value,10));renderOnboarding()">
-              ${[2,3,4,5,6].map(value=>`<option value="${value}"${value===parseInt(draft.trainingDaysPerWeek,10)?' selected':''}>${value} sessions / week</option>`).join('')}
+              ${[2,3,4,5,6].map(value=>`<option value="${value}"${value===parseInt(draft.trainingDaysPerWeek,10)?' selected':''}>${escapeHtml(trOnboarding('onboarding.frequency_value','{count} sessions / week',{count:value}))}</option>`).join('')}
             </select>
           </div>
           <div>
-            <label>Session Length</label>
+            <label>${escapeHtml(trOnboarding('onboarding.field.duration','Session Length'))}</label>
             <select onchange="setOnboardingValue('sessionMinutes',parseInt(this.value,10));renderOnboarding()">
-              ${[30,45,60,75,90].map(value=>`<option value="${value}"${value===parseInt(draft.sessionMinutes,10)?' selected':''}>${value} min</option>`).join('')}
+              ${[30,45,60,75,90].map(value=>`<option value="${value}"${value===parseInt(draft.sessionMinutes,10)?' selected':''}>${escapeHtml(trOnboarding('onboarding.duration_value','{count} min',{count:value}))}</option>`).join('')}
             </select>
           </div>
         </div>
         <div>
-          <label>Equipment Access</label>
+          <label>${escapeHtml(trOnboarding('onboarding.field.equipment','Equipment Access'))}</label>
           <select onchange="setOnboardingValue('equipmentAccess',this.value);renderOnboarding()">
-            <option value="full_gym"${draft.equipmentAccess==='full_gym'?' selected':''}>Full Gym</option>
-            <option value="basic_gym"${draft.equipmentAccess==='basic_gym'?' selected':''}>Basic Gym</option>
-            <option value="home_gym"${draft.equipmentAccess==='home_gym'?' selected':''}>Home Gym</option>
-            <option value="minimal"${draft.equipmentAccess==='minimal'?' selected':''}>Minimal Equipment</option>
+            <option value="full_gym"${draft.equipmentAccess==='full_gym'?' selected':''}>${escapeHtml(trOnboarding('onboarding.equipment.full_gym','Full Gym'))}</option>
+            <option value="basic_gym"${draft.equipmentAccess==='basic_gym'?' selected':''}>${escapeHtml(trOnboarding('onboarding.equipment.basic_gym','Basic Gym'))}</option>
+            <option value="home_gym"${draft.equipmentAccess==='home_gym'?' selected':''}>${escapeHtml(trOnboarding('onboarding.equipment.home_gym','Home Gym'))}</option>
+            <option value="minimal"${draft.equipmentAccess==='minimal'?' selected':''}>${escapeHtml(trOnboarding('onboarding.equipment.minimal','Minimal Equipment'))}</option>
           </select>
         </div>
       </div>`;
@@ -690,11 +734,12 @@ function renderOnboardingSelectionStep(){
       <div class="onboarding-grid">
         <div class="onboarding-inline-grid">
           <div>
-            <label>Sport or Cardio</label>
-            <input type="text" value="${escapeHtml(draft.sportName||'')}" placeholder="e.g. Hockey, Running, Soccer" oninput="setOnboardingValue('sportName',this.value)">
+            <label>${escapeHtml(trOnboarding('onboarding.field.sport','Sport or Cardio'))}</label>
+            <input type="text" value="${escapeHtml(draft.sportName||'')}" placeholder="${escapeHtml(trOnboarding('onboarding.field.sport_placeholder','e.g. Hockey, Running, Soccer'))}" oninput="setOnboardingValue('sportName',this.value)">
+            <div class="onboarding-field-help">${escapeHtml(trOnboarding('onboarding.field.sport_help','Add your regular sport or other recurring hobby here if it affects recovery during the week.'))}</div>
           </div>
           <div>
-            <label>Sessions / Week</label>
+            <label>${escapeHtml(trOnboarding('onboarding.field.sport_sessions','Sessions / Week'))}</label>
             <select onchange="setOnboardingValue('sportSessionsPerWeek',parseInt(this.value,10));renderOnboarding()">
               ${[0,1,2,3,4,5,6,7].map(value=>`<option value="${value}"${value===parseInt(draft.sportSessionsPerWeek,10)?' selected':''}>${value}</option>`).join('')}
             </select>
@@ -702,8 +747,8 @@ function renderOnboardingSelectionStep(){
         </div>
         <label class="toggle-row" for="onboarding-in-season" style="margin-top:0">
           <div>
-            <div class="toggle-row-title">In season</div>
-            <div class="toggle-row-sub">Use a more conservative starting point when sport is a real load right now.</div>
+            <div class="toggle-row-title">${escapeHtml(trOnboarding('onboarding.field.in_season','In season'))}</div>
+            <div class="toggle-row-sub">${escapeHtml(trOnboarding('onboarding.field.in_season_help','Use a more conservative starting point when sport is a real load right now.'))}</div>
           </div>
           <div class="toggle-switch">
             <input type="checkbox" id="onboarding-in-season" ${draft.inSeason?'checked':''} onchange="setOnboardingValue('inSeason',this.checked)">
@@ -711,21 +756,21 @@ function renderOnboardingSelectionStep(){
           </div>
         </label>
         <div>
-          <label>Joint Flags</label>
+          <label>${escapeHtml(trOnboarding('onboarding.field.joints','Joint Flags'))}</label>
           <div class="onboarding-chip-row">
-            ${ONBOARDING_JOINT_FLAGS.map(item=>`<button type="button" class="onboarding-chip${(draft.jointFlags||[]).includes(item.value)?' active':''}" onclick="toggleOnboardingArrayValue('jointFlags','${item.value}')">${escapeHtml(item.label)}</button>`).join('')}
+            ${ONBOARDING_JOINT_FLAGS.map(item=>`<button type="button" class="onboarding-chip${(draft.jointFlags||[]).includes(item.value)?' active':''}" onclick="toggleOnboardingArrayValue('jointFlags','${item.value}')">${escapeHtml(trOnboarding(item.key,item.label))}</button>`).join('')}
           </div>
         </div>
         <div>
-          <label>Avoid Movement Patterns</label>
+          <label>${escapeHtml(trOnboarding('onboarding.field.movements','Avoid Movement Patterns'))}</label>
           <div class="onboarding-chip-row">
-            ${ONBOARDING_MOVEMENT_TAGS.map(item=>`<button type="button" class="onboarding-chip${(draft.avoidMovementTags||[]).includes(item.value)?' active':''}" onclick="toggleOnboardingArrayValue('avoidMovementTags','${item.value}')">${escapeHtml(item.label)}</button>`).join('')}
+            ${ONBOARDING_MOVEMENT_TAGS.map(item=>`<button type="button" class="onboarding-chip${(draft.avoidMovementTags||[]).includes(item.value)?' active':''}" onclick="toggleOnboardingArrayValue('avoidMovementTags','${item.value}')">${escapeHtml(trOnboarding(item.key,item.label))}</button>`).join('')}
           </div>
         </div>
         <div>
-          <label>Avoided Exercises</label>
-          <textarea rows="3" placeholder="Comma-separated exercise names" oninput="setOnboardingValue('avoidExercisesText',this.value)">${escapeHtml(draft.avoidExercisesText||'')}</textarea>
-          <div class="onboarding-field-help">Used to exclude obvious no-go exercises from the first recommendation and future session adaptation.</div>
+          <label>${escapeHtml(trOnboarding('onboarding.field.avoid_exercises','Avoided Exercises'))}</label>
+          <textarea rows="3" placeholder="${escapeHtml(trOnboarding('onboarding.field.avoid_exercises_placeholder','Comma-separated exercise names'))}" oninput="setOnboardingValue('avoidExercisesText',this.value)">${escapeHtml(draft.avoidExercisesText||'')}</textarea>
+          <div class="onboarding-field-help">${escapeHtml(trOnboarding('onboarding.field.avoid_exercises_help','Used to exclude obvious no-go exercises from the first recommendation and future session adaptation.'))}</div>
         </div>
       </div>`;
   }
@@ -733,36 +778,13 @@ function renderOnboardingSelectionStep(){
     return `
       <div class="onboarding-grid">
         <div class="onboarding-option-grid">
-          ${renderOnboardingOptionButton(draft.guidanceMode==='guided','Tell me what to do','Strong default recommendations, less manual decision-making.',"setOnboardingValue('guidanceMode','guided');renderOnboarding()")}
-          ${renderOnboardingOptionButton(draft.guidanceMode==='balanced','Balanced','Good defaults, but still leaves room to steer the plan.',"setOnboardingValue('guidanceMode','balanced');renderOnboarding()")}
-          ${renderOnboardingOptionButton(draft.guidanceMode==='self_directed','Give me control','Lighter guidance and more room for manual choices.',"setOnboardingValue('guidanceMode','self_directed');renderOnboarding()")}
+          ${renderOnboardingOptionButton(draft.guidanceMode==='guided',trOnboarding('onboarding.guidance.guided','Tell me what to do'),trOnboarding('onboarding.guidance.guided_desc','Strong default recommendations, less manual decision-making.'),"setOnboardingValue('guidanceMode','guided');renderOnboarding()")}
+          ${renderOnboardingOptionButton(draft.guidanceMode==='balanced',trOnboarding('onboarding.guidance.balanced','Balanced'),trOnboarding('onboarding.guidance.balanced_desc','Good defaults, but still leaves room to steer the plan.'),"setOnboardingValue('guidanceMode','balanced');renderOnboarding()")}
+          ${renderOnboardingOptionButton(draft.guidanceMode==='self_directed',trOnboarding('onboarding.guidance.self_directed','Give me control'),trOnboarding('onboarding.guidance.self_directed_desc','Lighter guidance and more room for manual choices.'),"setOnboardingValue('guidanceMode','self_directed');renderOnboarding()")}
         </div>
       </div>`;
   }
-  const recommendation=onboardingState.recommendation||buildOnboardingRecommendation();
-  const program=PROGRAMS?.[recommendation.programId];
-  const programName=(window.I18N&&I18N.t)?I18N.t('program.'+recommendation.programId+'.name',null,program?.name||recommendation.programId):program?.name||recommendation.programId;
-  return `
-    <div class="onboarding-grid">
-      <div class="onboarding-card">
-        <div class="onboarding-kicker">Recommended Program</div>
-        <div class="onboarding-title" style="font-size:20px">${escapeHtml(programName)}</div>
-        <div class="onboarding-sub" style="margin-top:8px">This is the best starting point based on your goal, schedule, sport load, and desired guidance level.</div>
-      </div>
-      <div class="onboarding-card">
-        <div class="card-title" style="margin-bottom:10px">Why this fits</div>
-        <div class="onboarding-why-list">${(recommendation.why||[]).map(item=>`<div class="onboarding-why-item">• ${escapeHtml(item)}</div>`).join('')}</div>
-      </div>
-      <div class="onboarding-card">
-        <div class="card-title" style="margin-bottom:10px">Your first week</div>
-        <div class="onboarding-week-list">${(recommendation.weekTemplate||[]).map(item=>`<div class="onboarding-week-item"><span>${escapeHtml(item.dayLabel)} · ${escapeHtml(item.type)}</span><span class="onboarding-week-meta">${escapeHtml(item.durationHint)}</span></div>`).join('')}</div>
-      </div>
-      <div class="onboarding-card">
-        <div class="card-title" style="margin-bottom:10px">Start with this</div>
-        <div class="onboarding-note">First session option: ${escapeHtml(String(recommendation.firstSessionOption||'1'))}</div>
-        ${(recommendation.initialAdjustments||[]).length?`<div class="onboarding-why-list" style="margin-top:10px">${recommendation.initialAdjustments.map(item=>`<div class="onboarding-why-item">• ${escapeHtml(item)}</div>`).join('')}</div>`:''}
-      </div>
-    </div>`;
+  return renderOnboardingRecommendationStep();
 }
 
 function renderOnboarding(){
@@ -770,27 +792,27 @@ function renderOnboarding(){
   const container=document.getElementById('onboarding-content');
   if(!modal||!container)return;
   const titleMap=[
-    'Build your starting point',
-    'Set your training envelope',
-    'Add sport and constraints',
-    'Choose your guidance level',
-    'Start from a real plan'
+    trOnboarding('onboarding.step.0.title','Build your starting point'),
+    trOnboarding('onboarding.step.1.title','Set your training envelope'),
+    trOnboarding('onboarding.step.2.title','Add sport and constraints'),
+    trOnboarding('onboarding.step.3.title','Choose your guidance level'),
+    trOnboarding('onboarding.step.4.title','Start from a real plan')
   ];
   const subMap=[
-    'This gives the engine enough signal to recommend the right starting plan.',
-    'These limits drive frequency, session trimming, and program fit.',
-    'Tell the engine what has to be respected, not just what sounds ideal.',
-    'This sets how opinionated the app should be when making decisions.',
-    'You should leave onboarding with a clear program, first week, and first session.'
+    trOnboarding('onboarding.step.0.sub','This gives the engine enough signal to recommend the right starting plan.'),
+    trOnboarding('onboarding.step.1.sub','These limits drive frequency, session trimming, and program fit.'),
+    trOnboarding('onboarding.step.2.sub','Tell the assistant what has to be respected, especially your regular sport and real constraints.'),
+    trOnboarding('onboarding.step.3.sub','This sets how opinionated the app should be when making decisions.'),
+    trOnboarding('onboarding.step.4.sub','You should leave onboarding with a clear program, first week, and first session.')
   ];
-  const primaryLabel=onboardingState.step===getOnboardingStepCount()-1?'Use This Plan':'Continue';
-  const secondaryLabel=onboardingState.step===0?'Not now':'Back';
+  const primaryLabel=onboardingState.step===getOnboardingStepCount()-1?trOnboarding('onboarding.action.use_plan','Use This Plan'):trOnboarding('onboarding.action.continue','Continue');
+  const secondaryLabel=onboardingState.step===0?trOnboarding('onboarding.action.not_now','Not now'):trOnboarding('onboarding.action.back','Back');
   container.innerHTML=`
     <div class="onboarding-flow">
       ${renderOnboardingProgress()}
       <div>
-        <div class="onboarding-kicker">Guided Setup</div>
-        <div class="onboarding-title">${escapeHtml(titleMap[onboardingState.step]||'Guided setup')}</div>
+        <div class="onboarding-kicker">${escapeHtml(trOnboarding('onboarding.kicker','Guided Setup'))}</div>
+        <div class="onboarding-title">${escapeHtml(titleMap[onboardingState.step]||trOnboarding('onboarding.kicker','Guided Setup'))}</div>
         <div class="onboarding-sub">${escapeHtml(subMap[onboardingState.step]||'')}</div>
       </div>
       ${renderOnboardingSelectionStep()}
@@ -807,7 +829,6 @@ function goToOnboardingStep(step){
 }
 
 function advanceOnboarding(){
-  if(onboardingState.step===getOnboardingStepCount()-2)buildOnboardingRecommendation();
   goToOnboardingStep(onboardingState.step+1);
 }
 
@@ -817,30 +838,62 @@ function closeOnboardingModal(){
 
 async function completeOnboarding(){
   const recommendation=onboardingState.recommendation||buildOnboardingRecommendation();
-  const nextProfile=getOnboardingPreviewProfile();
-  nextProfile.coaching=normalizeCoachingProfile({
-    ...nextProfile,
-    coaching:{...nextProfile.coaching,onboardingCompleted:true}
+  const draft=getOnboardingDraft();
+  const nextPreferences=normalizeTrainingPreferences({
+    preferences:{
+      ...(profile.preferences||getDefaultTrainingPreferences()),
+      goal:draft.goal,
+      trainingDaysPerWeek:parseInt(draft.trainingDaysPerWeek,10)||3,
+      sessionMinutes:parseInt(draft.sessionMinutes,10)||60,
+      equipmentAccess:draft.equipmentAccess
+    }
   });
-  profile.preferences=nextProfile.preferences;
-  profile.coaching=nextProfile.coaching;
-  if(String(getOnboardingDraft().sportName||'').trim()){
-    schedule.sportName=String(getOnboardingDraft().sportName||'').trim();
+  const nextCoaching=normalizeCoachingProfile({
+    coaching:{
+      ...(profile.coaching||getDefaultCoachingProfile()),
+      experienceLevel:draft.experienceLevel,
+      guidanceMode:draft.guidanceMode,
+      sportProfile:{
+        name:String(draft.sportName||'').trim(),
+        inSeason:draft.inSeason===true,
+        sessionsPerWeek:parseInt(draft.sportSessionsPerWeek,10)||0
+      },
+      limitations:{
+        jointFlags:[...(draft.jointFlags||[])],
+        avoidMovementTags:[...(draft.avoidMovementTags||[])],
+        avoidExerciseIds:parseOnboardingExerciseIds(draft.avoidExercisesText)
+      },
+      exercisePreferences:{
+        preferredExerciseIds:[],
+        excludedExerciseIds:parseOnboardingExerciseIds(draft.avoidExercisesText)
+      },
+      onboardingCompleted:true
+    }
+  });
+  const nextPrograms={...(profile.programs||{})};
+  if(!nextPrograms[recommendation.programId]&&PROGRAMS?.[recommendation.programId]?.getInitialState){
+    nextPrograms[recommendation.programId]=PROGRAMS[recommendation.programId].getInitialState();
   }
-  profile.activeProgram=recommendation.programId;
-  if(!profile.programs)profile.programs={};
-  if(!profile.programs[recommendation.programId]&&PROGRAMS?.[recommendation.programId]?.getInitialState){
-    profile.programs[recommendation.programId]=PROGRAMS[recommendation.programId].getInitialState();
-  }
+  profile={
+    ...profile,
+    preferences:nextPreferences,
+    coaching:nextCoaching,
+    activeProgram:recommendation.programId,
+    programs:nextPrograms
+  };
   normalizeProfileProgramStateMap(profile);
+  if(String(draft.sportName||'').trim())schedule.sportName=String(draft.sportName||'').trim();
   closeOnboardingModal();
-  await saveScheduleData();
   await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
+  await saveScheduleData();
   initSettings();
+  onboardingState.draft=null;
+  onboardingState.recommendation=null;
+  onboardingState.step=0;
   if(!activeWorkout)resetNotStartedView();
   updateProgramDisplay();
   updateDashboard();
-  showToast('Plan created and onboarding completed','var(--green)');
+  showToast(trOnboarding('onboarding.complete_toast','Plan created and onboarding completed'),'var(--green)');
   goToLog();
 }
 
@@ -862,8 +915,18 @@ function maybeOpenOnboarding(options){
 }
 
 function restartOnboarding(){
+  if(activeWorkout){
+    showToast(
+      (window.I18N&&I18N.t)?I18N.t('settings.preferences.restart_onboarding_active',null,'Finish or discard the active workout before reopening guided setup.'):'Finish or discard the active workout before reopening guided setup.',
+      'var(--muted)'
+    );
+    return;
+  }
   resetOnboardingState();
-  maybeOpenOnboarding({force:true});
+  const modal=document.getElementById('onboarding-modal');
+  if(!modal)return;
+  modal.classList.add('active');
+  renderOnboarding();
 }
 function closeProgramSetupSheet(e){
   if(!e||e.target.id==='program-setup-sheet'){
