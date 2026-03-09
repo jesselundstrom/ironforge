@@ -125,34 +125,35 @@
 
 <div class="header">
   <h1 class="page-title">Ironforge</h1>
-  <p id="header-sub">Forge Protocol · Loading...</p>
+  <p id="header-sub">Forge Protocol · Ladataan...</p>
 </div>
 
 <!-- ===== DASHBOARD ===== -->
 <div class="page active" id="page-dashboard">
   <div class="card dash-week-card">
     <div class="week-strip" id="week-strip"></div>
+    <div class="dashboard-week-legend" id="dashboard-week-legend"></div>
+    <div id="dashboard-start-session-slot"></div>
+    <div id="session-progress" class="dashboard-session-progress" aria-live="polite"></div>
     <div class="week-progress-row">
       <div id="today-status" style="font-size:12px;flex:1"></div>
-      <div id="session-pills" class="session-pills"></div>
-      <div id="volume-text" style="font-size:11px;color:var(--muted);white-space:nowrap" data-i18n="common.loading">Loading...</div>
     </div>
     <div id="day-detail-panel" style="display:none"></div>
   </div>
   <div class="card" id="todays-plan-card">
-    <div class="card-title" data-i18n="dashboard.today_plan">Today's Plan</div>
-    <div id="next-session-content" style="color:var(--muted);font-size:13px" data-i18n="common.loading">Loading...</div>
+    <div class="card-title" data-i18n="dashboard.today_plan">Tämän päivän suunnitelma</div>
+    <div id="next-session-content" style="color:var(--muted);font-size:13px" data-i18n="common.loading">Ladataan...</div>
   </div>
   <div class="dash-row">
     <div class="card dash-col">
-      <div class="card-title" data-i18n="dashboard.recovery">Recovery</div>
-      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.muscular">Muscular</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
-      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.nervous">Nervous</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
-      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.overall">Overall</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-overall" style="width:0%"></div></div><div class="fatigue-value" id="f-overall-val">—</div></div>
-      <div id="recovery-badge" style="margin-top:6px"><span style="font-size:11px;color:var(--muted)" data-i18n="dashboard.log_to_see">Log workouts to see data</span></div>
+      <div class="card-title" data-i18n="dashboard.recovery">Palautuminen</div>
+      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.muscular">Lihaksisto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
+      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.nervous">Hermosto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
+      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.overall">Yhteensä</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-overall" style="width:0%"></div></div><div class="fatigue-value" id="f-overall-val">—</div></div>
+      <div id="recovery-badge" style="margin-top:6px"><span style="font-size:11px;color:var(--muted)" data-i18n="dashboard.log_to_see">Kirjaa treenejä, niin data tulee näkyviin</span></div>
     </div>
     <div class="card dash-col">
-      <div class="card-title" id="tm-section-title" data-i18n="dashboard.maxes">Maxes</div>
+      <div class="card-title" id="tm-section-title" data-i18n="dashboard.maxes">Maksimit</div>
       <div class="lifts-grid" id="tm-grid"></div>
     </div>
   </div>

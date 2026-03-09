@@ -1,5 +1,6 @@
 ﻿function isSportWorkout(w){return w.type==='sport'||w.type==='hockey';}
 let _lastTmSignature='';
+let dashboardUiState={coachingExpanded:false};
 function trDash(key,fallback,params){
   if(window.I18N)return I18N.t(key,params,fallback);
   return fallback;
@@ -46,10 +47,10 @@ function getRecoveryGradient(r){
 }
 function getReadinessLabel(o){
   const r=100-o;
-  if(r>=75)return{label:trDash('dashboard.fully_recovered','Fully Recovered'),color:'var(--green)'};
-  if(r>=50)return{label:trDash('dashboard.mostly_recovered','Mostly Recovered'),color:'var(--orange)'};
-  if(r>=30)return{label:trDash('dashboard.partially_fatigued','Partially Fatigued'),color:'var(--orange)'};
-  return{label:trDash('dashboard.high_fatigue','High Fatigue'),color:'var(--accent)'};
+  if(r>=75)return{label:trDash('dashboard.fully_recovered','Palautunut hyvin'),color:'var(--green)'};
+  if(r>=50)return{label:trDash('dashboard.mostly_recovered','Enimmäkseen palautunut'),color:'var(--orange)'};
+  if(r>=30)return{label:trDash('dashboard.partially_fatigued','Osittain väsynyt'),color:'var(--orange)'};
+  return{label:trDash('dashboard.high_fatigue','Korkea kuormitus'),color:'var(--accent)'};
 }
 function updateFatigueBars(f){
   ['muscular','cns','overall'].forEach(k=>{
@@ -67,9 +68,9 @@ function updateFatigueBars(f){
   });
   const overallRec=100-f.overall;
   let badgeText,badgeCls;
-  if(overallRec>=85){badgeText=trDash('dashboard.badge.go','GO');badgeCls='rbadge-go';}
-  else if(overallRec>=60){badgeText=trDash('dashboard.badge.caution','CAUTION');badgeCls='rbadge-caution';}
-  else{badgeText=trDash('dashboard.badge.rest','REST');badgeCls='rbadge-rest';}
+  if(overallRec>=85){badgeText=trDash('dashboard.badge.go','Valmis treenaamaan');badgeCls='rbadge-go';}
+  else if(overallRec>=60){badgeText=trDash('dashboard.badge.caution','Kohtalainen');badgeCls='rbadge-caution';}
+  else{badgeText=trDash('dashboard.badge.rest','Lepo');badgeCls='rbadge-rest';}
   const badgeEl=document.getElementById('recovery-badge');
   if(badgeEl)badgeEl.innerHTML=`<span class="readiness-status ${badgeCls}"><span class="readiness-status-dot" aria-hidden="true"></span><span class="readiness-status-text">${badgeText}</span></span>`;
 }
@@ -204,7 +205,7 @@ function getRecentMuscleLoadSummary(days){
 function renderRecentMuscleLoadSummary(days){
   const summary=getRecentMuscleLoadSummary(days);
   if(!summary.length)return'';
-  return `<div class="dashboard-muscle-summary"><div class="dashboard-muscle-summary-label">${escapeHtml(trDash('dashboard.muscle_load.recent','Recent muscle load'))}</div><div class="dashboard-muscle-chip-row">${summary.map(item=>`<div class="dashboard-muscle-chip dashboard-muscle-chip-${item.level}"><span class="dashboard-muscle-chip-name">${escapeHtml(trDash('dashboard.muscle_group.'+item.group,item.group))}</span><span class="dashboard-muscle-chip-level">${escapeHtml(trDash('dashboard.muscle_load.'+item.level,item.level))}</span></div>`).join('')}</div></div>`;
+  return `<div class="dashboard-muscle-summary"><div class="dashboard-muscle-summary-label">${escapeHtml(trDash('dashboard.muscle_load.recent','Viimeaikainen lihaskuorma'))}</div><div class="dashboard-muscle-chip-row">${summary.map(item=>`<div class="dashboard-muscle-chip dashboard-muscle-chip-${item.level}"><span class="dashboard-muscle-chip-name">${escapeHtml(trDash('dashboard.muscle_group.'+item.group,item.group))}</span><span class="dashboard-muscle-chip-level">${escapeHtml(trDash('dashboard.muscle_load.'+item.level,item.level))}</span></div>`).join('')}</div></div>`;
 }
 
 function getDashboardDayLabel(dayIndex){
@@ -223,37 +224,113 @@ function getCoachingRecommendationClass(type){
   return map[type]||'is-continue';
 }
 
+function renderReasonChips(labels){
+  if(!labels?.length)return'';
+  return `<div class="dashboard-muscle-chip-row dashboard-reason-chip-row">${labels.map(label=>`<div class="dashboard-muscle-chip dashboard-muscle-chip-light"><span class="dashboard-muscle-chip-name">${escapeHtml(label)}</span></div>`).join('')}</div>`;
+}
+
+function renderFocusVerdictCard(profileLike,context){
+  const lines=getPreferenceGuidance(profileLike,context);
+  if(!lines.length&&!context?.decisionSummary)return'';
+  const detailLines=[...lines.slice(1),context?.detail||''].filter(Boolean);
+  const tone=context?.decisionSummary?.tone||'neutral';
+  return `<div class="dashboard-focus-verdict dashboard-focus-verdict-${tone}">
+    <div class="dashboard-focus-verdict-top">
+      <div class="dashboard-focus-verdict-copy-wrap">
+        <div class="dashboard-plan-focus-label">${escapeHtml(trDash('dashboard.pref.focus_label','Tämän päivän painotus'))}</div>
+        <div class="dashboard-focus-verdict-copy">${escapeHtml(lines[0]||'')}</div>
+      </div>
+      <div class="dashboard-focus-verdict-badge">${escapeHtml(context?.decisionSummary?.title||'')}</div>
+    </div>
+    ${detailLines.length?`<div class="dashboard-focus-verdict-support">${detailLines.map(line=>`<div class="dashboard-focus-verdict-support-line">${escapeHtml(line)}</div>`).join('')}</div>`:''}
+    ${context?.decisionSummary?.body?`<div class="dashboard-focus-verdict-body">${escapeHtml(context.decisionSummary.body)}</div>`:''}
+    ${renderReasonChips(context?.reasonLabels||[])}
+  </div>`;
+}
+
+function renderSessionProgress(done,total,sportCount,sportName){
+  const safeTotal=Math.max(1,parseInt(total,10)||1);
+  const complete=Math.min(safeTotal,Math.max(0,parseInt(done,10)||0));
+  const percent=Math.round((complete/safeTotal)*100);
+  const remaining=safeTotal-complete;
+  const footer=complete>=safeTotal
+    ? trDash('dashboard.progress_complete','Viikon tavoite täynnä')
+    : trDash(
+      remaining===1?'dashboard.progress_remaining_one':'dashboard.progress_remaining_many',
+      remaining===1?'1 sessio jäljellä tällä viikolla':'{count} sessiota jäljellä tällä viikolla',
+      {count:remaining}
+    );
+  const sportFooter=sportCount
+    ? trDash('dashboard.sport_sessions_week','Tällä viikolla kirjattu {count} {sport}-sessiota',{count:sportCount,sport:String(sportName||trDash('common.sport','Laji')).toLowerCase()})
+    : '';
+  return `<div class="dashboard-session-progress-card">
+    <div class="dashboard-session-progress-top">
+      <div>
+        <div class="dashboard-session-progress-label">${escapeHtml(trDash('dashboard.weekly_sessions','Viikon sessiot'))}</div>
+        <div class="dashboard-session-progress-value">${escapeHtml(trDash('dashboard.sessions','{done}/{total} sessiota',{done:complete,total:safeTotal}))}</div>
+      </div>
+      <div class="dashboard-session-progress-percent">${escapeHtml(String(percent))}%</div>
+    </div>
+    <div class="dashboard-session-progress-track" aria-hidden="true"><div class="dashboard-session-progress-fill" style="width:${percent}%"></div></div>
+    <div class="dashboard-session-progress-foot">${escapeHtml(footer)}</div>
+    ${sportFooter?`<div class="dashboard-session-progress-foot is-secondary">${escapeHtml(sportFooter)}</div>`:''}
+  </div>`;
+}
+
+function renderWeekLegend(){
+  const legend=document.getElementById('dashboard-week-legend');
+  if(!legend)return;
+  legend.innerHTML=`
+    <div class="dashboard-week-legend-item"><span class="dashboard-week-legend-dot is-lift" aria-hidden="true"></span><span>${escapeHtml(trDash('dashboard.calendar.legend_lift','Treeni kirjattu'))}</span></div>
+    <div class="dashboard-week-legend-item"><span class="dashboard-week-legend-dot is-sport" aria-hidden="true"></span><span>${escapeHtml(trDash('dashboard.calendar.legend_sport','Lajisessio kirjattu'))}</span></div>
+    <div class="dashboard-week-legend-item"><span class="dashboard-week-legend-dot is-scheduled" aria-hidden="true"></span><span>${escapeHtml(trDash('dashboard.calendar.legend_scheduled','Suunniteltu lajipäivä'))}</span></div>
+    <div class="dashboard-week-legend-hint">${escapeHtml(trDash('dashboard.calendar.legend_hint','Napauta päivää nähdäksesi tiedot'))}</div>
+  `;
+}
+
 function renderCoachingInsightsCard(insights){
   if(!insights)return'';
   const bestDays=(insights.bestDayIndexes||[]).map(getDashboardDayLabel).filter(Boolean);
   const chips=[
-    `<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.adherence','30d adherence'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.adherenceRate30||0))}%</span></div>`
+    `<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.adherence','30 pv toteuma'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.adherenceRate30||0))}%</span></div>`
   ];
   if(bestDays.length){
-    chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.best_days','Best days'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(bestDays.join(' / '))}</span></div>`);
+    chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.best_days','Parhaat päivät'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(bestDays.join(' / '))}</span></div>`);
   }
-  chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.sessions_90','90d sessions'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.sessions90||0))}</span></div>`);
+  chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.sessions_90','90 pv sessiot'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.sessions90||0))}</span></div>`);
   if(insights.frictionCount){
-    chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.friction','Friction flags'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.frictionCount))}</span></div>`);
+    chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.friction','Kitkasignaalit'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.frictionCount))}</span></div>`);
   }
   const bullets=[
     insights.adherenceSummary,
     insights.progressionSummary,
-    bestDays.length?trDash('dashboard.insights.best_days_line','You train most consistently on {days}.',{days:bestDays.join(' / ')}):'',
+    bestDays.length?trDash('dashboard.insights.best_days_line','Treenaat tasaisimmin päivinä {days}.',{days:bestDays.join(' / ')}):'',
     ...(insights.frictionItems||[])
   ].filter(Boolean).slice(0,4);
   const recType=insights.recommendation?.type||'continue';
+  const expanded=dashboardUiState.coachingExpanded===true;
+  const toggleLabel=expanded
+    ? trDash('dashboard.insights.show_less','Piilota nostot')
+    : trDash('dashboard.insights.show_more','Näytä nostot');
   return `<div class="dashboard-coaching-card ${getCoachingRecommendationClass(recType)}">
-    <div class="dashboard-coaching-label">${escapeHtml(trDash('dashboard.insights.title','Coaching insights'))}</div>
+    <div class="dashboard-coaching-label">${escapeHtml(trDash('dashboard.insights.title','Valmennusnostot'))}</div>
     <div class="dashboard-coaching-title-row">
-      <div class="dashboard-coaching-title">${escapeHtml(insights.recommendation?.label||trDash('dashboard.insights.keep_going','Keep going'))}</div>
-      <div class="dashboard-coaching-badge">${escapeHtml(trDash(`dashboard.insights.state.${recType}`,insights.recommendation?.label||trDash('dashboard.insights.keep_going','Keep going')))}</div>
+      <div class="dashboard-coaching-title">${escapeHtml(insights.recommendation?.label||trDash('dashboard.insights.keep_going','Jatka samalla linjalla'))}</div>
+      <div class="dashboard-coaching-badge">${escapeHtml(trDash(`dashboard.insights.state.${recType}`,insights.recommendation?.label||trDash('dashboard.insights.keep_going','Jatka samalla linjalla')))}</div>
     </div>
-    <div class="dashboard-coaching-body">${escapeHtml(insights.recommendation?.body||'')}</div>
-    <div class="dashboard-insight-chip-row">${chips.join('')}</div>
-    <div class="dashboard-coaching-list">${bullets.map(line=>`<div class="dashboard-coaching-item">${escapeHtml(line)}</div>`).join('')}</div>
+    <button class="dashboard-coaching-toggle" type="button" aria-expanded="${expanded?'true':'false'}" onclick="toggleDashboardCoachingInsights()">${escapeHtml(toggleLabel)}</button>
+    <div class="dashboard-coaching-details"${expanded?'':' hidden'}>
+      <div class="dashboard-coaching-body">${escapeHtml(insights.recommendation?.body||'')}</div>
+      <div class="dashboard-insight-chip-row">${chips.join('')}</div>
+      <div class="dashboard-coaching-list">${bullets.map(line=>`<div class="dashboard-coaching-item">${escapeHtml(line)}</div>`).join('')}</div>
+    </div>
   </div>`;
 }
+
+window.toggleDashboardCoachingInsights=function(){
+  dashboardUiState.coachingExpanded=!dashboardUiState.coachingExpanded;
+  updateDashboard();
+};
 
 function getPreferenceGuidance(profileLike,context){
   const prefs=normalizeTrainingPreferences(profileLike||profile||{});
@@ -267,27 +344,27 @@ function getPreferenceGuidance(profileLike,context){
     sport_support:'dashboard.pref.goal.sport_support'
   };
   const goalFallbackMap={
-    strength:'Today, prioritize crisp top sets and solid bar speed.',
-    hypertrophy:'Today, chase quality volume and controlled reps.',
-    general_fitness:'Today, keep the session sustainable and leave a little in the tank.',
-    sport_support:'Today, keep the work athletic and avoid grinding reps.'
+    strength:'Tänään painota teräviä pääsarjoja ja hyvää tangon nopeutta.',
+    hypertrophy:'Tänään painota laadukasta volyymia ja hallittuja toistoja.',
+    general_fitness:'Pidä sessio tänään kestävänä ja jätä hieman varaa tankkiin.',
+    sport_support:'Pidä työ tänään urheilullisena ja vältä grindattuja toistoja.'
   };
   const goalKey=goalKeyMap[prefs.goal]||goalKeyMap.strength;
   const goalFallback=goalFallbackMap[prefs.goal]||goalFallbackMap.strength;
   lines.push(trDash(goalKey,goalFallback));
 
   if(prefs.sessionMinutes<=45){
-    lines.push(trDash('dashboard.pref.time.short','Time cap is tight, so focus on the main work first and treat accessories as optional.'));
+    lines.push(trDash('dashboard.pref.time.short','Aikakatto on tiukka, joten tee päätyö ensin ja pidä apuliikkeet tarvittaessa valinnaisina.'));
   }else if(prefs.sessionMinutes>=75&&ctx.canPushVolume){
-    lines.push(trDash('dashboard.pref.time.long','You have room for a fuller session today, so complete the accessory work if recovery stays good.'));
+    lines.push(trDash('dashboard.pref.time.long','Tänään on aikaa täydemmälle sessiolle, joten tee apuliikkeetkin jos palautuminen pysyy hyvänä.'));
   }
 
   if(prefs.equipmentAccess==='basic_gym'){
-    lines.push(trDash('dashboard.pref.equipment.basic_gym','If a planned lift is not available, use exercise swap to stay close to the movement pattern.'));
+    lines.push(trDash('dashboard.pref.equipment.basic_gym','Jos jokin suunniteltu liike ei ole saatavilla, käytä exercise swapia ja pysy lähellä samaa liikemallia.'));
   }else if(prefs.equipmentAccess==='home_gym'){
-    lines.push(trDash('dashboard.pref.equipment.home_gym','Home gym setup may call for swaps today, so favor practical variations you can load well.'));
+    lines.push(trDash('dashboard.pref.equipment.home_gym','Kotisali voi vaatia vaihtoja tänään, joten suosi käytännöllisiä variaatioita joita pystyt kuormaamaan hyvin.'));
   }else if(prefs.equipmentAccess==='minimal'){
-    lines.push(trDash('dashboard.pref.equipment.minimal','Equipment is limited, so treat today as a minimum effective dose and swap freely when needed.'));
+    lines.push(trDash('dashboard.pref.equipment.minimal','Välineitä on vähän, joten pidä sessio minimitehokkaana annoksena ja vaihda liikkeitä vapaasti tarvittaessa.'));
   }
 
   return lines;
@@ -299,7 +376,7 @@ function renderPreferenceGuidance(profileLike,context){
   const variant=context?.variant||'full';
   if(variant==='compact'){
     const detail=context?.detail?`<div class="dashboard-plan-focus-detail">${escapeHtml(context.detail)}</div>`:'';
-    return `<div class="dashboard-plan-focus"><div class="dashboard-plan-focus-label">${escapeHtml(trDash('dashboard.pref.focus_label','Today\'s focus'))}</div><div class="dashboard-plan-focus-copy">${escapeHtml(lines[0])}</div>${detail}</div>`;
+    return `<div class="dashboard-plan-focus"><div class="dashboard-plan-focus-label">${escapeHtml(trDash('dashboard.pref.focus_label','Tämän päivän painotus'))}</div><div class="dashboard-plan-focus-copy">${escapeHtml(lines[0])}</div>${detail}</div>`;
   }
   return `<div style="font-size:12px;color:var(--text);margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">${lines.map(line=>`<div style="margin-top:4px">${escapeHtml(line)}</div>`).join('')}</div>`;
 }
@@ -311,59 +388,59 @@ function renderPlanStatus(title,body,tone){
 
 function getTrainingDecisionSummary(decision,context){
   const sessionsLeft=context?.sessionsRemaining||0;
-  const sportName=context?.sportLoad?.sportName||trDash('common.sport','Sport');
+  const sportName=context?.sportLoad?.sportName||trDash('common.sport','Laji');
   if(decision.action==='rest'){
     return{
-      title:trDash('dashboard.week_complete','Week complete!'),
-      body:trDash('dashboard.sessions_done','All planned sessions are already done this week. Rest up.'),
+      title:trDash('dashboard.week_complete','Viikko valmis!'),
+      body:trDash('dashboard.sessions_done','Kaikki suunnitellut sessiot on jo tehty tälle viikolle. Lepää ja palaudu.'),
       tone:'positive'
     };
   }
   if(decision.action==='deload'){
     return{
-      title:trDash('dashboard.high_fatigue_title','High fatigue - deload'),
-      body:trDash('dashboard.plan.deload','Recovery is lagging, so keep today light and treat it like a deload. {count} sessions remain this week.',{count:sessionsLeft}),
+      title:trDash('dashboard.high_fatigue_title','Korkea kuormitus - kevennä'),
+      body:trDash('dashboard.plan.deload','Palautuminen laahaa, joten pidä päivä kevyenä ja käsittele se kevennyksenä. {count} sessiota on jäljellä tällä viikolla.',{count:sessionsLeft}),
       tone:'warning'
     };
   }
   if(decision.action==='train_light'){
     return{
-      title:trDash('dashboard.plan.train_light','Train lighter today'),
-      body:trDash('dashboard.plan.train_light_body','You can still train, but keep the effort conservative and avoid unnecessary grinding. {count} sessions remain this week.',{count:sessionsLeft}),
+      title:trDash('dashboard.plan.train_light','Treenaa tänään kevyemmin'),
+      body:trDash('dashboard.plan.train_light_body','Voit silti treenata, mutta pidä rasitus maltillisena ja vältä turhaa grindia. {count} sessiota on jäljellä tällä viikolla.',{count:sessionsLeft}),
       tone:'info'
     };
   }
   if(decision.action==='shorten'){
     return{
-      title:trDash('dashboard.plan.shorten','Short session today'),
-      body:trDash('dashboard.plan.shorten_body','Use your main work first and trim accessories to stay inside your time cap. {count} sessions remain this week.',{count:sessionsLeft}),
+      title:trDash('dashboard.plan.shorten','Lyhyt sessio tänään'),
+      body:trDash('dashboard.plan.shorten_body','Tee päätyö ensin ja karsi apuliikkeitä pysyäksesi aikaraamissa. {count} sessiota on jäljellä tällä viikolla.',{count:sessionsLeft}),
       tone:'neutral'
     };
   }
   if(decision.restrictionFlags.includes('avoid_heavy_legs')){
     return{
-      title:trDash('dashboard.post_sport','Post-{sport}',{sport:sportName.toLowerCase()}),
-      body:trDash('dashboard.plan.avoid_legs','Sport load is high around today, so bias the session away from heavy leg work when possible. {count} sessions remain this week.',{count:sessionsLeft}),
+      title:trDash('dashboard.post_sport','{sport}n jälkeen',{sport:sportName.toLowerCase()}),
+      body:trDash('dashboard.plan.avoid_legs','Lajikuorma on tänään korkea, joten suuntaa sessio pois raskaasta jalkatyöstä aina kun mahdollista. {count} sessiota on jäljellä tällä viikolla.',{count:sessionsLeft}),
       tone:'info'
     };
   }
   return{
-    title:trDash('dashboard.training_day','Training day'),
-    body:trDash('dashboard.plan.train','Recovery looks good enough to train normally today. {count} sessions remain this week.',{count:sessionsLeft}),
+    title:trDash('dashboard.training_day','Treenipäivä'),
+    body:trDash('dashboard.plan.train','Palautuminen näyttää riittävän hyvältä normaaliin treeniin tänään. {count} sessiota on jäljellä tällä viikolla.',{count:sessionsLeft}),
     tone:'neutral'
   };
 }
 
 function getTrainingDecisionReasonLabels(decision){
   const map={
-    low_recovery:trDash('dashboard.reason.low_recovery','Low recovery'),
-    conservative_recovery:trDash('dashboard.reason.conservative','Recovery caution'),
-    tight_time_budget:trDash('dashboard.reason.time_budget','35 min cap'),
-    sport_load:trDash('dashboard.reason.sport_load','Sport load'),
-    equipment_constraint:trDash('dashboard.reason.equipment','Equipment'),
-    progression_stall:trDash('dashboard.reason.stall','Progress stall'),
-    guided_beginner:trDash('dashboard.reason.guided','Guided path'),
-    week_complete:trDash('dashboard.reason.complete','Week complete')
+    low_recovery:trDash('dashboard.reason.low_recovery','Heikko palautuminen'),
+    conservative_recovery:trDash('dashboard.reason.conservative','Palautumisvaroitus'),
+    tight_time_budget:trDash('dashboard.reason.time_budget','35 min raja'),
+    sport_load:trDash('dashboard.reason.sport_load','Lajikuorma'),
+    equipment_constraint:trDash('dashboard.reason.equipment','Välineet'),
+    progression_stall:trDash('dashboard.reason.stall','Eteneminen jumissa'),
+    guided_beginner:trDash('dashboard.reason.guided','Ohjattu polku'),
+    week_complete:trDash('dashboard.reason.complete','Viikko valmis')
   };
   return(decision.reasonCodes||[]).map(code=>map[code]).filter(Boolean);
 }
@@ -373,7 +450,7 @@ function renderWeekStrip(){
   const strip=document.getElementById('week-strip');
   const today=new Date(),todayDow=today.getDay();
   const start=getWeekStart(today);
-  const sn=schedule.sportName||trDash('common.sport','Sport');
+  const sn=schedule.sportName||trDash('common.sport','Laji');
   strip.innerHTML='';
   for(let i=0;i<7;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
@@ -382,19 +459,27 @@ function renderWeekStrip(){
     const isSportDay=schedule.sportDays.includes(dow);
     const hasLift=logged.some(w=>!isSportWorkout(w)),hasSport=logged.some(w=>isSportWorkout(w));
     const isLogged=hasLift||hasSport;
-    let cls='day-pill'+(isSportDay?' sport':'')+(isToday?' today':'')+(isLogged?' logged':'');
-    let icon=hasLift&&hasSport?'WS':hasLift?'W':hasSport?'S':(isSportDay?'S':'');
-    const bottom=isLogged?`<div class="day-check">✓</div>`:`<div style="font-size:11px;margin-top:2px;min-height:14px">${icon}</div>`;
-    strip.innerHTML+=`<div class="${cls}" onclick="toggleDayDetail(${i})"><div class="day-label">${DAY_NAMES[dow]}</div><div class="day-num">${d.getDate()}</div>${bottom}</div>`;
+    const markers=[
+      hasLift?'<span class="day-marker is-lift" aria-hidden="true"></span>':'',
+      hasSport?'<span class="day-marker is-sport" aria-hidden="true"></span>':'',
+      (!hasSport&&isSportDay)?'<span class="day-marker is-scheduled" aria-hidden="true"></span>':''
+    ].filter(Boolean).join('');
+    const tooltipParts=[`${DAY_NAMES[dow]} ${d.getDate()}.`];
+    if(hasLift)tooltipParts.push(trDash('dashboard.calendar.legend_lift','Treeni kirjattu'));
+    if(hasSport)tooltipParts.push(trDash('dashboard.calendar.legend_sport','Lajisessio kirjattu'));
+    if(!hasSport&&isSportDay)tooltipParts.push(trDash('dashboard.calendar.legend_scheduled','Suunniteltu lajipäivä'));
+    if(!isLogged&&!isSportDay)tooltipParts.push(trDash('dashboard.no_session_logged','Ei kirjattua treeniä'));
+    let cls='day-pill'+(isSportDay?' sport scheduled':'')+(isToday?' today':'')+(isLogged?' logged':'');
+    strip.innerHTML+=`<button class="${cls}" type="button" onclick="toggleDayDetail(${i})" title="${escapeHtml(tooltipParts.join(' · '))}" aria-label="${escapeHtml(tooltipParts.join(' · '))}"><div class="day-label">${DAY_NAMES[dow]}</div><div class="day-num">${d.getDate()}</div><div class="day-markers">${markers||'<span class="day-marker-placeholder" aria-hidden="true"></span>'}</div></button>`;
   }
   const todayIsSportDay=schedule.sportDays.includes(todayDow);
   const todayLogged=workouts.filter(w=>new Date(w.date).toDateString()===today.toDateString());
   const tHasLift=todayLogged.some(w=>!isSportWorkout(w)),tHasSport=todayLogged.some(w=>isSportWorkout(w));
   let s='';
-  if(tHasLift&&tHasSport)s=`<span style="color:var(--green);font-weight:700">${trDash('dashboard.status.workout_plus_sport_logged','Workout + {sport} logged',{sport:sn})}</span>`;
-  else if(tHasLift)s=`<span style="color:var(--green);font-weight:700">${trDash('dashboard.status.workout_logged','Workout logged')}</span>`;
-  else if(tHasSport)s=`<span style="color:var(--blue);font-weight:700">${trDash('dashboard.status.sport_logged','{sport} logged',{sport:sn})}</span>`;
-  else if(todayIsSportDay)s=`<span style="color:var(--blue);font-weight:700">${trDash('dashboard.status.sport_day','{sport} day',{sport:sn})}</span>`;
+  if(tHasLift&&tHasSport)s=`<span style="color:var(--green);font-weight:700">${trDash('dashboard.status.workout_plus_sport_logged','Treeni + {sport} kirjattu',{sport:sn})}</span>`;
+  else if(tHasLift)s=`<span style="color:var(--green);font-weight:700">${trDash('dashboard.status.workout_logged','Treeni kirjattu')}</span>`;
+  else if(tHasSport)s=`<span style="color:var(--blue);font-weight:700">${trDash('dashboard.status.sport_logged','{sport} kirjattu',{sport:sn})}</span>`;
+  else if(todayIsSportDay)s=`<span style="color:var(--blue);font-weight:700">${trDash('dashboard.status.sport_day','{sport}-päivä',{sport:sn})}</span>`;
   document.getElementById('today-status').innerHTML=s;
 }
 
@@ -417,17 +502,17 @@ function toggleDayDetail(dayIdx){
     const items=[];
     logged.forEach(w=>{
       if(isSportWorkout(w)){
-        items.push(`<div class="day-detail-item"><span style="color:var(--blue)">${w.name||(schedule.sportName||trDash('common.sport','Sport'))}</span></div>`);
+        items.push(`<div class="day-detail-item"><span style="color:var(--blue)">${w.name||(schedule.sportName||trDash('common.sport','Laji'))}</span></div>`);
       } else {
         const names=(w.exercises||[]).map(e=>e.name);
         if(names.length)names.forEach(n=>items.push(`<div class="day-detail-item">${n}</div>`));
-        else items.push(`<div class="day-detail-item" style="color:var(--muted)">${trDash('common.workout','Workout')}</div>`);
+        else items.push(`<div class="day-detail-item" style="color:var(--muted)">${trDash('common.workout','Treeni')}</div>`);
       }
     });
     panel.innerHTML=items.join('');
   } else {
-    const dow=d.getDay(),isSportDay=schedule.sportDays.includes(dow),isPast=d<today&&!d.toDateString()===today.toDateString();
-    const label=isSportDay?trDash('dashboard.status.sport_day','{sport} day',{sport:(schedule.sportName||trDash('common.sport','Sport'))}):trDash('dashboard.no_session_logged','No session logged');
+    const dow=d.getDay(),isSportDay=schedule.sportDays.includes(dow);
+    const label=isSportDay?trDash('dashboard.status.sport_day','{sport}-päivä',{sport:(schedule.sportName||trDash('common.sport','Laji'))}):trDash('dashboard.no_session_logged','Ei kirjattua treeniä');
     panel.innerHTML=`<div class="day-detail-item" style="color:var(--muted)">${label}</div>`;
   }
   panel.style.display='block';
@@ -436,9 +521,10 @@ function toggleDayDetail(dayIdx){
 // DASHBOARD
 function updateDashboard(){
   renderWeekStrip();
+  renderWeekLegend();
   const f=computeFatigue();updateFatigueBars(f);
   const prog=getActiveProgram(),ps=getActiveProgramState();
-  const programName=window.I18N&&I18N.t?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):prog.name||'Training';
+  const programName=window.I18N&&I18N.t?I18N.t('program.'+prog.id+'.name',null,prog.name||'Treeni'):prog.name||'Treeni';
 
   // Training Maxes - dynamic per program
   const tmGrid=document.getElementById('tm-grid');
@@ -449,7 +535,7 @@ function updateDashboard(){
     const tmChanged=!!_lastTmSignature&&tmSignature!==_lastTmSignature;
     _lastTmSignature=tmSignature;
     tmGrid.innerHTML=tms.map((t,i)=>`<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${escapeHtml(t.value)}</div><div class="label">${escapeHtml(dashExerciseName(t.name))}${t.stalled?' ⚠️':''}</div></div>`).join('');
-    if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||trDash('dashboard.training_maxes','Training Maxes');
+    if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||trDash('dashboard.training_maxes','Treenimaksimit');
   }
 
   // Weekly session progress
@@ -459,13 +545,9 @@ function updateDashboard(){
     : (ps.daysPerWeek||3);
   const doneThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
   const sportThisWeek=workouts.filter(w=>isSportWorkout(w)&&new Date(w.date)>=sow).length;
-  const sn=schedule.sportName||trDash('common.sport','Sport');
-  const pillsEl=document.getElementById('session-pills');
-  if(pillsEl)pillsEl.innerHTML=Array.from({length:freq},(_,i)=>`<div class="session-pill${i<doneThisWeek?' done':''}"></div>`).join('');
-  let volText=trDash('dashboard.sessions','{done}/{total} sessions',{done:doneThisWeek,total:freq});
-  if(sportThisWeek)volText+=' · '+sportThisWeek+' '+sn.toLowerCase();
-  if(doneThisWeek>=freq)volText+=' ✓';
-  document.getElementById('volume-text').textContent=volText;
+  const sn=schedule.sportName||trDash('common.sport','Laji');
+  const sessionProgressEl=document.getElementById('session-progress');
+  if(sessionProgressEl)sessionProgressEl.innerHTML=renderSessionProgress(doneThisWeek,freq,sportThisWeek,sn);
 
   // Today's Plan - unified through plan engine
   const recovery=100-f.overall;
@@ -482,23 +564,23 @@ function updateDashboard(){
   const decisionSummary=getTrainingDecisionSummary(trainingDecision,planningContext||{sessionsRemaining:Math.max(0,freq-doneThisWeek),sportLoad:{}});
   const reasonLabels=getTrainingDecisionReasonLabels(trainingDecision);
   const prefSummaryHtml=`<div class="dashboard-plan-meta">${escapeHtml(getTrainingPreferencesSummary(profile))}</div>`;
-  const prefGuidanceHtml=renderPreferenceGuidance(profile,{variant:'compact',detail:bi.modeDesc||'',canPushVolume:recovery>=70&&trainingDecision.action==='train'&&!bi.isDeload});
+  const focusVerdictHtml=renderFocusVerdictCard(profile,{
+    detail:bi.modeDesc||'',
+    canPushVolume:recovery>=70&&trainingDecision.action==='train'&&!bi.isDeload,
+    decisionSummary,
+    reasonLabels
+  });
   const muscleLoadHtml=renderRecentMuscleLoadSummary(4);
   const coachingHtml=renderCoachingInsightsCard(coachingInsights);
-  const startBtn=`<button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="goToLog()">${trDash('dashboard.start_session','Start Session')}</button>`;
-  const reasonChipHtml=reasonLabels.length
-    ? `<div class="dashboard-muscle-chip-row" style="margin-top:10px">${reasonLabels.map(label=>`<div class="dashboard-muscle-chip dashboard-muscle-chip-light"><span class="dashboard-muscle-chip-name">${escapeHtml(label)}</span></div>`).join('')}</div>`
-    : '';
   const shouldShowStart=trainingDecision.action!=='rest';
+  const startSlot=document.getElementById('dashboard-start-session-slot');
+  if(startSlot)startSlot.innerHTML=shouldShowStart?`<div class="dashboard-top-cta"><button class="btn btn-primary" type="button" onclick="goToLog()">${trDash('dashboard.start_session','Aloita sessio')}</button></div>`:'';
   const rec=prefSummaryHtml
-    +prefGuidanceHtml
-    +renderPlanStatus(decisionSummary.title,decisionSummary.body,decisionSummary.tone)
-    +reasonChipHtml
+    +focusVerdictHtml
     +muscleLoadHtml
-    +coachingHtml
-    +(shouldShowStart?startBtn:'');
+    +coachingHtml;
   document.getElementById('next-session-content').innerHTML=rec;
   document.getElementById('next-session-content').parentElement.style.borderColor=shouldShowStart?'var(--accent)':'';
-  document.getElementById('header-sub').textContent=trDash('dashboard.header_sub','{program} - {block} - {week} - Recovery {recovery}%',{program:programName,block:bi.name||'',week:bi.weekLabel||'',recovery});
+  document.getElementById('header-sub').textContent=trDash('dashboard.header_sub','{program} - {block} - {week} - Palautuminen {recovery}%',{program:programName,block:bi.name||'',week:bi.weekLabel||'',recovery});
 }
 
