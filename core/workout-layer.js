@@ -19,7 +19,22 @@ function resetNotStartedView(){
   const prog=getActiveProgram();
   const progName=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):(prog.name||'Training');
   const prefs=normalizeTrainingPreferences(profile);
+  const state=getActiveProgramState();
   if(prefs.sportReadinessCheckEnabled&&!pendingSportReadinessSignal)pendingSportReadinessSignal='none';
+  const planningContext=typeof buildPlanningContext==='function'
+    ? buildPlanningContext({
+      profile,
+      schedule,
+      workouts,
+      activeProgram:prog,
+      activeProgramState:state,
+      fatigue:typeof computeFatigue==='function'?computeFatigue():null,
+      sportContext:getPendingSportReadinessContext()
+    })
+    : null;
+  const trainingDecision=typeof getTodayTrainingDecision==='function'
+    ? getTodayTrainingDecision(planningContext)
+    : null;
   const sportCheckControls=prefs.sportReadinessCheckEnabled
     ? `<div class="sport-readiness-inline">
         <div class="sport-readiness-inline-header">
@@ -34,6 +49,7 @@ function resetNotStartedView(){
         </div>
       </div>`
     : '';
+  const decisionCard=renderWorkoutDecisionPreview(trainingDecision,planningContext);
   document.getElementById('workout-not-started').innerHTML=`
     <div class="divider-label"><span>${escapeHtml((prog.icon||'Lift')+' '+progName+' '+i18nText('common.session','Session'))}</span></div>
     <div class="card" style="padding:20px">
@@ -43,6 +59,7 @@ function resetNotStartedView(){
       <div id="program-day-options" class="program-day-options"></div>
       <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
       ${sportCheckControls}
+      ${decisionCard}
       <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()">${i18nText('workout.start_workout','Start Workout')}</button></div>
     </div>`;
   updateSportReadinessChoiceUI();
@@ -213,6 +230,26 @@ function injectWarmupSets(exercises){
 }
 
 function applyTrainingPreferencesToExercises(exercises,sportContext){
+  if(typeof buildPlanningContext==='function'&&typeof getTodayTrainingDecision==='function'&&typeof buildAdaptiveSessionPlan==='function'){
+    const prog=typeof getActiveProgram==='function'?getActiveProgram():null;
+    const state=typeof getActiveProgramState==='function'?getActiveProgramState():{};
+    const context=buildPlanningContext({
+      profile,
+      schedule,
+      workouts,
+      activeProgram:prog,
+      activeProgramState:state,
+      fatigue:typeof computeFatigue==='function'?computeFatigue():null,
+      sportContext
+    });
+    const decision=getTodayTrainingDecision(context);
+    const adapted=buildAdaptiveSessionPlan({programId:prog?.id,baseSession:exercises,context,decision});
+    return{
+      exercises:adapted.exercises||cloneWorkoutExercises(exercises),
+      changes:[...(adapted.adaptationReasons||[])],
+      equipmentHint:adapted.equipmentHint||''
+    };
+  }
   const prefs=normalizeTrainingPreferences(profile);
   const next=cloneWorkoutExercises(exercises);
   const changes=[];
@@ -277,6 +314,66 @@ function applyTrainingPreferencesToExercises(exercises,sportContext){
   };
 }
 
+function getWorkoutDecisionSummary(decision,context){
+  if(!decision||!context)return null;
+  const sportName=context.sportLoad?.sportName||i18nText('common.sport','Sport');
+  if(decision.action==='deload'){
+    return{
+      title:i18nText('workout.plan.deload','Deload recommendation'),
+      copy:i18nText('workout.plan.deload_copy','Recovery is low, so keep today lighter than normal and reduce grinding.'),
+      reasons:decision.reasonCodes||[]
+    };
+  }
+  if(decision.action==='train_light'){
+    return{
+      title:i18nText('workout.plan.train_light','Conservative training day'),
+      copy:i18nText('workout.plan.train_light_copy','Train today, but keep the effort conservative and let the session breathe.'),
+      reasons:decision.reasonCodes||[]
+    };
+  }
+  if(decision.action==='shorten'){
+    return{
+      title:i18nText('workout.plan.shorten','Short session plan'),
+      copy:i18nText('workout.plan.shorten_copy','Main work first. Accessories will be trimmed to fit your time cap.'),
+      reasons:decision.reasonCodes||[]
+    };
+  }
+  if(decision.restrictionFlags.includes('avoid_heavy_legs')){
+    return{
+      title:i18nText('workout.plan.sport_load','Sport-aware session'),
+      copy:i18nText('workout.plan.sport_load_copy','{sport} load is high around today, so heavier leg work may be trimmed.',{sport:sportName}),
+      reasons:decision.reasonCodes||[]
+    };
+  }
+  return{
+    title:i18nText('workout.plan.normal','Normal training day'),
+    copy:i18nText('workout.plan.normal_copy','Your plan can run normally today.'),
+    reasons:decision.reasonCodes||[]
+  };
+}
+
+function renderWorkoutDecisionPreview(decision,context){
+  const summary=getWorkoutDecisionSummary(decision,context);
+  if(!summary)return'';
+  const reasonMap={
+    low_recovery:i18nText('dashboard.reason.low_recovery','Low recovery'),
+    conservative_recovery:i18nText('dashboard.reason.conservative','Recovery caution'),
+    tight_time_budget:i18nText('dashboard.reason.time_budget','35 min cap'),
+    sport_load:i18nText('dashboard.reason.sport_load','Sport load'),
+    equipment_constraint:i18nText('dashboard.reason.equipment','Equipment'),
+    progression_stall:i18nText('dashboard.reason.stall','Progress stall'),
+    guided_beginner:i18nText('dashboard.reason.guided','Guided path'),
+    week_complete:i18nText('dashboard.reason.complete','Week complete')
+  };
+  const reasons=(summary.reasons||[]).map(code=>reasonMap[code]).filter(Boolean);
+  return `<div class="workout-decision-card">
+    <div class="workout-decision-kicker">${escapeHtml(i18nText('workout.plan.kicker',"Today's decision"))}</div>
+    <div class="workout-decision-title">${escapeHtml(summary.title)}</div>
+    <div class="workout-decision-copy">${escapeHtml(summary.copy)}</div>
+    ${reasons.length?`<div class="workout-decision-reasons">${reasons.map(reason=>`<div class="workout-decision-chip">${escapeHtml(reason)}</div>`).join('')}</div>`:''}
+  </div>`;
+}
+
 // escapeHtml() is defined globally in i18n-layer.js (loaded first)
 
 function displayExerciseName(input){
@@ -338,7 +435,15 @@ function startWorkout(){
 function beginWorkoutStart(sportContext){
   const prog=getActiveProgram();
   const state=getActiveProgramState();
-  const selectedOption=document.getElementById('program-day-select')?.value;
+  let selectedOption=document.getElementById('program-day-select')?.value;
+  const fatigue=typeof computeFatigue==='function'?computeFatigue():null;
+  const planningContext=typeof buildPlanningContext==='function'
+    ? buildPlanningContext({profile,schedule,workouts,activeProgram:prog,activeProgramState:state,fatigue,sportContext})
+    : null;
+  const trainingDecision=typeof getTodayTrainingDecision==='function'
+    ? getTodayTrainingDecision(planningContext)
+    : null;
+  if(!selectedOption&&trainingDecision?.recommendedSessionOption)selectedOption=trainingDecision.recommendedSessionOption;
 
   const builtExercises=(prog.buildSession(selectedOption,state)||[]).map(withResolvedExerciseId);
   const sessionPrefs=applyTrainingPreferencesToExercises(builtExercises,sportContext);
@@ -359,6 +464,9 @@ function beginWorkoutStart(sportContext){
     programMode:state.mode||undefined,
     programLabel:label,
     sportContext:sportContext||undefined,
+    planningDecision:trainingDecision||undefined,
+    planningContext:planningContext||undefined,
+    adaptationReasons:sessionPrefs.changes||[],
     sessionDescription,
     exercises,
     startTime:Date.now()
@@ -378,11 +486,17 @@ function beginWorkoutStart(sportContext){
   startWorkoutTimer();renderExercises();
   const progName=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):(prog.name||'Training');
   showToast(bi.isDeload?i18nText('workout.deload_light','Deload - keep it light'):progName,bi.isDeload?'var(--blue)':'var(--purple)');
+  const decisionSummary=getWorkoutDecisionSummary(trainingDecision,planningContext);
+  if(decisionSummary&&trainingDecision&&(trainingDecision.action!=='train'||trainingDecision.restrictionFlags?.includes('avoid_heavy_legs'))){
+    setTimeout(()=>showToast(decisionSummary.title,'var(--blue)'),700);
+  }
   if(sessionPrefs.changes.length){
-    setTimeout(()=>showToast(sessionPrefs.changes[0],'var(--blue)'),900);
+    setTimeout(()=>showToast(sessionPrefs.changes[0],'var(--blue)'),trainingDecision&&(trainingDecision.action!=='train'||trainingDecision.restrictionFlags?.includes('avoid_heavy_legs'))?1800:900);
   }
   if(sessionPrefs.equipmentHint){
-    setTimeout(()=>showToast(sessionPrefs.equipmentHint,'var(--blue)'),sessionPrefs.changes.length?2600:900);
+    const baseDelay=sessionPrefs.changes.length?2600:900;
+    const decisionDelay=trainingDecision&&(trainingDecision.action!=='train'||trainingDecision.restrictionFlags?.includes('avoid_heavy_legs'))?900:0;
+    setTimeout(()=>showToast(sessionPrefs.equipmentHint,'var(--blue)'),baseDelay+decisionDelay);
   }
 
   // Sport warning for leg-heavy days

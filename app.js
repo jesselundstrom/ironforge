@@ -21,7 +21,7 @@ let currentUser=null;
 // STATE (persisted via localStorage)
 let workouts=[];
 let schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};
-let profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences()};
+let profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences(),coaching:getDefaultCoachingProfile()};
 let activeWorkout=null, workoutTimer=null, workoutSeconds=0;
 let restInterval=null, restSecondsLeft=0, restTotal=0, restDuration=120, restEndsAt=0, restHideTimeout=null;
 let pendingRPECallback=null;
@@ -502,6 +502,369 @@ function renderTrainingPreferencesSummary(){
   if(!summaryEl)return;
   summaryEl.textContent=getTrainingPreferencesSummary(profile);
 }
+
+const ONBOARDING_JOINT_FLAGS=[
+  {value:'shoulder',label:'Shoulder'},
+  {value:'knee',label:'Knee'},
+  {value:'low_back',label:'Low Back'}
+];
+const ONBOARDING_MOVEMENT_TAGS=[
+  {value:'squat',label:'Squat'},
+  {value:'hinge',label:'Hinge'},
+  {value:'vertical_press',label:'Overhead Press'},
+  {value:'single_leg',label:'Single-Leg'}
+];
+let onboardingState={step:0,draft:null,recommendation:null,retryTimer:null};
+
+function getOnboardingDraft(){
+  if(onboardingState.draft)return onboardingState.draft;
+  const prefs=normalizeTrainingPreferences(profile);
+  const coaching=normalizeCoachingProfile(profile);
+  onboardingState.draft={
+    goal:prefs.goal,
+    experienceLevel:coaching.experienceLevel,
+    trainingDaysPerWeek:prefs.trainingDaysPerWeek,
+    sessionMinutes:prefs.sessionMinutes,
+    equipmentAccess:prefs.equipmentAccess,
+    sportName:coaching.sportProfile?.name||schedule.sportName||'',
+    inSeason:coaching.sportProfile?.inSeason===true,
+    sportSessionsPerWeek:coaching.sportProfile?.sessionsPerWeek||schedule.sportDays?.length||0,
+    jointFlags:[...(coaching.limitations?.jointFlags||[])],
+    avoidMovementTags:[...(coaching.limitations?.avoidMovementTags||[])],
+    avoidExercisesText:(coaching.limitations?.avoidExerciseIds||[]).join(', '),
+    guidanceMode:coaching.guidanceMode
+  };
+  return onboardingState.draft;
+}
+
+function resetOnboardingState(options){
+  const opts=options||{};
+  onboardingState.step=0;
+  onboardingState.recommendation=null;
+  onboardingState.draft=opts.keepDraft?onboardingState.draft:null;
+}
+
+function toggleOnboardingArrayValue(key,value){
+  const draft=getOnboardingDraft();
+  const current=new Set(draft[key]||[]);
+  if(current.has(value))current.delete(value);
+  else current.add(value);
+  draft[key]=[...current];
+  renderOnboarding();
+}
+
+function setOnboardingValue(key,value){
+  const draft=getOnboardingDraft();
+  draft[key]=value;
+}
+
+function parseOnboardingExerciseIds(text){
+  return String(text||'')
+    .split(',')
+    .map(part=>part.trim())
+    .filter(Boolean)
+    .map(name=>{
+      if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.resolveExerciseId){
+        return EXERCISE_LIBRARY.resolveExerciseId(name)||'';
+      }
+      return name;
+    })
+    .filter(Boolean);
+}
+
+function getOnboardingPreviewProfile(){
+  const draft=getOnboardingDraft();
+  const nextProfile=cloneJson(profile)||{};
+  nextProfile.preferences=normalizeTrainingPreferences({
+    ...nextProfile,
+    preferences:{
+      ...(nextProfile.preferences||getDefaultTrainingPreferences()),
+      goal:draft.goal,
+      trainingDaysPerWeek:parseInt(draft.trainingDaysPerWeek,10)||3,
+      sessionMinutes:parseInt(draft.sessionMinutes,10)||60,
+      equipmentAccess:draft.equipmentAccess
+    }
+  });
+  nextProfile.coaching=normalizeCoachingProfile({
+    ...nextProfile,
+    coaching:{
+      ...(nextProfile.coaching||getDefaultCoachingProfile()),
+      experienceLevel:draft.experienceLevel,
+      guidanceMode:draft.guidanceMode,
+      sportProfile:{
+        name:String(draft.sportName||'').trim(),
+        inSeason:draft.inSeason===true,
+        sessionsPerWeek:parseInt(draft.sportSessionsPerWeek,10)||0
+      },
+      limitations:{
+        jointFlags:[...(draft.jointFlags||[])],
+        avoidMovementTags:[...(draft.avoidMovementTags||[])],
+        avoidExerciseIds:parseOnboardingExerciseIds(draft.avoidExercisesText)
+      },
+      exercisePreferences:{
+        preferredExerciseIds:[],
+        excludedExerciseIds:parseOnboardingExerciseIds(draft.avoidExercisesText)
+      },
+      onboardingCompleted:false
+    }
+  });
+  return nextProfile;
+}
+
+function buildOnboardingRecommendation(){
+  onboardingState.recommendation=getInitialPlanRecommendation({
+    profile:getOnboardingPreviewProfile(),
+    schedule:{...schedule,sportName:String(getOnboardingDraft().sportName||schedule.sportName||'').trim()||schedule.sportName}
+  });
+  return onboardingState.recommendation;
+}
+
+function getOnboardingStepCount(){return 5;}
+
+function renderOnboardingProgress(){
+  return `<div class="onboarding-progress">${Array.from({length:getOnboardingStepCount()},(_,idx)=>`<div class="onboarding-progress-pill${idx<=onboardingState.step?' active':''}"></div>`).join('')}</div>`;
+}
+
+function renderOnboardingOptionButton(isActive,title,description,onClick){
+  return `<button type="button" class="onboarding-option-btn${isActive?' active':''}" onclick="${onClick}">
+    <div class="onboarding-option-title">${escapeHtml(title)}</div>
+    <div class="onboarding-option-desc">${escapeHtml(description)}</div>
+  </button>`;
+}
+
+function renderOnboardingSelectionStep(){
+  const draft=getOnboardingDraft();
+  if(onboardingState.step===0){
+    return `
+      <div class="onboarding-grid">
+        <div>
+          <label>Primary Goal</label>
+          <div class="onboarding-option-grid">
+            ${renderOnboardingOptionButton(draft.goal==='strength','Strength','Improve main lifts and progression.',"setOnboardingValue('goal','strength');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.goal==='hypertrophy','Hypertrophy','Bias training toward muscle gain and volume.',"setOnboardingValue('goal','hypertrophy');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.goal==='general_fitness','General Fitness','Keep training sustainable and broadly useful.',"setOnboardingValue('goal','general_fitness');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.goal==='sport_support','Sport Support','Fit lifting around outside sport or cardio load.',"setOnboardingValue('goal','sport_support');renderOnboarding()")}
+          </div>
+        </div>
+        <div>
+          <label>Experience Level</label>
+          <div class="onboarding-option-grid">
+            ${renderOnboardingOptionButton(draft.experienceLevel==='beginner','Beginner','You want simple defaults and low complexity.',"setOnboardingValue('experienceLevel','beginner');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.experienceLevel==='returning','Returning','You have trained before, but want a stable ramp back in.',"setOnboardingValue('experienceLevel','returning');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.experienceLevel==='intermediate','Intermediate','You can handle more structure and moderate autoregulation.',"setOnboardingValue('experienceLevel','intermediate');renderOnboarding()")}
+            ${renderOnboardingOptionButton(draft.experienceLevel==='advanced','Advanced','You want a higher ceiling and more nuanced planning.',"setOnboardingValue('experienceLevel','advanced');renderOnboarding()")}
+          </div>
+        </div>
+      </div>`;
+  }
+  if(onboardingState.step===1){
+    return `
+      <div class="onboarding-grid">
+        <div class="onboarding-inline-grid">
+          <div>
+            <label>Training Frequency</label>
+            <select onchange="setOnboardingValue('trainingDaysPerWeek',parseInt(this.value,10));renderOnboarding()">
+              ${[2,3,4,5,6].map(value=>`<option value="${value}"${value===parseInt(draft.trainingDaysPerWeek,10)?' selected':''}>${value} sessions / week</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label>Session Length</label>
+            <select onchange="setOnboardingValue('sessionMinutes',parseInt(this.value,10));renderOnboarding()">
+              ${[30,45,60,75,90].map(value=>`<option value="${value}"${value===parseInt(draft.sessionMinutes,10)?' selected':''}>${value} min</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label>Equipment Access</label>
+          <select onchange="setOnboardingValue('equipmentAccess',this.value);renderOnboarding()">
+            <option value="full_gym"${draft.equipmentAccess==='full_gym'?' selected':''}>Full Gym</option>
+            <option value="basic_gym"${draft.equipmentAccess==='basic_gym'?' selected':''}>Basic Gym</option>
+            <option value="home_gym"${draft.equipmentAccess==='home_gym'?' selected':''}>Home Gym</option>
+            <option value="minimal"${draft.equipmentAccess==='minimal'?' selected':''}>Minimal Equipment</option>
+          </select>
+        </div>
+      </div>`;
+  }
+  if(onboardingState.step===2){
+    return `
+      <div class="onboarding-grid">
+        <div class="onboarding-inline-grid">
+          <div>
+            <label>Sport or Cardio</label>
+            <input type="text" value="${escapeHtml(draft.sportName||'')}" placeholder="e.g. Hockey, Running, Soccer" oninput="setOnboardingValue('sportName',this.value)">
+          </div>
+          <div>
+            <label>Sessions / Week</label>
+            <select onchange="setOnboardingValue('sportSessionsPerWeek',parseInt(this.value,10));renderOnboarding()">
+              ${[0,1,2,3,4,5,6,7].map(value=>`<option value="${value}"${value===parseInt(draft.sportSessionsPerWeek,10)?' selected':''}>${value}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <label class="toggle-row" for="onboarding-in-season" style="margin-top:0">
+          <div>
+            <div class="toggle-row-title">In season</div>
+            <div class="toggle-row-sub">Use a more conservative starting point when sport is a real load right now.</div>
+          </div>
+          <div class="toggle-switch">
+            <input type="checkbox" id="onboarding-in-season" ${draft.inSeason?'checked':''} onchange="setOnboardingValue('inSeason',this.checked)">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </div>
+        </label>
+        <div>
+          <label>Joint Flags</label>
+          <div class="onboarding-chip-row">
+            ${ONBOARDING_JOINT_FLAGS.map(item=>`<button type="button" class="onboarding-chip${(draft.jointFlags||[]).includes(item.value)?' active':''}" onclick="toggleOnboardingArrayValue('jointFlags','${item.value}')">${escapeHtml(item.label)}</button>`).join('')}
+          </div>
+        </div>
+        <div>
+          <label>Avoid Movement Patterns</label>
+          <div class="onboarding-chip-row">
+            ${ONBOARDING_MOVEMENT_TAGS.map(item=>`<button type="button" class="onboarding-chip${(draft.avoidMovementTags||[]).includes(item.value)?' active':''}" onclick="toggleOnboardingArrayValue('avoidMovementTags','${item.value}')">${escapeHtml(item.label)}</button>`).join('')}
+          </div>
+        </div>
+        <div>
+          <label>Avoided Exercises</label>
+          <textarea rows="3" placeholder="Comma-separated exercise names" oninput="setOnboardingValue('avoidExercisesText',this.value)">${escapeHtml(draft.avoidExercisesText||'')}</textarea>
+          <div class="onboarding-field-help">Used to exclude obvious no-go exercises from the first recommendation and future session adaptation.</div>
+        </div>
+      </div>`;
+  }
+  if(onboardingState.step===3){
+    return `
+      <div class="onboarding-grid">
+        <div class="onboarding-option-grid">
+          ${renderOnboardingOptionButton(draft.guidanceMode==='guided','Tell me what to do','Strong default recommendations, less manual decision-making.',"setOnboardingValue('guidanceMode','guided');renderOnboarding()")}
+          ${renderOnboardingOptionButton(draft.guidanceMode==='balanced','Balanced','Good defaults, but still leaves room to steer the plan.',"setOnboardingValue('guidanceMode','balanced');renderOnboarding()")}
+          ${renderOnboardingOptionButton(draft.guidanceMode==='self_directed','Give me control','Lighter guidance and more room for manual choices.',"setOnboardingValue('guidanceMode','self_directed');renderOnboarding()")}
+        </div>
+      </div>`;
+  }
+  const recommendation=onboardingState.recommendation||buildOnboardingRecommendation();
+  const program=PROGRAMS?.[recommendation.programId];
+  const programName=(window.I18N&&I18N.t)?I18N.t('program.'+recommendation.programId+'.name',null,program?.name||recommendation.programId):program?.name||recommendation.programId;
+  return `
+    <div class="onboarding-grid">
+      <div class="onboarding-card">
+        <div class="onboarding-kicker">Recommended Program</div>
+        <div class="onboarding-title" style="font-size:20px">${escapeHtml(programName)}</div>
+        <div class="onboarding-sub" style="margin-top:8px">This is the best starting point based on your goal, schedule, sport load, and desired guidance level.</div>
+      </div>
+      <div class="onboarding-card">
+        <div class="card-title" style="margin-bottom:10px">Why this fits</div>
+        <div class="onboarding-why-list">${(recommendation.why||[]).map(item=>`<div class="onboarding-why-item">• ${escapeHtml(item)}</div>`).join('')}</div>
+      </div>
+      <div class="onboarding-card">
+        <div class="card-title" style="margin-bottom:10px">Your first week</div>
+        <div class="onboarding-week-list">${(recommendation.weekTemplate||[]).map(item=>`<div class="onboarding-week-item"><span>${escapeHtml(item.dayLabel)} · ${escapeHtml(item.type)}</span><span class="onboarding-week-meta">${escapeHtml(item.durationHint)}</span></div>`).join('')}</div>
+      </div>
+      <div class="onboarding-card">
+        <div class="card-title" style="margin-bottom:10px">Start with this</div>
+        <div class="onboarding-note">First session option: ${escapeHtml(String(recommendation.firstSessionOption||'1'))}</div>
+        ${(recommendation.initialAdjustments||[]).length?`<div class="onboarding-why-list" style="margin-top:10px">${recommendation.initialAdjustments.map(item=>`<div class="onboarding-why-item">• ${escapeHtml(item)}</div>`).join('')}</div>`:''}
+      </div>
+    </div>`;
+}
+
+function renderOnboarding(){
+  const modal=document.getElementById('onboarding-modal');
+  const container=document.getElementById('onboarding-content');
+  if(!modal||!container)return;
+  const titleMap=[
+    'Build your starting point',
+    'Set your training envelope',
+    'Add sport and constraints',
+    'Choose your guidance level',
+    'Start from a real plan'
+  ];
+  const subMap=[
+    'This gives the engine enough signal to recommend the right starting plan.',
+    'These limits drive frequency, session trimming, and program fit.',
+    'Tell the engine what has to be respected, not just what sounds ideal.',
+    'This sets how opinionated the app should be when making decisions.',
+    'You should leave onboarding with a clear program, first week, and first session.'
+  ];
+  const primaryLabel=onboardingState.step===getOnboardingStepCount()-1?'Use This Plan':'Continue';
+  const secondaryLabel=onboardingState.step===0?'Not now':'Back';
+  container.innerHTML=`
+    <div class="onboarding-flow">
+      ${renderOnboardingProgress()}
+      <div>
+        <div class="onboarding-kicker">Guided Setup</div>
+        <div class="onboarding-title">${escapeHtml(titleMap[onboardingState.step]||'Guided setup')}</div>
+        <div class="onboarding-sub">${escapeHtml(subMap[onboardingState.step]||'')}</div>
+      </div>
+      ${renderOnboardingSelectionStep()}
+      <div class="onboarding-actions">
+        <button class="btn btn-secondary" type="button" onclick="${onboardingState.step===0?'closeOnboardingModal()':'goToOnboardingStep('+(onboardingState.step-1)+')'}">${escapeHtml(secondaryLabel)}</button>
+        <button class="btn btn-primary" type="button" onclick="${onboardingState.step===getOnboardingStepCount()-1?'completeOnboarding()':'advanceOnboarding()'}">${escapeHtml(primaryLabel)}</button>
+      </div>
+    </div>`;
+}
+
+function goToOnboardingStep(step){
+  onboardingState.step=Math.max(0,Math.min(getOnboardingStepCount()-1,step));
+  renderOnboarding();
+}
+
+function advanceOnboarding(){
+  if(onboardingState.step===getOnboardingStepCount()-2)buildOnboardingRecommendation();
+  goToOnboardingStep(onboardingState.step+1);
+}
+
+function closeOnboardingModal(){
+  document.getElementById('onboarding-modal')?.classList.remove('active');
+}
+
+async function completeOnboarding(){
+  const recommendation=onboardingState.recommendation||buildOnboardingRecommendation();
+  const nextProfile=getOnboardingPreviewProfile();
+  nextProfile.coaching=normalizeCoachingProfile({
+    ...nextProfile,
+    coaching:{...nextProfile.coaching,onboardingCompleted:true}
+  });
+  profile.preferences=nextProfile.preferences;
+  profile.coaching=nextProfile.coaching;
+  if(String(getOnboardingDraft().sportName||'').trim()){
+    schedule.sportName=String(getOnboardingDraft().sportName||'').trim();
+  }
+  profile.activeProgram=recommendation.programId;
+  if(!profile.programs)profile.programs={};
+  if(!profile.programs[recommendation.programId]&&PROGRAMS?.[recommendation.programId]?.getInitialState){
+    profile.programs[recommendation.programId]=PROGRAMS[recommendation.programId].getInitialState();
+  }
+  normalizeProfileProgramStateMap(profile);
+  closeOnboardingModal();
+  await saveScheduleData();
+  await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
+  initSettings();
+  if(!activeWorkout)resetNotStartedView();
+  updateProgramDisplay();
+  updateDashboard();
+  showToast('Plan created and onboarding completed','var(--green)');
+  goToLog();
+}
+
+function maybeOpenOnboarding(options){
+  const opts=options||{};
+  clearTimeout(onboardingState.retryTimer);
+  if(document.body.classList.contains('login-active'))return;
+  if(activeWorkout)return;
+  const coaching=normalizeCoachingProfile(profile);
+  if(!opts.force&&coaching.onboardingCompleted===true)return;
+  if(!window.PROGRAMS||!Object.keys(PROGRAMS).length){
+    onboardingState.retryTimer=setTimeout(()=>maybeOpenOnboarding(opts),120);
+    return;
+  }
+  if(opts.force)resetOnboardingState();
+  else if(!onboardingState.draft)resetOnboardingState();
+  document.getElementById('onboarding-modal')?.classList.add('active');
+  renderOnboarding();
+}
+
+function restartOnboarding(){
+  resetOnboardingState();
+  maybeOpenOnboarding({force:true});
+}
 function closeProgramSetupSheet(e){
   if(!e||e.target.id==='program-setup-sheet'){
     document.getElementById('program-setup-sheet').classList.remove('active');
@@ -661,6 +1024,7 @@ function importData(event){
         if(data.profile) profile=data.profile;
         cleanupLegacyProfileFields(profile);
         normalizeTrainingPreferences(profile);
+        normalizeCoachingProfile(profile);
         await replaceWorkoutTableSnapshot(workouts);
         await saveWorkouts();await saveScheduleData();await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
         showToast(tr('toast.data_imported','Data imported! Reloading...'),"var(--green)");
@@ -675,11 +1039,13 @@ function importData(event){
 async function clearAllData(){
   try{localStorage.removeItem('ic_workouts');localStorage.removeItem('ic_schedule');localStorage.removeItem('ic_profile');}catch(e){}
   workouts=[];schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};
-  profile={defaultRest:120,activeProgram:'forge',programs:{},language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences()};
+  profile={defaultRest:120,activeProgram:'forge',programs:{},language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences(),coaching:getDefaultCoachingProfile()};
   Object.values(PROGRAMS).forEach(prog=>{profile.programs[prog.id]=prog.getInitialState();});
   await replaceWorkoutTableSnapshot([]);
   await saveWorkouts();await saveScheduleData();await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
-  updateDashboard();showToast(tr('toast.all_data_cleared','All data cleared'),'var(--accent)');
+  updateDashboard();
+  if(typeof maybeOpenOnboarding==='function')maybeOpenOnboarding({force:true});
+  showToast(tr('toast.all_data_cleared','All data cleared'),'var(--accent)');
 }
 
 function updateLanguageDependentUI(){
@@ -704,6 +1070,9 @@ function updateLanguageDependentUI(){
   }
   if(document.getElementById('name-modal')?.classList.contains('active')&&typeof renderExerciseCatalog==='function'){
     renderExerciseCatalog();
+  }
+  if(document.getElementById('onboarding-modal')?.classList.contains('active')){
+    renderOnboarding();
   }
   else if(document.getElementById('page-log')?.classList.contains('active'))resetNotStartedView();
 }

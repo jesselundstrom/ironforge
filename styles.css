@@ -217,6 +217,7 @@ select optgroup{font-weight:700}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:300;display:none;align-items:flex-end;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .modal-overlay.active{display:flex}
 #name-modal{z-index:320}
+.onboarding-sheet{display:flex;flex-direction:column;min-height:min(88vh,calc(var(--app-vh) - var(--sat)));max-height:min(92vh,calc(var(--app-vh) - var(--sat)));padding-bottom:calc(22px + var(--sab))}
 .modal-sheet{background:var(--surface);border-radius:24px 24px 0 0;padding:24px 16px 40px;width:100%;max-width:520px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.08);box-shadow:0 -8px 40px rgba(0,0,0,0.5)}
 .modal-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto 16px}
 .modal-title{font-size:17px;font-weight:800}
@@ -241,6 +242,37 @@ select optgroup{font-weight:700}
 .catalog-item-meta{font-size:11px;line-height:1.35;color:var(--muted);font-family:'JetBrains Mono',monospace}
 .catalog-empty-state{padding:22px 10px 14px;text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
 .catalog-footer{margin-top:10px}
+.onboarding-flow{display:grid;gap:16px;min-height:0}
+.onboarding-kicker{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold);font-weight:800}
+.onboarding-title{font-size:24px;line-height:1.1;font-weight:900;letter-spacing:-0.04em}
+.onboarding-sub{font-size:13px;line-height:1.55;color:var(--muted)}
+.onboarding-progress{display:flex;gap:8px}
+.onboarding-progress-pill{height:6px;flex:1;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden}
+.onboarding-progress-pill.active{background:linear-gradient(90deg,var(--accent),var(--gold))}
+.onboarding-grid{display:grid;gap:12px}
+.onboarding-option-grid{display:grid;gap:10px}
+.onboarding-option-btn{width:100%;text-align:left;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);font-family:inherit}
+.onboarding-option-btn.active{border-color:rgba(255,122,58,0.42);background:linear-gradient(180deg,rgba(255,122,58,0.13),rgba(255,122,58,0.05))}
+.onboarding-option-title{font-size:14px;font-weight:800}
+.onboarding-option-desc{font-size:12px;line-height:1.45;color:var(--muted);margin-top:4px}
+.onboarding-chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.onboarding-chip{padding:10px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text);font-size:12px;font-weight:700;font-family:inherit}
+.onboarding-chip.active{border-color:rgba(59,130,246,0.32);background:rgba(59,130,246,0.14);color:#d9e7ff}
+.onboarding-card{padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))}
+.onboarding-why-list,.onboarding-week-list{display:grid;gap:8px}
+.onboarding-why-item,.onboarding-week-item{font-size:13px;line-height:1.5;color:var(--text)}
+.onboarding-week-item{display:flex;justify-content:space-between;gap:12px}
+.onboarding-week-meta{color:var(--muted);font-size:12px}
+.onboarding-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.onboarding-inline-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.onboarding-field-help{font-size:11px;color:var(--muted);line-height:1.5;margin-top:-4px}
+.onboarding-note{font-size:12px;color:var(--muted);line-height:1.55}
+.workout-decision-card{margin-top:12px;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.018))}
+.workout-decision-kicker{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);font-weight:800;margin-bottom:6px}
+.workout-decision-title{font-size:14px;font-weight:800;color:var(--text)}
+.workout-decision-copy{font-size:12px;line-height:1.5;color:var(--muted);margin-top:4px}
+.workout-decision-reasons{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.workout-decision-chip{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.2);color:#cfe2ff;font-size:10px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase}
 .rpe-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .sport-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .sport-check-btn{min-height:58px;font-size:13px;line-height:1.25;padding:12px}

@@ -45,6 +45,12 @@ function cloneJson(value){
   return JSON.parse(JSON.stringify(value));
 }
 
+function arrayifyProfileValue(value){
+  if(Array.isArray(value))return value;
+  if(value===undefined||value===null||value==='')return [];
+  return [value];
+}
+
 function uniqueDocKeys(keys){
   return [...new Set((keys||[]).filter(Boolean))];
 }
@@ -137,6 +143,66 @@ function normalizeTrainingPreferences(profileLike){
   next.warmupSetsEnabled=next.warmupSetsEnabled===true;
   next.notes=String(next.notes||'').trim().slice(0,500);
   profileLike.preferences=next;
+  return next;
+}
+
+function getDefaultCoachingProfile(){
+  return{
+    experienceLevel:'returning',
+    guidanceMode:'balanced',
+    sportProfile:{
+      name:'',
+      inSeason:false,
+      sessionsPerWeek:0
+    },
+    limitations:{
+      jointFlags:[],
+      avoidMovementTags:[],
+      avoidExerciseIds:[]
+    },
+    exercisePreferences:{
+      preferredExerciseIds:[],
+      excludedExerciseIds:[]
+    },
+    onboardingCompleted:false
+  };
+}
+
+function normalizeCoachingProfile(profileLike){
+  if(!profileLike||typeof profileLike!=='object')return getDefaultCoachingProfile();
+  const defaults=getDefaultCoachingProfile();
+  const incoming=profileLike.coaching&&typeof profileLike.coaching==='object'?profileLike.coaching:{};
+  const next={
+    ...defaults,
+    ...incoming,
+    sportProfile:{
+      ...defaults.sportProfile,
+      ...(incoming.sportProfile||{})
+    },
+    limitations:{
+      ...defaults.limitations,
+      ...(incoming.limitations||{})
+    },
+    exercisePreferences:{
+      ...defaults.exercisePreferences,
+      ...(incoming.exercisePreferences||{})
+    }
+  };
+  const allowedExperience=new Set(['beginner','returning','intermediate','advanced']);
+  const allowedGuidance=new Set(['guided','balanced','self_directed']);
+  if(!allowedExperience.has(next.experienceLevel))next.experienceLevel=defaults.experienceLevel;
+  if(!allowedGuidance.has(next.guidanceMode))next.guidanceMode=defaults.guidanceMode;
+  next.sportProfile.name=String(next.sportProfile.name||'').trim().slice(0,60);
+  next.sportProfile.inSeason=next.sportProfile.inSeason===true;
+  const sportSessions=parseInt(next.sportProfile.sessionsPerWeek,10);
+  next.sportProfile.sessionsPerWeek=Number.isFinite(sportSessions)?Math.max(0,Math.min(7,sportSessions)):0;
+  next.limitations.jointFlags=[...new Set(arrayifyProfileValue(next.limitations.jointFlags).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.limitations.avoidMovementTags=[...new Set(arrayifyProfileValue(next.limitations.avoidMovementTags).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.limitations.avoidExerciseIds=[...new Set(arrayifyProfileValue(next.limitations.avoidExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.exercisePreferences.preferredExerciseIds=[...new Set(arrayifyProfileValue(next.exercisePreferences.preferredExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.exercisePreferences.excludedExerciseIds=[...new Set(arrayifyProfileValue(next.exercisePreferences.excludedExerciseIds).map(value=>String(value||'').trim()).filter(Boolean))];
+  next.onboardingCompleted=next.onboardingCompleted===true;
+  profileLike.coaching=next;
   return next;
 }
 
@@ -498,6 +564,7 @@ async function loadData(options){
   }
   cleanupLegacyProfileFields(profile);
   normalizeTrainingPreferences(profile);
+  normalizeCoachingProfile(profile);
   normalizeProfileProgramStateMap(profile);
   const normalizedWorkouts=normalizeWorkoutRecords(workouts);
   workouts=normalizedWorkouts.items;
@@ -529,6 +596,7 @@ async function loadData(options){
   buildExerciseIndex();
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
   updateDashboard();
+  if(typeof maybeOpenOnboarding==='function')maybeOpenOnboarding();
 }
 
 async function saveWorkouts(){ persistLocalWorkoutsCache(); }
@@ -614,6 +682,7 @@ function buildStateFromProfileDocuments(rows,fallbackProfile,fallbackSchedule){
     }
   });
   cleanupLegacyProfileFields(nextProfile);
+  normalizeCoachingProfile(nextProfile);
   return{profile:nextProfile,schedule:resolvedSchedule,rowsByKey};
 }
 
@@ -826,6 +895,7 @@ function refreshSyncedUI(options){
   if(!activeWorkout&&document.getElementById('page-log')?.classList.contains('active')&&typeof resetNotStartedView==='function'){
     resetNotStartedView();
   }
+  if(typeof maybeOpenOnboarding==='function')maybeOpenOnboarding();
   if(opts.toast&&typeof showToast==='function'){
     showToast(i18nText('toast.synced_other_device','Synced latest changes from another device'),'var(--blue)');
   }

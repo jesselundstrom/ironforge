@@ -113,6 +113,14 @@
   </div>
 </div>
 
+<!-- ONBOARDING MODAL -->
+<div class="modal-overlay" id="onboarding-modal">
+  <div class="modal-sheet onboarding-sheet">
+    <div class="modal-handle"></div>
+    <div id="onboarding-content"></div>
+  </div>
+</div>
+
 <main class="content">
 
 <div class="header">
@@ -331,6 +339,7 @@
         <label style="margin-top:12px" data-i18n="settings.preferences.notes">Notes, limitations, preferences</label>
         <textarea id="training-preferences-notes" rows="4" data-i18n-placeholder="settings.preferences.notes_placeholder" placeholder="e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap"></textarea>
         <button class="btn btn-primary" style="margin-top:14px" onclick="saveTrainingPreferences()" data-i18n="settings.preferences.save">Save Preferences</button>
+        <button class="btn btn-secondary" style="margin-top:10px" onclick="restartOnboarding()">Run Guided Setup Again</button>
       </div>
     </details>
   </div>
@@ -461,6 +470,7 @@
 <script src="core/exercise-library.js"></script>
 <script src="core/data-layer.js"></script>
 <script src="core/program-layer.js"></script>
+<script src="core/plan-engine.js"></script>
 <script src="core/dashboard-layer.js"></script>
 <script src="core/history-layer.js"></script>
 <script src="core/workout-layer.js"></script>
