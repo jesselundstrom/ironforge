@@ -748,6 +748,12 @@ function getCoachingInsights(input){
     const workoutProgramId=typeof getWorkoutProgramId==='function'?getWorkoutProgramId(workout):workout?.program;
     return workoutProgramId===context.activeProgramId;
   });
+  const recentProgramWorkouts90=(context.workouts||[]).filter(workout=>{
+    const ts=new Date(workout?.date).getTime();
+    if(!Number.isFinite(ts)||ts<(Date.now()-90*86400000))return false;
+    const workoutProgramId=typeof getWorkoutProgramId==='function'?getWorkoutProgramId(workout):workout?.program;
+    return workoutProgramId===context.activeProgramId;
+  });
   const expectedSessions=Math.max(1,Math.round((context.effectiveFrequency||3)*30/7));
   const adherenceRate30=clampPlan(Math.round((recentProgramWorkouts.length/expectedSessions)*100),0,140);
   const dayCounts=getPlanDayCounts(context.workouts,context.activeProgramId,60);
@@ -802,11 +808,13 @@ function getCoachingInsights(input){
     : '';
   return{
     adherenceRate30,
+    sessions90:recentProgramWorkouts90.length,
     adherenceSummary,
     bestDayIndexes,
     bestDaysSummary,
     progressionSummary,
     frictionItems,
+    frictionCount:frictionItems.length,
     recommendation:{type:recommendationType,...recommendationMap[recommendationType]}
   };
 }

@@ -212,6 +212,17 @@ function getDashboardDayLabel(dayIndex){
   return String(dayIndex||'');
 }
 
+function getCoachingRecommendationClass(type){
+  const map={
+    continue:'is-continue',
+    shorten:'is-shorten',
+    lighten:'is-lighten',
+    deload:'is-deload',
+    switch_block:'is-switch'
+  };
+  return map[type]||'is-continue';
+}
+
 function renderCoachingInsightsCard(insights){
   if(!insights)return'';
   const bestDays=(insights.bestDayIndexes||[]).map(getDashboardDayLabel).filter(Boolean);
@@ -221,15 +232,23 @@ function renderCoachingInsightsCard(insights){
   if(bestDays.length){
     chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.best_days','Best days'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(bestDays.join(' / '))}</span></div>`);
   }
+  chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.sessions_90','90d sessions'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.sessions90||0))}</span></div>`);
+  if(insights.frictionCount){
+    chips.push(`<div class="dashboard-insight-chip"><span class="dashboard-insight-chip-label">${escapeHtml(trDash('dashboard.insights.friction','Friction flags'))}</span><span class="dashboard-insight-chip-value">${escapeHtml(String(insights.frictionCount))}</span></div>`);
+  }
   const bullets=[
     insights.adherenceSummary,
     insights.progressionSummary,
     bestDays.length?trDash('dashboard.insights.best_days_line','You train most consistently on {days}.',{days:bestDays.join(' / ')}):'',
     ...(insights.frictionItems||[])
   ].filter(Boolean).slice(0,4);
-  return `<div class="dashboard-coaching-card">
+  const recType=insights.recommendation?.type||'continue';
+  return `<div class="dashboard-coaching-card ${getCoachingRecommendationClass(recType)}">
     <div class="dashboard-coaching-label">${escapeHtml(trDash('dashboard.insights.title','Coaching insights'))}</div>
-    <div class="dashboard-coaching-title">${escapeHtml(insights.recommendation?.label||trDash('dashboard.insights.keep_going','Keep going'))}</div>
+    <div class="dashboard-coaching-title-row">
+      <div class="dashboard-coaching-title">${escapeHtml(insights.recommendation?.label||trDash('dashboard.insights.keep_going','Keep going'))}</div>
+      <div class="dashboard-coaching-badge">${escapeHtml(trDash(`dashboard.insights.state.${recType}`,insights.recommendation?.label||trDash('dashboard.insights.keep_going','Keep going')))}</div>
+    </div>
     <div class="dashboard-coaching-body">${escapeHtml(insights.recommendation?.body||'')}</div>
     <div class="dashboard-insight-chip-row">${chips.join('')}</div>
     <div class="dashboard-coaching-list">${bullets.map(line=>`<div class="dashboard-coaching-item">${escapeHtml(line)}</div>`).join('')}</div>

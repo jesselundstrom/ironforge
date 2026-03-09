@@ -83,8 +83,20 @@ h1,h2{margin-top:0}
 .dashboard-muscle-chip-high{border-color:rgba(255,122,58,0.26);background:rgba(255,122,58,0.11)}
 .dashboard-muscle-chip-high .dashboard-muscle-chip-level{color:#ffb07f}
 .dashboard-coaching-card{margin-top:12px;padding:14px 15px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,rgba(255,160,64,0.08),rgba(255,255,255,0.025))}
+.dashboard-coaching-card.is-continue{border-color:rgba(52,211,153,0.18);background:linear-gradient(180deg,rgba(52,211,153,0.08),rgba(255,255,255,0.025))}
+.dashboard-coaching-card.is-shorten{border-color:rgba(255,214,10,0.18);background:linear-gradient(180deg,rgba(255,214,10,0.08),rgba(255,255,255,0.025))}
+.dashboard-coaching-card.is-lighten{border-color:rgba(59,130,246,0.18);background:linear-gradient(180deg,rgba(59,130,246,0.09),rgba(255,255,255,0.025))}
+.dashboard-coaching-card.is-deload{border-color:rgba(255,122,58,0.18);background:linear-gradient(180deg,rgba(255,122,58,0.1),rgba(255,255,255,0.025))}
+.dashboard-coaching-card.is-switch{border-color:rgba(167,139,250,0.22);background:linear-gradient(180deg,rgba(167,139,250,0.1),rgba(255,255,255,0.025))}
 .dashboard-coaching-label{font-size:10px;line-height:1.2;text-transform:uppercase;letter-spacing:1.05px;color:var(--gold);font-weight:800;margin-bottom:6px}
+.dashboard-coaching-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .dashboard-coaching-title{font-size:15px;line-height:1.35;font-weight:800;color:var(--text)}
+.dashboard-coaching-badge{display:inline-flex;align-items:center;flex-shrink:0;padding:5px 9px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);font-size:10px;line-height:1.2;font-weight:800;letter-spacing:0.7px;text-transform:uppercase;color:var(--text)}
+.dashboard-coaching-card.is-continue .dashboard-coaching-badge{background:rgba(52,211,153,0.12);border-color:rgba(52,211,153,0.22);color:var(--green)}
+.dashboard-coaching-card.is-shorten .dashboard-coaching-badge{background:rgba(255,214,10,0.12);border-color:rgba(255,214,10,0.22);color:var(--gold)}
+.dashboard-coaching-card.is-lighten .dashboard-coaching-badge{background:rgba(59,130,246,0.12);border-color:rgba(59,130,246,0.22);color:#a9c9ff}
+.dashboard-coaching-card.is-deload .dashboard-coaching-badge{background:rgba(255,122,58,0.12);border-color:rgba(255,122,58,0.22);color:var(--accent)}
+.dashboard-coaching-card.is-switch .dashboard-coaching-badge{background:rgba(167,139,250,0.14);border-color:rgba(167,139,250,0.24);color:var(--purple)}
 .dashboard-coaching-body{font-size:12px;line-height:1.5;color:var(--muted);margin-top:4px}
 .dashboard-insight-chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .dashboard-insight-chip{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;min-width:0;padding:9px 11px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.035)}
