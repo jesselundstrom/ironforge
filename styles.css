@@ -273,6 +273,20 @@ select optgroup{font-weight:700}
 .workout-decision-copy{font-size:12px;line-height:1.5;color:var(--muted);margin-top:4px}
 .workout-decision-reasons{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .workout-decision-chip{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.2);color:#cfe2ff;font-size:10px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase}
+.active-session-plan-card{margin-bottom:12px;padding:13px 14px;border-radius:15px;border:1px solid rgba(255,255,255,0.08);background:linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))}
+.active-session-plan-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.active-session-plan-kicker{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--gold);font-weight:800}
+.active-session-plan-title{font-size:15px;line-height:1.35;font-weight:800;color:var(--text);margin-top:4px}
+.active-session-plan-copy{font-size:12px;line-height:1.5;color:var(--muted);margin-top:6px}
+.active-session-plan-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.active-session-plan-pill{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:var(--text);font-size:11px;font-weight:700}
+.active-session-plan-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.active-session-plan-actions .btn{min-height:42px}
+.active-session-plan-actions .btn-full{grid-column:1 / -1}
+.active-session-progress{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);display:grid;gap:8px}
+.active-session-next{font-size:12px;line-height:1.5;color:var(--text);font-weight:700}
+.active-session-adjustments{display:grid;gap:6px}
+.active-session-adjustment{font-size:11px;line-height:1.45;color:#cfe2ff}
 .rpe-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .sport-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .sport-check-btn{min-height:58px;font-size:13px;line-height:1.25;padding:12px}

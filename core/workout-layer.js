@@ -168,6 +168,247 @@ function cloneWorkoutExercises(exercises){
   }));
 }
 
+function getCompletedSetCount(exercise){
+  return Array.isArray(exercise?.sets)?exercise.sets.filter(set=>set.done&&!set.isWarmup).length:0;
+}
+
+function getRemainingSetCount(exercise){
+  return Array.isArray(exercise?.sets)?exercise.sets.filter(set=>!set.done&&!set.isWarmup).length:0;
+}
+
+function getWorkoutRemainingWorkSets(){
+  if(!activeWorkout?.exercises)return 0;
+  return activeWorkout.exercises.reduce((sum,exercise)=>sum+getRemainingSetCount(exercise),0);
+}
+
+function getWorkoutCompletedWorkSets(){
+  if(!activeWorkout?.exercises)return 0;
+  return activeWorkout.exercises.reduce((sum,exercise)=>sum+getCompletedSetCount(exercise),0);
+}
+
+function getActiveWorkoutNextTarget(){
+  if(!activeWorkout?.exercises)return null;
+  for(let exerciseIndex=0;exerciseIndex<activeWorkout.exercises.length;exerciseIndex++){
+    const exercise=activeWorkout.exercises[exerciseIndex];
+    for(let setIndex=0;setIndex<(exercise.sets||[]).length;setIndex++){
+      const set=exercise.sets[setIndex];
+      if(set.done||set.isWarmup)continue;
+      const warmupsBefore=exercise.sets.filter((item,idx)=>idx<setIndex&&item.isWarmup).length;
+      const setLabel=set.isAmrap?i18nText('workout.max_short','MAX'):String(setIndex+1-warmupsBefore);
+      return{
+        exerciseIndex,
+        setIndex,
+        exerciseName:displayExerciseName(exercise.name),
+        setLabel,
+        reps:set.reps,
+        weight:set.weight
+      };
+    }
+  }
+  return null;
+}
+
+function trimExerciseRemainingSets(exercise,keepUndoneCount){
+  if(!Array.isArray(exercise?.sets))return false;
+  const nextSets=[];
+  let keptUndone=0;
+  let changed=false;
+  exercise.sets.forEach(set=>{
+    if(set.done||set.isWarmup){
+      nextSets.push(set);
+      return;
+    }
+    if(keptUndone<keepUndoneCount){
+      nextSets.push(set);
+      keptUndone++;
+      return;
+    }
+    changed=true;
+  });
+  if(changed)exercise.sets=nextSets;
+  return changed;
+}
+
+function reduceRemainingSetTarget(set){
+  if(!set||set.done||set.isWarmup)return false;
+  const numericReps=parseInt(set.reps,10);
+  if(Number.isFinite(numericReps)&&numericReps>3){
+    set.reps=Math.max(3,numericReps-1);
+  }
+  const numericWeight=parseFloat(set.weight);
+  if(Number.isFinite(numericWeight)&&numericWeight>0){
+    set.weight=Math.max(0,Math.round(numericWeight*0.95*2)/2);
+    return true;
+  }
+  return Number.isFinite(numericReps)&&numericReps>3;
+}
+
+function dropTrailingUnstartedExercise(exercises){
+  if(!Array.isArray(exercises)||exercises.length<=1)return false;
+  for(let index=exercises.length-1;index>=0;index--){
+    const exercise=exercises[index];
+    const hasDoneWork=Array.isArray(exercise?.sets)&&exercise.sets.some(set=>set.done&&!set.isWarmup);
+    const hasUndoneWork=Array.isArray(exercise?.sets)&&exercise.sets.some(set=>!set.done&&!set.isWarmup);
+    if(hasDoneWork||!hasUndoneWork)continue;
+    exercises.splice(index,1);
+    return true;
+  }
+  return false;
+}
+
+function cleanupAdjustedWorkoutExercises(exercises){
+  return(exercises||[]).filter(exercise=>{
+    const sets=Array.isArray(exercise?.sets)?exercise.sets:[];
+    if(!sets.length)return false;
+    const hasUndoneWork=sets.some(set=>!set.done&&!set.isWarmup);
+    const hasCompletedWork=sets.some(set=>set.done&&!set.isWarmup);
+    const hasWarmupsOnly=sets.every(set=>set.isWarmup);
+    if(hasWarmupsOnly)return false;
+    return hasUndoneWork||hasCompletedWork;
+  });
+}
+
+function getExerciseMinimumWorkSetTarget(exercise,mode){
+  if(mode==='lighten'){
+    if(exercise.isAccessory)return 1;
+    if(exercise.isAux)return 1;
+    return 2;
+  }
+  return 0;
+}
+
+function trimExerciseToWorkSetFloor(exercise,mode){
+  const minimumTotal=getExerciseMinimumWorkSetTarget(exercise,mode);
+  const completed=getCompletedSetCount(exercise);
+  const keepUndone=Math.max(0,minimumTotal-completed);
+  return trimExerciseRemainingSets(exercise,keepUndone);
+}
+
+function trimOneExtraRemainingSet(exercise,mode){
+  const minimumTotal=getExerciseMinimumWorkSetTarget(exercise,mode);
+  const completed=getCompletedSetCount(exercise);
+  const remaining=getRemainingSetCount(exercise);
+  if(remaining<=0)return false;
+  const minimumRemaining=Math.max(0,minimumTotal-completed);
+  if(remaining<=minimumRemaining)return false;
+  return trimExerciseRemainingSets(exercise,remaining-1);
+}
+
+function getRunnerAdjustmentLabel(adjustment){
+  const map={
+    shorten:i18nText('workout.runner.shorten','Shortened session'),
+    lighten:i18nText('workout.runner.lighten','Lightened session')
+  };
+  return map[adjustment?.type]||i18nText('workout.runner.adjusted','Adjusted session');
+}
+
+function getRunnerUndoAvailable(workoutLike){
+  return !!(workoutLike?.runnerState?.undoSnapshot);
+}
+
+function getQuickAdjustmentPreview(mode){
+  if(mode==='shorten'){
+    return{
+      title:i18nText('workout.runner.shorten_confirm_title','Shorten this session?'),
+      body:i18nText('workout.runner.shorten_confirm_body','Choose how aggressively to trim the remaining work based on how much time you need to save.')
+    };
+  }
+  return{
+    title:i18nText('workout.runner.light_confirm_title','Go lighter this session?'),
+    body:i18nText('workout.runner.light_confirm_body','This keeps the session structure mostly intact, but lowers the remaining load and trims a little volume when useful. Use this when recovery feels off.')
+  };
+}
+
+function showShortenAdjustmentOptions(){
+  const preview=getQuickAdjustmentPreview('shorten');
+  showCustomModal(
+    escapeHtml(preview.title),
+    `<div style="font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:14px">${escapeHtml(preview.body)}</div>
+    <div style="display:grid;gap:10px">
+      <button class="btn btn-secondary" type="button" onclick="selectShortenAdjustment('light')">${escapeHtml(i18nText('workout.runner.shorten_option_light','Save ~5 min'))}</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:-4px">${escapeHtml(i18nText('workout.runner.shorten_option_light_body','Remove accessory work only and keep the rest of the structure intact.'))}</div>
+      <button class="btn btn-secondary" type="button" onclick="selectShortenAdjustment('medium')">${escapeHtml(i18nText('workout.runner.shorten_option_medium','Save ~10 min'))}</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:-4px">${escapeHtml(i18nText('workout.runner.shorten_option_medium_body','Keep at least two work sets per remaining exercise and cut lower-priority volume.'))}</div>
+      <button class="btn btn-secondary" type="button" onclick="selectShortenAdjustment('hard')">${escapeHtml(i18nText('workout.runner.shorten_option_hard','Save ~15 min'))}</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:-4px">${escapeHtml(i18nText('workout.runner.shorten_option_hard_body','Trim harder: keep two work sets per exercise and drop the last unstarted lift if needed.'))}</div>
+    </div>`
+  );
+}
+
+function selectShortenAdjustment(level){
+  closeCustomModal();
+  executeQuickWorkoutAdjustment('shorten',level||'medium');
+}
+
+function getRunnerPlanSummary(activeLike){
+  const workoutLike=activeLike||activeWorkout;
+  if(!workoutLike)return null;
+  const decision=workoutLike.planningDecision||{};
+  const action=workoutLike.runnerState?.mode||decision.action||'train';
+  const nextTarget=getActiveWorkoutNextTarget();
+  const completedSets=getWorkoutCompletedWorkSets();
+  const remainingSets=getWorkoutRemainingWorkSets();
+  let title=i18nText('workout.runner.normal_title','Normal session flow');
+  let copy=i18nText('workout.runner.normal_copy','Stay on the main work and move through the remaining sets in order.');
+  if(action==='shorten'){
+    title=i18nText('workout.runner.shorten_title','Shortened session');
+    copy=i18nText('workout.runner.shorten_copy','Accessories and extra volume were cut so you can finish the essential work faster.');
+  }else if(action==='train_light'||action==='lighten'||action==='deload'){
+    title=i18nText('workout.runner.light_title','Lighter session');
+    copy=i18nText('workout.runner.light_copy','Keep the session moving, but leave more in the tank and stop earlier than usual.');
+  }else if(decision.restrictionFlags?.includes('avoid_heavy_legs')){
+    title=i18nText('workout.runner.sport_title','Sport-aware session');
+    copy=i18nText('workout.runner.sport_copy','Leg-heavy work is being kept under control because of surrounding sport load.');
+  }
+  return{
+    title,
+    copy,
+    completedSets,
+    remainingSets,
+    nextTarget,
+    adjustments:workoutLike.runnerState?.adjustments||[]
+  };
+}
+
+function renderActiveWorkoutPlanPanel(){
+  const container=document.getElementById('active-session-plan');
+  if(!container)return;
+  if(!activeWorkout){
+    container.innerHTML='';
+    return;
+  }
+  const summary=getRunnerPlanSummary(activeWorkout);
+  const elapsed=getWorkoutElapsedSeconds();
+  const minutes=Math.floor(elapsed/60);
+  const nextTargetText=summary?.nextTarget
+    ? `${summary.nextTarget.exerciseName} · ${i18nText('rpe.set','Set')} ${summary.nextTarget.setLabel}${summary.nextTarget.weight!==''&&summary.nextTarget.weight!==undefined?` · ${summary.nextTarget.weight}kg`:''}${summary.nextTarget.reps!==''&&summary.nextTarget.reps!==undefined?` × ${summary.nextTarget.reps}`:''}`
+    : i18nText('workout.runner.done','Main work is done. You can finish here or wrap up optional work.');
+  const adjustments=(summary?.adjustments||[]).slice(-3);
+  container.innerHTML=`<div class="active-session-plan-card">
+    <div class="active-session-plan-top">
+      <div>
+        <div class="active-session-plan-kicker">${escapeHtml(i18nText('workout.runner.kicker','Session plan'))}</div>
+        <div class="active-session-plan-title">${escapeHtml(summary?.title||i18nText('common.session','Session'))}</div>
+        <div class="active-session-plan-copy">${escapeHtml(summary?.copy||'')}</div>
+      </div>
+    </div>
+    <div class="active-session-plan-meta">
+      <div class="active-session-plan-pill">${escapeHtml(i18nText('workout.runner.completed','{count} sets done',{count:summary?.completedSets||0}))}</div>
+      <div class="active-session-plan-pill">${escapeHtml(i18nText('workout.runner.remaining','{count} sets left',{count:summary?.remainingSets||0}))}</div>
+      <div class="active-session-plan-pill">${escapeHtml(i18nText('workout.runner.elapsed','{count} min elapsed',{count:minutes}))}</div>
+    </div>
+    <div class="active-session-progress">
+      <div class="active-session-next">${escapeHtml(i18nText('workout.runner.next','Next: {target}',{target:nextTargetText}))}</div>
+      ${adjustments.length?`<div class="active-session-adjustments">${adjustments.map(item=>`<div class="active-session-adjustment">• ${escapeHtml(item.label||getRunnerAdjustmentLabel(item))}</div>`).join('')}</div>`:''}
+    </div>
+    <div class="active-session-plan-actions">
+      <button class="btn btn-secondary btn-sm" type="button" onclick="applyQuickWorkoutAdjustment('shorten')">${escapeHtml(i18nText('workout.runner.shorten_btn','Shorten'))}</button>
+      <button class="btn btn-secondary btn-sm" type="button" onclick="applyQuickWorkoutAdjustment('lighten')">${escapeHtml(i18nText('workout.runner.lighten_btn','Go lighter'))}</button>
+      ${getRunnerUndoAvailable(activeWorkout)?`<button class="btn btn-secondary btn-sm btn-full" type="button" onclick="undoQuickWorkoutAdjustment()">${escapeHtml(i18nText('workout.runner.undo_btn','Undo adjustment'))}</button>`:''}
+    </div>
+  </div>`;
+}
+
 function applySportReadinessAdjustments(adjusted,sportContext){
   const changes=[];
   const stressLevel=getSportStressLevel(sportContext);
@@ -467,6 +708,11 @@ function beginWorkoutStart(sportContext){
     planningDecision:trainingDecision||undefined,
     planningContext:planningContext||undefined,
     adaptationReasons:sessionPrefs.changes||[],
+    runnerState:{
+      mode:trainingDecision?.action||'train',
+      adjustments:[],
+      initialDecision:trainingDecision||undefined
+    },
     sessionDescription,
     exercises,
     startTime:Date.now()
@@ -483,7 +729,7 @@ function beginWorkoutStart(sportContext){
     descEl.style.display=sessionDescription?'':'none';
   }
   restDuration=parseInt(document.getElementById('rest-duration')?.value)||profile.defaultRest||120;
-  startWorkoutTimer();renderExercises();
+  startWorkoutTimer();renderExercises();renderActiveWorkoutPlanPanel();
   const progName=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):(prog.name||'Training');
   showToast(bi.isDeload?i18nText('workout.deload_light','Deload - keep it light'):progName,bi.isDeload?'var(--blue)':'var(--purple)');
   const decisionSummary=getWorkoutDecisionSummary(trainingDecision,planningContext);
@@ -981,6 +1227,7 @@ function addExerciseByName(name){
 
 function renderExercises(){
   const c=document.getElementById('exercises-container');c.innerHTML='';
+  renderActiveWorkoutPlanPanel();
   activeWorkout.exercises.forEach((ex,ei)=>{
     const prev=getPreviousSets(ex);
     const prevText=prev?i18nText('workout.last_prefix','Last:')+' '+prev.map(s=>s.weight+'kg\u00d7'+s.reps).join(', '):i18nText('workout.no_previous_data','No previous data');
@@ -1093,7 +1340,9 @@ function toggleSet(ei,si){
     startRestTimer();
   }else{
     set.done=false;set.rir=undefined;renderExercises();
+    return;
   }
+  renderActiveWorkoutPlanPanel();
 }
 
 function addSet(ei){const ex=activeWorkout.exercises[ei];const l=ex.sets[ex.sets.length-1];ex.sets.push({weight:l?.weight||'',reps:l?.reps||5,done:false,rpe:null});renderExercises();}
@@ -1206,6 +1455,88 @@ function closeSummaryModal(){
   if(window._summaryResolve){window._summaryResolve();window._summaryResolve=null;}
 }
 
+function applyQuickWorkoutAdjustment(mode){
+  if(mode==='shorten'){
+    showShortenAdjustmentOptions();
+    return;
+  }
+  const preview=getQuickAdjustmentPreview(mode);
+  showConfirm(preview.title,preview.body,()=>executeQuickWorkoutAdjustment(mode));
+}
+
+function executeQuickWorkoutAdjustment(mode,detailLevel){
+  if(!activeWorkout?.exercises?.length)return;
+  const previousSnapshot={
+    exercises:cloneWorkoutExercises(activeWorkout.exercises),
+    mode:activeWorkout.runnerState?.mode||activeWorkout.planningDecision?.action||'train',
+    adjustments:(activeWorkout.runnerState?.adjustments||[]).map(item=>({...item})),
+    adaptationReasons:[...(activeWorkout.adaptationReasons||[])]
+  };
+  const exercises=cloneWorkoutExercises(activeWorkout.exercises);
+  let changed=false;
+  if(mode==='shorten'){
+    const level=detailLevel||'medium';
+    if(level==='light'){
+      exercises.forEach(exercise=>{
+        if(exercise.isAccessory&&trimExerciseRemainingSets(exercise,0))changed=true;
+      });
+    }else{
+      exercises.forEach(exercise=>{
+        if(exercise.isAccessory){
+          if(trimExerciseRemainingSets(exercise,0))changed=true;
+          return;
+        }
+        if(trimExerciseRemainingSets(exercise,Math.max(0,2-getCompletedSetCount(exercise))))changed=true;
+      });
+      if(level==='hard'&&dropTrailingUnstartedExercise(exercises))changed=true;
+    }
+  }else if(mode==='lighten'){
+    exercises.forEach(exercise=>{
+      if(trimOneExtraRemainingSet(exercise,'lighten'))changed=true;
+      (exercise.sets||[]).forEach(set=>{
+        if(reduceRemainingSetTarget(set))changed=true;
+      });
+    });
+  }
+  const cleanedExercises=cleanupAdjustedWorkoutExercises(exercises);
+  if(changed){
+    activeWorkout.exercises=cleanedExercises;
+    activeWorkout.runnerState=activeWorkout.runnerState||{mode:'train',adjustments:[]};
+    activeWorkout.runnerState.mode=mode==='lighten'?'lighten':'shorten';
+    activeWorkout.runnerState.undoSnapshot=previousSnapshot;
+    activeWorkout.runnerState.adjustments.push({
+      type:mode,
+      at:new Date().toISOString(),
+      detailLevel:detailLevel||undefined,
+      label:getRunnerAdjustmentLabel({type:mode})
+    });
+    activeWorkout.adaptationReasons=[...(activeWorkout.adaptationReasons||[])];
+    if(mode==='shorten'){
+      activeWorkout.adaptationReasons.push(i18nText('workout.runner.shorten_copy','Lower-priority work was cut so you can finish the essential work faster.'));
+      showToast(i18nText('workout.runner.shorten_toast','Session shortened to the essential work'),'var(--blue)');
+    }else{
+      activeWorkout.adaptationReasons.push(i18nText('workout.runner.light_copy','Keep the session moving, but leave more in the tank with slightly lighter remaining work.'));
+      showToast(i18nText('workout.runner.light_toast','Remaining work lightened'),'var(--blue)');
+    }
+    renderExercises();
+    return;
+  }
+  showToast(i18nText('workout.runner.no_change','No remaining work needed adjustment'),'var(--muted)');
+}
+
+function undoQuickWorkoutAdjustment(){
+  const snapshot=activeWorkout?.runnerState?.undoSnapshot;
+  if(!snapshot||!activeWorkout)return;
+  activeWorkout.exercises=cloneWorkoutExercises(snapshot.exercises);
+  activeWorkout.adaptationReasons=[...(snapshot.adaptationReasons||[])];
+  activeWorkout.runnerState=activeWorkout.runnerState||{};
+  activeWorkout.runnerState.mode=snapshot.mode||activeWorkout.planningDecision?.action||'train';
+  activeWorkout.runnerState.adjustments=(snapshot.adjustments||[]).map(item=>({...item}));
+  delete activeWorkout.runnerState.undoSnapshot;
+  renderExercises();
+  showToast(i18nText('workout.runner.undo_toast','Last adjustment undone'),'var(--blue)');
+}
+
 async function finishWorkout(){
   if(!activeWorkout.exercises.length){showToast(i18nText('workout.add_at_least_one','Add at least one exercise!'),'var(--orange)');return;}
   clearWorkoutTimer();
@@ -1246,6 +1577,13 @@ async function finishWorkout(){
     programLabel:activeWorkout.programLabel||'',
     sportContext:activeWorkout.sportContext||undefined,
     programMeta,
+    sessionDescription:activeWorkout.sessionDescription||'',
+    adaptationReasons:(activeWorkout.adaptationReasons||[]).slice(),
+    planningDecision:activeWorkout.planningDecision||undefined,
+    runnerState:activeWorkout.runnerState?{
+      mode:activeWorkout.runnerState.mode,
+      adjustments:(activeWorkout.runnerState.adjustments||[]).slice()
+    }:undefined,
     programStateBefore:stateBeforeSession,
     duration:getWorkoutElapsedSeconds(),exercises:activeWorkout.exercises,rpe:sessionRPE,sets:totalSets};
   workouts.push(savedWorkout);
