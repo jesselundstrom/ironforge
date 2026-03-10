@@ -4,15 +4,138 @@
 const PROFILE_CORE_DOC_KEY='profile_core';
 const SCHEDULE_DOC_KEY='schedule';
 const PROGRAM_DOC_PREFIX='program:';
+const LOCAL_CACHE_KEYS={
+  workouts:'ic_workouts',
+  schedule:'ic_schedule',
+  profile:'ic_profile'
+};
 let profileDocumentsSupported=null;
 let syncRealtimeChannel=null;
 let realtimeSyncTimer=null;
 let isApplyingRemoteSync=false;
+let lastCloudSyncErrorToastAt=0;
 
-function loadLocalData(){
-  try{const w=localStorage.getItem('ic_workouts');if(w)workouts=JSON.parse(w);}catch(e){logWarn('Failed to load workouts from localStorage',e);}
-  try{const s=localStorage.getItem('ic_schedule');if(s)schedule=JSON.parse(s);}catch(e){logWarn('Failed to load schedule from localStorage',e);}
-  try{const pr=localStorage.getItem('ic_profile');if(pr)profile=JSON.parse(pr);}catch(e){logWarn('Failed to load profile from localStorage',e);}
+function getLocalCacheUserId(explicitUserId){
+  const raw=explicitUserId||currentUser?.id||'';
+  return String(raw||'').trim();
+}
+
+function getLocalCacheKey(baseKey,userId){
+  const scopedUserId=getLocalCacheUserId(userId);
+  return scopedUserId?baseKey+'::'+scopedUserId:baseKey;
+}
+
+function readLocalCacheJson(key,label){
+  try{
+    const raw=localStorage.getItem(key);
+    return raw?JSON.parse(raw):undefined;
+  }catch(e){
+    logWarn('Failed to load '+label+' from localStorage',e);
+    return undefined;
+  }
+}
+
+function writeLocalCacheJson(key,value,label){
+  try{localStorage.setItem(key,JSON.stringify(value));}
+  catch(e){logWarn('Failed to persist '+label+' locally',e);}
+}
+
+function removeLocalCacheKeys(keys){
+  try{(keys||[]).forEach(key=>localStorage.removeItem(key));}
+  catch(e){logWarn('Failed to clear local cache keys',e);}
+}
+
+function clearLegacyLocalCache(){
+  removeLocalCacheKeys(Object.values(LOCAL_CACHE_KEYS));
+}
+
+function clearScopedLocalCache(userId){
+  const scopedUserId=getLocalCacheUserId(userId);
+  if(!scopedUserId)return;
+  removeLocalCacheKeys(Object.values(LOCAL_CACHE_KEYS).map(key=>getLocalCacheKey(key,scopedUserId)));
+}
+
+function clearLocalDataCache(options){
+  const opts=options||{};
+  if(opts.includeScoped!==false)clearScopedLocalCache(opts.userId);
+  if(opts.includeLegacy!==false)clearLegacyLocalCache();
+}
+
+function resetRuntimeState(){
+  workouts=[];
+  schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};
+  profile={
+    defaultRest:120,
+    language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),
+    preferences:getDefaultTrainingPreferences(),
+    coaching:getDefaultCoachingProfile()
+  };
+}
+
+function notifyCloudSyncError(options){
+  const opts=options||{};
+  if(opts.notifyUser===false||typeof showToast!=='function')return;
+  const now=Date.now();
+  if(now-lastCloudSyncErrorToastAt<4000)return;
+  lastCloudSyncErrorToastAt=now;
+  showToast(i18nText('toast.sync_issue','Cloud sync failed. Changes stay on this device for now.'),'var(--orange)');
+}
+
+function getSupabaseError(result){
+  return result&&typeof result==='object'&&'error' in result?result.error:null;
+}
+
+async function runSupabaseWrite(operationPromise,context,options){
+  const opts=options||{};
+  try{
+    const result=await operationPromise;
+    const error=getSupabaseError(result);
+    if(error){
+      logWarn(context,error);
+      notifyCloudSyncError(opts);
+      return{ok:false,error,data:result?.data};
+    }
+    return{ok:true,error:null,data:result?.data};
+  }catch(error){
+    logWarn(context,error);
+    notifyCloudSyncError(opts);
+    return{ok:false,error,data:null};
+  }
+}
+
+function loadLocalData(options){
+  const opts=options||{};
+  const userId=getLocalCacheUserId(opts.userId);
+  if(!userId)return false;
+
+  const scopedWorkouts=readLocalCacheJson(getLocalCacheKey(LOCAL_CACHE_KEYS.workouts,userId),'workouts');
+  const scopedSchedule=readLocalCacheJson(getLocalCacheKey(LOCAL_CACHE_KEYS.schedule,userId),'schedule');
+  const scopedProfile=readLocalCacheJson(getLocalCacheKey(LOCAL_CACHE_KEYS.profile,userId),'profile');
+  const hasScoped=scopedWorkouts!==undefined||scopedSchedule!==undefined||scopedProfile!==undefined;
+
+  if(hasScoped){
+    if(scopedWorkouts!==undefined)workouts=scopedWorkouts;
+    if(scopedSchedule!==undefined)schedule=scopedSchedule;
+    if(scopedProfile!==undefined)profile=scopedProfile;
+    return true;
+  }
+
+  if(opts.allowLegacyFallback===false)return false;
+
+  const legacyWorkouts=readLocalCacheJson(LOCAL_CACHE_KEYS.workouts,'workouts');
+  const legacySchedule=readLocalCacheJson(LOCAL_CACHE_KEYS.schedule,'schedule');
+  const legacyProfile=readLocalCacheJson(LOCAL_CACHE_KEYS.profile,'profile');
+  const hasLegacy=legacyWorkouts!==undefined||legacySchedule!==undefined||legacyProfile!==undefined;
+  if(!hasLegacy)return false;
+
+  if(legacyWorkouts!==undefined)workouts=legacyWorkouts;
+  if(legacySchedule!==undefined)schedule=legacySchedule;
+  if(legacyProfile!==undefined)profile=legacyProfile;
+  persistLocalWorkoutsCache();
+  persistLocalScheduleCache();
+  persistLocalProfileCache();
+  clearLegacyLocalCache();
+  return true;
 }
 
 function workoutClientId(workout){
@@ -437,15 +560,21 @@ function cleanupLegacyProfileFields(profileLike){
 }
 
 function persistLocalWorkoutsCache(){
-  try{localStorage.setItem('ic_workouts',JSON.stringify(workouts));}catch(e){logWarn('Failed to persist workouts locally',e);}
+  const userId=getLocalCacheUserId();
+  if(!userId)return;
+  writeLocalCacheJson(getLocalCacheKey(LOCAL_CACHE_KEYS.workouts,userId),workouts,'workouts');
 }
 
 function persistLocalScheduleCache(){
-  try{localStorage.setItem('ic_schedule',JSON.stringify(schedule));}catch(e){logWarn('Failed to persist schedule locally',e);}
+  const userId=getLocalCacheUserId();
+  if(!userId)return;
+  writeLocalCacheJson(getLocalCacheKey(LOCAL_CACHE_KEYS.schedule,userId),schedule,'schedule');
 }
 
 function persistLocalProfileCache(){
-  try{localStorage.setItem('ic_profile',JSON.stringify(profile));}catch(e){logWarn('Failed to persist profile locally',e);}
+  const userId=getLocalCacheUserId();
+  if(!userId)return;
+  writeLocalCacheJson(getLocalCacheKey(LOCAL_CACHE_KEYS.profile,userId),profile,'profile');
 }
 
 function ensureProfileSyncMeta(){
@@ -479,6 +608,11 @@ function laterIso(a,b){
   const at=parseSyncStamp(a),bt=parseSyncStamp(b);
   if(at===0&&bt===0)return undefined;
   return at>=bt?(a||new Date(at).toISOString()):(b||new Date(bt).toISOString());
+}
+
+function getDocumentUpdatedAt(row){
+  if(!row||typeof row!=='object')return undefined;
+  return row.client_updated_at||row.updated_at||undefined;
 }
 
 function mergeSyncMeta(localMeta,remoteMeta){
@@ -534,7 +668,7 @@ function resolveProfileSaveDocKeys(options){
 async function loadData(options){
   const opts=options||{};
   const allowCloudSync=opts.allowCloudSync!==false;
-  loadLocalData();
+  loadLocalData({userId:opts.userId||currentUser?.id,allowLegacyFallback:true});
   // Pull profile/schedule from cloud and workouts from the dedicated workouts table.
   const cloudResult=allowCloudSync?await pullFromCloud():{usedCloud:false};
   const tableResult=allowCloudSync?await pullWorkoutsFromTable(workouts):{usedTable:false,didBackfill:false};
@@ -652,19 +786,18 @@ function toProfileDocumentRows(docKeys,profileLike,scheduleLike){
   }).filter(Boolean);
 }
 
-async function upsertProfileDocuments(docKeys,profileLike,scheduleLike){
+async function upsertProfileDocuments(docKeys,profileLike,scheduleLike,options){
   if(!currentUser)return false;
   const rows=toProfileDocumentRows(docKeys,profileLike,scheduleLike);
   if(!rows.length)return true;
-  try{
-    await _SB.from('profile_documents').upsert(rows,{onConflict:'user_id,doc_key'});
-    profileDocumentsSupported=true;
-    return true;
-  }catch(e){
-    if(profileDocumentsSupported!==false)logWarn('Failed to upsert profile documents',e);
-    profileDocumentsSupported=false;
-    return false;
-  }
+  const opts=options||{};
+  const result=await runSupabaseWrite(
+    _SB.from('profile_documents').upsert(rows,{onConflict:'user_id,doc_key'}),
+    'Failed to upsert profile documents',
+    opts
+  );
+  profileDocumentsSupported=result.ok;
+  return result.ok;
 }
 
 function buildStateFromProfileDocuments(rows,fallbackProfile,fallbackSchedule){
@@ -672,25 +805,55 @@ function buildStateFromProfileDocuments(rows,fallbackProfile,fallbackSchedule){
   const nextProfile={...baseProfile,programs:{...cloneJson(getProfilePrograms(baseProfile))}};
   const nextSchedule=cloneJson(fallbackSchedule||schedule||{})||{};
   const rowsByKey=new Map((rows||[]).map(row=>[row.doc_key,row]));
-  const corePayload=rowsByKey.get(PROFILE_CORE_DOC_KEY)?.payload;
+  const coreRow=rowsByKey.get(PROFILE_CORE_DOC_KEY);
+  const corePayload=coreRow?.payload;
   if(corePayload&&typeof corePayload==='object'){
     const existingPrograms=nextProfile.programs||{};
     const existingSyncMeta={...(nextProfile.syncMeta||{})};
     const incomingSyncMeta={...(corePayload.syncMeta||{})};
-    Object.assign(nextProfile,corePayload);
-    nextProfile.programs=existingPrograms;
+    const remoteUpdatedAt=getDocumentUpdatedAt(coreRow);
+    const localUpdatedAt=baseProfile?.syncMeta?.profileUpdatedAt;
+    const shouldApplyRemoteCore=parseSyncStamp(remoteUpdatedAt)>=parseSyncStamp(localUpdatedAt);
+    if(shouldApplyRemoteCore){
+      Object.assign(nextProfile,corePayload);
+      nextProfile.programs=existingPrograms;
+    }
     nextProfile.syncMeta={...existingSyncMeta,...incomingSyncMeta};
+    const mergedProfileUpdatedAt=laterIso(localUpdatedAt,remoteUpdatedAt);
+    if(mergedProfileUpdatedAt)nextProfile.syncMeta.profileUpdatedAt=mergedProfileUpdatedAt;
   }
-  const schedulePayload=rowsByKey.get(SCHEDULE_DOC_KEY)?.payload;
-  const resolvedSchedule=(schedulePayload&&typeof schedulePayload==='object')?schedulePayload:nextSchedule;
+  const scheduleRow=rowsByKey.get(SCHEDULE_DOC_KEY);
+  const schedulePayload=scheduleRow?.payload;
+  let resolvedSchedule=nextSchedule;
+  if(schedulePayload&&typeof schedulePayload==='object'){
+    const remoteUpdatedAt=getDocumentUpdatedAt(scheduleRow);
+    const localUpdatedAt=baseProfile?.syncMeta?.scheduleUpdatedAt;
+    const shouldApplyRemoteSchedule=parseSyncStamp(remoteUpdatedAt)>=parseSyncStamp(localUpdatedAt);
+    if(shouldApplyRemoteSchedule)resolvedSchedule=schedulePayload;
+    const mergedScheduleUpdatedAt=laterIso(localUpdatedAt,remoteUpdatedAt);
+    if(mergedScheduleUpdatedAt){
+      if(!nextProfile.syncMeta||typeof nextProfile.syncMeta!=='object')nextProfile.syncMeta={};
+      nextProfile.syncMeta.scheduleUpdatedAt=mergedScheduleUpdatedAt;
+    }
+  }
   const programIds=new Set([
     ...Object.keys(nextProfile.programs||{}),
     ...Array.from(rowsByKey.keys()).filter(isProgramDocKey).map(programIdFromDocKey)
   ]);
   programIds.forEach(programId=>{
-    const payload=rowsByKey.get(programDocKey(programId))?.payload;
+    const row=rowsByKey.get(programDocKey(programId));
+    const payload=row?.payload;
     if(payload&&typeof payload==='object'){
-      nextProfile.programs[programId]=payload;
+      const remoteUpdatedAt=getDocumentUpdatedAt(row);
+      const localUpdatedAt=baseProfile?.syncMeta?.programUpdatedAt?.[programId];
+      const shouldApplyRemoteProgram=parseSyncStamp(remoteUpdatedAt)>=parseSyncStamp(localUpdatedAt);
+      if(shouldApplyRemoteProgram)nextProfile.programs[programId]=payload;
+      const mergedProgramUpdatedAt=laterIso(localUpdatedAt,remoteUpdatedAt);
+      if(mergedProgramUpdatedAt){
+        if(!nextProfile.syncMeta||typeof nextProfile.syncMeta!=='object')nextProfile.syncMeta={};
+        if(!nextProfile.syncMeta.programUpdatedAt||typeof nextProfile.syncMeta.programUpdatedAt!=='object')nextProfile.syncMeta.programUpdatedAt={};
+        nextProfile.syncMeta.programUpdatedAt[programId]=mergedProgramUpdatedAt;
+      }
     }
   });
   cleanupLegacyProfileFields(nextProfile);
@@ -721,7 +884,7 @@ async function pullProfileDocuments(options){
 
     const desiredDocKeys=getAllProfileDocumentKeys(profile);
     const missingDocKeys=desiredDocKeys.filter(docKey=>!next.rowsByKey.has(docKey));
-    if(missingDocKeys.length)await upsertProfileDocuments(missingDocKeys,profile,schedule);
+    if(missingDocKeys.length)await upsertProfileDocuments(missingDocKeys,profile,schedule,{notifyUser:false});
 
     return{usedDocs:true,supported:true};
   }catch(e){
@@ -745,37 +908,44 @@ function toWorkoutRow(workout){
   };
 }
 
-async function upsertWorkoutRecord(workout){
+async function upsertWorkoutRecord(workout,options){
   if(!currentUser||!workout)return;
-  try{
-    await _SB.from('workouts').upsert(toWorkoutRow(workout),{onConflict:'user_id,client_workout_id'});
-  }catch(e){logWarn('Failed to upsert workout row',e);}
+  await runSupabaseWrite(
+    _SB.from('workouts').upsert(toWorkoutRow(workout),{onConflict:'user_id,client_workout_id'}),
+    'Failed to upsert workout row',
+    options
+  );
 }
 
-async function upsertWorkoutRecords(items){
+async function upsertWorkoutRecords(items,options){
   if(!currentUser||!Array.isArray(items)||!items.length)return;
   const rows=items.map(toWorkoutRow).filter(Boolean);
   if(!rows.length)return;
-  try{
-    await _SB.from('workouts').upsert(rows,{onConflict:'user_id,client_workout_id'});
-  }catch(e){logWarn('Failed to upsert workout rows',e);}
+  await runSupabaseWrite(
+    _SB.from('workouts').upsert(rows,{onConflict:'user_id,client_workout_id'}),
+    'Failed to upsert workout rows',
+    options
+  );
 }
 
-async function softDeleteWorkoutRecord(workoutId){
+async function softDeleteWorkoutRecord(workoutId,options){
   if(!currentUser||workoutId===undefined||workoutId===null)return;
-  try{
-    await _SB.from('workouts')
+  await runSupabaseWrite(
+    _SB.from('workouts')
       .update({deleted_at:new Date().toISOString()})
       .eq('user_id',currentUser.id)
-      .eq('client_workout_id',String(workoutId));
-  }catch(e){logWarn('Failed to soft-delete workout row',e);}
+      .eq('client_workout_id',String(workoutId)),
+    'Failed to soft-delete workout row',
+    options
+  );
 }
 
-async function replaceWorkoutTableSnapshot(items){
+async function replaceWorkoutTableSnapshot(items,options){
   if(!currentUser)return;
+  const opts=options||{};
   const nextItems=Array.isArray(items)?items:[];
   const nextIds=new Set(nextItems.map(workoutClientId).filter(Boolean));
-  await upsertWorkoutRecords(nextItems);
+  await upsertWorkoutRecords(nextItems,opts);
   try{
     const{data,error}=await _SB.from('workouts')
       .select('client_workout_id,deleted_at')
@@ -786,10 +956,14 @@ async function replaceWorkoutTableSnapshot(items){
       .filter(row=>!row.deleted_at&&!nextIds.has(String(row.client_workout_id)))
       .map(row=>String(row.client_workout_id));
     if(!staleIds.length)return;
-    await _SB.from('workouts')
-      .update({deleted_at:new Date().toISOString()})
-      .eq('user_id',currentUser.id)
-      .in('client_workout_id',staleIds);
+    await runSupabaseWrite(
+      _SB.from('workouts')
+        .update({deleted_at:new Date().toISOString()})
+        .eq('user_id',currentUser.id)
+        .in('client_workout_id',staleIds),
+      'Failed to prune workout rows during snapshot replace',
+      opts
+    );
   }catch(e){logWarn('Failed to replace workout table snapshot',e);}
 }
 
@@ -810,7 +984,7 @@ async function pullWorkoutsFromTable(fallbackWorkouts){
     const merged=mergeWorkoutLists(tableWorkouts,fallbackWorkouts,deletedIds);
     const missingFromTable=merged.filter(workout=>!knownIds.has(workoutClientId(workout)));
 
-    if(missingFromTable.length)await upsertWorkoutRecords(missingFromTable);
+    if(missingFromTable.length)await upsertWorkoutRecords(missingFromTable,{notifyUser:false});
     if((rows.length>0||missingFromTable.length>0)&&!isWorkoutTableReady(profile)){
       profile.syncMeta={...(profile.syncMeta||{}),workoutsTableReady:true};
       await saveProfileData({docKeys:[PROFILE_CORE_DOC_KEY]});
@@ -854,7 +1028,11 @@ function applyLegacyProfileBlob(remoteProfile,remoteSchedule,options){
 async function pushLegacyProfileBlob(){
   try{
     const{data,error}=await _SB.from('profiles').select('data').eq('id',currentUser.id).single();
-    if(error&&error.code!=='PGRST116'){logWarn('Failed to read cloud profile before legacy push',error);}
+    if(error&&error.code!=='PGRST116'){
+      logWarn('Failed to read cloud profile before legacy push',error);
+      notifyCloudSyncError({notifyUser:true});
+      return false;
+    }
     const remoteData=data?.data||{};
     const remoteProfile=remoteData.profile||{};
     const remoteSchedule=remoteData.schedule;
@@ -864,15 +1042,26 @@ async function pushLegacyProfileBlob(){
     if(mergedSchedule!==undefined)schedule=mergedSchedule;
     persistLocalProfileCache();
     persistLocalScheduleCache();
-    await _SB.from('profiles').upsert({id:currentUser.id,data:{profile,schedule},updated_at:new Date().toISOString()});
-  }catch(e){logWarn('Failed to push legacy profile blob',e);}
+    const result=await runSupabaseWrite(
+      _SB.from('profiles').upsert({id:currentUser.id,data:{profile,schedule},updated_at:new Date().toISOString()}),
+      'Failed to push legacy profile blob',
+      {notifyUser:true}
+    );
+    return result.ok;
+  }catch(e){
+    logWarn('Failed to push legacy profile blob',e);
+    notifyCloudSyncError({notifyUser:true});
+    return false;
+  }
 }
 
 async function pushToCloud(options){
   if(!currentUser||isApplyingRemoteSync)return;
   const opts=options||{};
-  await upsertProfileDocuments(opts.docKeys||getAllProfileDocumentKeys(profile),profile,schedule);
-  await pushLegacyProfileBlob();
+  const docKeys=opts.docKeys||getAllProfileDocumentKeys(profile);
+  const docsSaved=await upsertProfileDocuments(docKeys,profile,schedule,{notifyUser:false});
+  if(docsSaved)return true;
+  return pushLegacyProfileBlob();
 }
 
 async function pullFromCloud(){
@@ -886,7 +1075,7 @@ async function pullFromCloud(){
   if(legacySnapshot.usedCloud){
     applyLegacyProfileBlob(legacySnapshot.profile,legacySnapshot.schedule,{preferRemoteWhenUnset:true});
     if(profileDocumentsSupported!==false){
-      await upsertProfileDocuments(getAllProfileDocumentKeys(profile),profile,schedule);
+      await upsertProfileDocuments(getAllProfileDocumentKeys(profile),profile,schedule,{notifyUser:false});
     }
     return{usedCloud:true,usedDocs:false};
   }
@@ -981,18 +1170,17 @@ function setupRealtimeSync(){
 }
 
 async function initAuth(){
-  await loadData({allowCloudSync:false});
   const{data:{session}}=await _SB.auth.getSession();
   currentUser=session?.user??null;
   if(currentUser){hideLoginScreen();await loadData({allowCloudSync:true});setupRealtimeSync();}
-  else{teardownRealtimeSync();showLoginScreen();}
+  else{teardownRealtimeSync();resetRuntimeState();showLoginScreen();}
 
   _SB.auth.onAuthStateChange(async(_event,session)=>{
     const wasLoggedIn=!!currentUser;
     currentUser=session?.user??null;
     if(currentUser&&!wasLoggedIn){hideLoginScreen();await loadData({allowCloudSync:true});setupRealtimeSync();}
-    else if(!currentUser&&wasLoggedIn){teardownRealtimeSync();await loadData({allowCloudSync:false});showLoginScreen();}
-    else if(!currentUser){teardownRealtimeSync();showLoginScreen();}
+    else if(!currentUser&&wasLoggedIn){teardownRealtimeSync();resetRuntimeState();showLoginScreen();}
+    else if(!currentUser){teardownRealtimeSync();resetRuntimeState();showLoginScreen();}
   });
 }
 
@@ -1033,6 +1221,7 @@ async function signUpWithEmail(){
 async function logout(){
   teardownRealtimeSync();
   await _SB.auth.signOut();
-  workouts=[];schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};profile={defaultRest:120,language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences(),coaching:getDefaultCoachingProfile()};currentUser=null;
+  currentUser=null;
+  resetRuntimeState();
   updateDashboard();
 }
