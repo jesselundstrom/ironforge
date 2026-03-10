@@ -19,6 +19,37 @@ function getForgeDaysPerWeek(){
     : 3;
 }
 
+function normalizeForgeWeek(rawWeek,skipPeakBlock){
+  const week=parseInt(rawWeek,10);
+  const maxWeek=skipPeakBlock?14:21;
+  if(!Number.isFinite(week)||week<1)return 1;
+  return Math.min(maxWeek,week);
+}
+
+function getForgeLoggedRepCount(raw){
+  const reps=parseInt(raw,10);
+  return Number.isFinite(reps)&&reps>=0?reps:null;
+}
+
+function getForgeNextWeek(rawWeek,skipPeakBlock){
+  const week=normalizeForgeWeek(rawWeek,skipPeakBlock);
+  const next=week+1;
+  if(skipPeakBlock&&next>=15)return 1;
+  return Math.min(21,next);
+}
+
+function getForgeCatchUpWeek(rawWeek,elapsedWeeks,skipPeakBlock){
+  let week=normalizeForgeWeek(rawWeek,skipPeakBlock);
+  const elapsed=Math.max(0,parseInt(elapsedWeeks,10)||0);
+  for(let i=0;i<elapsed;i++){
+    const next=getForgeNextWeek(week,skipPeakBlock);
+    if(next===week)break;
+    week=next;
+    if(FORGE_INTERNAL.deloadWeeks.includes(week))break;
+  }
+  return week;
+}
+
 function getForgeBlockName(rawName){
   if(!rawName)return rawName;
   const keyMap={Hypertrophy:'program.forge.block.hypertrophy',Strength:'program.forge.block.strength',Peaking:'program.forge.block.peaking',Deload:'program.forge.block.deload'};
@@ -204,7 +235,9 @@ const FORGE_INTERNAL={
     mode=mode||'sets';
     if(this.deloadWeeks.includes(week))return tm;
     if(mode==='rtf'){
-      const reps=data.repsOnLastSet||0,target=data.repOutTarget||10;
+      const reps=data.repsOnLastSet;
+      const target=data.repOutTarget||10;
+      if(reps===null||reps===undefined)return tm;
       if(reps>=target+3)return Math.round(tm*1.04*100)/100;
       if(reps>=target)return Math.round(tm*1.02*100)/100;
       if(reps>=target-2)return tm;
@@ -343,7 +376,7 @@ const FORGE_PROGRAM={
 
   adjustAfterSession(exercises,state){
     const newState=JSON.parse(JSON.stringify(state));
-    const week=state.week||1,mode=state.mode||'sets';
+    const week=normalizeForgeWeek(state.week,state.skipPeakBlock),mode=state.mode||'sets';
     if(FORGE_INTERNAL.deloadWeeks.includes(week))return newState;
     exercises.forEach(ex=>{
       if(ex.isAccessory)return;
@@ -351,8 +384,15 @@ const FORGE_PROGRAM={
       const match=all.find(l=>l.name===ex.name);if(!match)return;
       const doneSets=ex.sets.filter(s=>s.done).length;
       let adjustData;
-      if(mode==='rtf'){const amrapSet=ex.sets.find(s=>s.isAmrap&&s.done);adjustData={repsOnLastSet:amrapSet?parseInt(amrapSet.reps)||0:0,repOutTarget:ex.repOutTarget||10};}
-      else if(mode==='rir'){const lastDone=ex.sets.filter(s=>s.done).pop();const rir=lastDone?.rir!==undefined&&lastDone.rir!==''?parseInt(lastDone.rir):null;adjustData={setsCompleted:doneSets,lastSetRIR:rir};}
+      if(mode==='rtf'){
+        const amrapSet=ex.sets.find(s=>s.isAmrap&&s.done);
+        adjustData={repsOnLastSet:getForgeLoggedRepCount(amrapSet?.reps),repOutTarget:ex.repOutTarget||10};
+      }
+      else if(mode==='rir'){
+        const lastDone=ex.sets.filter(s=>s.done).pop();
+        const rir=lastDone?.rir!==undefined&&lastDone.rir!==''?getForgeLoggedRepCount(lastDone.rir):null;
+        adjustData={setsCompleted:doneSets,lastSetRIR:rir};
+      }
       else{adjustData=doneSets;}
       const oldTM=match.tm;match.tm=FORGE_INTERNAL.adjustTM(match.tm,adjustData,week,mode);
       if(match.tm!==oldTM)console.log('[Forge/'+mode+']',ex.name,'TM',match.tm>oldTM?'↑':'↓',oldTM,'→',match.tm);
@@ -361,25 +401,51 @@ const FORGE_PROGRAM={
   },
 
   advanceState(state,sessionsThisWeek){
-    const freq=getForgeDaysPerWeek(),week=state.week||1;
+    const freq=getForgeDaysPerWeek(),week=normalizeForgeWeek(state.week,state.skipPeakBlock);
     if(sessionsThisWeek>=freq&&week<21){
-      const next=week+1;
-      // Skip peak block (weeks 15-20): jump back to week 1 after the strength deload
-      if(state.skipPeakBlock&&next===15)return{...state,week:1,weekStartDate:new Date().toISOString()};
-      return{...state,week:next,weekStartDate:new Date().toISOString()};
+      return{...state,week:getForgeNextWeek(week,state.skipPeakBlock),weekStartDate:new Date().toISOString()};
     }
     return state;
   },
 
   dateCatchUp(state){
-    const week=state.week||1;if(week>=21)return state;
+    const week=normalizeForgeWeek(state.week,state.skipPeakBlock);if(week>=21)return state;
     const daysSince=(Date.now()-new Date(state.weekStartDate||Date.now()).getTime())/MS_PER_DAY;
     if(daysSince>=7){
       const elapsed=Math.floor(daysSince/7);
-      let next=Math.min(21,week+elapsed);
-      if(state.skipPeakBlock&&next>=15)next=1;
+      const next=getForgeCatchUpWeek(week,elapsed,state.skipPeakBlock);
+      if(next===week)return state;
       return{...state,week:next,weekStartDate:new Date().toISOString()};
     }
+    return state;
+  },
+
+  migrateState(state){
+    if(!state||typeof state!=='object')return this.getInitialState();
+    if(!state.daysPerWeek)state.daysPerWeek=getForgeDaysPerWeek();
+    if(!state.mode||!FORGE_INTERNAL.modes[state.mode])state.mode='sets';
+    if(!state.rounding||state.rounding<=0)state.rounding=2.5;
+    if(state.skipPeakBlock===undefined)state.skipPeakBlock=false;
+    state.week=normalizeForgeWeek(state.week,state.skipPeakBlock);
+    if(!state.weekStartDate)state.weekStartDate=new Date().toISOString();
+    if(!state.backExercise)state.backExercise='Barbell Rows';
+    state.backWeight=Number.isFinite(Number(state.backWeight))?Number(state.backWeight):0;
+    const initial=this.getInitialState();
+    if(!state.lifts)state.lifts=JSON.parse(JSON.stringify(initial.lifts));
+    if(!Array.isArray(state.lifts.main)||state.lifts.main.length!==initial.lifts.main.length){
+      state.lifts.main=JSON.parse(JSON.stringify(initial.lifts.main));
+    }
+    if(!Array.isArray(state.lifts.aux)||state.lifts.aux.length!==initial.lifts.aux.length){
+      state.lifts.aux=JSON.parse(JSON.stringify(initial.lifts.aux));
+    }
+    state.lifts.main=state.lifts.main.map((lift,idx)=>({
+      name:resolveProgramExerciseName(lift?.name||initial.lifts.main[idx].name),
+      tm:Number.isFinite(Number(lift?.tm))?Number(lift.tm):initial.lifts.main[idx].tm
+    }));
+    state.lifts.aux=state.lifts.aux.map((lift,idx)=>({
+      name:resolveProgramExerciseName(lift?.name||initial.lifts.aux[idx].name),
+      tm:Number.isFinite(Number(lift?.tm))?Number(lift.tm):initial.lifts.aux[idx].tm
+    }));
     return state;
   },
 

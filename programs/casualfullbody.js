@@ -95,15 +95,24 @@ function parseWeekKey(key) {
   return isNaN(y) || isNaN(w) ? null : { year: y, week: w };
 }
 
+function getISOWeekStartDate(year, week) {
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Dow = (jan4.getUTCDay() + 6) % 7;
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - jan4Dow);
+  const weekStart = new Date(week1Monday);
+  weekStart.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+  weekStart.setUTCHours(0, 0, 0, 0);
+  return weekStart;
+}
+
 // Returns true if keyB is exactly one ISO week after keyA.
 function isNextWeek(keyA, keyB) {
   const a = parseWeekKey(keyA);
   const b = parseWeekKey(keyB);
   if (!a || !b) return false;
-  // Simple: convert to total week number and compare
-  const totalA = a.year * 53 + a.week;
-  const totalB = b.year * 53 + b.week;
-  return totalB - totalA === 1;
+  const diffMs = getISOWeekStartDate(b.year, b.week).getTime() - getISOWeekStartDate(a.year, a.week).getTime();
+  return diffMs === 7 * 24 * 60 * 60 * 1000;
 }
 
 // ─── PROGRAM OBJECT ───────────────────────────────────────────────────────────

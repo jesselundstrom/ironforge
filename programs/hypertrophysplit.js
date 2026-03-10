@@ -34,6 +34,23 @@ const WEEKS={
 };
 const CYCLE_LENGTH=8;
 
+function normalizeHSWeek(rawWeek){
+  const week=parseInt(rawWeek,10);
+  if(!Number.isFinite(week)||week<1)return 1;
+  return Math.min(CYCLE_LENGTH,week);
+}
+
+function getHSCatchUpWeek(rawWeek,elapsedWeeks){
+  const startWeek=normalizeHSWeek(rawWeek);
+  let week=startWeek;
+  const elapsed=Math.max(0,parseInt(elapsedWeeks,10)||0);
+  for(let i=0;i<elapsed&&week<CYCLE_LENGTH;i++){
+    week=Math.min(CYCLE_LENGTH,week+1);
+    if(week!==startWeek&&WEEKS[week]?.deload)break;
+  }
+  return week;
+}
+
 function getReps(pct){
   if(pct<=0.575)return 12;
   if(pct<=0.625)return 10;
@@ -50,7 +67,7 @@ function getSets(pct,deload){
 function rnd(v,inc){return Math.round(v/inc)*inc;}
 
 function getPrescription(tm,week,isT2,rounding){
-  const w=WEEKS[week]||WEEKS[1];
+  const w=WEEKS[normalizeHSWeek(week)]||WEEKS[1];
   const pct=isT2?w.t2:w.t1;
   const weight=rnd(tm*pct,rounding||2.5);
   const reps=getReps(pct);
@@ -65,7 +82,7 @@ function adjustTM(tm,setsCompleted,targetSets){
 }
 
 function getBlockKey(week){
-  const w=WEEKS[week]||WEEKS[1];
+  const w=WEEKS[normalizeHSWeek(week)]||WEEKS[1];
   return w.deload?'deload':w.block.toLowerCase().replace('-','_');
 }
 
@@ -491,13 +508,13 @@ const HS_PROGRAM={
 
   /* ── date catch-up ───────────────────────────────────────────────── */
   dateCatchUp(state){
-    const week=state.week||1;
+    const week=normalizeHSWeek(state.week);
     if(week>=CYCLE_LENGTH)return state;
     const daysSince=(Date.now()-new Date(state.weekStartDate||Date.now()).getTime())/MS_PER_DAY;
     if(daysSince>=7){
       const elapsed=Math.floor(daysSince/7);
-      let next=Math.min(CYCLE_LENGTH,week+elapsed);
-      if(next>CYCLE_LENGTH)next=CYCLE_LENGTH;
+      const next=getHSCatchUpWeek(week,elapsed);
+      if(next===week)return state;
       return{...state,week:next,weekStartDate:new Date().toISOString()};
     }
     return state;
@@ -507,9 +524,9 @@ const HS_PROGRAM={
   migrateState(state){
     if(state.sessionCount===undefined)state.sessionCount=0;
     if(!state.nextSession)state.nextSession='push';
-    if(!state.daysPerWeek)state.daysPerWeek=getHSDaysPerWeek();
-    if(!state.rounding)state.rounding=2.5;
-    if(!state.week)state.week=1;
+    state.daysPerWeek=getHSDaysPerWeek();
+    if(!state.rounding||state.rounding<=0)state.rounding=2.5;
+    state.week=normalizeHSWeek(state.week);
     if(!state.cycle)state.cycle=1;
     if(!state.weekStartDate)state.weekStartDate=new Date().toISOString();
     if(!state.lifts)state.lifts={};

@@ -461,7 +461,8 @@ STRONGLIFTS_5X5.saveSimpleSettings=function(state){
   if(!next.lifts)next.lifts={};
   Object.keys(this._names).forEach(key=>{
     if(!next.lifts[key])next.lifts[key]={weight:0,failures:0};
-    next.lifts[key].weight=parseFloat(document.getElementById(`sl-basic-${key}`)?.value)||0;
+    const parsedWeight=parseFloat(document.getElementById(`sl-basic-${key}`)?.value);
+    next.lifts[key].weight=Number.isFinite(parsedWeight)?parsedWeight:(next.lifts[key].weight||0);
   });
   return next;
 };
