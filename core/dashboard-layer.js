@@ -318,6 +318,147 @@ function renderCoachingInsightsCard(insights){
   </div>`;
 }
 
+function sanitizeDashboardRichText(text){
+  return escapeHtml(String(text||''))
+    .replace(/&lt;strong&gt;/gi,'<strong>')
+    .replace(/&lt;\/strong&gt;/gi,'</strong>');
+}
+
+function highlightDashboardText(text,patterns){
+  let next=String(text||'');
+  (patterns||[]).forEach(pattern=>{
+    if(!pattern)return;
+    if(pattern instanceof RegExp){
+      next=next.replace(pattern,match=>`<strong>${match}</strong>`);
+      return;
+    }
+    const token=String(pattern);
+    if(token)next=next.replace(token,`<strong>${token}</strong>`);
+  });
+  return next;
+}
+
+function getDashboardCoachCopy(focusLine,decisionSummary,decision){
+  if(decision?.action&&decision.action!=='train'&&decisionSummary?.title&&decisionSummary?.body){
+    return `<strong>${escapeHtml(decisionSummary.title)}</strong> ${escapeHtml(decisionSummary.body)}`;
+  }
+  return escapeHtml(focusLine||decisionSummary?.body||'');
+}
+
+function getDashboardProgressMetric(insights){
+  const summary=String(insights?.progressionSummary||'');
+  const deltaMatch=summary.match(/([+-]?\d+(?:[.,]\d+)?)\s*kg/i);
+  if(deltaMatch){
+    const deltaValue=parseFloat(deltaMatch[1].replace(',','.'));
+    if(Number.isFinite(deltaValue)){
+      const absValue=Math.abs(deltaValue);
+      const formatted=absValue%1===0?absValue.toFixed(0):absValue.toFixed(1);
+      return{
+        value:`${deltaValue>0?'+':(deltaValue<0?'-':'')}${formatted}kg`,
+        color:deltaValue>0?'green':(deltaValue<0?'red':'text'),
+        highlight:deltaMatch[0],
+        label:trDash('workout.today.stats.progress','PR-kasvu')
+      };
+    }
+  }
+  return{
+    value:String(insights?.sessions90||0),
+    color:'text',
+    highlight:'',
+    label:trDash('dashboard.insights.sessions_90','90 pv sessiot')
+  };
+}
+
+function getDashboardPlanMuscleBars(days){
+  const summary=getRecentMuscleLoadSummary(days||4);
+  const maxValue=Math.max(...summary.map(item=>item.value),1);
+  return summary.map(item=>({
+    name:item.group,
+    load:Math.max(12,Math.round((item.value/maxValue)*100)),
+    level:item.level==='high'?'high':(item.level==='moderate'?'medium':'low')
+  }));
+}
+
+function renderDashboardTodayPlan(input){
+  const next=input||{};
+  const focusLine=String(next.focusLine||'');
+  const decision=next.trainingDecision||{};
+  const decisionSummary=next.decisionSummary||null;
+  const coachingInsights=next.coachingInsights||{};
+  const adherenceRate=Math.max(0,Math.round(coachingInsights.adherenceRate30||0));
+  const progressMetric=getDashboardProgressMetric(coachingInsights);
+  const bestDays=(coachingInsights.bestDayIndexes||[]).map(getDashboardDayLabel).filter(Boolean).slice(0,2);
+  const bestDaysValue=bestDays.length?bestDays.join('/'):'-';
+  const adherenceText=highlightDashboardText(
+    coachingInsights.adherenceSummary||'',
+    [`${adherenceRate}%`]
+  );
+  const progressionText=highlightDashboardText(
+    coachingInsights.progressionSummary||'',
+    progressMetric.highlight?[progressMetric.highlight]:[]
+  );
+  const bestDaysText=bestDays.length
+    ? highlightDashboardText(
+      trDash('dashboard.insights.best_days_line','Treenaat tasaisimmin päivinä {days}.',{days:bestDays.join(' / ')}),
+      [bestDays.join(' / ')]
+    )
+    : highlightDashboardText((coachingInsights.frictionItems||[])[0]||'',[]);
+  const stats=[
+    {
+      value:`${adherenceRate}%`,
+      label:trDash('dashboard.insights.adherence','30 pv toteuma'),
+      color:adherenceRate>=50?'orange':'text'
+    },
+    {
+      value:progressMetric.value,
+      label:progressMetric.label,
+      color:progressMetric.color
+    },
+    {
+      value:bestDaysValue,
+      label:trDash('dashboard.insights.best_days','Parhaat päivät'),
+      color:'text'
+    }
+  ];
+  const insights=[
+    {icon:adherenceRate>=50?'📈':'📉',text:adherenceText},
+    {icon:progressMetric.color==='green'?'📈':'📊',text:progressionText||sanitizeDashboardRichText(coachingInsights.progressionSummary||'')},
+    {icon:'📅',text:bestDaysText}
+  ].filter(item=>item.text);
+  const muscles=getDashboardPlanMuscleBars(4);
+  return `<div class="dashboard-plan-stack">
+    <section class="dashboard-plan-section dashboard-plan-section-coach">
+      <div class="dashboard-plan-section-label">${escapeHtml(trDash('dashboard.insights.title','Valmennusnostot'))}</div>
+      <article class="dashboard-plan-card dashboard-plan-coach-card">
+        <div class="dashboard-plan-card-head dashboard-plan-card-head-coach"><span class="dashboard-plan-head-dot" aria-hidden="true"></span>${escapeHtml(trDash('workout.today.coach_note','Valmentajan huomio'))}</div>
+        <div class="dashboard-plan-coach-copy">${sanitizeDashboardRichText(getDashboardCoachCopy(focusLine,decisionSummary,decision))}</div>
+      </article>
+    </section>
+    <section class="dashboard-plan-section dashboard-plan-section-stats">
+      <div class="dashboard-plan-section-label">${escapeHtml(trDash('workout.today.block_stats','Lohkon tilastot'))}</div>
+      <article class="dashboard-plan-card dashboard-plan-stats-card">
+        <div class="dashboard-plan-card-head">${escapeHtml(trDash('workout.today.last_30_days','Viimeiset 30 päivää'))}</div>
+        <div class="dashboard-plan-stats-grid">${stats.map((stat,index)=>`<div class="dashboard-plan-stat${index<stats.length-1?' has-divider':''}"><div class="dashboard-plan-stat-value is-${escapeHtml(stat.color)}">${escapeHtml(stat.value)}</div><div class="dashboard-plan-stat-label">${escapeHtml(stat.label)}</div></div>`).join('')}</div>
+        <div class="dashboard-plan-insight-list">${insights.map((item,index)=>`<div class="dashboard-plan-insight-row${index===insights.length-1?' is-last':''}"><span class="dashboard-plan-insight-icon" aria-hidden="true">${item.icon}</span><span class="dashboard-plan-insight-text">${sanitizeDashboardRichText(item.text)}</span></div>`).join('')}</div>
+      </article>
+    </section>
+    <section class="dashboard-plan-section dashboard-plan-section-muscle">
+      <div class="dashboard-plan-section-label">${escapeHtml(trDash('dashboard.muscle_load.recent','Viimeaikainen lihaskuorma'))}</div>
+      <article class="dashboard-plan-card dashboard-plan-muscle-card">
+        <div class="dashboard-plan-card-head">${escapeHtml(trDash('workout.today.recovery_status','Palautumistilanne'))}</div>
+        <div class="dashboard-plan-muscle-list">${muscles.length?muscles.map(item=>`<div class="dashboard-plan-muscle-row"><div class="dashboard-plan-muscle-name">${escapeHtml(trDash('dashboard.muscle_group.'+item.name,item.name))}</div><div class="dashboard-plan-muscle-track"><div class="dashboard-plan-muscle-fill is-${escapeHtml(item.level)}" data-load="${escapeHtml(String(item.load))}"></div></div><div class="dashboard-plan-muscle-badge is-${escapeHtml(item.level)}">${escapeHtml(trDash(item.level==='high'?'dashboard.muscle_load.high':(item.level==='medium'?'dashboard.muscle_load.moderate':'dashboard.muscle_load.light'),item.level))}</div></div>`).join(''):`<div class="dashboard-plan-muscle-empty">${escapeHtml(trDash('dashboard.log_to_see','Kirjaa treenejä, niin data tulee näkyviin'))}</div>`}</div>
+      </article>
+    </section>
+  </div>`;
+}
+
+function animateDashboardPlanMuscleBars(){
+  document.querySelectorAll('.dashboard-plan-muscle-fill').forEach(fill=>{
+    const load=Math.max(0,Math.min(100,parseFloat(fill.getAttribute('data-load'))||0));
+    fill.style.setProperty('--dashboard-muscle-scale',String(load/100));
+  });
+}
+
 window.toggleDashboardCoachingInsights=function(){
   dashboardUiState.coachingExpanded=!dashboardUiState.coachingExpanded;
   updateDashboard();
@@ -563,28 +704,28 @@ function updateDashboard(){
     : null;
   const decisionSummary=getTrainingDecisionSummary(trainingDecision,planningContext||{sessionsRemaining:Math.max(0,freq-doneThisWeek),sportLoad:{}});
   const reasonLabels=getTrainingDecisionReasonLabels(trainingDecision);
-  const prefSummaryHtml=`<div class="dashboard-plan-meta">${escapeHtml(getTrainingPreferencesSummary(profile))}</div>`;
-  const focusVerdictHtml=renderFocusVerdictCard(profile,{
+  const guidance=getPreferenceGuidance(profile,{
     detail:bi.modeDesc||'',
     canPushVolume:recovery>=70&&trainingDecision.action==='train'&&!bi.isDeload,
     decisionSummary,
     reasonLabels
   });
-  const muscleLoadHtml=renderRecentMuscleLoadSummary(4);
-  const coachingHtml=renderCoachingInsightsCard(coachingInsights);
   const shouldShowStart=trainingDecision.action!=='rest';
   const startSlot=document.getElementById('dashboard-start-session-slot');
   if(startSlot)startSlot.innerHTML=shouldShowStart?`<div class="dashboard-top-cta"><button class="btn btn-primary cta-btn" type="button" onclick="goToLog()">${trDash('dashboard.start_session','Aloita sessio')}</button></div>`:'';
   const todayBadgeEl=document.getElementById('today-plan-badge');
   if(todayBadgeEl){
-    todayBadgeEl.className=`dashboard-card-head-badge is-${decisionSummary.tone||'neutral'}`;
-    todayBadgeEl.textContent=decisionSummary.title||'';
+    todayBadgeEl.className='dashboard-card-head-badge';
+    todayBadgeEl.textContent='';
   }
-  const rec=focusVerdictHtml
-    +muscleLoadHtml
-    +coachingHtml
-    +prefSummaryHtml;
+  const rec=renderDashboardTodayPlan({
+    focusLine:guidance[0]||'',
+    trainingDecision,
+    decisionSummary,
+    coachingInsights
+  });
   document.getElementById('next-session-content').innerHTML=rec;
+  requestAnimationFrame(animateDashboardPlanMuscleBars);
   document.getElementById('header-sub').textContent=[programName,bi.name||'',bi.weekLabel||''].filter(Boolean).join(' · ');
 }
 

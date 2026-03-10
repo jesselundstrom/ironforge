@@ -496,79 +496,192 @@ function setProgramDayOption(value){
   updateProgramDisplay();
 }
 
+function getProgramOptionDayNumber(option){
+  const fromValue=String(option?.value||'').match(/\d+/);
+  if(fromValue)return fromValue[0];
+  const fromLabel=String(cleanProgramOptionLabel(option?.label||'')).match(/\d+/);
+  return fromLabel?fromLabel[0]:'';
+}
+
+function getProgramPreviewSession(prog,optionValue,state,sportContext){
+  if(!prog||!prog.buildSession)return [];
+  let preview=cloneProgramSession(prog.buildSession(optionValue,state)||[]);
+  if(typeof withResolvedExerciseId==='function')preview=preview.map(withResolvedExerciseId);
+  if(typeof applyTrainingPreferencesToExercises==='function'){
+    const adjusted=applyTrainingPreferencesToExercises(preview,sportContext);
+    preview=adjusted?.exercises||preview;
+  }
+  return preview;
+}
+
+function getProgramPreviewExerciseMeta(exercise){
+  const workSets=(exercise?.sets||[]).filter(set=>!set.isWarmup);
+  const reps=workSets.map(set=>String(set.reps??'')).filter(Boolean);
+  const sameReps=reps.length&&reps.every(rep=>rep===reps[0])?reps[0]:'';
+  const pattern=workSets.length?(sameReps?`${workSets.length} x ${sameReps}`:`${workSets.length} ${trProg('common.sets','sets')}`):'';
+  const weightRaw=exercise?.prescribedWeight??workSets.find(set=>set.weight!==undefined&&set.weight!==null&&set.weight!=='')?.weight;
+  const weightNum=parseFloat(weightRaw);
+  const weight=Number.isFinite(weightNum)?`${weightNum} kg`:'';
+  return{pattern,weight};
+}
+
+function getProgramPreviewHeaderChips(prog,state,session){
+  const chips=[];
+  const bi=prog.getBlockInfo?prog.getBlockInfo(state):null;
+  if(bi?.pct)chips.push(`${bi.pct}% 1RM`);
+  const primary=(session||[]).find(ex=>!ex.isAccessory)||session?.[0];
+  if(primary){
+    const meta=getProgramPreviewExerciseMeta(primary);
+    if(meta.pattern)chips.push(meta.pattern);
+    if(state?.mode==='rir'&&primary.rirCutoff!==undefined&&primary.rirCutoff!==null)chips.push(`RIR ${primary.rirCutoff}`);
+  }
+  return chips.slice(0,3);
+}
+
+function renderProgramSessionPreview(prog,state,selectedOption,sportContext){
+  const container=document.getElementById('program-session-preview');
+  if(!container||!selectedOption){if(container)container.innerHTML='';return;}
+  const session=getProgramPreviewSession(prog,selectedOption.value,state,sportContext);
+  const chips=getProgramPreviewHeaderChips(prog,state,session);
+  const title=cleanProgramOptionLabel(selectedOption.label)||trProg('workout.training_day','Training Day');
+  const rows=session.map((exercise,index)=>{
+    const meta=getProgramPreviewExerciseMeta(exercise);
+    return `<div class="workout-session-row">
+      <div class="workout-session-row-index">${index+1}</div>
+      <div class="workout-session-row-main">${escapeHtml(displayExerciseName(exercise.name||''))}</div>
+      <div class="workout-session-row-meta">
+        ${meta.pattern?`<div class="workout-session-row-pattern">${escapeHtml(meta.pattern)}</div>`:''}
+        ${meta.weight?`<div class="workout-session-row-weight">${escapeHtml(meta.weight)}</div>`:''}
+      </div>
+      <div class="workout-session-row-chevron" aria-hidden="true">&gt;</div>
+    </div>`;
+  }).join('');
+  container.innerHTML=`<div class="workout-today-section">
+    <div class="workout-today-section-label">${escapeHtml(title)}</div>
+    <div class="workout-session-card">
+      <div class="workout-session-card-head">
+        <div class="workout-session-card-title">${escapeHtml(title)}</div>
+        <div class="workout-session-card-chips">${chips.map(chip=>`<span class="workout-session-chip">${escapeHtml(chip)}</span>`).join('')}</div>
+      </div>
+      <div class="workout-session-card-body">${rows||`<div class="workout-session-empty">${escapeHtml(trProg('common.loading','Loading...'))}</div>`}</div>
+    </div>
+  </div>`;
+}
+
+function getProgramTodayMuscleTags(planningContext){
+  const loadMap=planningContext?.recentMuscleLoad||{};
+  return Object.entries(loadMap)
+    .map(([name,load])=>{
+      let level='light';
+      if(load>=8)level='high';
+      else if(load>=4)level='moderate';
+      return{
+        name:trProg('dashboard.muscle_group.'+name,name),
+        level,
+        label:trProg(`dashboard.muscle_load.${level}`,level)
+      };
+    })
+    .sort((a,b)=>{
+      const order={high:0,moderate:1,light:2};
+      return order[a.level]-order[b.level];
+    })
+    .slice(0,3);
+}
+
+function renderProgramTodayPanels(trainingDecision,planningContext,selectedOption){
+  const todayPanel=document.getElementById('program-today-panel');
+  const warningPanel=document.getElementById('program-warning-panel');
+  if(todayPanel)todayPanel.innerHTML='';
+  if(warningPanel)warningPanel.innerHTML='';
+  if(!todayPanel)return;
+  const fatigue=planningContext?.fatigue||computeFatigue();
+  const recovery=Math.max(0,100-(fatigue?.overall||0));
+  const guidance=(typeof getPreferenceGuidance==='function')
+    ? getPreferenceGuidance(profile,{canPushVolume:recovery>=70&&trainingDecision?.action==='train'})
+    : [];
+  const summary=(typeof getWorkoutDecisionSummary==='function')
+    ? getWorkoutDecisionSummary(trainingDecision,planningContext)
+    : null;
+  const focusLine=guidance[0]||trProg('workout.today.focus','Train sharp and keep the main work crisp.');
+  const supportLine=summary?.copy||'';
+  const tags=getProgramTodayMuscleTags(planningContext);
+  todayPanel.innerHTML=`<div class="workout-today-section">
+    <div class="workout-today-section-label">${escapeHtml(trProg('workout.today.kicker','Today\'s focus'))}</div>
+    <div class="workout-today-card">
+      <div class="workout-today-kicker">${escapeHtml(trProg('workout.today.kicker','Today\'s focus'))}</div>
+      <div class="workout-today-copy">${escapeHtml(focusLine)}</div>
+      ${supportLine?`<div class="workout-today-sub">${escapeHtml(supportLine)}</div>`:''}
+      ${tags.length?`<div class="workout-today-tags">${tags.map(tag=>`<span class="workout-today-tag is-${escapeHtml(tag.level)}">${escapeHtml(tag.name)} ${escapeHtml(tag.label)}</span>`).join('')}</div>`:''}
+    </div>
+  </div>`;
+  if(!warningPanel||!summary)return;
+  const needsWarning=(trainingDecision?.action&&trainingDecision.action!=='train')
+    || (trainingDecision?.restrictionFlags||[]).includes('avoid_heavy_legs')
+    || (trainingDecision?.reasonCodes||[]).includes('low_recovery')
+    || (trainingDecision?.reasonCodes||[]).includes('conservative_recovery');
+  if(!needsWarning)return;
+  const caution=trainingDecision?.action==='shorten'||(trainingDecision?.restrictionFlags||[]).includes('avoid_heavy_legs');
+  warningPanel.innerHTML=`<div class="workout-today-section">
+    <div class="workout-today-section-label">${escapeHtml(trProg('workout.warning.title','Training warning'))}</div>
+    <div class="workout-warning-card${caution?' is-caution':''}">
+      <div class="workout-warning-title">${escapeHtml(summary.title||trProg('workout.warning.low_recovery','Low recovery'))}</div>
+      <div class="workout-warning-copy">${escapeHtml(summary.copy||trProg('workout.warning.low_recovery_copy','Consider resting. If you train, Day {day} is the safer option.',{day:getProgramOptionDayNumber(selectedOption)||'1'}))}</div>
+    </div>
+  </div>`;
+}
+
 function updateProgramDisplay(){
   const prog=getActiveProgram(),state=getActiveProgramState();
   const ds=document.getElementById('program-day-select');if(!ds)return;
   const optionWrap=document.getElementById('program-day-options');
-  // Preserve any selection the user has already made before rebuilding the list
   const prevVal=ds.value;
   const rawOptions=prog.getSessionOptions?prog.getSessionOptions(state,workouts,schedule):[];
   const manualSportContext=(typeof getPendingSportReadinessContext==='function')?getPendingSportReadinessContext():null;
   const sportContext=mergeSportPreferenceContext(getAutomaticSportPreferenceContext(schedule,workouts),manualSportContext);
   const options=applyPreferenceRecommendation(prog,rawOptions,state,sportContext);
   const recommended=options.find(o=>o.isRecommended)||options[0];
-  // Use user's current pick if it still exists in the option list; otherwise recommend
   const hasMatch=prevVal&&options.some(o=>o.value===prevVal);
   const selectedValue=String(hasMatch?prevVal:(recommended?.value||options[0]?.value||''));
+  const selectedOption=(hasMatch?options.find(o=>o.value===prevVal):recommended)||recommended||null;
   ds.value=selectedValue;
   if(optionWrap){
     optionWrap.innerHTML=options.map(o=>{
       const selected=String(o.value)===selectedValue;
-      const badges=[];
-      if(o.isRecommended&&!o.done)badges.push(`<span class="program-day-badge program-day-badge-recommended">${escapeHtml(trProg('program.recommended','Recommended'))}</span>`);
-      if(o.done)badges.push(`<span class="program-day-badge program-day-badge-done">${escapeHtml(trProg('program.done','Done'))}</span>`);
-      const warningBadge=(o.sportLegs&&o.hasLegs&&!o.done)
-        ? `<span class="program-day-badge program-day-badge-warning">${escapeHtml(trProg('program.leg_heavy','Leg-heavy'))}</span>`
-        : '';
-      return `<button type="button" class="program-day-option${selected?' active':''}${o.done?' is-done':''}" onclick="setProgramDayOption('${escapeHtml(o.value)}')"><div class="program-day-option-top"><div class="program-day-option-label">${escapeHtml(cleanProgramOptionLabel(o.label))}</div><div class="program-day-option-badges">${badges.join('')}${warningBadge}</div></div></button>`;
+      const dayNumber=getProgramOptionDayNumber(o)||String(o.value||'');
+      const status=o.done
+        ? trProg('program.done','Done')
+        : (o.isRecommended?trProg('program.recommended','Recommended'):trProg('program.future','Upcoming'));
+      const icon=o.done?'OK':(o.isRecommended?'*':'');
+      const cls=`program-day-option${selected?' active':''}${o.done?' done':''}${!o.done&&!o.isRecommended?' upcoming':''}`;
+      return `<button type="button" class="${cls}" onclick="setProgramDayOption('${escapeHtml(o.value)}')">
+        <div class="program-day-option-day">${escapeHtml(trProg('workout.day','Day'))}</div>
+        <div class="program-day-option-number">${escapeHtml(dayNumber)}</div>
+        <div class="program-day-option-status">${icon?`<span class="program-day-option-status-icon">${escapeHtml(icon)}</span>`:''}${escapeHtml(status)}</div>
+      </button>`;
     }).join('');
   }
   const info=document.getElementById('program-week-display');
   if(info&&prog.getBlockInfo){
     const bi=prog.getBlockInfo(state);
     const progName=trProg('program.'+prog.id+'.name',prog.name);
-    info.innerHTML=`${prog.icon||'Lift'} <strong>${progName}</strong> - ${bi.name} - ${bi.weekLabel}${bi.pct?` - <span style="color:var(--purple)">${trProg('program.training_max_pct','{pct}% of Training Max',{pct:bi.pct})}</span>`:''}${bi.modeName?` - <span style="color:var(--purple)">${bi.modeName}</span>`:''}${bi.modeDesc?`<br><span style="font-size:11px">${bi.modeDesc}</span>`:''}`;
+    info.textContent=[progName,bi.name,bi.weekLabel].filter(Boolean).join(' - ');
   }
-  let prefBanner=document.getElementById('program-preferences-banner');
-  if(!prefBanner){
-    prefBanner=document.createElement('div');prefBanner.id='program-preferences-banner';
-    prefBanner.style.cssText='margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:var(--text)';
-    const ref=document.getElementById('program-week-display');
-    if(ref)ref.parentNode.insertBefore(prefBanner,ref.nextSibling);
-  }
-  if(prefBanner){
-    const fatigue=computeFatigue();
-    const guidance=(typeof getPreferenceGuidance==='function'
-      ? getPreferenceGuidance(profile,{canPushVolume:(100-fatigue.overall)>=70})
-      : []);
-    const selectedOption=(hasMatch?options.find(o=>o.value===prevVal):recommended)||recommended;
-    const reasonTitle=selectedOption===recommended
-      ? trProg('program.recommend_reason.title','Why this session')
-      : trProg('program.recommend_reason.starred_title','Why the recommended session is suggested');
-    const reasonLines=recommended?.preferenceReasons||[];
-    const reasonHtml=reasonLines.length
-      ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06)"><div style="font-size:10px;letter-spacing:0.9px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:6px">${escapeHtml(reasonTitle)}</div>${reasonLines.map(line=>`<div style="margin-top:4px;color:var(--text)">${escapeHtml(line)}</div>`).join('')}</div>`
-      : '';
-    prefBanner.innerHTML=guidance.length
-      ? guidance.map(line=>`<div style="margin-top:4px">${escapeHtml(line)}</div>`).join('')
-      : `<div>${escapeHtml(getTrainingPreferencesSummary(profile))}</div>`;
-    prefBanner.innerHTML+=reasonHtml;
-  }
-  let banner=document.getElementById('program-recommend-banner');
-  if(!banner){
-    banner=document.createElement('div');banner.id='program-recommend-banner';
-    banner.style.cssText='margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px';
-    const ref=document.getElementById('program-week-display');
-    if(ref)ref.parentNode.insertBefore(banner,ref.nextSibling);
-  }
-  const fatigue=computeFatigue();
-  const bHTML=prog.getBannerHTML?prog.getBannerHTML(options,state,schedule,workouts,fatigue):null;
-  if(bHTML&&banner){
-    banner.style.background=bHTML.style;banner.style.border='1px solid '+bHTML.border;
-    // Banner HTML is trusted (first-party program code, not user input).
-    // Programs use <strong> and styled spans intentionally.
-    banner.style.color=bHTML.color;banner.innerHTML=bHTML.html;
-  }
+  const planningContext=typeof buildPlanningContext==='function'
+    ? buildPlanningContext({
+      profile,
+      schedule,
+      workouts,
+      activeProgram:prog,
+      activeProgramState:state,
+      fatigue:typeof computeFatigue==='function'?computeFatigue():null,
+      sportContext
+    })
+    : null;
+  const trainingDecision=typeof getTodayTrainingDecision==='function'
+    ? getTodayTrainingDecision(planningContext)
+    : null;
+  renderProgramSessionPreview(prog,state,selectedOption,sportContext);
+  renderProgramTodayPanels(trainingDecision,planningContext,selectedOption);
 }
 
 function onDaySelectChange(){updateProgramDisplay();}
