@@ -41,9 +41,9 @@ function wasSportRecently(hours){
 function wasHockeyRecently(hours){return wasSportRecently(hours);}
 function getRecoveryColor(r){return r>=85?'var(--green)':r>=60?'var(--orange)':'var(--accent)';}
 function getRecoveryGradient(r){
-  if(r>=85)return{start:'#2eddb1',mid:'#7cf2d6',end:'#119b79',glow:'rgba(46,221,177,0.48)'};
-  if(r>=60)return{start:'#ffd166',mid:'#ffc24a',end:'#f08a22',glow:'rgba(255,185,78,0.44)'};
-  return{start:'#ff9b76',mid:'#ff7a5c',end:'#ff5a44',glow:'rgba(255,106,84,0.42)'};
+  if(r>=85)return{start:'var(--green)',mid:'var(--green)',end:'var(--green)',glow:'rgba(76,175,121,0.2)'};
+  if(r>=60)return{start:'var(--yellow)',mid:'var(--yellow)',end:'var(--yellow)',glow:'rgba(245,200,66,0.2)'};
+  return{start:'var(--red)',mid:'var(--red)',end:'var(--red)',glow:'rgba(224,82,82,0.18)'};
 }
 function getReadinessLabel(o){
   const r=100-o;
@@ -53,7 +53,10 @@ function getReadinessLabel(o){
   return{label:trDash('dashboard.high_fatigue','Korkea kuormitus'),color:'var(--accent)'};
 }
 function updateFatigueBars(f){
-  ['muscular','cns','overall'].forEach(k=>{
+  document.querySelectorAll('#recovery-badge').forEach((el,idx)=>{if(idx>0)el.remove();});
+  const overallRow=document.getElementById('f-overall')?.closest('.fatigue-row');
+  if(overallRow)overallRow.remove();
+  ['muscular','cns'].forEach(k=>{
     const el=document.getElementById('f-'+k),vEl=document.getElementById('f-'+k+'-val');
     const recovery=100-f[k];
     if(el){
@@ -68,9 +71,13 @@ function updateFatigueBars(f){
   });
   const overallRec=100-f.overall;
   let badgeText,badgeCls;
-  if(overallRec>=85){badgeText=trDash('dashboard.badge.go','Valmis treenaamaan');badgeCls='rbadge-go';}
-  else if(overallRec>=60){badgeText=trDash('dashboard.badge.caution','Kohtalainen');badgeCls='rbadge-caution';}
-  else{badgeText=trDash('dashboard.badge.rest','Lepo');badgeCls='rbadge-rest';}
+  if(overallRec>=85){badgeText=trDash('dashboard.badge.go','Valmis');badgeCls='rbadge-go';}
+  else if(overallRec>=60){badgeText=trDash('dashboard.badge.caution','Kevennä');badgeCls='rbadge-caution';}
+  else{badgeText=trDash('dashboard.badge.rest','Palautus');badgeCls='rbadge-rest';}
+  const overallValueEl=document.getElementById('recovery-overall-value');
+  if(overallValueEl)overallValueEl.textContent=overallRec+'%';
+  const overallCopyEl=document.getElementById('recovery-overall-copy');
+  if(overallCopyEl)overallCopyEl.textContent=badgeText;
   const badgeEl=document.getElementById('recovery-badge');
   if(badgeEl)badgeEl.innerHTML=`<span class="readiness-status ${badgeCls}"><span class="readiness-status-dot" aria-hidden="true"></span><span class="readiness-status-text">${badgeText}</span></span>`;
 }
@@ -232,18 +239,10 @@ function renderReasonChips(labels){
 function renderFocusVerdictCard(profileLike,context){
   const lines=getPreferenceGuidance(profileLike,context);
   if(!lines.length&&!context?.decisionSummary)return'';
-  const detailLines=[...lines.slice(1),context?.detail||''].filter(Boolean);
-  const tone=context?.decisionSummary?.tone||'neutral';
-  return `<div class="dashboard-focus-verdict dashboard-focus-verdict-${tone}">
-    <div class="dashboard-focus-verdict-top">
-      <div class="dashboard-focus-verdict-copy-wrap">
-        <div class="dashboard-plan-focus-label">${escapeHtml(trDash('dashboard.pref.focus_label','Tämän päivän painotus'))}</div>
-        <div class="dashboard-focus-verdict-copy">${escapeHtml(lines[0]||'')}</div>
-      </div>
-      <div class="dashboard-focus-verdict-badge">${escapeHtml(context?.decisionSummary?.title||'')}</div>
-    </div>
-    ${detailLines.length?`<div class="dashboard-focus-verdict-support">${detailLines.map(line=>`<div class="dashboard-focus-verdict-support-line">${escapeHtml(line)}</div>`).join('')}</div>`:''}
-    ${context?.decisionSummary?.body?`<div class="dashboard-focus-verdict-body">${escapeHtml(context.decisionSummary.body)}</div>`:''}
+  const support=context?.decisionSummary?.body||context?.detail||lines.slice(1).find(Boolean)||'';
+  return `<div class="dashboard-today-focus">
+    <div class="dashboard-today-focus-copy">${escapeHtml(lines[0]||'')}</div>
+    ${support?`<div class="dashboard-today-focus-support">${escapeHtml(support)}</div>`:''}
     ${renderReasonChips(context?.reasonLabels||[])}
   </div>`;
 }
@@ -263,17 +262,16 @@ function renderSessionProgress(done,total,sportCount,sportName){
   const sportFooter=sportCount
     ? trDash('dashboard.sport_sessions_week','Tällä viikolla kirjattu {count} {sport}-sessiota',{count:sportCount,sport:String(sportName||trDash('common.sport','Laji')).toLowerCase()})
     : '';
+  const ringStyle=`--progress-angle:${Math.round((percent/100)*360)}deg;`;
   return `<div class="dashboard-session-progress-card">
-    <div class="dashboard-session-progress-top">
-      <div>
-        <div class="dashboard-session-progress-label">${escapeHtml(trDash('dashboard.weekly_sessions','Viikon sessiot'))}</div>
-        <div class="dashboard-session-progress-value">${escapeHtml(trDash('dashboard.sessions','{done}/{total} sessiota',{done:complete,total:safeTotal}))}</div>
-      </div>
-      <div class="dashboard-session-progress-percent">${escapeHtml(String(percent))}%</div>
+    <div class="dashboard-session-progress-ring" style="${ringStyle}" aria-hidden="true">
+      <div class="dashboard-session-progress-ring-inner">${escapeHtml(String(percent))}%</div>
     </div>
-    <div class="dashboard-session-progress-track" aria-hidden="true"><div class="dashboard-session-progress-fill" style="width:${percent}%"></div></div>
-    <div class="dashboard-session-progress-foot">${escapeHtml(footer)}</div>
-    ${sportFooter?`<div class="dashboard-session-progress-foot is-secondary">${escapeHtml(sportFooter)}</div>`:''}
+    <div class="dashboard-session-progress-copy">
+      <div class="dashboard-session-progress-value">${escapeHtml(trDash('dashboard.sessions','{done}/{total} sessiota',{done:complete,total:safeTotal}))}</div>
+      <div class="dashboard-session-progress-foot">${escapeHtml(footer)}</div>
+      ${sportFooter?`<div class="dashboard-session-progress-foot is-secondary">${escapeHtml(sportFooter)}</div>`:''}
+    </div>
   </div>`;
 }
 
@@ -282,9 +280,7 @@ function renderWeekLegend(){
   if(!legend)return;
   legend.innerHTML=`
     <div class="dashboard-week-legend-item"><span class="dashboard-week-legend-dot is-lift" aria-hidden="true"></span><span>${escapeHtml(trDash('dashboard.calendar.legend_lift','Treeni kirjattu'))}</span></div>
-    <div class="dashboard-week-legend-item"><span class="dashboard-week-legend-dot is-sport" aria-hidden="true"></span><span>${escapeHtml(trDash('dashboard.calendar.legend_sport','Lajisessio kirjattu'))}</span></div>
-    <div class="dashboard-week-legend-item"><span class="dashboard-week-legend-dot is-scheduled" aria-hidden="true"></span><span>${escapeHtml(trDash('dashboard.calendar.legend_scheduled','Suunniteltu lajipäivä'))}</span></div>
-    <div class="dashboard-week-legend-hint">${escapeHtml(trDash('dashboard.calendar.legend_hint','Napauta päivää nähdäksesi tiedot'))}</div>
+    <div class="dashboard-week-legend-item"><span class="dashboard-week-legend-dot is-scheduled" aria-hidden="true"></span><span>${escapeHtml(trDash('dashboard.calendar.legend_scheduled','Suunniteltu'))}</span></div>
   `;
 }
 
@@ -313,11 +309,6 @@ function renderCoachingInsightsCard(insights){
     ? trDash('dashboard.insights.show_less','Piilota nostot')
     : trDash('dashboard.insights.show_more','Näytä nostot');
   return `<div class="dashboard-coaching-card ${getCoachingRecommendationClass(recType)}">
-    <div class="dashboard-coaching-label">${escapeHtml(trDash('dashboard.insights.title','Valmennusnostot'))}</div>
-    <div class="dashboard-coaching-title-row">
-      <div class="dashboard-coaching-title">${escapeHtml(insights.recommendation?.label||trDash('dashboard.insights.keep_going','Jatka samalla linjalla'))}</div>
-      <div class="dashboard-coaching-badge">${escapeHtml(trDash(`dashboard.insights.state.${recType}`,insights.recommendation?.label||trDash('dashboard.insights.keep_going','Jatka samalla linjalla')))}</div>
-    </div>
     <button class="dashboard-coaching-toggle" type="button" aria-expanded="${expanded?'true':'false'}" onclick="toggleDashboardCoachingInsights()">${escapeHtml(toggleLabel)}</button>
     <div class="dashboard-coaching-details"${expanded?'':' hidden'}>
       <div class="dashboard-coaching-body">${escapeHtml(insights.recommendation?.body||'')}</div>
@@ -459,17 +450,19 @@ function renderWeekStrip(){
     const isSportDay=schedule.sportDays.includes(dow);
     const hasLift=logged.some(w=>!isSportWorkout(w)),hasSport=logged.some(w=>isSportWorkout(w));
     const isLogged=hasLift||hasSport;
-    const markers=[
-      hasLift?'<span class="day-marker is-lift" aria-hidden="true"></span>':'',
-      hasSport?'<span class="day-marker is-sport" aria-hidden="true"></span>':'',
-      (!hasSport&&isSportDay)?'<span class="day-marker is-scheduled" aria-hidden="true"></span>':''
-    ].filter(Boolean).join('');
+    const markers=isLogged
+      ? '<span class="day-marker is-lift" aria-hidden="true"></span>'
+      : (isSportDay?'<span class="day-marker is-scheduled" aria-hidden="true"></span>':'');
     const tooltipParts=[`${DAY_NAMES[dow]} ${d.getDate()}.`];
     if(hasLift)tooltipParts.push(trDash('dashboard.calendar.legend_lift','Treeni kirjattu'));
     if(hasSport)tooltipParts.push(trDash('dashboard.calendar.legend_sport','Lajisessio kirjattu'));
     if(!hasSport&&isSportDay)tooltipParts.push(trDash('dashboard.calendar.legend_scheduled','Suunniteltu lajipäivä'));
     if(!isLogged&&!isSportDay)tooltipParts.push(trDash('dashboard.no_session_logged','Ei kirjattua treeniä'));
-    let cls='day-pill'+(isSportDay?' sport scheduled':'')+(isToday?' today':'')+(isLogged?' logged':'');
+    let cls='day-pill';
+    if(isToday)cls+=' today';
+    else if(isLogged)cls+=' logged';
+    else if(isSportDay)cls+=' scheduled';
+    else cls+=' free';
     strip.innerHTML+=`<button class="${cls}" type="button" onclick="toggleDayDetail(${i})" title="${escapeHtml(tooltipParts.join(' · '))}" aria-label="${escapeHtml(tooltipParts.join(' · '))}"><div class="day-label">${DAY_NAMES[dow]}</div><div class="day-num">${d.getDate()}</div><div class="day-markers">${markers||'<span class="day-marker-placeholder" aria-hidden="true"></span>'}</div></button>`;
   }
   const todayIsSportDay=schedule.sportDays.includes(todayDow);
@@ -520,6 +513,7 @@ function toggleDayDetail(dayIdx){
 
 // DASHBOARD
 function updateDashboard(){
+  document.querySelectorAll('#todays-plan-card > .card-title').forEach(el=>el.remove());
   renderWeekStrip();
   renderWeekLegend();
   const f=computeFatigue();updateFatigueBars(f);
@@ -534,7 +528,13 @@ function updateDashboard(){
     const tmSignature=tms.map(t=>`${t.name}:${t.value}`).join('|');
     const tmChanged=!!_lastTmSignature&&tmSignature!==_lastTmSignature;
     _lastTmSignature=tmSignature;
-    tmGrid.innerHTML=tms.map((t,i)=>`<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${escapeHtml(t.value)}</div><div class="label">${escapeHtml(dashExerciseName(t.name))}${t.stalled?' ⚠️':''}</div></div>`).join('');
+    tmGrid.innerHTML=tms.map((t,i)=>{
+      const rawValue=String(t.value||'');
+      const match=rawValue.match(/^([0-9]+(?:[.,][0-9]+)?)(.*)$/);
+      const valueMain=match?match[1]:rawValue;
+      const valueUnit=match&&match[2]?match[2].trim():'';
+      return `<div class="lift-stat${tmChanged?' tm-updated':''}" style="--tm-delay:${i*65}ms"><div class="value">${escapeHtml(valueMain)}${valueUnit?`<span class="unit">${escapeHtml(valueUnit)}</span>`:''}</div><div class="label">${escapeHtml(dashExerciseName(t.name))}${t.stalled?' ⚠️':''}</div></div>`;
+    }).join('');
     if(tmTitle)tmTitle.textContent=prog.dashboardStatsLabel||trDash('dashboard.training_maxes','Treenimaksimit');
   }
 
@@ -574,13 +574,17 @@ function updateDashboard(){
   const coachingHtml=renderCoachingInsightsCard(coachingInsights);
   const shouldShowStart=trainingDecision.action!=='rest';
   const startSlot=document.getElementById('dashboard-start-session-slot');
-  if(startSlot)startSlot.innerHTML=shouldShowStart?`<div class="dashboard-top-cta"><button class="btn btn-primary" type="button" onclick="goToLog()">${trDash('dashboard.start_session','Aloita sessio')}</button></div>`:'';
-  const rec=prefSummaryHtml
-    +focusVerdictHtml
+  if(startSlot)startSlot.innerHTML=shouldShowStart?`<div class="dashboard-top-cta"><button class="btn btn-primary cta-btn" type="button" onclick="goToLog()">${trDash('dashboard.start_session','Aloita sessio')}</button></div>`:'';
+  const todayBadgeEl=document.getElementById('today-plan-badge');
+  if(todayBadgeEl){
+    todayBadgeEl.className=`dashboard-card-head-badge is-${decisionSummary.tone||'neutral'}`;
+    todayBadgeEl.textContent=decisionSummary.title||'';
+  }
+  const rec=focusVerdictHtml
     +muscleLoadHtml
-    +coachingHtml;
+    +coachingHtml
+    +prefSummaryHtml;
   document.getElementById('next-session-content').innerHTML=rec;
-  document.getElementById('next-session-content').parentElement.style.borderColor=shouldShowStart?'var(--accent)':'';
-  document.getElementById('header-sub').textContent=trDash('dashboard.header_sub','{program} - {block} - {week} - Palautuminen {recovery}%',{program:programName,block:bi.name||'',week:bi.weekLabel||'',recovery});
+  document.getElementById('header-sub').textContent=[programName,bi.name||'',bi.weekLabel||''].filter(Boolean).join(' · ');
 }
 

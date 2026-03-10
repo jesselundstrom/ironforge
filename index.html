@@ -21,7 +21,7 @@
 })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="preload" as="image" href="assets/ironforge_bg.jpg">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -141,33 +141,57 @@
 
 <!-- ===== DASHBOARD ===== -->
 <div class="page active" id="page-dashboard">
-  <div class="card dash-week-card">
+  <div class="card dashboard-card dashboard-calendar-card dashboard-animate dashboard-delay-1">
     <div class="week-strip" id="week-strip"></div>
     <div class="dashboard-week-legend" id="dashboard-week-legend"></div>
-    <div id="dashboard-start-session-slot"></div>
-    <div id="session-progress" class="dashboard-session-progress" aria-live="polite"></div>
     <div class="week-progress-row">
-      <div id="today-status" style="font-size:12px;flex:1"></div>
+      <div id="today-status"></div>
     </div>
     <div id="day-detail-panel" style="display:none"></div>
   </div>
-  <div class="card" id="todays-plan-card">
-    <div class="card-title" data-i18n="dashboard.today_plan">Tämän päivän suunnitelma</div>
-    <div id="next-session-content" style="color:var(--muted);font-size:13px" data-i18n="common.loading">Ladataan...</div>
+  <div id="dashboard-start-session-slot" class="dashboard-animate dashboard-delay-2"></div>
+  <div class="dashboard-section dashboard-animate dashboard-delay-3">
+    <div class="dashboard-section-label" data-i18n="dashboard.weekly_sessions">Viikon sessiot</div>
+    <div id="session-progress" class="dashboard-session-progress" aria-live="polite"></div>
   </div>
-  <div class="dash-row">
-    <div class="card dash-col">
-      <div class="card-title" data-i18n="dashboard.recovery">Palautuminen</div>
-      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.muscular">Lihaksisto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
-      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.nervous">Hermosto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
-      <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.overall">Yhteensä</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-overall" style="width:0%"></div></div><div class="fatigue-value" id="f-overall-val">—</div></div>
-      <div id="recovery-badge" style="margin-top:6px"><span style="font-size:11px;color:var(--muted)" data-i18n="dashboard.log_to_see">Kirjaa treenejä, niin data tulee näkyviin</span></div>
-    </div>
-    <div class="card dash-col">
-      <div class="card-title" id="tm-section-title" data-i18n="dashboard.maxes">Maksimit</div>
-      <div class="lifts-grid" id="tm-grid"></div>
+  <div class="dashboard-section dashboard-animate dashboard-delay-4">
+    <div class="dashboard-section-label" data-i18n="dashboard.today_plan">Tämän päivän suunnitelma</div>
+    <div class="card dashboard-card" id="todays-plan-card">
+      <div class="dashboard-card-head">
+        <div class="dashboard-card-head-title" data-i18n="dashboard.today_plan">Tämän päivän suunnitelma</div>
+        <div class="dashboard-card-head-badge" id="today-plan-badge"></div>
+      </div>
+      <div class="dashboard-card-body" id="next-session-content" data-i18n="common.loading">Ladataan...</div>
     </div>
   </div>
+  <div class="dashboard-section dashboard-animate dashboard-delay-5">
+    <div class="dashboard-section-label" data-i18n="dashboard.recovery">Palautuminen</div>
+    <div class="card dashboard-card dashboard-recovery-card">
+      <div class="dashboard-card-head">
+        <div class="dashboard-card-head-title" data-i18n="dashboard.recovery">Palautuminen</div>
+        <div class="dashboard-card-head-badge" id="recovery-badge"><span data-i18n="dashboard.log_to_see">Kirjaa treenejä, niin data tulee näkyviin</span></div>
+      </div>
+      <div class="dashboard-card-body">
+        <div class="dashboard-recovery-summary">
+          <div>
+            <div class="dashboard-recovery-summary-label" data-i18n="dashboard.overall">Yhteensä</div>
+            <div class="dashboard-recovery-summary-copy" id="recovery-overall-copy"></div>
+          </div>
+          <div class="dashboard-recovery-summary-value" id="recovery-overall-value">—</div>
+        </div>
+        <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.muscular">Lihaksisto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
+        <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.nervous">Hermosto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
+    </div>
+    </div>
+  </div>
+    <div class="dashboard-section dashboard-animate dashboard-delay-6">
+      <div class="dashboard-section-label" id="tm-section-title" data-i18n="dashboard.maxes">Maksimit</div>
+      <div class="card dashboard-card dashboard-maxes-card">
+        <div class="dashboard-card-body">
+          <div class="lifts-grid" id="tm-grid"></div>
+        </div>
+      </div>
+    </div>
 </div>
 
 <!-- ===== LOG ===== -->
