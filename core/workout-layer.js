@@ -57,9 +57,9 @@ function resetNotStartedView(){
       </div>
       <input type="hidden" id="program-day-select" value="">
       <div id="program-day-options" class="program-day-options"></div>
+      <div id="program-warning-panel"></div>
       <div id="program-session-preview"></div>
       <div id="program-today-panel"></div>
-      <div id="program-warning-panel"></div>
       ${sportCheckControls}
       <div class="workout-start-footer">
         <button class="btn btn-primary cta-btn workout-start-cta" onclick="startWorkout()">${i18nText('workout.start_workout','Start Workout')}</button>
@@ -672,10 +672,31 @@ function applyTrainingPreferencesToExercises(exercises,sportContext){
     });
     const decision=getTodayTrainingDecision(context);
     const adapted=buildAdaptiveSessionPlan({programId:prog?.id,baseSession:exercises,context,decision});
+    const commentary=(adapted&&adapted.commentary&&typeof adapted.commentary==='object')
+      ? adapted.commentary
+      : (typeof buildTrainingCommentaryRecord==='function'
+        ? buildTrainingCommentaryRecord({decision,context,commentary:{
+          version:1,
+          decisionCode:typeof getTrainingDecisionCode==='function'?getTrainingDecisionCode(decision):'train',
+          reasonCodes:[...(decision?.reasonCodes||[])],
+          restrictionFlags:[...(decision?.restrictionFlags||[])],
+          adaptationEvents:[...(adapted?.adaptationEvents||[])],
+          equipmentHint:adapted?.equipmentHint||null,
+          runnerEvents:[]
+        }})
+        : null);
+    const commentaryState=(typeof buildTrainingCommentaryState==='function'&&commentary)
+      ? buildTrainingCommentaryState({decision,context,commentary})
+      : null;
     return{
       exercises:adapted.exercises||cloneWorkoutExercises(exercises),
-      changes:[...(adapted.adaptationReasons||[])],
-      equipmentHint:adapted.equipmentHint||''
+      commentary,
+      changes:(typeof presentTrainingCommentary==='function'&&commentaryState)
+        ? presentTrainingCommentary(commentaryState,'workout_adaptation_list')
+        : [],
+      equipmentHint:(typeof presentTrainingCommentary==='function'&&commentaryState)
+        ? (presentTrainingCommentary(commentaryState,'workout_equipment_hint')?.text||'')
+        : ''
     };
   }
   const prefs=normalizeTrainingPreferences(profile);
@@ -735,6 +756,7 @@ function applyTrainingPreferencesToExercises(exercises,sportContext){
 
   return{
     exercises:adjusted,
+    commentary:null,
     changes:[...new Set(changes)],
     equipmentHint:(prefs.equipmentAccess==='basic_gym'||prefs.equipmentAccess==='home_gym'||prefs.equipmentAccess==='minimal')
       ? i18nText('workout.pref_adjustment.swap_hint','Use exercise swap freely if your setup does not match the planned lift exactly.')
@@ -742,60 +764,70 @@ function applyTrainingPreferencesToExercises(exercises,sportContext){
   };
 }
 
+function ensureWorkoutCommentaryRecord(workoutLike){
+  if(!workoutLike)return null;
+  if(workoutLike.commentary&&typeof workoutLike.commentary==='object'){
+    workoutLike.commentary.version=1;
+    workoutLike.commentary.adaptationEvents=Array.isArray(workoutLike.commentary.adaptationEvents)?workoutLike.commentary.adaptationEvents:[];
+    workoutLike.commentary.runnerEvents=Array.isArray(workoutLike.commentary.runnerEvents)?workoutLike.commentary.runnerEvents:[];
+    return workoutLike.commentary;
+  }
+  if(typeof buildTrainingCommentaryRecord==='function'){
+    workoutLike.commentary=buildTrainingCommentaryRecord({workout:workoutLike});
+    return workoutLike.commentary;
+  }
+  return null;
+}
+
+function getWorkoutCommentaryState(workoutLike,overrides){
+  if(typeof buildTrainingCommentaryState!=='function')return null;
+  return buildTrainingCommentaryState({
+    workout:workoutLike||activeWorkout||{},
+    ...(overrides||{})
+  });
+}
+
+function appendWorkoutRunnerEvent(workoutLike,code,params){
+  const commentary=ensureWorkoutCommentaryRecord(workoutLike);
+  if(!commentary||typeof createTrainingCommentaryEvent!=='function')return commentary;
+  commentary.runnerEvents=[...(commentary.runnerEvents||[])];
+  commentary.runnerEvents.push(createTrainingCommentaryEvent(code,params));
+  return commentary;
+}
+
+function appendWorkoutAdaptationEvent(workoutLike,code,params){
+  const commentary=ensureWorkoutCommentaryRecord(workoutLike);
+  if(!commentary||typeof createTrainingCommentaryEvent!=='function')return commentary;
+  commentary.adaptationEvents=[...(commentary.adaptationEvents||[])];
+  commentary.adaptationEvents.push(createTrainingCommentaryEvent(code,params));
+  return commentary;
+}
+
 function getWorkoutDecisionSummary(decision,context){
-  if(!decision||!context)return null;
-  const sportName=context.sportLoad?.sportName||i18nText('common.sport','Sport');
-  if(decision.action==='deload'){
+  if(typeof buildTrainingCommentaryState==='function'&&typeof presentTrainingCommentary==='function'){
+    const state=buildTrainingCommentaryState({decision,context});
+    const summary=presentTrainingCommentary(state,'workout_summary');
+    if(!summary)return null;
     return{
-      title:i18nText('workout.plan.deload','Deload recommendation'),
-      copy:i18nText('workout.plan.deload_copy','Recovery is low, so keep today lighter than normal and reduce grinding.'),
-      reasons:decision.reasonCodes||[]
+      title:summary.title,
+      copy:summary.copy||'',
+      body:summary.copy||'',
+      tone:summary.tone||state.tone,
+      reasons:[...state.reasonCodes],
+      reasonLabels:[...(summary.reasonLabels||[])]
     };
   }
-  if(decision.action==='train_light'){
-    return{
-      title:i18nText('workout.plan.train_light','Conservative training day'),
-      copy:i18nText('workout.plan.train_light_copy','Train today, but keep the effort conservative and let the session breathe.'),
-      reasons:decision.reasonCodes||[]
-    };
-  }
-  if(decision.action==='shorten'){
-    return{
-      title:i18nText('workout.plan.shorten','Short session plan'),
-      copy:i18nText('workout.plan.shorten_copy','Main work first. Accessories will be trimmed to fit your time cap.'),
-      reasons:decision.reasonCodes||[]
-    };
-  }
-  if(decision.restrictionFlags.includes('avoid_heavy_legs')){
-    return{
-      title:i18nText('workout.plan.sport_load','Sport-aware session'),
-      copy:i18nText('workout.plan.sport_load_copy','{sport} load is high around today, so heavier leg work may be trimmed.',{sport:sportName}),
-      reasons:decision.reasonCodes||[]
-    };
-  }
-  return{
-    title:i18nText('workout.plan.normal','Normal training day'),
-    copy:i18nText('workout.plan.normal_copy','Your plan can run normally today.'),
-    reasons:decision.reasonCodes||[]
-  };
+  return null;
 }
 
 function renderWorkoutDecisionPreview(decision,context){
   const summary=getWorkoutDecisionSummary(decision,context);
   if(!summary)return'';
-  const reasonMap={
-    low_recovery:i18nText('dashboard.reason.low_recovery','Low recovery'),
-    conservative_recovery:i18nText('dashboard.reason.conservative','Recovery caution'),
-    tight_time_budget:i18nText('dashboard.reason.time_budget','35 min cap'),
-    sport_load:i18nText('dashboard.reason.sport_load','Sport load'),
-    equipment_constraint:i18nText('dashboard.reason.equipment','Equipment'),
-    progression_stall:i18nText('dashboard.reason.stall','Progress stall'),
-    guided_beginner:i18nText('dashboard.reason.guided','Guided path'),
-    week_complete:i18nText('dashboard.reason.complete','Week complete')
-  };
-  const reasons=(summary.reasons||[]).map(code=>reasonMap[code]).filter(Boolean);
+  const reasons=summary.reasonLabels||[];
   return `<div class="workout-decision-card">
-    <div class="workout-decision-kicker">${escapeHtml(i18nText('workout.plan.kicker',"Today's decision"))}</div>
+    <div class="workout-decision-kicker">${escapeHtml((typeof presentTrainingCommentary==='function'
+      ? (presentTrainingCommentary(getWorkoutCommentaryState(null,{decision,context}),'workout_summary')?.kicker)
+      : '')||i18nText('workout.plan.kicker',"Today's decision"))}</div>
     <div class="workout-decision-title">${escapeHtml(summary.title)}</div>
     <div class="workout-decision-copy">${escapeHtml(summary.copy)}</div>
     ${reasons.length?`<div class="workout-decision-reasons">${reasons.map(reason=>`<div class="workout-decision-chip">${escapeHtml(reason)}</div>`).join('')}</div>`:''}

@@ -518,7 +518,7 @@ function getProgramPreviewExerciseMeta(exercise){
   const workSets=(exercise?.sets||[]).filter(set=>!set.isWarmup);
   const reps=workSets.map(set=>String(set.reps??'')).filter(Boolean);
   const sameReps=reps.length&&reps.every(rep=>rep===reps[0])?reps[0]:'';
-  const pattern=workSets.length?(sameReps?`${workSets.length} x ${sameReps}`:`${workSets.length} ${trProg('common.sets','sets')}`):'';
+  const pattern=workSets.length?(sameReps?`${workSets.length}×${sameReps}`:`${workSets.length} ${trProg('common.sets','sets')}`):'';
   const weightRaw=exercise?.prescribedWeight??workSets.find(set=>set.weight!==undefined&&set.weight!==null&&set.weight!=='')?.weight;
   const weightNum=parseFloat(weightRaw);
   const weight=Number.isFinite(weightNum)?`${weightNum} kg`:'';
@@ -544,6 +544,8 @@ function renderProgramSessionPreview(prog,state,selectedOption,sportContext){
   const session=getProgramPreviewSession(prog,selectedOption.value,state,sportContext);
   const chips=getProgramPreviewHeaderChips(prog,state,session);
   const title=cleanProgramOptionLabel(selectedOption.label)||trProg('workout.training_day','Training Day');
+  const dayNumber=getProgramOptionDayNumber(selectedOption);
+  const headerTitle=dayNumber?`${trProg('workout.day','Day')} ${dayNumber}`:title;
   const rows=session.map((exercise,index)=>{
     const meta=getProgramPreviewExerciseMeta(exercise);
     return `<div class="workout-session-row">
@@ -557,10 +559,9 @@ function renderProgramSessionPreview(prog,state,selectedOption,sportContext){
     </div>`;
   }).join('');
   container.innerHTML=`<div class="workout-today-section">
-    <div class="workout-today-section-label">${escapeHtml(title)}</div>
     <div class="workout-session-card">
       <div class="workout-session-card-head">
-        <div class="workout-session-card-title">${escapeHtml(title)}</div>
+        <div class="workout-session-card-title">${escapeHtml(headerTitle)}</div>
         <div class="workout-session-card-chips">${chips.map(chip=>`<span class="workout-session-chip">${escapeHtml(chip)}</span>`).join('')}</div>
       </div>
       <div class="workout-session-card-body">${rows||`<div class="workout-session-empty">${escapeHtml(trProg('common.loading','Loading...'))}</div>`}</div>
@@ -608,7 +609,6 @@ function renderProgramTodayPanels(trainingDecision,planningContext,selectedOptio
   todayPanel.innerHTML=`<div class="workout-today-section">
     <div class="workout-today-section-label">${escapeHtml(trProg('workout.today.kicker','Today\'s focus'))}</div>
     <div class="workout-today-card">
-      <div class="workout-today-kicker">${escapeHtml(trProg('workout.today.kicker','Today\'s focus'))}</div>
       <div class="workout-today-copy">${escapeHtml(focusLine)}</div>
       ${supportLine?`<div class="workout-today-sub">${escapeHtml(supportLine)}</div>`:''}
       ${tags.length?`<div class="workout-today-tags">${tags.map(tag=>`<span class="workout-today-tag is-${escapeHtml(tag.level)}">${escapeHtml(tag.name)} ${escapeHtml(tag.label)}</span>`).join('')}</div>`:''}

@@ -447,12 +447,13 @@ select optgroup{font-weight:700}
 .program-day-option{display:grid;justify-items:center;gap:4px;min-height:92px;padding:12px 8px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Barlow Condensed',sans-serif}
 .program-day-option:active{transform:scale(0.99)}
 .program-day-option-day{font-size:11px;line-height:1;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)}
-.program-day-option-number{font-size:34px;line-height:0.9;font-weight:700;color:var(--text)}
+.program-day-option-number{position:relative;font-size:34px;line-height:0.9;font-weight:700;color:var(--text)}
 .program-day-option-status{display:flex;align-items:center;gap:4px;font-size:13px;line-height:1;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)}
 .program-day-option-status-icon{font-size:11px}
-.program-day-option.done{background:var(--surface2);color:var(--muted)}
-.program-day-option.done .program-day-option-number{color:var(--muted);text-decoration:line-through}
-.program-day-option.done .program-day-option-status{color:var(--muted)}
+.program-day-option.done{position:relative;background:transparent;border-color:var(--border);color:var(--muted);opacity:0.5}
+.program-day-option.done .program-day-option-number{color:var(--muted);text-decoration:none}
+.program-day-option.done .program-day-option-number::after{content:'';position:absolute;left:-2px;right:-2px;top:50%;height:2px;background:var(--muted);border-radius:999px;transform:translateY(-50%)}
+.program-day-option.done .program-day-option-status{color:var(--green);font-size:11px}
 .program-day-option.active{background:var(--orange);border-color:var(--orange);color:#fff;box-shadow:0 4px 16px rgba(245,130,31,0.3)}
 .program-day-option.active .program-day-option-day,.program-day-option.active .program-day-option-number,.program-day-option.active .program-day-option-status{color:#fff;text-decoration:none}
 .program-day-option.upcoming{background:var(--surface);border:1px solid var(--border);color:var(--text)}
@@ -463,10 +464,10 @@ select optgroup{font-weight:700}
 .workout-today-section{display:grid;gap:10px}
 .workout-today-section-label{font-size:10px;line-height:1;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-family:'Barlow Condensed',sans-serif}
 .workout-session-card,.workout-today-card,.workout-warning-card{border-radius:14px;border:1px solid var(--border);background:var(--surface);overflow:hidden}
-.workout-session-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.workout-session-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
 .workout-session-card-title{font-size:17px;line-height:1.1;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.05em}
-.workout-session-card-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.workout-session-chip{display:inline-flex;align-items:center;min-height:24px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:#121214;color:var(--text);font-size:12px;line-height:1;font-family:'Barlow Condensed',sans-serif;font-weight:700}
+.workout-session-card-chips{display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-end;white-space:nowrap}
+.workout-session-chip{display:inline-flex;align-items:center;min-height:24px;padding:3px 8px;border-radius:999px;border:1px solid var(--border);background:#121214;color:var(--text);font-size:11px;line-height:1;font-family:'Barlow Condensed',sans-serif;font-weight:700}
 .workout-session-card-body{padding:0}
 .workout-session-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto 10px;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--border)}
 .workout-session-row:first-child{border-top:none}
@@ -478,7 +479,6 @@ select optgroup{font-weight:700}
 .workout-session-row-chevron{font-size:16px;line-height:1;color:var(--muted)}
 .workout-session-empty{padding:16px;color:var(--muted);font-size:13px}
 .workout-today-card{padding:14px 16px}
-.workout-today-kicker{font-size:11px;line-height:1;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:'Barlow Condensed',sans-serif}
 .workout-today-copy{margin-top:8px;font-size:24px;line-height:0.95;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-weight:700}
 .workout-today-sub{margin-top:8px;font-size:14px;line-height:1.45;color:var(--muted)}
 .workout-today-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
