@@ -628,7 +628,7 @@ select optgroup{font-weight:700}
 .hist-meta-tag{color:var(--muted);font-size:11px;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;vertical-align:middle;margin-left:4px}
 .hist-exercises{border-top:1px solid var(--border);padding-top:8px;margin-top:2px}
 .hist-exercise-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0;color:var(--text)}
-.hist-exercise-vol{color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:11px;flex-shrink:0;margin-left:8px}
+.hist-exercise-vol{color:var(--accent2);font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:11px;flex-shrink:0;margin-left:8px}
 .hist-amrap-reps{color:#F96B42;font-weight:700}
 .hist-card-footer{display:flex;gap:16px;padding-top:8px;margin-top:8px;border-top:1px solid var(--border);font-family:'Barlow Condensed',sans-serif}
 .hist-footer-stat{font-size:11px;color:var(--muted);white-space:nowrap}
@@ -665,7 +665,7 @@ select optgroup{font-weight:700}
 .heatmap-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
 .heatmap-stats{display:flex;gap:12px;flex-wrap:wrap}
 .heatmap-stat{font-size:11px;color:var(--muted);font-weight:500}
-.heatmap-stat-val{font-size:13px;font-weight:800;color:var(--text);font-family:'Barlow Condensed',sans-serif;margin-right:3px}
+.heatmap-stat-val{font-size:13px;font-weight:800;color:var(--accent2);font-family:'Barlow Condensed',sans-serif;margin-right:3px}
 .heatmap-legend{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .heatmap-legend-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted)}
 .heatmap-legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
