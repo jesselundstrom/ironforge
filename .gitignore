@@ -1,2 +1,6 @@
 .claude/
 node_modules/
+dist/
+.prettier-cache/
+playwright-report/
+test-results/

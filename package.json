@@ -1,0 +1,38 @@
+{
+  "name": "ironforge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jesselundstrom/ironforge.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jesselundstrom/ironforge/issues"
+  },
+  "homepage": "https://github.com/jesselundstrom/ironforge#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
+    "eslint": "^10.0.3",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
