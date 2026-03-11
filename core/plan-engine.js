@@ -269,6 +269,7 @@ function getPlanSportLoad(scheduleLike,workoutList,manualContext){
   const recent72=(workoutList||[]).filter(workout=>isPlanSportWorkout(workout)&&(now-new Date(workout.date).getTime())<=72*3600000).length;
   return{
     signal:merged.legsStress||'none',
+    level:merged.sportLoadLevel||'none',
     preferUpper:merged.preferUpper===true,
     isSportDay:merged.isSportDay===true,
     hadSportRecently:merged.hadSportRecently===true,
@@ -283,7 +284,7 @@ function getPlanningRestrictionFlags(context){
   const flags=[];
   const equipment=context.equipmentAccess;
   if(equipment==='minimal'||equipment==='home_gym')flags.push('minimal_equipment');
-  if(context.sportLoad.preferUpper||context.sportLoad.signal==='yesterday'||context.sportLoad.signal==='tomorrow'||context.sportLoad.signal==='both'){
+  if(context.sportLoad.preferUpper||context.sportLoad.signal==='today'||context.sportLoad.signal==='yesterday'||context.sportLoad.signal==='tomorrow'||context.sportLoad.signal==='both'){
     flags.push('avoid_heavy_legs');
   }
   const joints=new Set(toPlanList(context.limitations?.jointFlags));
@@ -304,6 +305,7 @@ function getRecommendedSessionOptionForDecision(context){
         isSportDay:context.sportLoad.isSportDay,
         hadSportRecently:context.sportLoad.hadSportRecently,
         sportName:context.sportLoad.sportName,
+        sportLoadLevel:context.sportLoad.level,
         legsStress:context.sportLoad.signal,
         manualLegsStress:context.sportLoad.signal,
         hasManualLegsStress:context.sportLoad.signal!=='none'
@@ -606,6 +608,9 @@ function getTrainingAdjustmentBody(event){
   if(next.code==='sport_tomorrow'){
     return trPlan('training.adjustment.sport_tomorrow.body','Tomorrow looks leg-heavy, so lower-body work was kept slightly lighter.');
   }
+  if(next.code==='sport_today'){
+    return trPlan('training.adjustment.sport_today.body','Keeps lower-body work more manageable around today\'s sport.');
+  }
   if(next.code==='sport_yesterday'){
     return trPlan('training.adjustment.sport_yesterday.body','Yesterday was leg-heavy, so lower-body work was kept lighter today.');
   }
@@ -836,7 +841,9 @@ function shouldRemoveExerciseForContext(exercise,context,decision){
 function getSportLoadAdjustmentCode(context){
   const signal=context?.sportLoad?.signal||context?.sportContext?.legsStress||'none';
   if(signal==='both')return'sport_both';
+  if(signal==='today')return'sport_today';
   if(signal==='tomorrow')return'sport_tomorrow';
+  if(signal==='none'&&context?.sportLoad?.isSportDay)return'sport_today';
   return'sport_yesterday';
 }
 

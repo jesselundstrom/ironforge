@@ -327,11 +327,25 @@ function showPage(name,btn){
 function goToLog(){showPage('log',document.querySelectorAll('.nav-btn')[1]);}
 
 
+function getToastVariant(color){
+  const raw=String(color||'').toLowerCase();
+  if(!raw)return'success';
+  if(raw.includes('--green'))return'success';
+  if(raw.includes('--blue'))return'info';
+  if(raw.includes('--purple'))return'accent';
+  if(raw.includes('--muted'))return'neutral';
+  if(raw.includes('--orange')||raw.includes('--yellow')||raw.includes('--accent'))return'warning';
+  if(raw.includes('--red'))return'danger';
+  return'';
+}
 
 function showToast(msg,color,undoFn){
   const t=document.getElementById('toast');
   clearTimeout(_toastTimeout);
-  t.style.background=color||'var(--green)';
+  t.className='toast';
+  const variant=getToastVariant(color);
+  if(variant)t.classList.add('toast-'+variant);
+  t.style.removeProperty('background');
   if(undoFn){
     t.style.pointerEvents='auto';
     t.innerHTML=msg+' <span id="t-undo" style="background:rgba(255,255,255,0.2);border-radius:6px;padding:2px 10px;margin-left:6px;cursor:pointer;font-weight:700;font-size:13px">'+tr('common.undo','Undo')+'</span>';
@@ -340,6 +354,7 @@ function showToast(msg,color,undoFn){
     t.style.pointerEvents='none';
     t.textContent=msg;
   }
+  if(!variant&&color)t.style.background=color;
   t.classList.add('show');
   _toastTimeout=setTimeout(()=>{t.classList.remove('show');t.style.pointerEvents='none';},undoFn?5000:2800);
 }

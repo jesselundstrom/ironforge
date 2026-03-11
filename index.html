@@ -198,11 +198,10 @@
     </div>
     <div class="divider-label"><span data-i18n="workout.training_session">Training Session</span></div>
     <div class="card" style="padding:20px">
-      <div style="font-weight:800;font-size:16px;margin-bottom:4px" data-i18n="workout.start_session">Start a Session</div>
       <label style="margin-top:8px" data-i18n="workout.training_day">Training Day</label>
       <input type="hidden" id="program-day-select" value="">
       <div id="program-day-options" class="program-day-options"></div>
-      <div id="program-week-display" style="margin-top:14px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--purple)"></div>
+      <div id="program-week-display" hidden></div>
       <div style="margin-top:18px"><button class="btn btn-primary" onclick="startWorkout()" data-i18n="workout.start_workout">🏋️ Start Workout</button></div>
     </div>
   </div>
@@ -267,38 +266,54 @@
 
   <!-- ── Schedule tab ── -->
   <div id="settings-tab-schedule">
-    <div class="card">
-      <div class="card-title" data-i18n="settings.sport_card">Sport / Cardio</div>
-      <label data-i18n="settings.activity_name">Activity name</label>
-      <input id="sport-name" type="text" data-i18n-placeholder="settings.activity_placeholder" placeholder="e.g. Hockey, Soccer, Running" style="margin-bottom:14px">
-      <label data-i18n="settings.intensity">Intensity</label>
-      <div class="segment-control" id="sport-intensity-btns" style="display:flex;gap:6px;margin-bottom:14px">
-        <button class="btn btn-secondary" data-intensity="easy" onclick="setSportIntensity('easy',this)" style="flex:1" data-i18n="settings.intensity.easy">Easy</button>
-        <button class="btn btn-secondary" data-intensity="moderate" onclick="setSportIntensity('moderate',this)" style="flex:1" data-i18n="settings.intensity.moderate">Moderate</button>
-        <button class="btn btn-secondary" data-intensity="hard" onclick="setSportIntensity('hard',this)" style="flex:1" data-i18n="settings.intensity.hard">Hard</button>
+    <div class="card sport-load-card">
+      <div class="card-title" data-i18n="settings.sport_load.title">Sport Load</div>
+      <div class="sport-load-intro" data-i18n="settings.sport_load.subtitle">Set up your regular sport so the planner can steer sessions around it.</div>
+
+      <div class="settings-subsection">
+        <div class="settings-subsection-title" data-i18n="settings.sport_load.section.activity">Sport</div>
+        <div class="settings-subsection-sub" data-i18n="settings.sport_load.section.activity_sub">Name the recurring sport or cardio that affects your training week.</div>
+        <label data-i18n="settings.activity_name">Activity name</label>
+        <input id="sport-name" type="text" data-i18n-placeholder="settings.activity_placeholder" placeholder="e.g. Hockey, Soccer, Running">
       </div>
-      <label class="toggle-row" for="sport-legs-heavy">
-        <div>
-          <div class="toggle-row-title" data-i18n="settings.leg_heavy">Leg-heavy</div>
-          <div class="toggle-row-sub" data-i18n="settings.leg_heavy_sub">Warns when scheduling legs after sport</div>
+
+      <div class="settings-subsection">
+        <div class="settings-subsection-title" data-i18n="settings.sport_load.section.profile">Load profile</div>
+        <div class="settings-subsection-sub" data-i18n="settings.sport_load.section.profile_sub">Shape how strongly sport load should push training away from hard lower-body work.</div>
+        <label data-i18n="settings.intensity">Intensity</label>
+        <div class="segment-control" id="sport-intensity-btns">
+          <button class="btn btn-secondary sport-intensity-btn" data-intensity="easy" onclick="setSportIntensity('easy',this)" style="flex:1" data-i18n="settings.intensity.easy">Easy</button>
+          <button class="btn btn-secondary sport-intensity-btn" data-intensity="moderate" onclick="setSportIntensity('moderate',this)" style="flex:1" data-i18n="settings.intensity.moderate">Moderate</button>
+          <button class="btn btn-secondary sport-intensity-btn" data-intensity="hard" onclick="setSportIntensity('hard',this)" style="flex:1" data-i18n="settings.intensity.hard">Hard</button>
         </div>
-        <div class="toggle-switch">
-          <input type="checkbox" id="sport-legs-heavy">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </div>
-      </label>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600" data-i18n="settings.regular_sport_days">Regular Sport Days</div>
-      <div class="day-toggle-grid" id="sport-day-toggles"></div>
-      <label class="toggle-row" for="training-sport-check" style="margin-top:14px">
-        <div>
-          <div class="toggle-row-title" data-i18n="settings.preferences.sport_check">Pre-workout sport check-in</div>
-          <div class="toggle-row-sub" data-i18n="settings.preferences.sport_check_help">Ask before training whether you had a leg-heavy sport session yesterday or have one tomorrow.</div>
-        </div>
-        <div class="toggle-switch">
-          <input type="checkbox" id="training-sport-check">
-          <span class="toggle-track"><span class="toggle-thumb"></span></span>
-        </div>
-      </label>
+        <label class="toggle-row" for="sport-legs-heavy">
+          <div>
+            <div class="toggle-row-title" data-i18n="settings.leg_heavy">Leg-heavy</div>
+            <div class="toggle-row-sub" data-i18n="settings.leg_heavy_sub">Warns when scheduling legs after sport</div>
+          </div>
+          <div class="toggle-switch warning-toggle">
+            <input type="checkbox" id="sport-legs-heavy">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </div>
+        </label>
+        <div class="settings-inline-label" data-i18n="settings.regular_sport_days">Regular Sport Days</div>
+        <div class="day-toggle-grid" id="sport-day-toggles"></div>
+      </div>
+
+      <div class="settings-subsection">
+        <div class="settings-subsection-title" data-i18n="settings.sport_load.section.guidance">Guidance in training</div>
+        <div class="settings-subsection-sub" data-i18n="settings.sport_load.section.guidance_sub">Use a quick check-in on training day to steer session selection around sport load.</div>
+        <label class="toggle-row" for="training-sport-check">
+          <div>
+            <div class="toggle-row-title" data-i18n="settings.preferences.sport_check">Pre-workout sport check-in</div>
+            <div class="toggle-row-sub" data-i18n="settings.preferences.sport_check_help">Ask about sport load around today before recommending the session.</div>
+          </div>
+          <div class="toggle-switch sport-toggle">
+            <input type="checkbox" id="training-sport-check">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </div>
+        </label>
+      </div>
       <button class="btn btn-primary" style="margin-top:18px" onclick="saveSchedule()" data-i18n="common.save">Save</button>
     </div>
   </div>

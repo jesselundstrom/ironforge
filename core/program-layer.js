@@ -83,6 +83,7 @@ function getAutomaticSportPreferenceContext(schedule,workouts){
     isSportDay,
     hadSportRecently,
     sportName,
+    sportLoadLevel:'none',
     legsStress:'none',
     manualLegsStress:'none',
     hasManualLegsStress:false
@@ -91,12 +92,14 @@ function getAutomaticSportPreferenceContext(schedule,workouts){
 
 function mergeSportPreferenceContext(autoContext,manualContext){
   const base=autoContext||getAutomaticSportPreferenceContext({},[]);
+  const manualSportLoadLevel=manualContext?.sportLoadLevel||'none';
   const manualLegsStress=manualContext?.legsStress||'none';
   const hasManualLegsStress=manualLegsStress!=='none';
   return{
     ...base,
     ...manualContext,
     sportName:manualContext?.sportName||base.sportName,
+    sportLoadLevel:manualSportLoadLevel,
     legsStress:manualLegsStress,
     manualLegsStress,
     hasManualLegsStress,
@@ -127,6 +130,8 @@ function buildRecommendationReasons(prefs,option,shape,sessionMuscles,recentMusc
   }
   if(shape.hasLegs&&sportContext?.hasManualLegsStress&&sportContext.manualLegsStress==='yesterday'&&shape.totalSets<=16){
     reasons.push(trProg('program.recommend_reason.sport_context_yesterday','Keeps lower-body work more manageable after yesterday\'s leg-heavy sport.'));
+  }else if(shape.hasLegs&&sportContext?.hasManualLegsStress&&sportContext.manualLegsStress==='today'&&shape.totalSets<=15){
+    reasons.push(trProg('program.recommend_reason.sport_context_today','Keeps lower-body work more manageable around today\'s sport.'));
   }else if(shape.hasLegs&&sportContext?.hasManualLegsStress&&sportContext.manualLegsStress==='tomorrow'&&shape.totalSets<=16){
     reasons.push(trProg('program.recommend_reason.sport_context_tomorrow','Keeps lower-body work more manageable before tomorrow\'s sport.'));
   }else if(shape.hasLegs&&sportContext?.hasManualLegsStress&&sportContext.manualLegsStress==='both'&&shape.totalSets<=15){
@@ -171,6 +176,9 @@ function getProgramPreferenceRecommendation(prog,options,state,sportContext){
     if(sportContext?.legsStress==='yesterday'){
       score+=shape.hasLegs?-8:4;
       score+=shape.totalSets<=16?1:0;
+    }else if(sportContext?.legsStress==='today'){
+      score+=shape.hasLegs?-9:4;
+      score+=shape.totalSets<=15?1:0;
     }else if(sportContext?.legsStress==='tomorrow'){
       score+=shape.hasLegs?-6:3;
     }else if(sportContext?.legsStress==='both'){
