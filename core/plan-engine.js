@@ -365,7 +365,8 @@ function buildPlanningContext(input){
     const workoutProgramId=typeof getWorkoutProgramId==='function'?getWorkoutProgramId(workout):workout?.program;
     return workoutProgramId===activeProgramId;
   }).length;
-  const recentMuscleLoad=typeof getRecentDisplayMuscleLoads==='function'?getRecentDisplayMuscleLoads(4):{};
+  const recentMuscleLookback=Math.max(1,parseInt(MUSCLE_LOAD_CONFIG?.lookbackDays,10)||7);
+  const recentMuscleLoad=typeof getRecentDisplayMuscleLoads==='function'?getRecentDisplayMuscleLoads(recentMuscleLookback):{};
   const context={
     profile:profileLike,
     schedule:scheduleLike,
@@ -419,10 +420,10 @@ function getTodayTrainingDecision(context){
   if(next.sessionsRemaining<=0){
     action='rest';
     reasonCodes.push('week_complete');
-  }else if(next.recoveryScore<=35||(next.adherence.consecutivePoorSessions>=3&&next.progression.hasStalls)){
+  }else if(next.recoveryScore<=30||(next.adherence.consecutivePoorSessions>=3&&next.progression.hasStalls)){
     action=(next.activeProgram?.getBlockInfo?.(next.activeProgramState||{})?.isDeload)?'train_light':'deload';
     reasonCodes.push('low_recovery');
-  }else if(next.recoveryScore<=50||next.adherence.consecutivePoorSessions>=2){
+  }else if(next.recoveryScore<=45||next.adherence.consecutivePoorSessions>=2){
     action='train_light';
     reasonCodes.push('conservative_recovery');
   }else if(next.timeBudgetMinutes<=35){

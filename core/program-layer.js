@@ -139,7 +139,8 @@ function getProgramPreferenceRecommendation(prog,options,state,sportContext){
   const prefs=normalizeTrainingPreferences(profile);
   const activeOptions=(options||[]).filter(o=>!o.done);
   if(activeOptions.length<=1)return null;
-  const recentMuscles=(typeof getRecentDisplayMuscleLoads==='function')?getRecentDisplayMuscleLoads(4):{};
+  const recentMuscleLookback=Math.max(1,parseInt(MUSCLE_LOAD_CONFIG?.lookbackDays,10)||7);
+  const recentMuscles=(typeof getRecentDisplayMuscleLoads==='function')?getRecentDisplayMuscleLoads(recentMuscleLookback):{};
   let best=null;
   activeOptions.forEach((option,idx)=>{ 
     let score=option.isRecommended?20:0;

@@ -9,32 +9,128 @@ function dashExerciseName(name){
   if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(name);
   return name;
 }
+function clampDash(value,min,max){
+  return Math.max(min,Math.min(max,value));
+}
+function getDashboardFatigueLookbackDays(){
+  return Math.max(1,parseInt(FATIGUE_CONFIG?.lookbackDays,10)||10);
+}
+function getDashboardMuscleLoadLookbackDays(days){
+  return Math.max(1,parseInt(days,10)||parseInt(MUSCLE_LOAD_CONFIG?.lookbackDays,10)||7);
+}
+function getCompletedWorkSets(exercise){
+  return Array.isArray(exercise?.sets)
+    ? exercise.sets.filter(set=>set?.done===true&&!set.isWarmup)
+    : [];
+}
+function getWorkoutAgeDays(workout,now){
+  const ts=new Date(workout?.date).getTime();
+  if(!Number.isFinite(ts))return null;
+  return (now-ts)/86400000;
+}
+function getFatigueDecayWeight(ageDays,halfLifeDays){
+  if(ageDays===null||ageDays<0)return 0;
+  const halfLife=Math.max(0.1,parseFloat(halfLifeDays)||1);
+  return Math.pow(0.5,ageDays/halfLife);
+}
+function getLiftWorkoutFatigueImpulse(workout){
+  const cfg=FATIGUE_CONFIG?.lift||{};
+  let completedSets=0,totalReps=0,repsCount=0,totalWeight=0,weightCount=0;
+  (Array.isArray(workout?.exercises)?workout.exercises:[]).forEach(exercise=>{
+    getCompletedWorkSets(exercise).forEach(set=>{
+      completedSets++;
+      const reps=parseFloat(set?.reps);
+      if(Number.isFinite(reps)&&reps>0){
+        totalReps+=reps;
+        repsCount++;
+      }
+      const weight=parseFloat(set?.weight);
+      if(Number.isFinite(weight)&&weight>=0){
+        totalWeight+=weight;
+        weightCount++;
+      }
+    });
+  });
+  if(!completedSets)return{muscular:0,cns:0};
+  const avgReps=repsCount?totalReps/completedSets:5;
+  const repFactor=clampDash(
+    1+(avgReps-5)*(cfg.repFactorPerRepFromFive||0.05),
+    cfg.repFactorMin||0.9,
+    cfg.repFactorMax||1.25
+  );
+  const avgWeightKg=weightCount?totalWeight/weightCount:0;
+  const loadFactor=1+clampDash(
+    avgWeightKg/(cfg.loadFactorDivisor||200),
+    0,
+    cfg.loadFactorMaxBonus||0.35
+  );
+  const effort=clampDash((parseFloat(workout?.rpe)||7)-6,0,4);
+  const muscular=Math.min(
+    cfg.sessionCap||70,
+    (cfg.muscularBase||8)+(completedSets*(cfg.muscularSetWeight||1.9)*repFactor*loadFactor)+(effort*(cfg.muscularRpeWeight||4))
+  );
+  const cns=Math.min(
+    cfg.sessionCap||70,
+    (cfg.cnsBase||10)+(completedSets*(cfg.cnsSetWeight||1.05)*loadFactor)+(effort*(cfg.cnsRpeWeight||7))
+  );
+  return{muscular,cns};
+}
+function getSportFatigueConfig(workout){
+  const intensity=workout?.type==='hockey'?'hard':(schedule?.sportIntensity||'hard');
+  return FATIGUE_CONFIG?.sport?.[intensity]||FATIGUE_CONFIG?.sport?.hard||{muscular:17,cns:14};
+}
+function getSportWorkoutFatigueImpulse(workout){
+  const sportCfg=FATIGUE_CONFIG?.sport||{};
+  const base=getSportFatigueConfig(workout);
+  const durationHours=Math.max(0,(parseFloat(workout?.duration)||0)/3600);
+  const durationFactor=clampDash(
+    durationHours||1,
+    sportCfg.durationMin||0.75,
+    sportCfg.durationMax||1.5
+  );
+  const effortFactor=clampDash(
+    (sportCfg.effortBase||0.85)+(Math.max(0,(parseFloat(workout?.rpe)||7)-6)*(sportCfg.effortPerRpeAboveSix||0.12)),
+    sportCfg.effortBase||0.85,
+    sportCfg.effortMax||1.33
+  );
+  const muscular=(base.muscular||0)*durationFactor*effortFactor;
+  let cns=(base.cns||0)*durationFactor*effortFactor;
+  if(workout?.subtype==='extra')cns*=sportCfg.extraSubtypeCnsMultiplier||1.15;
+  return{muscular,cns};
+}
 function computeFatigue(){
   const now=Date.now();
   const liftS=workouts.filter(w=>!isSportWorkout(w)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const sportS=workouts.filter(w=>isSportWorkout(w)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const daysSinceLift=liftS.length?daysSince(liftS[0].date):99;
   const daysSinceSport=sportS.length?daysSince(sportS[0].date):99;
-  const last72h=workouts.filter(w=>daysSince(w.date)<3);
-  let recentSets=0,recentRPE=0,rpeCount=0;
-  last72h.forEach(w=>{
-    if(!isSportWorkout(w))w.exercises?.forEach(e=>recentSets+=e.sets.length);
-    if(w.rpe){recentRPE+=w.rpe;rpeCount++;}
-  });
-  const avgRecentRPE=rpeCount?recentRPE/rpeCount:7;
-  const recentHasSport=last72h.some(w=>isSportWorkout(w));
-  const sc=getSportConfig();
   const cfg=FATIGUE_CONFIG;
-  let muscular=Math.max(0,cfg.muscularBase-daysSinceLift*cfg.muscularDecay)+Math.min(30,recentSets*cfg.setsWeight)+(recentHasSport?sc.muscularBonus:0);
-  let cns=Math.max(0,cfg.cnsBase-daysSinceLift*cfg.cnsDecay)+(avgRecentRPE-5)*cfg.rpeWeight+(recentHasSport?sc.cnsBonus:0);
-  const extraToday=last72h.filter(w=>isSportWorkout(w)&&w.subtype==='extra').length;
-  cns+=extraToday*sc.extraCns;
-  muscular=Math.min(100,Math.max(0,muscular));cns=Math.min(100,Math.max(0,cns));
-  return{muscular:Math.round(muscular),cns:Math.round(cns),overall:Math.round(muscular*.5+cns*.5),daysSinceLift,daysSinceSport,recentSets,avgRecentRPE};
+  const lookbackDays=getDashboardFatigueLookbackDays();
+  let muscular=0,cns=0,recentLiftSessions=0,recentSportSessions=0;
+  workouts.forEach(workout=>{
+    const ageDays=getWorkoutAgeDays(workout,now);
+    if(ageDays===null||ageDays<0||ageDays>lookbackDays)return;
+    const impulse=isSportWorkout(workout)?getSportWorkoutFatigueImpulse(workout):getLiftWorkoutFatigueImpulse(workout);
+    if(!impulse.muscular&&!impulse.cns)return;
+    if(isSportWorkout(workout))recentSportSessions++;
+    else recentLiftSessions++;
+    muscular+=impulse.muscular*getFatigueDecayWeight(ageDays,cfg?.muscularHalfLifeDays||4.5);
+    cns+=impulse.cns*getFatigueDecayWeight(ageDays,cfg?.cnsHalfLifeDays||3.25);
+  });
+  muscular=clampDash(muscular,0,100);
+  cns=clampDash(cns,0,100);
+  return{
+    muscular:Math.round(muscular),
+    cns:Math.round(cns),
+    overall:Math.round((muscular+cns)*0.5),
+    daysSinceLift,
+    daysSinceSport,
+    recentLiftSessions,
+    recentSportSessions
+  };
 }
 function wasSportRecently(hours){
-  const sc=getSportConfig();
-  hours=hours||sc.recentHours;
+  hours=hours||((typeof getSportRecentHours==='function')?getSportRecentHours():30);
   return workouts.some(w=>isSportWorkout(w)&&(Date.now()-new Date(w.date).getTime())<hours*3600000);
 }
 // Backward-compat alias used by program files
@@ -127,18 +223,22 @@ function getExerciseMuscleProfile(exercise){
 function getWorkoutMuscleLoad(workout){
   const totals={};
   const exercises=Array.isArray(workout?.exercises)?workout.exercises:[];
-  const sessionScale=Math.max(0.75,Math.min(1.25,((parseFloat(workout?.rpe)||7)-5)*0.08+0.9));
+  const cfg=MUSCLE_LOAD_CONFIG||{};
+  const sessionScale=clampDash(
+    (cfg.liftRpeScaleBase||0.8)+(((parseFloat(workout?.rpe)||7)-5)*(cfg.liftRpeScalePerPoint||0.16)),
+    cfg.liftRpeScaleBase||0.8,
+    cfg.liftRpeScaleMax||1.6
+  );
   exercises.forEach(ex=>{
     const profile=getExerciseMuscleProfile(ex);
     if(!profile)return;
-    const sets=Array.isArray(ex.sets)?ex.sets.filter(set=>set.done!==false).length:0;
-    const setCount=sets||0;
+    const setCount=getCompletedWorkSets(ex).length;
     if(!setCount)return;
     (profile.primaryMuscles||[]).forEach(muscle=>{
-      totals[muscle]=(totals[muscle]||0)+setCount*1*sessionScale;
+      totals[muscle]=(totals[muscle]||0)+setCount*(cfg.liftPrimaryWeight||1)*sessionScale;
     });
     (profile.secondaryMuscles||[]).forEach(muscle=>{
-      totals[muscle]=(totals[muscle]||0)+setCount*0.5*sessionScale;
+      totals[muscle]=(totals[muscle]||0)+setCount*(cfg.liftSecondaryWeight||0.5)*sessionScale;
     });
   });
   return totals;
@@ -165,15 +265,16 @@ function getSportWorkoutMuscleLoad(workout){
 }
 
 function getRecentMuscleLoads(days){
-  const lookbackDays=Math.max(1,parseInt(days,10)||7);
-  const cutoff=Date.now()-lookbackDays*86400000;
+  const lookbackDays=getDashboardMuscleLoadLookbackDays(days);
+  const now=Date.now();
   const totals={};
   workouts.forEach(workout=>{
-    const ts=new Date(workout.date).getTime();
-    if(!Number.isFinite(ts)||ts<cutoff)return;
+    const ageDays=getWorkoutAgeDays(workout,now);
+    if(ageDays===null||ageDays<0||ageDays>lookbackDays)return;
+    const decay=getFatigueDecayWeight(ageDays,MUSCLE_LOAD_CONFIG?.halfLifeDays||3.5);
     const load=isSportWorkout(workout)?getSportWorkoutMuscleLoad(workout):getWorkoutMuscleLoad(workout);
     Object.entries(load).forEach(([muscle,value])=>{
-      totals[muscle]=(totals[muscle]||0)+value;
+      totals[muscle]=(totals[muscle]||0)+(value*decay);
     });
   });
   return Object.fromEntries(Object.entries(totals).sort((a,b)=>b[1]-a[1]));
@@ -195,18 +296,19 @@ function getRecentDisplayMuscleLoads(days){
 }
 
 function getDisplayMuscleLoadLevel(value){
-  if(value>=8)return'high';
-  if(value>=4)return'moderate';
-  if(value>=1.5)return'light';
+  const thresholds=MUSCLE_LOAD_CONFIG?.thresholds||{};
+  if(value>=(thresholds.high||8))return'high';
+  if(value>=(thresholds.moderate||4))return'moderate';
+  if(value>=(thresholds.light||1.5))return'light';
   return null;
 }
 
 function getRecentMuscleLoadSummary(days){
-  const displayLoads=getRecentDisplayMuscleLoads(days||4);
+  const displayLoads=getRecentDisplayMuscleLoads(getDashboardMuscleLoadLookbackDays(days));
   return Object.entries(displayLoads)
     .map(([group,value])=>({group,value,level:getDisplayMuscleLoadLevel(value)}))
     .filter(item=>item.level)
-    .slice(0,3);
+    .slice(0,Math.max(1,parseInt(MUSCLE_LOAD_CONFIG?.displayLimit,10)||3));
 }
 
 function renderRecentMuscleLoadSummary(days){
@@ -344,6 +446,63 @@ function getDashboardCoachCopy(focusLine,decisionSummary,coachCommentary,decisio
   }
   return escapeHtml(focusLine||decisionSummary?.body||'');
 }
+function getTodayWorkoutSummary(){
+  const today=new Date();
+  let liftCount=0,sportCount=0;
+  workouts.forEach(workout=>{
+    const ts=new Date(workout?.date);
+    if(!Number.isFinite(ts.getTime())||ts.toDateString()!==today.toDateString())return;
+    if(isSportWorkout(workout))sportCount++;
+    else liftCount++;
+  });
+  return{
+    hasLift:liftCount>0,
+    liftCount,
+    sportCount
+  };
+}
+function getDashboardCompletionMessage(summary){
+  if(!summary?.hasLift)return null;
+  if(summary.sportCount>0){
+    return{
+      title:trDash('dashboard.today_done','Päivän työ tehty'),
+      body:trDash(
+        'dashboard.today_done_with_sport',
+        'Salitreeni ja lajisessio on jo kirjattu tälle päivälle. Vahva päivä. Anna nyt palautumiselle tilaa tehdä työnsä.'
+      )
+    };
+  }
+  if(summary.liftCount>1){
+    return{
+      title:trDash('dashboard.today_done','Päivän työ tehty'),
+      body:trDash(
+        'dashboard.today_done_body_multi',
+        'Olet kirjannut tälle päivälle jo {count} salitreeniä. Hyvä työ. Sulje päivä rauhassa ja tule seuraavaan sessioon tuoreena.',
+        {count:summary.liftCount}
+      )
+    };
+  }
+  return{
+    title:trDash('dashboard.today_done','Päivän työ tehty'),
+    body:trDash(
+      'dashboard.today_done_body',
+      'Salitreeni on jo kirjattu tälle päivälle. Hyvä työ. Anna palautumiselle tilaa ja tule seuraavaan sessioon terävänä.'
+    )
+  };
+}
+function getDashboardCoachCardContent(focusLine,decisionSummary,coachCommentary,decision,todaySummary){
+  const completion=getDashboardCompletionMessage(todaySummary);
+  if(completion){
+    return{
+      copy:`<strong>${escapeHtml(trDash('dashboard.today_done_coach_title','Hyvä työ'))}</strong> ${escapeHtml(trDash('dashboard.today_done_coach_body','Tämän päivän päätyö on jo kasassa. Anna palautumiselle työrauha ja tule seuraavaan sessioon tuoreena.'))}`,
+      positive:true
+    };
+  }
+  return{
+    copy:getDashboardCoachCopy(focusLine,decisionSummary,coachCommentary,decision),
+    positive:false
+  };
+}
 
 function getDashboardProgressMetric(insights){
   const summary=String(insights?.progressionSummary||'');
@@ -370,7 +529,7 @@ function getDashboardProgressMetric(insights){
 }
 
 function getDashboardPlanMuscleBars(days){
-  const summary=getRecentMuscleLoadSummary(days||4);
+  const summary=getRecentMuscleLoadSummary(getDashboardMuscleLoadLookbackDays(days));
   const maxValue=Math.max(...summary.map(item=>item.value),1);
   return summary.map(item=>({
     name:item.group,
@@ -386,6 +545,9 @@ function renderDashboardTodayPlan(input){
   const decisionSummary=next.decisionSummary||null;
   const coachCommentary=next.coachCommentary||null;
   const coachingInsights=next.coachingInsights||{};
+  const todaySummary=next.todaySummary||null;
+  const completionMessage=getDashboardCompletionMessage(todaySummary);
+  const coachCard=getDashboardCoachCardContent(focusLine,decisionSummary,coachCommentary,decision,todaySummary);
   const adherenceRate=Math.max(0,Math.round(coachingInsights.adherenceRate30||0));
   const progressMetric=getDashboardProgressMetric(coachingInsights);
   const bestDays=(coachingInsights.bestDayIndexes||[]).map(getDashboardDayLabel).filter(Boolean).slice(0,2);
@@ -426,13 +588,14 @@ function renderDashboardTodayPlan(input){
     {tone:progressMetric.color==='green'?'green':(progressMetric.color==='red'?'red':'blue'),text:progressionText||sanitizeDashboardRichText(coachingInsights.progressionSummary||'')},
     {tone:'blue',text:bestDaysText}
   ].filter(item=>item.text);
-  const muscles=getDashboardPlanMuscleBars(4);
+  const muscles=getDashboardPlanMuscleBars(getDashboardMuscleLoadLookbackDays());
   return `<div class="dashboard-plan-stack">
     <section class="dashboard-plan-section dashboard-plan-section-coach">
       <div class="dashboard-plan-section-label">${escapeHtml(trDash('dashboard.insights.title','Valmennusnostot'))}</div>
       <article class="dashboard-plan-card dashboard-plan-coach-card">
-        <div class="dashboard-plan-card-head dashboard-plan-card-head-coach"><span class="dashboard-plan-head-dot" aria-hidden="true"></span>${escapeHtml(trDash('workout.today.coach_note','Valmentajan huomio'))}</div>
-        <div class="dashboard-plan-coach-copy">${sanitizeDashboardRichText(getDashboardCoachCopy(focusLine,decisionSummary,coachCommentary,decision))}</div>
+        <div class="dashboard-plan-card-head dashboard-plan-card-head-coach"><span class="dashboard-plan-head-dot${coachCard.positive?' is-positive':''}" aria-hidden="true"></span>${escapeHtml(coachCard.positive?trDash('dashboard.today_done','Päivän työ tehty'):trDash('workout.today.coach_note','Valmentajan huomio'))}</div>
+        <div class="dashboard-plan-coach-copy${coachCard.positive?' is-positive':''}">${sanitizeDashboardRichText(coachCard.copy)}</div>
+        ${completionMessage?`<div class="dashboard-plan-completion">${renderPlanStatus(completionMessage.title,completionMessage.body,'positive')}</div>`:''}
       </article>
     </section>
     <section class="dashboard-plan-section dashboard-plan-section-stats">
@@ -650,6 +813,7 @@ function updateDashboard(){
   const freq=typeof getEffectiveProgramFrequency==='function'
     ? getEffectiveProgramFrequency(prog.id,profile)
     : (ps.daysPerWeek||3);
+  const todaySummary=getTodayWorkoutSummary();
   const doneThisWeek=workouts.filter(w=>(w.program===prog.id||(!w.program&&w.type===prog.id))&&new Date(w.date)>=sow).length;
   const sportThisWeek=workouts.filter(w=>isSportWorkout(w)&&new Date(w.date)>=sow).length;
   const sn=schedule.sportName||trDash('common.sport','Laji');
@@ -685,9 +849,13 @@ function updateDashboard(){
     decisionSummary,
     reasonLabels
   });
-  const shouldShowStart=trainingDecision.action!=='rest';
+  const shouldShowStart=trainingDecision.action!=='rest'&&!todaySummary.hasLift;
   const startSlot=document.getElementById('dashboard-start-session-slot');
-  if(startSlot)startSlot.innerHTML=shouldShowStart?`<div class="dashboard-top-cta"><button class="btn btn-primary cta-btn" type="button" onclick="goToLog()">${trDash('dashboard.start_session','Aloita sessio')}</button></div>`:'';
+  if(startSlot){
+    startSlot.innerHTML=shouldShowStart
+      ? `<div class="dashboard-top-cta"><button class="btn btn-primary cta-btn" type="button" onclick="goToLog()">${trDash('dashboard.start_session','Aloita sessio')}</button></div>`
+      : (todaySummary.hasLift?`<div class="dashboard-top-cta"><div class="dashboard-card-head-badge is-positive">${escapeHtml(trDash('dashboard.today_done_badge','Päivän työ tehty'))}</div></div>`:'');
+  }
   const todayBadgeEl=document.getElementById('today-plan-badge');
   if(todayBadgeEl){
     todayBadgeEl.className='dashboard-card-head-badge';
@@ -698,7 +866,8 @@ function updateDashboard(){
     trainingDecision,
     decisionSummary,
     coachCommentary,
-    coachingInsights
+    coachingInsights,
+    todaySummary
   });
   document.getElementById('next-session-content').innerHTML=rec;
   requestAnimationFrame(animateDashboardPlanMuscleBars);

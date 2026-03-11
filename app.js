@@ -252,22 +252,58 @@ window.stopLoginSparks=()=>loginSparks.stop();
 // Programs (loaded via <script> tags after this file) call registerProgram() to self-register.
 // Program registry/state helpers moved to core/program-layer.js.
 
-// FATIGUE ENGINE CONFIG
+// FATIGUE + MUSCLE LOAD CONFIG
 // Separate from program definitions - these are app-wide constants
 const FATIGUE_CONFIG={
-  muscularBase:40,muscularDecay:15,
-  cnsBase:50,cnsDecay:20,
-  setsWeight:3,
-  rpeWeight:8
+  lookbackDays:10,
+  muscularHalfLifeDays:4.5,
+  cnsHalfLifeDays:3.25,
+  lift:{
+    muscularBase:8,
+    muscularSetWeight:1.9,
+    muscularRpeWeight:4,
+    cnsBase:10,
+    cnsSetWeight:1.05,
+    cnsRpeWeight:7,
+    loadFactorDivisor:200,
+    loadFactorMaxBonus:0.35,
+    repFactorPerRepFromFive:0.05,
+    repFactorMin:0.9,
+    repFactorMax:1.25,
+    sessionCap:70
+  },
+  sport:{
+    easy:{muscular:6,cns:5},
+    moderate:{muscular:11,cns:9},
+    hard:{muscular:17,cns:14},
+    durationMin:0.75,
+    durationMax:1.5,
+    effortBase:0.85,
+    effortPerRpeAboveSix:0.12,
+    effortMax:1.33,
+    extraSubtypeCnsMultiplier:1.15
+  }
 };
 
-// Sport/cardio intensity fatigue bonuses
-const SPORT_INTENSITY={
-  easy:    {muscularBonus:6, cnsBonus:4, extraCns:2, recentHours:18},
-  moderate:{muscularBonus:12,cnsBonus:9, extraCns:5, recentHours:24},
-  hard:    {muscularBonus:20,cnsBonus:15,extraCns:10,recentHours:30},
+const MUSCLE_LOAD_CONFIG={
+  lookbackDays:7,
+  halfLifeDays:3.5,
+  displayLimit:3,
+  thresholds:{high:8,moderate:4,light:1.5},
+  liftPrimaryWeight:1,
+  liftSecondaryWeight:0.5,
+  liftRpeScaleBase:0.8,
+  liftRpeScalePerPoint:0.16,
+  liftRpeScaleMax:1.6
 };
-function getSportConfig(){return SPORT_INTENSITY[schedule.sportIntensity||'hard']||SPORT_INTENSITY.hard;}
+
+const SPORT_RECENT_HOURS={
+  easy:18,
+  moderate:24,
+  hard:30
+};
+function getSportConfig(){return FATIGUE_CONFIG.sport[schedule.sportIntensity||'hard']||FATIGUE_CONFIG.sport.hard;}
+function getSportRecentHours(){return SPORT_RECENT_HOURS[schedule.sportIntensity||'hard']||SPORT_RECENT_HOURS.hard;}
 
 
 
