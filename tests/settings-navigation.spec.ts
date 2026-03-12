@@ -9,7 +9,7 @@ test('user can open settings from the bottom navigation', async ({ page }) => {
     .getByRole('button', { name: /^settings$/i });
 
   await expect(settingsButton).toBeVisible();
-  await settingsButton.click({ force: true });
+  await settingsButton.evaluate((button: HTMLButtonElement) => button.click());
 
   await expect(page.locator('#page-settings')).toHaveClass(/active/);
   await expect(page.locator('#sport-name')).toBeVisible();

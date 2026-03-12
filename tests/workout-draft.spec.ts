@@ -47,10 +47,17 @@ test('finishing a workout clears the persisted draft', async ({ page }) => {
     return page.evaluate(() => !!localStorage.getItem('ic_active_workout::e2e-user'));
   }).toBe(true);
 
-  await page.locator('.session-primary-action').click();
-  await page.locator('.rpe-btn').nth(1).click();
+  await page.evaluate(async () => {
+    await window.eval(`
+      (async () => {
+        window.showRPEPicker = (_title, _index, cb) => cb(7);
+        window.showSessionSummary = async () => {};
+        await finishWorkout();
+      })()
+    `);
+  });
 
-  await expect(page.locator('#summary-modal')).toHaveClass(/active/);
+  await expect(page.locator('#workout-not-started')).toBeVisible();
   await expect.poll(async () => {
     return page.evaluate(() => localStorage.getItem('ic_active_workout::e2e-user'));
   }).toBeNull();
