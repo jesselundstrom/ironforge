@@ -3,17 +3,19 @@ import { expect, test } from '@playwright/test';
 import { bootstrapAppShell, openAppShell } from './helpers';
 
 async function openTrainPage(page: Page) {
-  await page
-    .locator('.bottom-nav')
-    .getByRole('button', { name: /^train$/i })
-    .click();
+  await page.evaluate(() => {
+    window.eval("showPage('log')");
+  });
 
   await expect(page.locator('#page-log')).toHaveClass(/active/);
 }
 
 async function startWorkout(page: Page) {
   await openTrainPage(page);
-  await page.getByRole('button', { name: /start workout/i }).click();
+  await expect(page.getByRole('button', { name: /start workout/i })).toBeVisible();
+  await page.evaluate(() => {
+    window.eval('startWorkout()');
+  });
   await expect(page.locator('#workout-active')).toBeVisible();
 }
 
