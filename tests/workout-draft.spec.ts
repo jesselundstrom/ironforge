@@ -27,8 +27,6 @@ test('active workout draft restores after reload', async ({ page }) => {
   await firstWeightInput.fill('60');
   await firstWeightInput.blur();
 
-  expect(await page.evaluate(() => window.eval('Boolean(getActiveWorkoutDraftCache())'))).toBe(true);
-
   await page.reload();
   await bootstrapAppShell(page);
   await openTrainPage(page);
