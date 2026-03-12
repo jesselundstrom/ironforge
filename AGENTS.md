@@ -1,3 +1,9 @@
+## Project guidance
+
+- For project-specific conventions and architectural context, read `CLAUDE.md` when relevant.
+- Treat the stack, UI rules, plugin interface, testing expectations, and recorded decisions in `CLAUDE.md` as project constraints unless the user explicitly overrides them.
+- Do not rewrite or duplicate `CLAUDE.md` by default. Use it as the shared source of truth and keep this file focused on Codex-specific guidance.
+
 ## Skills
 
 A skill is a set of local instructions stored in a `SKILL.md` file. Use the skills below when the task matches their description or the user names them directly.
