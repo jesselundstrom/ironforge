@@ -481,12 +481,135 @@ function deleteWorkout(id){
   });
 }
 
+// ── Stats chart helpers ───────────────────────────────────────────────
+
+function _statsWeeklyVolume(n){
+  const today=new Date();today.setHours(0,0,0,0);
+  const ws0=getWeekStart(today);
+  return Array.from({length:n},(_,i)=>{
+    const ws=new Date(ws0);ws.setDate(ws0.getDate()-(n-1-i)*7);
+    const we=new Date(ws);we.setDate(ws.getDate()+6);
+    let vol=0;
+    workouts.forEach(w=>{
+      if(isSportWorkout(w))return;
+      const wd=new Date(w.date);wd.setHours(0,0,0,0);
+      if(wd>=ws&&wd<=we)(w.exercises||[]).forEach(ex=>ex.sets.filter(s=>s.done).forEach(s=>{vol+=(parseFloat(s.weight)||0)*(parseInt(s.reps)||0);}));
+    });
+    const tmp=new Date(ws.getTime());tmp.setDate(tmp.getDate()+3-(tmp.getDay()+6)%7);
+    const y1=new Date(tmp.getFullYear(),0,4);
+    const wn=1+Math.round(((tmp-y1)/86400000-3+(y1.getDay()+6)%7)/7);
+    const wp=trHist('history.stats.week_prefix','W');
+    return{vol,label:wp+wn,isCurrent:i===n-1};
+  });
+}
+
+function _statsLiftProgress(matcher,nWeeks){
+  const today=new Date();today.setHours(0,0,0,0);
+  const cutoff=new Date(today);cutoff.setDate(today.getDate()-nWeeks*7);
+  const pts=[];
+  workouts.filter(w=>!isSportWorkout(w)).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(w=>{
+    const wd=new Date(w.date);wd.setHours(0,0,0,0);
+    if(wd<cutoff)return;
+    const ex=(w.exercises||[]).find(e=>matcher(e.name));
+    if(!ex)return;
+    const wts=ex.sets.filter(s=>s.done).map(s=>parseFloat(s.weight)||0).filter(x=>x>0);
+    if(wts.length)pts.push({date:wd,weight:Math.max(...wts)});
+  });
+  return pts;
+}
+
+function _svgVolumeBars(weeks){
+  const W=300,H=90,padX=4,bottomH=18,topPad=12;
+  const chartH=H-bottomH-topPad;
+  const n=weeks.length,gap=2;
+  const barW=Math.floor((W-padX*2-(n-1)*gap)/n);
+  const maxVol=Math.max(...weeks.map(w=>w.vol),1);
+  const bars=weeks.map((wk,i)=>{
+    const x=padX+i*(barW+gap);
+    const h=Math.max(2,Math.round((wk.vol/maxVol)*chartH));
+    const y=topPad+chartH-h;
+    const op=(wk.vol>0?(0.3+0.7*(i/(n-1))):0.1).toFixed(2);
+    const fill=wk.isCurrent?'var(--orange)':'#c46a10';
+    return`<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="2" fill="${fill}" style="--bar-op:${op}" class="stats-bar stats-bar-${i}"/><text x="${x+barW/2}" y="${H-2}" text-anchor="middle" class="stats-wlabel">${wk.label}</text>`;
+  }).join('');
+  const maxLabel=maxVol>=1000?(maxVol/1000).toFixed(0)+'t':Math.round(maxVol)+'kg';
+  return`<svg viewBox="0 0 ${W} ${H}" class="stats-svg"><text x="${W-padX}" y="9" text-anchor="end" class="stats-axis-top">${maxLabel}</text>${bars}</svg>`;
+}
+
+function _svgLiftLines(lifts,nWeeks){
+  const active=lifts.filter(l=>l.pts.length>=1);
+  if(!active.length)return null;
+  const W=300,H=160,padX=10,padY=10;
+  const today=new Date();today.setHours(0,0,0,0);
+  const cutoff=new Date(today);cutoff.setDate(today.getDate()-nWeeks*7);
+  const xRange=today.getTime()-cutoff.getTime()||1;
+  const allW=active.flatMap(l=>l.pts.map(p=>p.weight));
+  const minW=Math.min(...allW)*0.96,maxW=Math.max(...allW)*1.02;
+  const wRange=maxW-minW||1;
+  const chartW=W-padX*2,chartH=H-padY*2;
+  const tx=d=>padX+Math.round(((d.getTime()-cutoff.getTime())/xRange)*chartW);
+  const ty=w=>padY+Math.round((1-(w-minW)/wRange)*chartH);
+  // Dynamic grid lines based on actual weight range
+  const rawStep=wRange/6;
+  const mag=Math.pow(10,Math.floor(Math.log10(rawStep||1)));
+  const res=rawStep/mag;
+  const step=mag*(res<=1.5?1:res<=3?2:res<=7?5:10);
+  const gridStart=Math.ceil(minW/step)*step;
+  const gridLines=[];
+  for(let kg=gridStart;kg<=maxW;kg+=step)gridLines.push(kg);
+  const grids=gridLines.map(kg=>{
+    const y=ty(kg);
+    return`<line x1="${padX}" y1="${y}" x2="${W-padX}" y2="${y}" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="2 4"/><text x="${padX}" y="${y-2}" class="stats-axis-top">${Math.round(kg)} kg</text>`;
+  }).join('');
+  const lines=active.map(l=>{
+    const dots=l.pts.map(p=>`<circle cx="${tx(p.date)}" cy="${ty(p.weight)}" r="${l.pts.length===1?4:2.5}" fill="${l.color}"/>`).join('');
+    if(l.pts.length===1)return dots;
+    const pts=l.pts.map(p=>`${tx(p.date)},${ty(p.weight)}`).join(' ');
+    return`<polyline points="${pts}" fill="none" stroke="${l.color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>${dots}`;
+  }).join('');
+  return`<svg viewBox="0 0 ${W} ${H}" class="stats-svg">${grids}${lines}</svg>`;
+}
+
 function updateStats(){
-  document.getElementById('stat-total').textContent=workouts.length;
-  document.getElementById('stat-sport').textContent=workouts.filter(w=>isSportWorkout(w)).length;
-  const m=new Date().getMonth();let s=0;
-  workouts.filter(w=>new Date(w.date).getMonth()===m&&!isSportWorkout(w)).forEach(w=>w.exercises?.forEach(e=>s+=e.sets.length));
-  document.getElementById('stat-sets').textContent=s;
+  const liftWks=workouts.filter(w=>!isSportWorkout(w));
+  const sportWks=workouts.filter(w=>isSportWorkout(w));
+  const m=new Date().getMonth();
+  let sets=0;liftWks.filter(w=>new Date(w.date).getMonth()===m).forEach(w=>(w.exercises||[]).forEach(e=>sets+=e.sets.filter(s=>s.done).length));
   const allRPE=workouts.filter(w=>w.rpe).map(w=>w.rpe);
-  document.getElementById('stat-rpe').textContent=allRPE.length?(allRPE.reduce((a,b)=>a+b,0)/allRPE.length).toFixed(1):'-';
+  const avgRPE=allRPE.length?(allRPE.reduce((a,b)=>a+b,0)/allRPE.length).toFixed(1):'\u2014';
+
+  const numEl=document.getElementById('stats-numbers-grid');
+  if(numEl){
+    numEl.innerHTML=`
+      <div class="stats-num-card" style="--c:var(--gold)"><div class="stats-num-label">${trHist('history.total_sessions','Total Sessions')}</div><div class="stats-num-val">${liftWks.length}</div></div>
+      <div class="stats-num-card" style="--c:var(--blue)"><div class="stats-num-label">${trHist('history.sport_sessions','Sport Sessions')}</div><div class="stats-num-val">${sportWks.length}</div></div>
+      <div class="stats-num-card" style="--c:var(--accent)"><div class="stats-num-label">${trHist('history.sets_this_month','Sets This Month')}</div><div class="stats-num-val">${sets}</div></div>
+      <div class="stats-num-card" style="--c:var(--purple)"><div class="stats-num-label">${trHist('history.avg_rpe','Avg RPE')}</div><div class="stats-num-val">${avgRPE}</div></div>`;
+  }
+
+  const volEl=document.getElementById('stats-volume-wrap');
+  if(volEl){
+    const weeks=_statsWeeklyVolume(10);
+    if(weeks.some(w=>w.vol>0)){
+      volEl.style.display='';
+      volEl.innerHTML=`<div class="stats-chart-title">${trHist('history.stats.volume','Weekly Volume')}</div>${_svgVolumeBars(weeks)}`;
+    }else{volEl.style.display='none';}
+  }
+
+  const NWEEKS=16;
+  const strEl=document.getElementById('stats-strength-wrap');
+  if(strEl){
+    const lifts=[
+      {label:trHist('history.stats.lift.squat','Squat'),color:'var(--orange)',pts:_statsLiftProgress(n=>n==='Squat',NWEEKS)},
+      {label:trHist('history.stats.lift.bench','Bench'),color:'var(--blue)',pts:_statsLiftProgress(n=>n==='Bench Press',NWEEKS)},
+      {label:trHist('history.stats.lift.deadlift','Deadlift'),color:'var(--gold)',pts:_statsLiftProgress(n=>n==='Deadlift',NWEEKS)},
+      {label:trHist('history.stats.lift.ohp','OH Press'),color:'var(--purple)',pts:_statsLiftProgress(n=>n==='OHP'||n==='Overhead Press (OHP)',NWEEKS)},
+    ];
+    const svg=_svgLiftLines(lifts,NWEEKS);
+    if(svg){
+      strEl.style.display='';
+      const legend=lifts.filter(l=>l.pts.length>0).map(l=>`<span class="stats-legend-item" style="color:${l.color}"><span class="stats-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('');
+      strEl.innerHTML=`<div class="stats-chart-title">${trHist('history.stats.strength','Strength Progress')}</div>${svg}<div class="stats-chart-legend">${legend}</div>`;
+    }else{strEl.style.display='none';}
+  }
 }

@@ -1203,3 +1203,25 @@ body.login-active::before{
   .dashboard-animate,.dashboard-plan-section,.fatigue-fill{animation:none}
   .dashboard-plan-muscle-fill{transition:none}
 }
+
+/* ── History Stats Charts ─────────────────────────────────────────────── */
+.stats-numbers-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stats-num-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--c,var(--accent));border-radius:var(--radius);padding:14px 16px}
+.stats-num-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;font-family:'Barlow Condensed',sans-serif}
+.stats-num-val{font-size:34px;font-weight:700;color:var(--c,var(--text));font-family:'Barlow Condensed',sans-serif;line-height:1}
+.stats-chart-card{padding:16px;margin-bottom:12px}
+.stats-chart-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;font-family:'Barlow Condensed',sans-serif}
+.stats-svg{width:100%;height:auto;display:block;overflow:visible}
+.stats-wlabel{font-size:8px;fill:var(--muted);font-family:'Barlow',sans-serif}
+.stats-axis-top{font-size:8px;fill:var(--muted);font-family:'Barlow',sans-serif}
+.stats-lift-lbl{font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em}
+.stats-chart-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.stats-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.05em}
+.stats-legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+@keyframes stats-bar-in{from{opacity:0}to{opacity:var(--bar-op,1)}}
+.stats-bar{animation:stats-bar-in 0.4s ease both}
+.stats-bar-0{animation-delay:0s}.stats-bar-1{animation-delay:.04s}.stats-bar-2{animation-delay:.08s}
+.stats-bar-3{animation-delay:.12s}.stats-bar-4{animation-delay:.16s}.stats-bar-5{animation-delay:.2s}
+.stats-bar-6{animation-delay:.24s}.stats-bar-7{animation-delay:.28s}.stats-bar-8{animation-delay:.32s}
+.stats-bar-9{animation-delay:.36s}
+@media (prefers-reduced-motion:reduce){.stats-bar{animation:none}}
