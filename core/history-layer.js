@@ -470,6 +470,7 @@ function renderHistory(){
   const recovMap=histComputeRecovery();
   const groups=histGroupWorkouts();
   list.innerHTML=groups.map(g=>histRenderGroup(g,prSet,recovMap)).join('');
+  list.querySelectorAll('.hist-card').forEach((el,i)=>el.style.setProperty('--i',Math.min(i,10)));
 }
 
 function deleteWorkout(id){

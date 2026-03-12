@@ -16,6 +16,14 @@ function showPage(name, btn) {
   const resolvedButton = btn || getNavButtonForPage(name);
   if (resolvedButton) resolvedButton.classList.add('active');
 
+  // Slide the nav indicator to the active button
+  const nav = document.querySelector('.bottom-nav');
+  if (nav && resolvedButton) {
+    const navBtns = nav.querySelectorAll('.nav-btn');
+    const idx = Array.from(navBtns).indexOf(resolvedButton);
+    if (idx >= 0) nav.style.setProperty('--nav-indicator-x', idx);
+  }
+
   const contentScroller = document.querySelector('.content');
   if (contentScroller) contentScroller.scrollTo({ top: 0, behavior: 'auto' });
 

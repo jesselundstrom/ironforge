@@ -2325,6 +2325,13 @@ function toggleSet(ei,si){
     }
     if(isExerciseComplete(exercise)){
       setExerciseCardCollapsed(exercise,true);
+      // Animate collapse: capture current height then shrink
+      const card=getExerciseCardElement(exerciseUiKey);
+      if(card){
+        card.style.maxHeight=card.offsetHeight+'px';
+        void card.offsetHeight; // force reflow before adding class
+        card.classList.add('collapsing');
+      }
       window.setTimeout(()=>{
         const currentExercise=getExerciseByUiKey(exerciseUiKey);
         if(currentExercise&&isExerciseComplete(currentExercise))updateExerciseCard(exerciseUiKey);
