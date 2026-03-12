@@ -283,7 +283,8 @@ button,
   width: 42px;
   height: 34px;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 8px rgba(245, 130, 31, 0.4)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 0 8px rgba(245, 130, 31, 0.4))
+    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
   animation: logoGlow 2s ease 0.6s 1 both;
 }
 .header-text {
