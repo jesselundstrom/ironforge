@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { bootstrapAppShell, confirmModal, openAppShell } from './helpers';
+import { confirmModal, openAppShell, reloadAppShell } from './helpers';
 
 async function openTrainPage(page: Page) {
   await page.evaluate(() => {
@@ -27,8 +27,7 @@ test('active workout draft restores after reload', async ({ page }) => {
   await firstWeightInput.fill('60');
   await firstWeightInput.blur();
 
-  await page.reload();
-  await bootstrapAppShell(page);
+  await reloadAppShell(page);
   await openTrainPage(page);
 
   await expect(page.locator('#workout-active')).toBeVisible();

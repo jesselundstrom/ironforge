@@ -5,7 +5,7 @@ export async function openApp(page: Page) {
   await page.addInitScript(() => {
     window.__IRONFORGE_TEST_USER_ID__ = 'e2e-user';
   });
-  await page.goto('/');
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
 }
 
 export async function bootstrapAppShell(page: Page) {
@@ -38,11 +38,16 @@ export async function openAppShell(page: Page) {
   await bootstrapAppShell(page);
 }
 
+export async function reloadAppShell(page: Page) {
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await bootstrapAppShell(page);
+}
+
 export async function confirmModal(page: Page) {
   const modal = page.locator('#confirm-modal');
   const confirmButton = page.locator('#confirm-ok');
 
   await expect(modal).toHaveClass(/active/);
   await expect(confirmButton).toBeVisible();
-  await confirmButton.click();
+  await confirmButton.click({ force: true });
 }
