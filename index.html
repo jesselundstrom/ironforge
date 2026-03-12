@@ -1,549 +1,1485 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" id="app-viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Ironforge">
-<meta name="theme-color" content="#0B0E16">
-<link rel="apple-touch-icon" href="icon-180.png">
-<title>Ironforge</title>
-<link rel="manifest" href="manifest.json">
-<script>
-(() => {
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  if (!isStandalone) return;
-  const viewport = document.getElementById('app-viewport');
-  if (viewport) {
-    viewport.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
-  }
-})();
-</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="preload" as="image" href="assets/ironforge_bg.jpg">
-<link rel="stylesheet" href="styles.css">
-</head>
-<body class="login-active">
-
-<div class="toast" id="toast"></div>
-<div class="app" id="app-root">
-
-<!-- REST TIMER BAR -->
-<div class="rest-timer-bar" id="rest-timer-bar">
-  <svg class="rest-timer-ring" viewBox="0 0 44 44">
-    <circle cx="22" cy="22" r="19" fill="none" stroke="var(--border)" stroke-width="3"/>
-    <circle cx="22" cy="22" r="19" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="119.4" stroke-dashoffset="0" id="timer-arc" stroke-linecap="round" transform="rotate(-90 22 22)" style="transition:stroke-dashoffset 1s linear"/>
-  </svg>
-  <div class="rest-timer-info">
-    <div class="rest-timer-label" data-i18n="workout.rest_timer">Rest Timer</div>
-    <div class="rest-timer-count" id="rest-timer-count">2:00</div>
-  </div>
-  <button class="rest-skip-btn" onclick="skipRest()" data-i18n="common.skip">Skip</button>
-</div>
-
-<!-- RPE MODAL -->
-<div class="modal-overlay" id="rpe-modal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title" data-i18n="rpe.session_title">How hard was this session?</div>
-    <div class="modal-sub" id="rpe-modal-sub" data-i18n="rpe.session_prompt">Rate overall effort (6 = easy, 10 = max)</div>
-    <div class="rpe-grid" id="rpe-grid"></div>
-    <div class="rpe-skip" onclick="skipRPE()" data-i18n="common.skip">Skip</div>
-  </div>
-</div>
-
-<!-- CONFIRM MODAL -->
-<div class="confirm-modal" id="confirm-modal">
-  <div class="confirm-box">
-    <h3 id="confirm-title" data-i18n="modal.confirm.title">Confirm</h3>
-    <p id="confirm-msg">Are you sure?</p>
-    <div class="confirm-actions">
-      <button class="btn btn-secondary btn-sm" onclick="confirmCancel()" data-i18n="modal.confirm.cancel">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="confirm-ok" onclick="confirmOk()" data-i18n="modal.confirm.ok">Confirm</button>
-    </div>
-  </div>
-</div>
-
-<!-- SESSION SUMMARY MODAL -->
-<div class="modal-overlay" id="summary-modal">
-  <div class="modal-sheet summary-sheet">
-    <div class="modal-handle"></div>
-    <div id="summary-modal-content" class="summary-modal-content"></div>
-  </div>
-</div>
-
-<!-- EXERCISE CATALOG MODAL -->
-<div class="modal-overlay" id="name-modal">
-  <div class="modal-sheet catalog-sheet">
-    <div class="modal-handle"></div>
-    <div class="catalog-header">
-      <div class="modal-title" id="name-modal-title" data-i18n="catalog.title.add">Add Exercise</div>
-      <div class="modal-sub" id="exercise-catalog-sub" data-i18n="catalog.sub">Pick an exercise from the library or search by name.</div>
-    </div>
-    <div class="catalog-search-wrap">
-      <input type="text" id="name-modal-input" class="exercise-catalog-search-input" data-i18n-placeholder="catalog.search.placeholder" placeholder="Search exercises">
-      <button class="btn btn-ghost btn-sm catalog-clear-btn" id="catalog-clear-btn" onclick="clearExerciseCatalogFilters()" data-i18n="catalog.clear_filters">Clear</button>
-    </div>
-    <div class="catalog-filter-groups" id="exercise-catalog-filters"></div>
-    <div class="catalog-scroll" id="exercise-catalog-scroll">
-      <div id="exercise-catalog-content"></div>
-      <div class="catalog-empty-state" id="exercise-catalog-empty" style="display:none" data-i18n="catalog.empty">No exercises matched your filters.</div>
-    </div>
-    <div class="catalog-footer">
-      <button class="btn btn-secondary" onclick="closeNameModal()" data-i18n="common.cancel">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<!-- SPORT READINESS MODAL -->
-<div class="modal-overlay" id="sport-check-modal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title" id="sport-check-title" data-i18n="workout.sport_check.title">Sport check-in</div>
-    <div class="modal-sub" id="sport-check-sub" data-i18n="workout.sport_check.sub">Have you had a leg-heavy sport session yesterday, or do you have one tomorrow?</div>
-    <div class="sport-check-grid">
-      <button class="btn btn-secondary sport-check-btn" onclick="selectSportReadiness('none')" data-i18n="workout.sport_check.none">No</button>
-      <button class="btn btn-secondary sport-check-btn" onclick="selectSportReadiness('yesterday')" data-i18n="workout.sport_check.yesterday">Yes, yesterday</button>
-      <button class="btn btn-secondary sport-check-btn" onclick="selectSportReadiness('tomorrow')" data-i18n="workout.sport_check.tomorrow">Yes, tomorrow</button>
-      <button class="btn btn-secondary sport-check-btn" onclick="selectSportReadiness('both')" data-i18n="workout.sport_check.both">Yes, both</button>
-    </div>
-    <button class="btn btn-ghost session-secondary-action" type="button" onclick="cancelSportReadinessCheck()" data-i18n="common.cancel">Cancel</button>
-  </div>
-</div>
-
-<!-- ONBOARDING MODAL -->
-<div class="modal-overlay" id="onboarding-modal">
-  <div class="modal-sheet onboarding-sheet">
-    <div class="modal-handle"></div>
-    <div id="onboarding-content" class="onboarding-scroll"></div>
-  </div>
-</div>
-
-<!-- EXERCISE GUIDE MODAL -->
-<div class="modal-overlay" id="exercise-guide-modal" onclick="closeExerciseGuide(event)">
-  <div class="modal-sheet exercise-guide-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title" id="exercise-guide-modal-title" data-i18n="guidance.title">Movement Guide</div>
-    <div class="modal-sub" id="exercise-guide-modal-sub"></div>
-    <div class="exercise-guide-sheet-body" id="exercise-guide-modal-body"></div>
-    <button class="btn btn-ghost exercise-guide-sheet-close" type="button" onclick="closeExerciseGuide()" data-i18n="common.done">Done</button>
-  </div>
-</div>
-
-<main class="content">
-
-<div class="header">
-  <h1 class="page-title page-title-wordmark" aria-label="Ironforge"><span>Ironforge</span></h1>
-  <p id="header-sub">Forge Protocol · Ladataan...</p>
-</div>
-
-<!-- ===== DASHBOARD ===== -->
-<div class="page active" id="page-dashboard">
-  <div class="dashboard-hero dashboard-animate dashboard-delay-1">
-    <div class="card dashboard-card dashboard-hero-card">
-      <div class="dashboard-card-body dashboard-hero-body">
-        <div class="dashboard-hero-copy">
-          <div class="dashboard-hero-kicker" data-i18n="dashboard.today_plan">Today's Plan</div>
-          <div class="dashboard-hero-status" id="today-status"></div>
-        </div>
-        <div class="dashboard-hero-cta" id="dashboard-start-session-slot"></div>
-      </div>
-    </div>
-  </div>
-  <div class="dashboard-section dashboard-week-section dashboard-animate dashboard-delay-2">
-    <div class="dashboard-section-label" data-i18n="dashboard.weekly_sessions">Viikon sessiot</div>
-    <div class="card dashboard-card dashboard-calendar-card">
-      <div class="week-strip" id="week-strip"></div>
-      <div class="dashboard-week-legend" id="dashboard-week-legend"></div>
-      <div id="day-detail-panel" style="display:none"></div>
-    </div>
-    <div id="session-progress" class="dashboard-session-progress" aria-live="polite"></div>
-  </div>
-  <div class="dashboard-section dashboard-animate dashboard-delay-3">
-    <div class="dashboard-section-label" data-i18n="dashboard.today_plan">Tämän päivän suunnitelma</div>
-    <div class="card dashboard-card" id="todays-plan-card">
-      <div class="dashboard-card-body" id="next-session-content" data-i18n="common.loading">Ladataan...</div>
-    </div>
-  </div>
-  <div class="dashboard-section dashboard-section-recovery dashboard-animate dashboard-delay-4">
-    <div class="dashboard-section-label" data-i18n="dashboard.recovery">Palautuminen</div>
-    <div class="card dashboard-card dashboard-recovery-card">
-      <div class="dashboard-card-body">
-        <div class="dashboard-recovery-summary">
-          <div>
-            <div class="dashboard-recovery-summary-label" data-i18n="dashboard.overall">Yhteensä</div>
-            <div class="dashboard-recovery-summary-copy" id="recovery-overall-copy"></div>
-            <div class="dashboard-recovery-summary-badge" id="recovery-badge"><span data-i18n="dashboard.log_to_see">Kirjaa treenejä, niin data tulee näkyviin</span></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      id="app-viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Ironforge" />
+    <meta name="theme-color" content="#0B0E16" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <title>Ironforge</title>
+    <link rel="manifest" href="manifest.json" />
+    <script>
+      (() => {
+        const isStandalone =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true;
+        if (!isStandalone) return;
+        const viewport = document.getElementById('app-viewport');
+        if (viewport) {
+          viewport.setAttribute(
+            'content',
+            'width=device-width, initial-scale=1, viewport-fit=cover'
+          );
+        }
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&family=Cinzel:wght@900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="preload" as="image" href="assets/ironforge_bg.jpg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="login-active">
+    <div class="toast" id="toast"></div>
+    <div class="app" id="app-root">
+      <!-- REST TIMER BAR -->
+      <div class="rest-timer-bar" id="rest-timer-bar">
+        <svg class="rest-timer-ring" viewBox="0 0 44 44">
+          <circle
+            cx="22"
+            cy="22"
+            r="19"
+            fill="none"
+            stroke="var(--border)"
+            stroke-width="3"
+          />
+          <circle
+            cx="22"
+            cy="22"
+            r="19"
+            fill="none"
+            stroke="var(--accent)"
+            stroke-width="3"
+            stroke-dasharray="119.4"
+            stroke-dashoffset="0"
+            id="timer-arc"
+            stroke-linecap="round"
+            transform="rotate(-90 22 22)"
+            style="transition: stroke-dashoffset 1s linear"
+          />
+        </svg>
+        <div class="rest-timer-info">
+          <div class="rest-timer-label" data-i18n="workout.rest_timer">
+            Rest Timer
           </div>
-          <div class="dashboard-recovery-summary-value" id="recovery-overall-value">—</div>
+          <div class="rest-timer-count" id="rest-timer-count">2:00</div>
         </div>
-        <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.muscular">Lihaksisto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-muscular" style="width:0%"></div></div><div class="fatigue-value" id="f-muscular-val">—</div></div>
-        <div class="fatigue-row"><div class="fatigue-label" data-i18n="dashboard.nervous">Hermosto</div><div class="fatigue-bar-wrap"><div class="fatigue-fill" id="f-cns" style="width:0%"></div></div><div class="fatigue-value" id="f-cns-val">—</div></div>
-    </div>
-    </div>
-  </div>
-    <div class="dashboard-section dashboard-section-maxes dashboard-animate dashboard-delay-5">
-      <div class="dashboard-section-label" id="tm-section-title" data-i18n="dashboard.maxes">Maksimit</div>
-      <div class="card dashboard-card dashboard-maxes-card">
-        <div class="dashboard-card-body">
-          <div class="lifts-grid" id="tm-grid"></div>
-        </div>
-      </div>
-    </div>
-</div>
-
-<!-- ===== LOG ===== -->
-<div class="page" id="page-log">
-  <div id="workout-not-started">
-    <div class="quick-log-row">
-      <button class="quick-log-card ql-sport" type="button" onclick="quickLogSport()">
-        <div class="ql-icon">S</div>
-        <div><div class="ql-title" data-i18n="workout.log_extra_sport">Log Extra Sport</div><div class="ql-sub" data-i18n="workout.unscheduled_sport_session">Unscheduled sport session</div></div>
-      </button>
-    </div>
-    <div class="divider-label"><span data-i18n="workout.training_session">Training Session</span></div>
-    <div class="card card-roomy workout-start-card">
-      <label class="label-compact" data-i18n="workout.training_day">Training Day</label>
-      <input type="hidden" id="program-day-select" value="">
-      <div id="program-day-options" class="program-day-options"></div>
-      <div id="program-week-display" hidden></div>
-      <div class="button-stack-top"><button class="btn btn-primary" type="button" onclick="startWorkout()" data-i18n="workout.start_workout">Start Workout</button></div>
-    </div>
-  </div>
-
-    <div id="workout-active" style="display:none">
-      <div class="active-session-header">
-        <div class="active-session-heading">
-          <div class="active-session-title" id="active-session-title" data-i18n="common.session">Session</div>
-          <div class="active-session-description" id="active-session-description"></div>
-          <div class="active-session-timer" id="active-session-timer">00:00</div>
-        </div>
-        <button class="btn btn-sm btn-secondary active-session-add-btn" type="button" onclick="openExerciseCatalogForAdd()" data-i18n="workout.add_exercise">Add Exercise</button>
-      </div>
-      <div id="active-session-plan"></div>
-      <div class="rest-timer-inline">
-        <span class="rest-timer-inline-label" data-i18n="workout.rest_timer">Rest timer</span>
-        <select id="rest-duration" class="rest-timer-inline-select" onchange="updateRestDuration()">
-          <option value="60">1 min</option>
-          <option value="90">90s</option>
-          <option value="120" selected>2 min</option>
-          <option value="180">3 min</option>
-          <option value="240">4 min</option>
-          <option value="300">5 min</option>
-          <option value="0" data-i18n="common.off">Off</option>
-        </select>
-      </div>
-      <div id="exercises-container"></div>
-      <button class="btn btn-primary session-primary-action" type="button" onclick="finishWorkout()" data-i18n="workout.finish_session">Finish Session</button>
-      <button class="btn btn-ghost session-secondary-action" type="button" onclick="showConfirm(I18N.t('workout.cancel_session',null,'Discard Workout'),I18N.t('workout.discard_session',null,'Discard this in-progress workout? Sets won\'t be saved.'),cancelWorkout)" data-i18n="workout.cancel_session">Discard Workout</button>
-    </div>
-</div>
-
-<!-- ===== HISTORY ===== -->
-<div class="page" id="page-history">
-  <div id="history-heatmap"></div>
-  <div class="tabs" role="tablist" aria-label="History sections">
-    <button class="tab active" type="button" role="tab" aria-selected="true" onclick="switchHistoryTab('log',event)" data-i18n="history.tab.log">Workout Log</button>
-    <button class="tab" type="button" role="tab" aria-selected="false" onclick="switchHistoryTab('stats',event)" data-i18n="history.tab.stats">Stats</button>
-  </div>
-  <div id="history-log"><div id="history-list"></div></div>
-  <div id="history-stats" style="display:none">
-    <div class="stats-numbers-grid" id="stats-numbers-grid"></div>
-    <div class="card stats-chart-card" id="stats-volume-wrap" style="display:none"></div>
-    <div class="card stats-chart-card" id="stats-strength-wrap" style="display:none"></div>
-  </div>
-</div>
-
-<!-- ===== SETTINGS ===== -->
-<div class="page" id="page-settings">
-  <div class="tabs" id="settings-tabs" role="tablist" aria-label="Settings sections">
-    <button class="tab active" type="button" role="tab" aria-selected="true" data-settings-tab="schedule" onclick="showSettingsTab('schedule',this)" data-i18n="settings.tabs.my_sport">My Sport</button>
-    <button class="tab" type="button" role="tab" aria-selected="false" data-settings-tab="preferences" onclick="showSettingsTab('preferences',this)" data-i18n="settings.tabs.training">Training</button>
-    <button class="tab" type="button" role="tab" aria-selected="false" data-settings-tab="program" onclick="showSettingsTab('program',this)" data-i18n="settings.tabs.program">Program</button>
-    <button class="tab" type="button" role="tab" aria-selected="false" data-settings-tab="account" onclick="showSettingsTab('account',this)" data-i18n="settings.tabs.app">App</button>
-  </div>
-
-  <!-- ── Schedule tab ── -->
-  <div id="settings-tab-schedule">
-    <div class="settings-status-bar" id="sport-status-bar"></div>
-    <div class="card sport-load-card">
-      <div class="card-title" data-i18n="settings.sport_load.title">Sport Load</div>
-      <div class="sport-load-intro" data-i18n="settings.sport_load.subtitle">Set up your regular sport so the planner can steer sessions around it.</div>
-
-      <div class="settings-subsection">
-        <div class="settings-subsection-title" data-i18n="settings.sport_load.section.activity">Sport</div>
-        <div class="settings-subsection-sub" data-i18n="settings.sport_load.section.activity_sub">Name the recurring sport or cardio that affects your training week.</div>
-        <label data-i18n="settings.activity_name">Activity name</label>
-        <input id="sport-name" type="text" data-i18n-placeholder="settings.activity_placeholder" placeholder="e.g. Hockey, Soccer, Running" onchange="saveSchedule()">
+        <button
+          class="rest-skip-btn"
+          onclick="skipRest()"
+          data-i18n="common.skip"
+        >
+          Skip
+        </button>
       </div>
 
-      <div class="settings-subsection">
-        <div class="settings-subsection-title" data-i18n="settings.sport_load.section.profile">Load profile</div>
-        <div class="settings-subsection-sub" data-i18n="settings.sport_load.section.profile_sub">Shape how strongly sport load should push training away from hard lower-body work.</div>
-        <label data-i18n="settings.intensity">Intensity</label>
-        <div class="segment-control segment-control-equal" id="sport-intensity-btns">
-          <button class="btn btn-secondary sport-intensity-btn" type="button" data-intensity="easy" onclick="setSportIntensity('easy',this)" data-i18n="settings.intensity.easy">Easy</button>
-          <button class="btn btn-secondary sport-intensity-btn" type="button" data-intensity="moderate" onclick="setSportIntensity('moderate',this)" data-i18n="settings.intensity.moderate">Moderate</button>
-          <button class="btn btn-secondary sport-intensity-btn" type="button" data-intensity="hard" onclick="setSportIntensity('hard',this)" data-i18n="settings.intensity.hard">Hard</button>
-        </div>
-        <label class="toggle-row" for="sport-legs-heavy">
-          <div>
-            <div class="toggle-row-title" data-i18n="settings.leg_heavy">Leg-heavy</div>
-            <div class="toggle-row-sub" data-i18n="settings.leg_heavy_sub">Warns when scheduling legs after sport</div>
+      <!-- RPE MODAL -->
+      <div class="modal-overlay" id="rpe-modal">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div class="modal-title" data-i18n="rpe.session_title">
+            How hard was this session?
           </div>
-          <div class="toggle-switch warning-toggle">
-            <input type="checkbox" id="sport-legs-heavy" onchange="saveSchedule()">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <div
+            class="modal-sub"
+            id="rpe-modal-sub"
+            data-i18n="rpe.session_prompt"
+          >
+            Rate overall effort (6 = easy, 10 = max)
           </div>
-        </label>
-        <div class="settings-inline-label" data-i18n="settings.regular_sport_days">Regular Sport Days</div>
-        <div class="day-toggle-grid" id="sport-day-toggles"></div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ── Preferences tab ── -->
-  <div id="settings-tab-preferences" style="display:none">
-    <div class="settings-status-bar" id="training-status-bar"></div>
-    <details class="settings-panel" id="training-preferences-panel" open>
-      <summary class="settings-panel-summary">
-        <div>
-          <div class="settings-panel-title" data-i18n="settings.preferences.title">Training Preferences</div>
-          <div class="settings-panel-sub" id="training-preferences-summary"></div>
-        </div>
-        <div class="settings-panel-chevron">⌄</div>
-      </summary>
-      <div class="settings-panel-body">
-        <div class="settings-help-text" data-i18n="settings.preferences.help">These preferences shape future smart recommendations and AI-generated training.</div>
-
-        <div class="settings-subsection">
-          <div class="settings-subsection-title" data-i18n="settings.preferences.section.goals">Goals & Volume</div>
-          <label data-i18n="settings.preferences.goal">Primary Goal</label>
-          <select id="training-goal" onchange="saveTrainingPreferences()">
-            <option value="strength" data-i18n="settings.preferences.goal.strength">Strength</option>
-            <option value="hypertrophy" data-i18n="settings.preferences.goal.hypertrophy">Hypertrophy</option>
-            <option value="general_fitness" data-i18n="settings.preferences.goal.general_fitness">General Fitness</option>
-            <option value="sport_support" data-i18n="settings.preferences.goal.sport_support">Sport Support</option>
-          </select>
-          <label class="label-spaced" data-i18n="settings.preferences.training_days">Target Training Frequency</label>
-          <select id="training-days-per-week" onchange="saveTrainingPreferences()">
-            <option value="2" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":2}'>2 sessions / week</option>
-            <option value="3" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":3}'>3 sessions / week</option>
-            <option value="4" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":4}'>4 sessions / week</option>
-            <option value="5" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":5}'>5 sessions / week</option>
-            <option value="6" data-i18n="settings.preferences.training_days_value" data-i18n-params='{"count":6}'>6 sessions / week</option>
-          </select>
-          <label class="label-spaced" data-i18n="settings.preferences.session_duration">Target Session Length</label>
-          <select id="training-session-minutes" onchange="saveTrainingPreferences()">
-            <option value="30" data-i18n="settings.preferences.duration_value.30">30 min</option>
-            <option value="45" data-i18n="settings.preferences.duration_value.45">45 min</option>
-            <option value="60" data-i18n="settings.preferences.duration_value.60">60 min</option>
-            <option value="75" data-i18n="settings.preferences.duration_value.75">75 min</option>
-            <option value="90" data-i18n="settings.preferences.duration_value.90">90 min</option>
-          </select>
-        </div>
-
-        <div class="settings-subsection">
-          <div class="settings-subsection-title" data-i18n="settings.preferences.section.equipment">Equipment & Warm-up</div>
-          <label data-i18n="settings.preferences.equipment">Equipment Access</label>
-          <select id="training-equipment" onchange="saveTrainingPreferences()">
-            <option value="full_gym" data-i18n="settings.preferences.equipment.full_gym">Full Gym</option>
-            <option value="basic_gym" data-i18n="settings.preferences.equipment.basic_gym">Basic Gym</option>
-            <option value="home_gym" data-i18n="settings.preferences.equipment.home_gym">Home Gym</option>
-            <option value="minimal" data-i18n="settings.preferences.equipment.minimal">Minimal Equipment</option>
-          </select>
-          <label class="toggle-row toggle-row-spaced" for="training-warmup-sets">
-            <div>
-              <div class="toggle-row-title" data-i18n="settings.preferences.warmup_sets">Automatic warm-up sets</div>
-              <div class="toggle-row-sub" data-i18n="settings.preferences.warmup_sets_help">Prepend warm-up ramp sets (50%-85%) to main compound lifts at the start of each workout.</div>
-            </div>
-            <div class="toggle-switch">
-              <input type="checkbox" id="training-warmup-sets" onchange="saveTrainingPreferences()">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </div>
-          </label>
-          <label class="toggle-row" for="training-sport-check">
-            <div>
-              <div class="toggle-row-title" data-i18n="settings.preferences.sport_check">Pre-workout sport check-in</div>
-              <div class="toggle-row-sub" data-i18n="settings.preferences.sport_check_help">Ask about sport load around today before recommending the session.</div>
-            </div>
-            <div class="toggle-switch sport-toggle">
-              <input type="checkbox" id="training-sport-check" onchange="saveTrainingPreferences()">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </div>
-          </label>
-        </div>
-
-        <div class="settings-subsection">
-          <div class="settings-subsection-title" data-i18n="settings.preferences.section.session">Session Settings</div>
-          <div class="settings-panel-inline-row" style="margin-top:0;padding-top:0;border-top:none">
-            <label class="settings-inline-control-label" for="default-rest" data-i18n="settings.default_rest">Default Rest Timer</label>
-            <select id="default-rest" class="settings-inline-control-select" onchange="saveRestTimer()">
-              <option value="60">1 min</option>
-              <option value="90">90 sec</option>
-              <option value="120" selected>2 min</option>
-              <option value="180">3 min</option>
-              <option value="300">5 min</option>
-              <option value="0" data-i18n="common.off">Off</option>
-            </select>
+          <div class="rpe-grid" id="rpe-grid"></div>
+          <div class="rpe-skip" onclick="skipRPE()" data-i18n="common.skip">
+            Skip
           </div>
-          <label class="label-spaced" data-i18n="settings.preferences.notes">Notes, limitations, preferences</label>
-          <textarea id="training-preferences-notes" rows="4" data-i18n-placeholder="settings.preferences.notes_placeholder" placeholder="e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap" onchange="saveTrainingPreferences()"></textarea>
+        </div>
+      </div>
+
+      <!-- CONFIRM MODAL -->
+      <div class="confirm-modal" id="confirm-modal">
+        <div class="confirm-box">
+          <h3 id="confirm-title" data-i18n="modal.confirm.title">Confirm</h3>
+          <p id="confirm-msg">Are you sure?</p>
+          <div class="confirm-actions">
+            <button
+              class="btn btn-secondary btn-sm"
+              onclick="confirmCancel()"
+              data-i18n="modal.confirm.cancel"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary btn-sm"
+              id="confirm-ok"
+              onclick="confirmOk()"
+              data-i18n="modal.confirm.ok"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SESSION SUMMARY MODAL -->
+      <div class="modal-overlay" id="summary-modal">
+        <div class="modal-sheet summary-sheet">
+          <div class="modal-handle"></div>
+          <div id="summary-modal-content" class="summary-modal-content"></div>
+        </div>
+      </div>
+
+      <!-- EXERCISE CATALOG MODAL -->
+      <div class="modal-overlay" id="name-modal">
+        <div class="modal-sheet catalog-sheet">
+          <div class="modal-handle"></div>
+          <div class="catalog-header">
+            <div
+              class="modal-title"
+              id="name-modal-title"
+              data-i18n="catalog.title.add"
+            >
+              Add Exercise
+            </div>
+            <div
+              class="modal-sub"
+              id="exercise-catalog-sub"
+              data-i18n="catalog.sub"
+            >
+              Pick an exercise from the library or search by name.
+            </div>
+          </div>
+          <div class="catalog-search-wrap">
+            <input
+              type="text"
+              id="name-modal-input"
+              class="exercise-catalog-search-input"
+              data-i18n-placeholder="catalog.search.placeholder"
+              placeholder="Search exercises"
+            />
+            <button
+              class="btn btn-ghost btn-sm catalog-clear-btn"
+              id="catalog-clear-btn"
+              onclick="clearExerciseCatalogFilters()"
+              data-i18n="catalog.clear_filters"
+            >
+              Clear
+            </button>
+          </div>
+          <div
+            class="catalog-filter-groups"
+            id="exercise-catalog-filters"
+          ></div>
+          <div class="catalog-scroll" id="exercise-catalog-scroll">
+            <div id="exercise-catalog-content"></div>
+            <div
+              class="catalog-empty-state"
+              id="exercise-catalog-empty"
+              style="display: none"
+              data-i18n="catalog.empty"
+            >
+              No exercises matched your filters.
+            </div>
+          </div>
+          <div class="catalog-footer">
+            <button
+              class="btn btn-secondary"
+              onclick="closeNameModal()"
+              data-i18n="common.cancel"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPORT READINESS MODAL -->
+      <div class="modal-overlay" id="sport-check-modal">
+        <div class="modal-sheet">
+          <div class="modal-handle"></div>
+          <div
+            class="modal-title"
+            id="sport-check-title"
+            data-i18n="workout.sport_check.title"
+          >
+            Sport check-in
+          </div>
+          <div
+            class="modal-sub"
+            id="sport-check-sub"
+            data-i18n="workout.sport_check.sub"
+          >
+            Have you had a leg-heavy sport session yesterday, or do you have one
+            tomorrow?
+          </div>
+          <div class="sport-check-grid">
+            <button
+              class="btn btn-secondary sport-check-btn"
+              onclick="selectSportReadiness('none')"
+              data-i18n="workout.sport_check.none"
+            >
+              No
+            </button>
+            <button
+              class="btn btn-secondary sport-check-btn"
+              onclick="selectSportReadiness('yesterday')"
+              data-i18n="workout.sport_check.yesterday"
+            >
+              Yes, yesterday
+            </button>
+            <button
+              class="btn btn-secondary sport-check-btn"
+              onclick="selectSportReadiness('tomorrow')"
+              data-i18n="workout.sport_check.tomorrow"
+            >
+              Yes, tomorrow
+            </button>
+            <button
+              class="btn btn-secondary sport-check-btn"
+              onclick="selectSportReadiness('both')"
+              data-i18n="workout.sport_check.both"
+            >
+              Yes, both
+            </button>
+          </div>
+          <button
+            class="btn btn-ghost session-secondary-action"
+            type="button"
+            onclick="cancelSportReadinessCheck()"
+            data-i18n="common.cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <!-- ONBOARDING MODAL -->
+      <div class="modal-overlay" id="onboarding-modal">
+        <div class="modal-sheet onboarding-sheet">
+          <div class="modal-handle"></div>
+          <div id="onboarding-content" class="onboarding-scroll"></div>
+        </div>
+      </div>
+
+      <!-- EXERCISE GUIDE MODAL -->
+      <div
+        class="modal-overlay"
+        id="exercise-guide-modal"
+        onclick="closeExerciseGuide(event)"
+      >
+        <div class="modal-sheet exercise-guide-sheet">
+          <div class="modal-handle"></div>
+          <div
+            class="modal-title"
+            id="exercise-guide-modal-title"
+            data-i18n="guidance.title"
+          >
+            Movement Guide
+          </div>
+          <div class="modal-sub" id="exercise-guide-modal-sub"></div>
+          <div
+            class="exercise-guide-sheet-body"
+            id="exercise-guide-modal-body"
+          ></div>
+          <button
+            class="btn btn-ghost exercise-guide-sheet-close"
+            type="button"
+            onclick="closeExerciseGuide()"
+            data-i18n="common.done"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+
+      <main class="content">
+        <div class="header">
+          <div class="header-brand">
+            <svg class="header-logo" viewBox="0 0 44 36" aria-hidden="true">
+              <defs>
+                <linearGradient id="hdr-m" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#fffdf5" />
+                  <stop offset="25%" stop-color="#f5d9a0" />
+                  <stop offset="55%" stop-color="#dba85e" />
+                  <stop offset="100%" stop-color="#a06830" />
+                </linearGradient>
+                <linearGradient id="hdr-hi" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="rgba(255,255,255,0.35)" />
+                  <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+                </linearGradient>
+              </defs>
+              <!-- anvil face (flat top with tapered horn curving right) -->
+              <path d="M4,8 L22,8 Q28,8 34,10 Q40,12 40,13 Q40,14 34,13 L22,12 L4,12 Z" fill="url(#hdr-m)" />
+              <!-- face highlight -->
+              <path d="M4,8 L22,8 Q28,8 34,10 L22,9.5 L4,9.5 Z" fill="url(#hdr-hi)" />
+              <!-- body (tapers inward with slight curves) -->
+              <path d="M6,12 L20,12 Q21,12 21,13 L21,20 Q21,21 20,21 L6,21 Q5,21 5,20 L5,13 Q5,12 6,12 Z" fill="url(#hdr-m)" />
+              <!-- waist (narrower mid-section) -->
+              <path d="M8,21 L18,21 Q19,21 19,22 L19,25 Q19,26 18,26 L8,26 Q7,26 7,25 L7,22 Q7,21 8,21 Z" fill="url(#hdr-m)" />
+              <!-- base (wide, sturdy, rounded) -->
+              <path d="M1,26 L25,26 Q27,26 27,28 L27,31 Q27,33 25,33 L1,33 Q-1,33 -0.5,31 L-0.5,28 Q-1,26 1,26 Z" fill="url(#hdr-m)" />
+              <!-- base highlight -->
+              <path d="M1,26 L25,26 Q27,26 27,28 L-0.5,28 Q-1,26 1,26 Z" fill="url(#hdr-hi)" />
+            </svg>
+            <div class="header-text">
+              <h1 class="page-title page-title-wordmark" aria-label="Ironforge">
+                <span>Ironforge</span>
+              </h1>
+              <p id="header-sub">Forge Protocol · Ladataan...</p>
+            </div>
+          </div>
         </div>
 
-        <button class="btn btn-secondary settings-action-primary" type="button" onclick="restartOnboarding()" data-i18n="settings.preferences.restart_onboarding">Run Guided Setup Again</button>
-      </div>
-    </details>
-  </div>
-
-  <!-- ── Program tab ── -->
-  <div id="settings-tab-program" style="display:none">
-    <div class="settings-status-bar" id="program-status-bar"></div>
-    <details class="settings-panel" id="program-basics-panel" style="display:none" open>
-      <summary class="settings-panel-summary">
-        <div>
-          <div class="settings-panel-title" data-i18n="settings.program_basics">Program Basics</div>
-          <div class="settings-panel-sub" id="program-basics-summary"></div>
+        <!-- ===== DASHBOARD ===== -->
+        <div class="page active" id="page-dashboard">
+          <div class="dashboard-hero dashboard-animate dashboard-delay-1">
+            <div class="card dashboard-card dashboard-hero-card">
+              <div class="dashboard-card-body dashboard-hero-body">
+                <div class="dashboard-hero-copy">
+                  <div
+                    class="dashboard-hero-kicker"
+                    data-i18n="dashboard.today_plan"
+                  >
+                    Today's Plan
+                  </div>
+                  <div class="dashboard-hero-status" id="today-status"></div>
+                </div>
+                <div
+                  class="dashboard-hero-cta"
+                  id="dashboard-start-session-slot"
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="dashboard-section dashboard-week-section dashboard-animate dashboard-delay-2"
+          >
+            <div
+              class="dashboard-section-label"
+              data-i18n="dashboard.weekly_sessions"
+            >
+              Viikon sessiot
+            </div>
+            <div class="card dashboard-card dashboard-calendar-card">
+              <div class="week-strip" id="week-strip"></div>
+              <div
+                class="dashboard-week-legend"
+                id="dashboard-week-legend"
+              ></div>
+              <div id="day-detail-panel" style="display: none"></div>
+            </div>
+            <div
+              id="session-progress"
+              class="dashboard-session-progress"
+              aria-live="polite"
+            ></div>
+          </div>
+          <div class="dashboard-section dashboard-animate dashboard-delay-3">
+            <div
+              class="dashboard-section-label"
+              data-i18n="dashboard.today_plan"
+            >
+              Tämän päivän suunnitelma
+            </div>
+            <div class="card dashboard-card" id="todays-plan-card">
+              <div
+                class="dashboard-card-body"
+                id="next-session-content"
+                data-i18n="common.loading"
+              >
+                Ladataan...
+              </div>
+            </div>
+          </div>
+          <div
+            class="dashboard-section dashboard-section-recovery dashboard-animate dashboard-delay-4"
+          >
+            <div class="dashboard-section-label" data-i18n="dashboard.recovery">
+              Palautuminen
+            </div>
+            <div class="card dashboard-card dashboard-recovery-card">
+              <div class="dashboard-card-body">
+                <div class="dashboard-recovery-summary">
+                  <div>
+                    <div
+                      class="dashboard-recovery-summary-label"
+                      data-i18n="dashboard.overall"
+                    >
+                      Yhteensä
+                    </div>
+                    <div
+                      class="dashboard-recovery-summary-copy"
+                      id="recovery-overall-copy"
+                    ></div>
+                    <div
+                      class="dashboard-recovery-summary-badge"
+                      id="recovery-badge"
+                    >
+                      <span data-i18n="dashboard.log_to_see"
+                        >Kirjaa treenejä, niin data tulee näkyviin</span
+                      >
+                    </div>
+                  </div>
+                  <div
+                    class="dashboard-recovery-summary-value"
+                    id="recovery-overall-value"
+                  >
+                    —
+                  </div>
+                </div>
+                <div class="fatigue-row">
+                  <div class="fatigue-label" data-i18n="dashboard.muscular">
+                    Lihaksisto
+                  </div>
+                  <div class="fatigue-bar-wrap">
+                    <div
+                      class="fatigue-fill"
+                      id="f-muscular"
+                      style="width: 0%"
+                    ></div>
+                  </div>
+                  <div class="fatigue-value" id="f-muscular-val">—</div>
+                </div>
+                <div class="fatigue-row">
+                  <div class="fatigue-label" data-i18n="dashboard.nervous">
+                    Hermosto
+                  </div>
+                  <div class="fatigue-bar-wrap">
+                    <div
+                      class="fatigue-fill"
+                      id="f-cns"
+                      style="width: 0%"
+                    ></div>
+                  </div>
+                  <div class="fatigue-value" id="f-cns-val">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            class="dashboard-section dashboard-section-maxes dashboard-animate dashboard-delay-5"
+          >
+            <div
+              class="dashboard-section-label"
+              id="tm-section-title"
+              data-i18n="dashboard.maxes"
+            >
+              Maksimit
+            </div>
+            <div class="card dashboard-card dashboard-maxes-card">
+              <div class="dashboard-card-body">
+                <div class="lifts-grid" id="tm-grid"></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="settings-panel-chevron">⌄</div>
-      </summary>
-      <div class="settings-panel-body">
-        <div id="program-basics-container"></div>
-      </div>
-    </details>
-    <details class="settings-panel" id="training-program-panel">
-      <summary class="settings-panel-summary">
-        <div>
-          <div class="settings-panel-title" data-i18n="settings.training_program">Training Program</div>
-          <div class="settings-panel-sub" id="training-program-summary"></div>
+
+        <!-- ===== LOG ===== -->
+        <div class="page" id="page-log">
+          <div id="workout-not-started">
+            <div class="quick-log-row">
+              <button
+                class="quick-log-card ql-sport"
+                type="button"
+                onclick="quickLogSport()"
+              >
+                <div class="ql-icon">S</div>
+                <div>
+                  <div class="ql-title" data-i18n="workout.log_extra_sport">
+                    Log Extra Sport
+                  </div>
+                  <div
+                    class="ql-sub"
+                    data-i18n="workout.unscheduled_sport_session"
+                  >
+                    Unscheduled sport session
+                  </div>
+                </div>
+              </button>
+            </div>
+            <div class="divider-label">
+              <span data-i18n="workout.training_session">Training Session</span>
+            </div>
+            <div class="card card-roomy workout-start-card">
+              <label class="label-compact" data-i18n="workout.training_day"
+                >Training Day</label
+              >
+              <input type="hidden" id="program-day-select" value="" />
+              <div id="program-day-options" class="program-day-options"></div>
+              <div id="program-week-display" hidden></div>
+              <div class="button-stack-top">
+                <button
+                  class="btn btn-primary"
+                  type="button"
+                  onclick="startWorkout()"
+                  data-i18n="workout.start_workout"
+                >
+                  Start Workout
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="workout-active" style="display: none">
+            <div class="active-session-header">
+              <div class="active-session-heading">
+                <div
+                  class="active-session-title"
+                  id="active-session-title"
+                  data-i18n="common.session"
+                >
+                  Session
+                </div>
+                <div
+                  class="active-session-description"
+                  id="active-session-description"
+                ></div>
+                <div class="active-session-timer" id="active-session-timer">
+                  00:00
+                </div>
+              </div>
+              <button
+                class="btn btn-sm btn-secondary active-session-add-btn"
+                type="button"
+                onclick="openExerciseCatalogForAdd()"
+                data-i18n="workout.add_exercise"
+              >
+                Add Exercise
+              </button>
+            </div>
+            <div id="active-session-plan"></div>
+            <div class="rest-timer-inline">
+              <span
+                class="rest-timer-inline-label"
+                data-i18n="workout.rest_timer"
+                >Rest timer</span
+              >
+              <select
+                id="rest-duration"
+                class="rest-timer-inline-select"
+                onchange="updateRestDuration()"
+              >
+                <option value="60">1 min</option>
+                <option value="90">90s</option>
+                <option value="120" selected>2 min</option>
+                <option value="180">3 min</option>
+                <option value="240">4 min</option>
+                <option value="300">5 min</option>
+                <option value="0" data-i18n="common.off">Off</option>
+              </select>
+            </div>
+            <div id="exercises-container"></div>
+            <button
+              class="btn btn-primary session-primary-action"
+              type="button"
+              onclick="finishWorkout()"
+              data-i18n="workout.finish_session"
+            >
+              Finish Session
+            </button>
+            <button
+              class="btn btn-ghost session-secondary-action"
+              type="button"
+              onclick="
+                showConfirm(
+                  I18N.t('workout.cancel_session', null, 'Discard Workout'),
+                  I18N.t(
+                    'workout.discard_session',
+                    null,
+                    'Discard this in-progress workout? Sets won\'t be saved.'
+                  ),
+                  cancelWorkout
+                )
+              "
+              data-i18n="workout.cancel_session"
+            >
+              Discard Workout
+            </button>
+          </div>
         </div>
-        <div class="settings-panel-chevron">⌄</div>
-      </summary>
-      <div class="settings-panel-body">
-        <div id="program-switcher-container"></div>
-      </div>
-    </details>
-    <div class="settings-panel settings-panel-static program-advanced-card" id="program-advanced-panel" onclick="openProgramSetupSheet()" style="cursor:pointer">
-      <div class="settings-panel-summary settings-panel-summary-static">
-        <div>
-          <div class="settings-panel-title" data-i18n="settings.program_advanced_title">Advanced Setup</div>
-          <div class="settings-panel-sub" data-i18n="settings.program_advanced_help">Exercise swaps, cycle controls, peak block, and program-specific options.</div>
+
+        <!-- ===== HISTORY ===== -->
+        <div class="page" id="page-history">
+          <div id="history-heatmap"></div>
+          <div class="tabs" role="tablist" aria-label="History sections">
+            <button
+              class="tab active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              onclick="switchHistoryTab('log', event)"
+              data-i18n="history.tab.log"
+            >
+              Workout Log
+            </button>
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              onclick="switchHistoryTab('stats', event)"
+              data-i18n="history.tab.stats"
+            >
+              Stats
+            </button>
+          </div>
+          <div id="history-log"><div id="history-list"></div></div>
+          <div id="history-stats" style="display: none">
+            <div class="stats-numbers-grid" id="stats-numbers-grid"></div>
+            <div
+              class="card stats-chart-card"
+              id="stats-volume-wrap"
+              style="display: none"
+            ></div>
+            <div
+              class="card stats-chart-card"
+              id="stats-strength-wrap"
+              style="display: none"
+            ></div>
+          </div>
         </div>
-        <div class="program-advanced-chevron">&#8250;</div>
+
+        <!-- ===== SETTINGS ===== -->
+        <div class="page" id="page-settings">
+          <div
+            class="tabs"
+            id="settings-tabs"
+            role="tablist"
+            aria-label="Settings sections"
+          >
+            <button
+              class="tab active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-settings-tab="schedule"
+              onclick="showSettingsTab('schedule', this)"
+              data-i18n="settings.tabs.my_sport"
+            >
+              My Sport
+            </button>
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="preferences"
+              onclick="showSettingsTab('preferences', this)"
+              data-i18n="settings.tabs.training"
+            >
+              Training
+            </button>
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="program"
+              onclick="showSettingsTab('program', this)"
+              data-i18n="settings.tabs.program"
+            >
+              Program
+            </button>
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="account"
+              onclick="showSettingsTab('account', this)"
+              data-i18n="settings.tabs.app"
+            >
+              App
+            </button>
+          </div>
+
+          <!-- ── Schedule tab ── -->
+          <div id="settings-tab-schedule">
+            <div class="settings-status-bar" id="sport-status-bar"></div>
+            <div class="card sport-load-card">
+              <div class="card-title" data-i18n="settings.sport_load.title">
+                Sport Load
+              </div>
+              <div
+                class="sport-load-intro"
+                data-i18n="settings.sport_load.subtitle"
+              >
+                Set up your regular sport so the planner can steer sessions
+                around it.
+              </div>
+
+              <div class="settings-subsection">
+                <div
+                  class="settings-subsection-title"
+                  data-i18n="settings.sport_load.section.activity"
+                >
+                  Sport
+                </div>
+                <div
+                  class="settings-subsection-sub"
+                  data-i18n="settings.sport_load.section.activity_sub"
+                >
+                  Name the recurring sport or cardio that affects your training
+                  week.
+                </div>
+                <label data-i18n="settings.activity_name">Activity name</label>
+                <input
+                  id="sport-name"
+                  type="text"
+                  data-i18n-placeholder="settings.activity_placeholder"
+                  placeholder="e.g. Hockey, Soccer, Running"
+                  onchange="saveSchedule()"
+                />
+              </div>
+
+              <div class="settings-subsection">
+                <div
+                  class="settings-subsection-title"
+                  data-i18n="settings.sport_load.section.profile"
+                >
+                  Load profile
+                </div>
+                <div
+                  class="settings-subsection-sub"
+                  data-i18n="settings.sport_load.section.profile_sub"
+                >
+                  Shape how strongly sport load should push training away from
+                  hard lower-body work.
+                </div>
+                <label data-i18n="settings.intensity">Intensity</label>
+                <div
+                  class="segment-control segment-control-equal"
+                  id="sport-intensity-btns"
+                >
+                  <button
+                    class="btn btn-secondary sport-intensity-btn"
+                    type="button"
+                    data-intensity="easy"
+                    onclick="setSportIntensity('easy', this)"
+                    data-i18n="settings.intensity.easy"
+                  >
+                    Easy
+                  </button>
+                  <button
+                    class="btn btn-secondary sport-intensity-btn"
+                    type="button"
+                    data-intensity="moderate"
+                    onclick="setSportIntensity('moderate', this)"
+                    data-i18n="settings.intensity.moderate"
+                  >
+                    Moderate
+                  </button>
+                  <button
+                    class="btn btn-secondary sport-intensity-btn"
+                    type="button"
+                    data-intensity="hard"
+                    onclick="setSportIntensity('hard', this)"
+                    data-i18n="settings.intensity.hard"
+                  >
+                    Hard
+                  </button>
+                </div>
+                <label class="toggle-row" for="sport-legs-heavy">
+                  <div>
+                    <div
+                      class="toggle-row-title"
+                      data-i18n="settings.leg_heavy"
+                    >
+                      Leg-heavy
+                    </div>
+                    <div
+                      class="toggle-row-sub"
+                      data-i18n="settings.leg_heavy_sub"
+                    >
+                      Warns when scheduling legs after sport
+                    </div>
+                  </div>
+                  <div class="toggle-switch warning-toggle">
+                    <input
+                      type="checkbox"
+                      id="sport-legs-heavy"
+                      onchange="saveSchedule()"
+                    />
+                    <span class="toggle-track"
+                      ><span class="toggle-thumb"></span
+                    ></span>
+                  </div>
+                </label>
+                <div
+                  class="settings-inline-label"
+                  data-i18n="settings.regular_sport_days"
+                >
+                  Regular Sport Days
+                </div>
+                <div class="day-toggle-grid" id="sport-day-toggles"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Preferences tab ── -->
+          <div id="settings-tab-preferences" style="display: none">
+            <div class="settings-status-bar" id="training-status-bar"></div>
+            <details
+              class="settings-panel"
+              id="training-preferences-panel"
+              open
+            >
+              <summary class="settings-panel-summary">
+                <div>
+                  <div
+                    class="settings-panel-title"
+                    data-i18n="settings.preferences.title"
+                  >
+                    Training Preferences
+                  </div>
+                  <div
+                    class="settings-panel-sub"
+                    id="training-preferences-summary"
+                  ></div>
+                </div>
+                <div class="settings-panel-chevron">⌄</div>
+              </summary>
+              <div class="settings-panel-body">
+                <div
+                  class="settings-help-text"
+                  data-i18n="settings.preferences.help"
+                >
+                  These preferences shape future smart recommendations and
+                  AI-generated training.
+                </div>
+
+                <div class="settings-subsection">
+                  <div
+                    class="settings-subsection-title"
+                    data-i18n="settings.preferences.section.goals"
+                  >
+                    Goals & Volume
+                  </div>
+                  <label data-i18n="settings.preferences.goal"
+                    >Primary Goal</label
+                  >
+                  <select
+                    id="training-goal"
+                    onchange="saveTrainingPreferences()"
+                  >
+                    <option
+                      value="strength"
+                      data-i18n="settings.preferences.goal.strength"
+                    >
+                      Strength
+                    </option>
+                    <option
+                      value="hypertrophy"
+                      data-i18n="settings.preferences.goal.hypertrophy"
+                    >
+                      Hypertrophy
+                    </option>
+                    <option
+                      value="general_fitness"
+                      data-i18n="settings.preferences.goal.general_fitness"
+                    >
+                      General Fitness
+                    </option>
+                    <option
+                      value="sport_support"
+                      data-i18n="settings.preferences.goal.sport_support"
+                    >
+                      Sport Support
+                    </option>
+                  </select>
+                  <label
+                    class="label-spaced"
+                    data-i18n="settings.preferences.training_days"
+                    >Target Training Frequency</label
+                  >
+                  <select
+                    id="training-days-per-week"
+                    onchange="saveTrainingPreferences()"
+                  >
+                    <option
+                      value="2"
+                      data-i18n="settings.preferences.training_days_value"
+                      data-i18n-params='{"count":2}'
+                    >
+                      2 sessions / week
+                    </option>
+                    <option
+                      value="3"
+                      data-i18n="settings.preferences.training_days_value"
+                      data-i18n-params='{"count":3}'
+                    >
+                      3 sessions / week
+                    </option>
+                    <option
+                      value="4"
+                      data-i18n="settings.preferences.training_days_value"
+                      data-i18n-params='{"count":4}'
+                    >
+                      4 sessions / week
+                    </option>
+                    <option
+                      value="5"
+                      data-i18n="settings.preferences.training_days_value"
+                      data-i18n-params='{"count":5}'
+                    >
+                      5 sessions / week
+                    </option>
+                    <option
+                      value="6"
+                      data-i18n="settings.preferences.training_days_value"
+                      data-i18n-params='{"count":6}'
+                    >
+                      6 sessions / week
+                    </option>
+                  </select>
+                  <label
+                    class="label-spaced"
+                    data-i18n="settings.preferences.session_duration"
+                    >Target Session Length</label
+                  >
+                  <select
+                    id="training-session-minutes"
+                    onchange="saveTrainingPreferences()"
+                  >
+                    <option
+                      value="30"
+                      data-i18n="settings.preferences.duration_value.30"
+                    >
+                      30 min
+                    </option>
+                    <option
+                      value="45"
+                      data-i18n="settings.preferences.duration_value.45"
+                    >
+                      45 min
+                    </option>
+                    <option
+                      value="60"
+                      data-i18n="settings.preferences.duration_value.60"
+                    >
+                      60 min
+                    </option>
+                    <option
+                      value="75"
+                      data-i18n="settings.preferences.duration_value.75"
+                    >
+                      75 min
+                    </option>
+                    <option
+                      value="90"
+                      data-i18n="settings.preferences.duration_value.90"
+                    >
+                      90 min
+                    </option>
+                  </select>
+                </div>
+
+                <div class="settings-subsection">
+                  <div
+                    class="settings-subsection-title"
+                    data-i18n="settings.preferences.section.equipment"
+                  >
+                    Equipment & Warm-up
+                  </div>
+                  <label data-i18n="settings.preferences.equipment"
+                    >Equipment Access</label
+                  >
+                  <select
+                    id="training-equipment"
+                    onchange="saveTrainingPreferences()"
+                  >
+                    <option
+                      value="full_gym"
+                      data-i18n="settings.preferences.equipment.full_gym"
+                    >
+                      Full Gym
+                    </option>
+                    <option
+                      value="basic_gym"
+                      data-i18n="settings.preferences.equipment.basic_gym"
+                    >
+                      Basic Gym
+                    </option>
+                    <option
+                      value="home_gym"
+                      data-i18n="settings.preferences.equipment.home_gym"
+                    >
+                      Home Gym
+                    </option>
+                    <option
+                      value="minimal"
+                      data-i18n="settings.preferences.equipment.minimal"
+                    >
+                      Minimal Equipment
+                    </option>
+                  </select>
+                  <label
+                    class="toggle-row toggle-row-spaced"
+                    for="training-warmup-sets"
+                  >
+                    <div>
+                      <div
+                        class="toggle-row-title"
+                        data-i18n="settings.preferences.warmup_sets"
+                      >
+                        Automatic warm-up sets
+                      </div>
+                      <div
+                        class="toggle-row-sub"
+                        data-i18n="settings.preferences.warmup_sets_help"
+                      >
+                        Prepend warm-up ramp sets (50%-85%) to main compound
+                        lifts at the start of each workout.
+                      </div>
+                    </div>
+                    <div class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="training-warmup-sets"
+                        onchange="saveTrainingPreferences()"
+                      />
+                      <span class="toggle-track"
+                        ><span class="toggle-thumb"></span
+                      ></span>
+                    </div>
+                  </label>
+                  <label class="toggle-row" for="training-sport-check">
+                    <div>
+                      <div
+                        class="toggle-row-title"
+                        data-i18n="settings.preferences.sport_check"
+                      >
+                        Pre-workout sport check-in
+                      </div>
+                      <div
+                        class="toggle-row-sub"
+                        data-i18n="settings.preferences.sport_check_help"
+                      >
+                        Ask about sport load around today before recommending
+                        the session.
+                      </div>
+                    </div>
+                    <div class="toggle-switch sport-toggle">
+                      <input
+                        type="checkbox"
+                        id="training-sport-check"
+                        onchange="saveTrainingPreferences()"
+                      />
+                      <span class="toggle-track"
+                        ><span class="toggle-thumb"></span
+                      ></span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="settings-subsection">
+                  <div
+                    class="settings-subsection-title"
+                    data-i18n="settings.preferences.section.session"
+                  >
+                    Session Settings
+                  </div>
+                  <div
+                    class="settings-panel-inline-row"
+                    style="margin-top: 0; padding-top: 0; border-top: none"
+                  >
+                    <label
+                      class="settings-inline-control-label"
+                      for="default-rest"
+                      data-i18n="settings.default_rest"
+                      >Default Rest Timer</label
+                    >
+                    <select
+                      id="default-rest"
+                      class="settings-inline-control-select"
+                      onchange="saveRestTimer()"
+                    >
+                      <option value="60">1 min</option>
+                      <option value="90">90 sec</option>
+                      <option value="120" selected>2 min</option>
+                      <option value="180">3 min</option>
+                      <option value="300">5 min</option>
+                      <option value="0" data-i18n="common.off">Off</option>
+                    </select>
+                  </div>
+                  <label
+                    class="label-spaced"
+                    data-i18n="settings.preferences.notes"
+                    >Notes, limitations, preferences</label
+                  >
+                  <textarea
+                    id="training-preferences-notes"
+                    rows="4"
+                    data-i18n-placeholder="settings.preferences.notes_placeholder"
+                    placeholder="e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap"
+                    onchange="saveTrainingPreferences()"
+                  ></textarea>
+                </div>
+
+                <button
+                  class="btn btn-secondary settings-action-primary"
+                  type="button"
+                  onclick="restartOnboarding()"
+                  data-i18n="settings.preferences.restart_onboarding"
+                >
+                  Run Guided Setup Again
+                </button>
+              </div>
+            </details>
+          </div>
+
+          <!-- ── Program tab ── -->
+          <div id="settings-tab-program" style="display: none">
+            <div class="settings-status-bar" id="program-status-bar"></div>
+            <details
+              class="settings-panel"
+              id="program-basics-panel"
+              style="display: none"
+              open
+            >
+              <summary class="settings-panel-summary">
+                <div>
+                  <div
+                    class="settings-panel-title"
+                    data-i18n="settings.program_basics"
+                  >
+                    Program Basics
+                  </div>
+                  <div
+                    class="settings-panel-sub"
+                    id="program-basics-summary"
+                  ></div>
+                </div>
+                <div class="settings-panel-chevron">⌄</div>
+              </summary>
+              <div class="settings-panel-body">
+                <div id="program-basics-container"></div>
+              </div>
+            </details>
+            <details class="settings-panel" id="training-program-panel">
+              <summary class="settings-panel-summary">
+                <div>
+                  <div
+                    class="settings-panel-title"
+                    data-i18n="settings.training_program"
+                  >
+                    Training Program
+                  </div>
+                  <div
+                    class="settings-panel-sub"
+                    id="training-program-summary"
+                  ></div>
+                </div>
+                <div class="settings-panel-chevron">⌄</div>
+              </summary>
+              <div class="settings-panel-body">
+                <div id="program-switcher-container"></div>
+              </div>
+            </details>
+            <div
+              class="settings-panel settings-panel-static program-advanced-card"
+              id="program-advanced-panel"
+              onclick="openProgramSetupSheet()"
+              style="cursor: pointer"
+            >
+              <div class="settings-panel-summary settings-panel-summary-static">
+                <div>
+                  <div
+                    class="settings-panel-title"
+                    data-i18n="settings.program_advanced_title"
+                  >
+                    Advanced Setup
+                  </div>
+                  <div
+                    class="settings-panel-sub"
+                    data-i18n="settings.program_advanced_help"
+                  >
+                    Exercise swaps, cycle controls, peak block, and
+                    program-specific options.
+                  </div>
+                </div>
+                <div class="program-advanced-chevron">&#8250;</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Account tab ── -->
+          <div id="settings-tab-account" style="display: none">
+            <div class="card">
+              <div class="card-title" data-i18n="settings.account_section">
+                Account
+              </div>
+              <div class="account-email" id="account-email"></div>
+              <div class="sync-status" id="sync-status">Synced to cloud</div>
+              <div class="account-field">
+                <label data-i18n="settings.language.label">App language</label>
+                <select id="app-language" onchange="saveLanguageSetting()">
+                  <option value="en" data-i18n="settings.language.option.en">
+                    English
+                  </option>
+                  <option value="fi" data-i18n="settings.language.option.fi">
+                    Finnish
+                  </option>
+                </select>
+              </div>
+              <button
+                class="btn btn-ghost"
+                type="button"
+                onclick="logout()"
+                data-i18n="settings.sign_out"
+              >
+                Sign Out
+              </button>
+            </div>
+            <div class="card">
+              <div class="card-title" data-i18n="settings.data_backup">
+                Data Backup
+              </div>
+              <div
+                class="settings-note settings-note-top"
+                id="backup-context"
+              ></div>
+              <div class="settings-button-row">
+                <button
+                  class="btn btn-secondary settings-row-button"
+                  type="button"
+                  onclick="exportData()"
+                  data-i18n="settings.export"
+                >
+                  Export
+                </button>
+                <label
+                  class="btn btn-secondary settings-row-button settings-import-button"
+                  data-i18n="settings.import"
+                  >Import
+                  <input
+                    type="file"
+                    accept=".json"
+                    onchange="importData(event)"
+                    class="file-input-hidden"
+                  />
+                </label>
+              </div>
+              <div
+                class="settings-note settings-note-tight"
+                data-i18n="settings.backup_help"
+              >
+                Export saves all data as a JSON file. Import replaces all
+                current data.
+              </div>
+            </div>
+            <div class="card danger-zone-card">
+              <div class="danger-zone-header">
+                <span class="danger-zone-icon">&#9888;</span>
+                <div class="card-title" data-i18n="settings.danger">
+                  Danger Zone
+                </div>
+              </div>
+              <div class="danger-zone-desc" data-i18n="settings.danger_desc">
+                This permanently deletes all your workouts, programs, and
+                settings. This cannot be undone.
+              </div>
+              <div
+                class="danger-zone-confirm"
+                id="danger-zone-confirm"
+                style="display: none"
+              >
+                <label
+                  class="danger-zone-label"
+                  data-i18n="settings.danger_type_confirm"
+                  >Type DELETE to confirm</label
+                >
+                <input
+                  type="text"
+                  id="danger-zone-input"
+                  class="danger-zone-input"
+                  placeholder="DELETE"
+                  autocomplete="off"
+                  spellcheck="false"
+                  oninput="checkDangerConfirm()"
+                />
+                <button
+                  class="btn btn-ghost danger-btn danger-btn-final"
+                  id="danger-zone-delete-btn"
+                  type="button"
+                  disabled
+                  onclick="clearAllData()"
+                  data-i18n="settings.clear_all_confirm"
+                >
+                  Permanently Delete All Data
+                </button>
+              </div>
+              <button
+                class="btn btn-ghost danger-btn"
+                id="danger-zone-trigger"
+                type="button"
+                onclick="showDangerConfirm()"
+                data-i18n="settings.clear_all"
+              >
+                Clear All Data
+              </button>
+            </div>
+            <div class="app-version" id="app-version"></div>
+          </div>
+        </div>
+
+        <!-- ===== PROGRAM SETUP SHEET ===== -->
+        <div
+          class="modal-overlay"
+          id="program-setup-sheet"
+          onclick="closeProgramSetupSheet(event)"
+        >
+          <div class="modal-sheet sheet-scroll-body">
+            <div class="modal-handle"></div>
+            <div class="sheet-header">
+              <div
+                class="modal-title"
+                id="program-setup-sheet-title"
+                data-i18n="settings.program_setup"
+              >
+                Program Setup
+              </div>
+              <button
+                class="sheet-close-btn"
+                type="button"
+                onclick="closeProgramSetupSheet()"
+                data-i18n="common.done"
+              >
+                Done
+              </button>
+            </div>
+            <div id="program-settings-container"></div>
+          </div>
+        </div>
+      </main>
+
+      <!-- BOTTOM NAV -->
+      <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="showPage('dashboard', this)">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+          </svg>
+          <span data-i18n="nav.dashboard">Dashboard</span>
+        </button>
+        <button class="nav-btn" onclick="showPage('log', this)">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <rect x="1" y="10" width="4" height="4" rx="1" />
+            <rect x="19" y="10" width="4" height="4" rx="1" />
+            <rect x="7" y="8" width="3" height="8" rx="1" />
+            <rect x="14" y="8" width="3" height="8" rx="1" />
+            <line x1="5" y1="12" x2="7" y2="12" />
+            <line x1="17" y1="12" x2="19" y2="12" />
+            <line x1="10" y1="12" x2="14" y2="12" />
+          </svg>
+          <span data-i18n="nav.train">Train</span>
+        </button>
+        <button class="nav-btn" onclick="showPage('history', this)">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          <span data-i18n="nav.history">History</span>
+        </button>
+        <button class="nav-btn" onclick="showPage('settings', this)">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+            />
+          </svg>
+          <span data-i18n="nav.settings">Settings</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div class="login-page" id="login-screen">
+      <canvas id="sparks" aria-hidden="true"></canvas>
+      <div class="login-hero" aria-hidden="true"></div>
+      <div class="login-wrap">
+        <div class="login-form">
+          <input
+            class="login-input"
+            type="email"
+            id="login-email"
+            data-i18n-placeholder="login.email"
+            placeholder="Email"
+            autocomplete="email"
+          />
+          <input
+            class="login-input"
+            type="password"
+            id="login-password"
+            data-i18n-placeholder="login.password"
+            placeholder="Password"
+            autocomplete="current-password"
+          />
+          <div id="login-error"></div>
+          <button
+            class="btn-primary"
+            onclick="loginWithEmail()"
+            data-i18n="login.sign_in"
+          >
+            Sign In
+          </button>
+          <button
+            class="btn-secondary"
+            onclick="signUpWithEmail()"
+            data-i18n="login.create_account"
+          >
+            Create Account
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- ── Account tab ── -->
-  <div id="settings-tab-account" style="display:none">
-    <div class="card">
-      <div class="card-title" data-i18n="settings.account_section">Account</div>
-      <div class="account-email" id="account-email"></div>
-      <div class="sync-status" id="sync-status">Synced to cloud</div>
-      <div class="account-field">
-        <label data-i18n="settings.language.label">App language</label>
-        <select id="app-language" onchange="saveLanguageSetting()">
-          <option value="en" data-i18n="settings.language.option.en">English</option>
-          <option value="fi" data-i18n="settings.language.option.fi">Finnish</option>
-        </select>
-      </div>
-      <button class="btn btn-ghost" type="button" onclick="logout()" data-i18n="settings.sign_out">Sign Out</button>
-    </div>
-    <div class="card">
-      <div class="card-title" data-i18n="settings.data_backup">Data Backup</div>
-      <div class="settings-note settings-note-top" id="backup-context"></div>
-      <div class="settings-button-row">
-        <button class="btn btn-secondary settings-row-button" type="button" onclick="exportData()" data-i18n="settings.export">Export</button>
-        <label class="btn btn-secondary settings-row-button settings-import-button" data-i18n="settings.import">Import
-          <input type="file" accept=".json" onchange="importData(event)" class="file-input-hidden">
-        </label>
-      </div>
-      <div class="settings-note settings-note-tight" data-i18n="settings.backup_help">Export saves all data as a JSON file. Import replaces all current data.</div>
-    </div>
-    <div class="card danger-zone-card">
-      <div class="danger-zone-header">
-        <span class="danger-zone-icon">&#9888;</span>
-        <div class="card-title" data-i18n="settings.danger">Danger Zone</div>
-      </div>
-      <div class="danger-zone-desc" data-i18n="settings.danger_desc">This permanently deletes all your workouts, programs, and settings. This cannot be undone.</div>
-      <div class="danger-zone-confirm" id="danger-zone-confirm" style="display:none">
-        <label class="danger-zone-label" data-i18n="settings.danger_type_confirm">Type DELETE to confirm</label>
-        <input type="text" id="danger-zone-input" class="danger-zone-input" placeholder="DELETE" autocomplete="off" spellcheck="false" oninput="checkDangerConfirm()">
-        <button class="btn btn-ghost danger-btn danger-btn-final" id="danger-zone-delete-btn" type="button" disabled onclick="clearAllData()" data-i18n="settings.clear_all_confirm">Permanently Delete All Data</button>
-      </div>
-      <button class="btn btn-ghost danger-btn" id="danger-zone-trigger" type="button" onclick="showDangerConfirm()" data-i18n="settings.clear_all">Clear All Data</button>
-    </div>
-    <div class="app-version" id="app-version"></div>
-  </div>
-</div>
-
-<!-- ===== PROGRAM SETUP SHEET ===== -->
-<div class="modal-overlay" id="program-setup-sheet" onclick="closeProgramSetupSheet(event)">
-  <div class="modal-sheet sheet-scroll-body">
-    <div class="modal-handle"></div>
-    <div class="sheet-header">
-      <div class="modal-title" id="program-setup-sheet-title" data-i18n="settings.program_setup">Program Setup</div>
-      <button class="sheet-close-btn" type="button" onclick="closeProgramSetupSheet()" data-i18n="common.done">Done</button>
-    </div>
-    <div id="program-settings-container"></div>
-  </div>
-</div>
-</main>
-
-<!-- BOTTOM NAV -->
-<nav class="bottom-nav">
-  <button class="nav-btn active" onclick="showPage('dashboard',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-    <span data-i18n="nav.dashboard">Dashboard</span>
-  </button>
-  <button class="nav-btn" onclick="showPage('log',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="10" width="4" height="4" rx="1"/><rect x="19" y="10" width="4" height="4" rx="1"/><rect x="7" y="8" width="3" height="8" rx="1"/><rect x="14" y="8" width="3" height="8" rx="1"/><line x1="5" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="19" y2="12"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-    <span data-i18n="nav.train">Train</span>
-  </button>
-  <button class="nav-btn" onclick="showPage('history',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    <span data-i18n="nav.history">History</span>
-  </button>
-  <button class="nav-btn" onclick="showPage('settings',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    <span data-i18n="nav.settings">Settings</span>
-  </button>
-</nav>
-</div>
-
-<!-- LOGIN SCREEN -->
-<div class="login-page" id="login-screen">
-  <canvas id="sparks" aria-hidden="true"></canvas>
-  <div class="login-hero" aria-hidden="true"></div>
-  <div class="login-wrap">
-    <div class="login-form">
-      <input class="login-input" type="email" id="login-email" data-i18n-placeholder="login.email" placeholder="Email" autocomplete="email">
-      <input class="login-input" type="password" id="login-password" data-i18n-placeholder="login.password" placeholder="Password" autocomplete="current-password">
-      <div id="login-error"></div>
-      <button class="btn-primary" onclick="loginWithEmail()" data-i18n="login.sign_in">Sign In</button>
-      <button class="btn-secondary" onclick="signUpWithEmail()" data-i18n="login.create_account">Create Account</button>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="core/i18n-layer.js"></script>
-<script src="core/exercise-library.js"></script>
-<script src="core/data-layer.js"></script>
-<script src="core/program-layer.js"></script>
-<script src="core/plan-engine.js"></script>
-<script src="core/dashboard-layer.js"></script>
-<script src="core/history-layer.js"></script>
-<script src="core/workout-layer.js"></script>
-<script src="core/ui-shell.js"></script>
-<script src="app.js"></script>
-<script src="programs/forge.js"></script>
-<script src="programs/wendler531.js"></script>
-<script src="programs/stronglifts5x5.js"></script>
-<script src="programs/casualfullbody.js"></script>
-<script src="programs/hypertrophysplit.js"></script>
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="core/i18n-layer.js"></script>
+    <script src="core/exercise-library.js"></script>
+    <script src="core/data-layer.js"></script>
+    <script src="core/program-layer.js"></script>
+    <script src="core/plan-engine.js"></script>
+    <script src="core/dashboard-layer.js"></script>
+    <script src="core/history-layer.js"></script>
+    <script src="core/workout-layer.js"></script>
+    <script src="core/ui-shell.js"></script>
+    <script src="app.js"></script>
+    <script src="programs/forge.js"></script>
+    <script src="programs/wendler531.js"></script>
+    <script src="programs/stronglifts5x5.js"></script>
+    <script src="programs/casualfullbody.js"></script>
+    <script src="programs/hypertrophysplit.js"></script>
+  </body>
 </html>
