@@ -749,8 +749,14 @@ select optgroup{font-weight:700}
 
 /* ── HISTORY: TRAINING HEATMAP ── */
 .heatmap-wrap{--heat-cell:clamp(18px,5vw,26px);margin-bottom:0;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01)),var(--surface);border:1px solid rgba(255,255,255,0.07);border-radius:18px;padding:12px 12px}
-.heatmap-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.heatmap-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:0;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+.heatmap-wrap.open .heatmap-title-row{margin-bottom:8px}
 .heatmap-title{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase}
+.heatmap-toggle-chevron{font-size:10px;color:var(--muted);transition:transform 0.25s ease;margin-left:6px;display:inline-block}
+.heatmap-wrap.open .heatmap-toggle-chevron{transform:rotate(180deg)}
+.heatmap-collapsible{display:grid;grid-template-rows:0fr;transition:grid-template-rows 0.3s ease}
+.heatmap-wrap.open .heatmap-collapsible{grid-template-rows:1fr}
+.heatmap-collapsible-inner{overflow:hidden}
 .heatmap-board{display:grid;grid-template-columns:auto 1fr;gap:3px 8px;align-items:start}
 .heatmap-week-labels{display:grid;grid-template-columns:repeat(14,1fr);gap:3px}
 .heatmap-week-label{text-align:center;font-size:8px;font-weight:700;color:var(--muted)}
@@ -775,6 +781,12 @@ select optgroup{font-weight:700}
 .heatmap-legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
 .heatmap-legend-dot-lift{background:var(--accent2)}
 .heatmap-legend-dot-sport{background:var(--blue)}
+/* Collapsed heatmap: stats shown inline in title row */
+.heatmap-inline-stats{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.heatmap-wrap.open .heatmap-inline-stats{display:none}
+/* Legend only visible when grid is shown */
+.heatmap-title-row .heatmap-legend{display:none}
+.heatmap-wrap.open .heatmap-title-row .heatmap-legend{display:flex}
 
 /* ── SESSION SUMMARY ── */
 .summary-sheet{text-align:center}

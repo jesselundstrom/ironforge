@@ -430,23 +430,36 @@ function renderHeatmap(){
     <div class="heatmap-legend-item"><div class="heatmap-legend-dot heatmap-legend-dot-sport"></div>${schedule.sportName||trHist('common.sport','Sport')}</div>
   </div>`;
 
-  const titleHtml=`<div class="heatmap-title-row">
-    <span class="heatmap-title">${trHist('history.activity_title','ACTIVITY \u00B7 {weeks} WK',{weeks:WEEKS})}</span>
+  const inlineStatsHtml=`<div class="heatmap-inline-stats">${streakHtml}${rateHtml}${volHtml}</div>`;
+  const isOpen=el.querySelector('.heatmap-wrap.open')!==null;
+  const openCls=isOpen?' open':'';
+
+  const titleHtml=`<div class="heatmap-title-row" onclick="toggleHeatmap()">
+    <span class="heatmap-title">${trHist('history.activity_title','ACTIVITY \u00B7 {weeks} WK',{weeks:WEEKS})} <span class="heatmap-toggle-chevron">▼</span></span>
+    ${inlineStatsHtml}
     ${legendHtml}
   </div>`;
 
-  el.innerHTML=`<div class="heatmap-wrap">
+  el.innerHTML=`<div class="heatmap-wrap${openCls}">
     ${titleHtml}
-    <div class="heatmap-board">
-      <div></div>
-      <div class="heatmap-week-labels">${weekNumCells}</div>
-      <div class="heatmap-day-labels">${labelCells}</div>
-      <div class="heatmap-grid heatmap-grid-cells">${gridCells}</div>
-    </div>
-    <div class="heatmap-foot">
-      <div class="heatmap-stats">${streakHtml}${rateHtml}${volHtml}</div>
-    </div>
+    <div class="heatmap-collapsible"><div class="heatmap-collapsible-inner">
+      <div class="heatmap-board">
+        <div></div>
+        <div class="heatmap-week-labels">${weekNumCells}</div>
+        <div class="heatmap-day-labels">${labelCells}</div>
+        <div class="heatmap-grid heatmap-grid-cells">${gridCells}</div>
+      </div>
+      <div class="heatmap-foot">
+        <div class="heatmap-stats">${streakHtml}${rateHtml}${volHtml}</div>
+      </div>
+    </div></div>
   </div>`;
+}
+
+function toggleHeatmap(){
+  const wrap=document.querySelector('#history-heatmap .heatmap-wrap');
+  if(!wrap)return;
+  wrap.classList.toggle('open');
 }
 
 function renderHistory(){
