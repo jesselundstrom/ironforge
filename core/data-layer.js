@@ -19,6 +19,7 @@ let lastCloudSyncErrorToastAt=0;
 let syncStateCache=createDefaultSyncStateCache();
 let activeWorkoutDraftCache=null;
 let syncStatusState={state:'idle',updatedAt:null};
+let cloudSyncEnabled=true;
 
 function createDefaultSyncStateCache(){
   return{
@@ -49,6 +50,10 @@ function getSyncStateCache(){
 function getLocalCacheUserId(explicitUserId){
   const raw=explicitUserId||currentUser?.id||window.__IRONFORGE_TEST_USER_ID__||'';
   return String(raw||'').trim();
+}
+
+function isCloudSyncEnabled(){
+  return cloudSyncEnabled!==false;
 }
 
 function getLocalCacheKey(baseKey,userId){
@@ -104,6 +109,7 @@ function resetRuntimeState(){
   syncStateCache=createDefaultSyncStateCache();
   activeWorkoutDraftCache=null;
   syncStatusState={state:navigator.onLine?'idle':'offline',updatedAt:null};
+  cloudSyncEnabled=true;
   if(typeof clearWorkoutTimer==='function')clearWorkoutTimer();
   if(typeof clearRestInterval==='function')clearRestInterval();
   if(typeof clearRestHideTimer==='function')clearRestHideTimer();
@@ -929,6 +935,7 @@ function resolveProfileSaveDocKeys(options){
 async function loadData(options){
   const opts=options||{};
   const allowCloudSync=opts.allowCloudSync!==false;
+  cloudSyncEnabled=allowCloudSync;
   loadLocalData({userId:opts.userId||currentUser?.id,allowLegacyFallback:true});
   // Pull profile/schedule from cloud and workouts from the dedicated workouts table.
   const cloudResult=allowCloudSync?await pullFromCloud():{usedCloud:false};
@@ -1003,7 +1010,7 @@ async function loadData(options){
   const scheduleChangedDuringLoad=JSON.stringify(schedule||{})!==scheduleBeforeNormalization;
   if(normalizedWorkouts.changed){
     await saveWorkouts();
-    if(currentUser)await upsertWorkoutRecords(workouts);
+    if(currentUser&&isCloudSyncEnabled())await upsertWorkoutRecords(workouts);
   }
   await saveScheduleData({touchSync:scheduleChangedDuringLoad,push:false});
   await saveProfileData({touchSync:profileChangedDuringLoad});
@@ -1022,7 +1029,7 @@ async function saveScheduleData(options){
   markDocKeysDirty([SCHEDULE_DOC_KEY]);
   persistLocalScheduleCache();
   persistLocalProfileCache();
-  if(opts.push!==false)await pushToCloud({docKeys:[SCHEDULE_DOC_KEY]});
+  if(opts.push!==false&&isCloudSyncEnabled())await pushToCloud({docKeys:[SCHEDULE_DOC_KEY]});
 }
 async function saveProfileData(options){
   const opts=options||{};
@@ -1035,7 +1042,7 @@ async function saveProfileData(options){
   }
   markDocKeysDirty(docKeys);
   persistLocalProfileCache();
-  if(opts.push!==false)await pushToCloud({docKeys});
+  if(opts.push!==false&&isCloudSyncEnabled())await pushToCloud({docKeys});
 }
 
 function toProfileDocumentRows(docKeys,profileLike,scheduleLike){
@@ -1060,7 +1067,7 @@ function toProfileDocumentRows(docKeys,profileLike,scheduleLike){
 }
 
 async function upsertProfileDocuments(docKeys,profileLike,scheduleLike,options){
-  if(!currentUser)return false;
+  if(!currentUser||!isCloudSyncEnabled())return false;
   const rows=toProfileDocumentRows(docKeys,profileLike,scheduleLike);
   if(!rows.length)return true;
   const opts=options||{};
@@ -1141,7 +1148,7 @@ function buildStateFromProfileDocuments(rows,fallbackProfile,fallbackSchedule){
 }
 
 async function pullProfileDocuments(options){
-  if(!currentUser)return{usedDocs:false,supported:false};
+  if(!currentUser||!isCloudSyncEnabled())return{usedDocs:false,supported:false};
   try{
     const{data,error}=await _SB.from('profile_documents')
       .select('doc_key,payload,client_updated_at,updated_at')
@@ -1189,7 +1196,7 @@ function toWorkoutRow(workout){
 }
 
 async function upsertWorkoutRecord(workout,options){
-  if(!currentUser||!workout)return;
+  if(!currentUser||!workout||!isCloudSyncEnabled())return;
   await runSupabaseWrite(
     _SB.from('workouts').upsert(toWorkoutRow(workout),{onConflict:'user_id,client_workout_id'}),
     'Failed to upsert workout row',
@@ -1198,7 +1205,7 @@ async function upsertWorkoutRecord(workout,options){
 }
 
 async function upsertWorkoutRecords(items,options){
-  if(!currentUser||!Array.isArray(items)||!items.length)return;
+  if(!currentUser||!Array.isArray(items)||!items.length||!isCloudSyncEnabled())return;
   const rows=items.map(toWorkoutRow).filter(Boolean);
   if(!rows.length)return;
   await runSupabaseWrite(
@@ -1209,7 +1216,7 @@ async function upsertWorkoutRecords(items,options){
 }
 
 async function softDeleteWorkoutRecord(workoutId,options){
-  if(!currentUser||workoutId===undefined||workoutId===null)return;
+  if(!currentUser||workoutId===undefined||workoutId===null||!isCloudSyncEnabled())return;
   await runSupabaseWrite(
     _SB.from('workouts')
       .update({deleted_at:new Date().toISOString()})
@@ -1221,7 +1228,7 @@ async function softDeleteWorkoutRecord(workoutId,options){
 }
 
 async function replaceWorkoutTableSnapshot(items,options){
-  if(!currentUser)return;
+  if(!currentUser||!isCloudSyncEnabled())return;
   const opts=options||{};
   const nextItems=Array.isArray(items)?items:[];
   const nextIds=new Set(nextItems.map(workoutClientId).filter(Boolean));
@@ -1248,7 +1255,7 @@ async function replaceWorkoutTableSnapshot(items,options){
 }
 
 async function pullWorkoutsFromTable(fallbackWorkouts){
-  if(!currentUser)return{usedTable:false,didBackfill:false};
+  if(!currentUser||!isCloudSyncEnabled())return{usedTable:false,didBackfill:false};
   try{
     const{data,error}=await _SB.from('workouts')
       .select('client_workout_id,payload,deleted_at,performed_at')
@@ -1282,7 +1289,7 @@ async function pullWorkoutsFromTable(fallbackWorkouts){
 }
 
 async function fetchLegacyProfileBlob(){
-  if(!currentUser)return{usedCloud:false};
+  if(!currentUser||!isCloudSyncEnabled())return{usedCloud:false};
   try{
     const{data,error}=await _SB.from('profiles').select('data,updated_at').eq('id',currentUser.id).single();
     if(error||!data?.data)return{usedCloud:false};
@@ -1346,7 +1353,7 @@ async function pushLegacyProfileBlob(){
 }
 
 async function pushToCloud(options){
-  if(!currentUser||isApplyingRemoteSync)return;
+  if(!currentUser||!isCloudSyncEnabled()||isApplyingRemoteSync)return false;
   const opts=options||{};
   const docKeys=opts.docKeys||getAllProfileDocumentKeys(profile);
   setSyncStatus('syncing');
@@ -1359,7 +1366,7 @@ async function pushToCloud(options){
 }
 
 async function pullFromCloud(){
-  if(!currentUser)return{usedCloud:false};
+  if(!currentUser||!isCloudSyncEnabled())return{usedCloud:false};
   setSyncStatus('syncing');
   const legacySnapshot=await fetchLegacyProfileBlob();
   const docsResult=await pullProfileDocuments({
@@ -1422,7 +1429,7 @@ function teardownRealtimeSync(){
 }
 
 async function applyRealtimeSync(reason){
-  if(!currentUser||isApplyingRemoteSync)return;
+  if(!currentUser||!isCloudSyncEnabled()||isApplyingRemoteSync)return;
   isApplyingRemoteSync=true;
   try{
     const beforeProfile=JSON.stringify(profile||{});
@@ -1447,14 +1454,14 @@ async function applyRealtimeSync(reason){
 }
 
 function scheduleRealtimeSync(reason){
-  if(!currentUser)return;
+  if(!currentUser||!isCloudSyncEnabled())return;
   if(realtimeSyncTimer)clearTimeout(realtimeSyncTimer);
   realtimeSyncTimer=setTimeout(()=>{applyRealtimeSync(reason);},150);
 }
 
 function setupRealtimeSync(){
   teardownRealtimeSync();
-  if(!currentUser||!_SB?.channel)return;
+  if(!currentUser||!isCloudSyncEnabled()||!_SB?.channel)return;
   syncRealtimeChannel=_SB.channel('ironforge-sync-'+currentUser.id)
     .on('postgres_changes',{
       event:'*',
