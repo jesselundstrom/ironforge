@@ -107,12 +107,21 @@
       </div>
 
       <!-- CONFIRM MODAL -->
-      <div class="confirm-modal" id="confirm-modal">
+      <div
+        class="confirm-modal"
+        id="confirm-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-msg"
+      >
         <div class="confirm-box">
           <h3 id="confirm-title" data-i18n="modal.confirm.title">Confirm</h3>
           <p id="confirm-msg">Are you sure?</p>
           <div class="confirm-actions">
             <button
+              type="button"
               class="btn btn-secondary btn-sm"
               onclick="confirmCancel()"
               data-i18n="modal.confirm.cancel"
@@ -120,6 +129,7 @@
               Cancel
             </button>
             <button
+              type="button"
               class="btn btn-primary btn-sm"
               id="confirm-ok"
               onclick="confirmOk()"

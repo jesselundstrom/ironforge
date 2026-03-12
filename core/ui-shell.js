@@ -1,5 +1,6 @@
 let _toastTimeout = null;
 let confirmCallback = null;
+let confirmPreviousFocus = null;
 let nameModalCallback = null;
 
 function getNavButtonForPage(name) {
@@ -89,20 +90,33 @@ function showToast(msg, color, undoFn) {
 }
 
 function showConfirm(title, msg, cb) {
+  confirmPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   document.getElementById('confirm-title').textContent = title;
   document.getElementById('confirm-msg').textContent = msg;
   confirmCallback = cb;
-  document.getElementById('confirm-modal').classList.add('active');
+  const modal = document.getElementById('confirm-modal');
+  modal.classList.add('active');
+  modal.setAttribute('aria-hidden', 'false');
+  requestAnimationFrame(() => document.getElementById('confirm-ok')?.focus());
+}
+
+function hideConfirmModal() {
+  const modal = document.getElementById('confirm-modal');
+  modal.classList.remove('active');
+  modal.setAttribute('aria-hidden', 'true');
+  if (confirmPreviousFocus?.isConnected) confirmPreviousFocus.focus();
+  confirmPreviousFocus = null;
 }
 
 function confirmOk() {
-  document.getElementById('confirm-modal').classList.remove('active');
-  if (confirmCallback) confirmCallback();
+  const cb = confirmCallback;
   confirmCallback = null;
+  hideConfirmModal();
+  if (cb) cb();
 }
 
 function confirmCancel() {
-  document.getElementById('confirm-modal').classList.remove('active');
+  hideConfirmModal();
   confirmCallback = null;
 }
 

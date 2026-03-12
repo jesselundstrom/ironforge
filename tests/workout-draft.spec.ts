@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { bootstrapAppShell, openAppShell } from './helpers';
+import { bootstrapAppShell, confirmModal, openAppShell } from './helpers';
 
 async function openTrainPage(page: Page) {
   await page.evaluate(() => {
@@ -62,7 +62,7 @@ test('discarding a workout clears the persisted draft', async ({ page }) => {
   expect(await page.evaluate(() => window.eval('Boolean(getActiveWorkoutDraftCache())'))).toBe(true);
 
   await page.getByRole('button', { name: /discard workout/i }).click();
-  await page.getByRole('button', { name: /confirm/i }).click();
+  await confirmModal(page);
 
   await expect(page.locator('#workout-not-started')).toBeVisible();
   expect(await page.evaluate(() => window.eval('getActiveWorkoutDraftCache()'))).toBeNull();

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 
 export async function openApp(page: Page) {
   await page.addInitScript(() => {
@@ -35,4 +36,13 @@ export async function bootstrapAppShell(page: Page) {
 export async function openAppShell(page: Page) {
   await openApp(page);
   await bootstrapAppShell(page);
+}
+
+export async function confirmModal(page: Page) {
+  const modal = page.locator('#confirm-modal');
+  const confirmButton = page.locator('#confirm-ok');
+
+  await expect(modal).toHaveClass(/active/);
+  await expect(confirmButton).toBeVisible();
+  await confirmButton.click();
 }
