@@ -259,8 +259,9 @@ function getSportWorkoutMuscleLoad(workout){
   totals.quads=load;
   totals.hamstrings=load*0.75;
   totals.glutes=load*0.8;
+  totals.adductors=load*0.65;
   totals.calves=load*0.55;
-  totals.core=load*0.25;
+  totals.core=load*0.45;
   return totals;
 }
 
@@ -538,6 +539,88 @@ function getDashboardPlanMuscleBars(days){
   }));
 }
 
+// All 11 display muscle groups
+const ALL_DISPLAY_MUSCLE_GROUPS=['chest','back','shoulders','biceps','triceps','forearms','quads','hamstrings','glutes','calves','core'];
+
+// Front-visible groups (shown on front SVG)
+const FRONT_MUSCLE_GROUPS=['chest','shoulders','biceps','forearms','quads','calves','core'];
+// Back-visible groups (shown on back SVG)
+const BACK_MUSCLE_GROUPS=['back','shoulders','triceps','forearms','glutes','hamstrings','calves'];
+
+function getAllMuscleLoadLevels(days){
+  const displayLoads=getRecentDisplayMuscleLoads(getDashboardMuscleLoadLookbackDays(days));
+  const result={};
+  ALL_DISPLAY_MUSCLE_GROUPS.forEach(group=>{
+    const value=displayLoads[group]||0;
+    const level=getDisplayMuscleLoadLevel(value);
+    result[group]={value,level};
+  });
+  return result;
+}
+
+function renderMuscleBodyVisualization(days){
+  const loads=getAllMuscleLoadLevels(days);
+  const hasAnyData=Object.values(loads).some(l=>l.level);
+  if(!hasAnyData){
+    return `<div class="muscle-body-empty">${escapeHtml(trDash('dashboard.log_to_see','Kirjaa treenejä, niin data tulee näkyviin'))}</div>`;
+  }
+
+  // Build legend items: only groups that have data, sorted by load value desc
+  const activeGroups=ALL_DISPLAY_MUSCLE_GROUPS
+    .filter(g=>loads[g].level)
+    .sort((a,b)=>loads[b].value-loads[a].value);
+  const legendHtml=activeGroups.map(group=>{
+    const l=loads[group];
+    const levelKey=l.level==='high'?'dashboard.muscle_load.high':(l.level==='moderate'?'dashboard.muscle_load.moderate':'dashboard.muscle_load.light');
+    const levelText=trDash(levelKey,l.level);
+    const groupName=trDash('dashboard.muscle_group.'+group,group);
+    return `<div class="muscle-body-legend-item is-${escapeHtml(l.level)}">
+      <span class="muscle-body-legend-dot"></span>
+      <span class="muscle-body-legend-name">${escapeHtml(groupName)}</span>
+      <span class="muscle-body-legend-level">${escapeHtml(levelText)}</span>
+    </div>`;
+  }).join('');
+
+  // Build data attributes for SVG colorizing
+  const dataAttrs=ALL_DISPLAY_MUSCLE_GROUPS
+    .map(g=>`data-muscle-${g}="${loads[g].level||'none'}"`)
+    .join(' ');
+
+  return `<div class="muscle-body-wrapper" ${dataAttrs}>
+    <div class="muscle-body-flip-container">
+      <div class="muscle-body-flipper">
+        <div class="muscle-body-face muscle-body-front">${getMuscleBodySvgFront()}</div>
+        <div class="muscle-body-face muscle-body-back">${getMuscleBodySvgBack()}</div>
+      </div>
+    </div>
+    <button class="muscle-body-flip-btn" type="button" data-action="flip-muscle-body" aria-label="${escapeHtml(trDash('dashboard.muscle_body.flip','Käännä'))}">
+      <span class="muscle-body-flip-label muscle-body-flip-label-front">${escapeHtml(trDash('dashboard.muscle_body.front','Edestä'))}</span>
+      <span class="muscle-body-flip-label muscle-body-flip-label-back">${escapeHtml(trDash('dashboard.muscle_body.back','Takaa'))}</span>
+    </button>
+    <div class="muscle-body-legend">${legendHtml}</div>
+  </div>`;
+}
+
+function initMuscleBodyFlip(){
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest('[data-action="flip-muscle-body"]');
+    if(!btn)return;
+    const wrapper=btn.closest('.muscle-body-wrapper');
+    if(wrapper)wrapper.classList.toggle('is-flipped');
+  });
+}
+
+function colorMuscleBodySvg(){
+  document.querySelectorAll('.muscle-body-wrapper').forEach(wrapper=>{
+    ALL_DISPLAY_MUSCLE_GROUPS.forEach(group=>{
+      const level=wrapper.getAttribute('data-muscle-'+group)||'none';
+      wrapper.querySelectorAll(`.muscle-zone[data-muscle="${group}"]`).forEach(zone=>{
+        zone.setAttribute('data-level',level);
+      });
+    });
+  });
+}
+
 function renderDashboardTodayPlan(input){
   const next=input||{};
   const focusLine=String(next.focusLine||'');
@@ -588,7 +671,7 @@ function renderDashboardTodayPlan(input){
     {tone:progressMetric.color==='green'?'green':(progressMetric.color==='red'?'red':'blue'),text:progressionText||sanitizeDashboardRichText(coachingInsights.progressionSummary||'')},
     {tone:'blue',text:bestDaysText}
   ].filter(item=>item.text);
-  const muscles=getDashboardPlanMuscleBars(getDashboardMuscleLoadLookbackDays());
+  const muscleBodyHtml=renderMuscleBodyVisualization(getDashboardMuscleLoadLookbackDays());
   return `<div class="dashboard-plan-stack">
     <section class="dashboard-plan-section dashboard-plan-section-coach">
       <div class="dashboard-plan-section-label">${escapeHtml(trDash('dashboard.insights.title','Valmennusnostot'))}</div>
@@ -610,17 +693,20 @@ function renderDashboardTodayPlan(input){
       <div class="dashboard-plan-section-label">${escapeHtml(trDash('dashboard.muscle_load.recent','Viimeaikainen lihaskuorma'))}</div>
       <article class="dashboard-plan-card dashboard-plan-muscle-card">
         <div class="dashboard-plan-card-head">${escapeHtml(trDash('workout.today.recovery_status','Palautumistilanne'))}</div>
-        <div class="dashboard-plan-muscle-list">${muscles.length?muscles.map(item=>`<div class="dashboard-plan-muscle-row"><div class="dashboard-plan-muscle-name">${escapeHtml(trDash('dashboard.muscle_group.'+item.name,item.name))}</div><div class="dashboard-plan-muscle-track"><div class="dashboard-plan-muscle-fill is-${escapeHtml(item.level)}" data-load="${escapeHtml(String(item.load))}"></div></div><div class="dashboard-plan-muscle-badge is-${escapeHtml(item.level)}">${escapeHtml(trDash(item.level==='high'?'dashboard.muscle_load.high':(item.level==='medium'?'dashboard.muscle_load.moderate':'dashboard.muscle_load.light'),item.level))}</div></div>`).join(''):`<div class="dashboard-plan-muscle-empty">${escapeHtml(trDash('dashboard.log_to_see','Kirjaa treenejä, niin data tulee näkyviin'))}</div>`}</div>
+        ${muscleBodyHtml}
       </article>
     </section>
   </div>`;
 }
 
 function animateDashboardPlanMuscleBars(){
+  // Legacy bar animation (kept for backward compat if bars still exist)
   document.querySelectorAll('.dashboard-plan-muscle-fill').forEach(fill=>{
     const load=Math.max(0,Math.min(100,parseFloat(fill.getAttribute('data-load'))||0));
     fill.style.setProperty('--dashboard-muscle-scale',String(load/100));
   });
+  // New body visualization colorizing
+  colorMuscleBodySvg();
 }
 
 window.toggleDashboardCoachingInsights=function(){
@@ -874,3 +960,6 @@ function updateDashboard(){
   requestAnimationFrame(animateDashboardPlanMuscleBars);
   document.getElementById('header-sub').textContent=[programName,bi.name||'',bi.weekLabel||''].filter(Boolean).join(' · ');
 }
+
+// Initialize muscle body flip listener (event delegation, safe to call once)
+initMuscleBodyFlip();

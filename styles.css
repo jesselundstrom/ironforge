@@ -6343,89 +6343,166 @@ body.login-active::before {
   color: var(--text);
   font-weight: 700;
 }
-.dashboard-plan-muscle-list {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
+/* ── Muscle Body Visualization ── */
+.muscle-body-wrapper {
+  padding: 16px 8px 12px;
+  --muscle-base: #1a1a1e;
+  --muscle-none: #222226;
+  --muscle-low: var(--green);
+  --muscle-moderate: var(--yellow);
+  --muscle-high: var(--red);
 }
-.dashboard-plan-muscle-row {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
+.muscle-body-flip-container {
+  perspective: 800px;
+  width: 140px;
+  height: 260px;
+  margin: 0 auto 12px;
 }
-.dashboard-plan-muscle-name {
-  font-size: 12px;
-  line-height: 1.2;
-  color: var(--text);
-  font-weight: 700;
-}
-.dashboard-plan-muscle-track {
-  height: 6px;
-  border-radius: 10px;
-  background: var(--border);
-  overflow: hidden;
-}
-.dashboard-plan-muscle-fill {
+.muscle-body-flipper {
+  width: 100%;
   height: 100%;
-  border-radius: inherit;
-  transform-origin: left center;
-  transform: scaleX(0);
-  transition: transform 0.7s ease;
-  background: linear-gradient(90deg, #5dbb86, var(--green));
-  box-shadow: 0 0 12px rgba(76, 175, 121, 0.2);
+  position: relative;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
 }
-.dashboard-plan-muscle-fill.is-medium {
-  background: linear-gradient(90deg, #f0b84a, var(--yellow));
-  box-shadow: 0 0 12px rgba(245, 200, 66, 0.2);
+.muscle-body-wrapper.is-flipped .muscle-body-flipper {
+  transform: rotateY(180deg);
 }
-.dashboard-plan-muscle-fill.is-high {
-  background: linear-gradient(90deg, #e77a63, var(--red));
-  box-shadow: 0 0 14px rgba(224, 82, 82, 0.22);
-}
-.dashboard-plan-muscle-row:nth-child(1) .dashboard-plan-muscle-fill {
-  transition-delay: 0.2s;
-}
-.dashboard-plan-muscle-row:nth-child(2) .dashboard-plan-muscle-fill {
-  transition-delay: 0.25s;
-}
-.dashboard-plan-muscle-row:nth-child(3) .dashboard-plan-muscle-fill {
-  transition-delay: 0.3s;
-}
-.dashboard-plan-muscle-badge {
-  display: inline-flex;
+.muscle-body-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 62px;
-  padding: 5px 8px;
+}
+.muscle-body-back {
+  transform: rotateY(180deg);
+}
+.muscle-body-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 12px rgba(0,0,0,0.3));
+}
+
+/* Muscle zone coloring */
+.muscle-zone {
+  fill: var(--muscle-none);
+  transition: fill 0.5s ease, filter 0.5s ease;
+  stroke: rgba(255,255,255,0.04);
+  stroke-width: 0.5;
+}
+.muscle-zone[data-level="light"] {
+  fill: var(--muscle-low);
+  filter: drop-shadow(0 0 4px rgba(76, 175, 121, 0.3));
+}
+.muscle-zone[data-level="moderate"] {
+  fill: var(--muscle-moderate);
+  filter: drop-shadow(0 0 6px rgba(245, 200, 66, 0.3));
+}
+.muscle-zone[data-level="high"] {
+  fill: var(--muscle-high);
+  filter: drop-shadow(0 0 8px rgba(224, 82, 82, 0.35));
+}
+
+/* Flip button */
+.muscle-body-flip-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  font-size: 9px;
-  line-height: 1;
+  background: var(--surface2);
+  color: var(--muted);
   font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.2s, color 0.2s;
+}
+.muscle-body-flip-btn:active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.muscle-body-flip-label-back {
+  display: none;
+}
+.muscle-body-wrapper.is-flipped .muscle-body-flip-label-front {
+  display: none;
+}
+.muscle-body-wrapper.is-flipped .muscle-body-flip-label-back {
+  display: inline;
+}
+
+/* Legend */
+.muscle-body-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  padding: 0 4px;
+}
+.muscle-body-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.3;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.muscle-body-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.muscle-body-legend-item.is-high .muscle-body-legend-dot {
+  background: var(--red);
+  box-shadow: 0 0 6px rgba(224, 82, 82, 0.4);
+}
+.muscle-body-legend-item.is-moderate .muscle-body-legend-dot {
+  background: var(--yellow);
+  box-shadow: 0 0 6px rgba(245, 200, 66, 0.4);
+}
+.muscle-body-legend-item.is-light .muscle-body-legend-dot {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(76, 175, 121, 0.4);
+}
+.muscle-body-legend-name {
+  color: var(--text);
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+}
+.muscle-body-legend-level {
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.5px;
+  font-size: 9px;
 }
-.dashboard-plan-muscle-badge.is-low {
-  background: rgba(76, 175, 121, 0.15);
-  color: var(--green);
-}
-.dashboard-plan-muscle-badge.is-medium {
-  background: rgba(245, 200, 66, 0.15);
-  color: var(--yellow);
-}
-.dashboard-plan-muscle-badge.is-high {
-  background: rgba(224, 82, 82, 0.15);
+.muscle-body-legend-item.is-high .muscle-body-legend-level {
   color: var(--red);
 }
-.dashboard-plan-muscle-empty {
+.muscle-body-legend-item.is-moderate .muscle-body-legend-level {
+  color: var(--yellow);
+}
+.muscle-body-legend-item.is-light .muscle-body-legend-level {
+  color: var(--green);
+}
+.muscle-body-empty {
+  padding: 16px;
   font-size: 13px;
   line-height: 1.5;
   color: var(--muted);
 }
-.dashboard-plan-muscle-fill {
-  transform: scaleX(var(--dashboard-muscle-scale, 0));
-}
+
+/* Old muscle bar styles removed — replaced by muscle body visualization */
 @keyframes dashboardPlanFadeUp {
   from {
     opacity: 0;
@@ -6823,13 +6900,6 @@ body.login-active::before {
   .dashboard-session-progress-value {
     font-size: 20px;
   }
-  .dashboard-plan-muscle-row {
-    grid-template-columns: 60px minmax(0, 1fr) auto;
-    gap: 8px;
-  }
-  .dashboard-plan-muscle-badge {
-    min-width: 56px;
-  }
   .dashboard-plan-stat {
     padding-left: 8px;
     padding-right: 8px;
@@ -6857,6 +6927,12 @@ body.login-active::before {
     animation: none;
   }
   .dashboard-plan-muscle-fill {
+    transition: none;
+  }
+  .muscle-body-flipper {
+    transition: none;
+  }
+  .muscle-zone {
     transition: none;
   }
 }

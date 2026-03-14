@@ -275,14 +275,8 @@ function inferMuscleGroups(name,category){
   if(category==='isolation'){
     if(/curl/.test(n))return{primary:['biceps'],secondary:['forearms']};
     if(/lateral raise/.test(n))return{primary:['side_delts'],secondary:['upper_traps']};
-    if(/skull crushers|triceps/.test(n))return{primary:['triceps'],secondary:[]};
+    if(/skull crusher|pressdown|triceps extension|skull crushers|triceps/.test(n))return{primary:['triceps'],secondary:[]};
     return{primary:['target_muscle'],secondary:[]};
-  }
-  if(category==='isolation'){
-    if(/bicep curl/.test(n))return{primary:['biceps'],secondary:['forearms']};
-    if(/lateral raise/.test(n))return{primary:['side_delts'],secondary:['upper_traps']};
-    if(/skull crusher|pressdown|triceps extension/.test(n))return{primary:['triceps'],secondary:[]};
-    return{primary:['shoulders'],secondary:[]};
   }
   return{primary:['general'],secondary:[]};
 }
@@ -305,13 +299,13 @@ const CORE_EXERCISE_ENTRIES=[
   exerciseEntry('Step-Ups',{aliases:['Step Ups','Korokkeelle nousu'],category:'squat',movementTags:['squat','single_leg'],equipmentTags:['dumbbell','bodyweight'],primaryMuscles:['quads','glutes'],secondaryMuscles:['hamstrings','core'],popularity:30}),
   exerciseEntry('Bench Press',{aliases:['Bench','Barbell Bench Press','Penkkipunnerrus'],category:'press',movementTags:['horizontal_press'],equipmentTags:['barbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],featured:true,popularity:100}),
   exerciseEntry('Close-Grip Bench',{aliases:['Close-Grip Bench Press','Kapean otteen penkkipunnerrus'],category:'press',movementTags:['horizontal_press'],equipmentTags:['barbell'],primaryMuscles:['chest','triceps'],secondaryMuscles:['front_delts'],popularity:54}),
-  exerciseEntry('Incline Press',{aliases:['Vinopenkkipunnerrus'],category:'press',movementTags:['horizontal_press'],equipmentTags:['barbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:['upper_chest'],featured:true,popularity:50}),
+  exerciseEntry('Incline Press',{aliases:['Vinopenkkipunnerrus'],category:'press',movementTags:['horizontal_press'],equipmentTags:['barbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],featured:true,popularity:50}),
   exerciseEntry('DB Bench',{aliases:['Dumbbell Bench Press','Dumbbell Bench','Penkkipunnerrus käsipainoilla'],category:'press',movementTags:['horizontal_press'],equipmentTags:['dumbbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],featured:true,popularity:56}),
-  exerciseEntry('DB Incline Press',{aliases:['Dumbbell Incline Press','Vinopenkkipunnerrus käsipainoilla'],category:'press',movementTags:['horizontal_press'],equipmentTags:['dumbbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:['upper_chest'],popularity:34}),
+  exerciseEntry('DB Incline Press',{aliases:['Dumbbell Incline Press','Vinopenkkipunnerrus käsipainoilla'],category:'press',movementTags:['horizontal_press'],equipmentTags:['dumbbell'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],popularity:34}),
   exerciseEntry('Machine Chest Press',{aliases:['Rintapunnerrus laitteella'],category:'press',movementTags:['horizontal_press'],equipmentTags:['machine'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[],popularity:28}),
   exerciseEntry('Push-ups',{aliases:['Push Ups','Punnerrukset'],category:'press',movementTags:['horizontal_press'],equipmentTags:['bodyweight'],primaryMuscles:['chest','triceps'],secondaryMuscles:['front_delts','core'],featured:true,popularity:48}),
   exerciseEntry('Dips',{aliases:['Dipsit'],category:'press',movementTags:['vertical_press'],equipmentTags:['bodyweight'],primaryMuscles:['chest','triceps'],secondaryMuscles:['front_delts'],featured:true,popularity:44}),
-  exerciseEntry('Deadlift',{aliases:['Maastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['hamstrings','glutes','lower_back'],secondaryMuscles:['upper_back','core'],featured:true,popularity:100}),
+  exerciseEntry('Deadlift',{aliases:['Maastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['hamstrings','glutes','lower_back'],secondaryMuscles:['upper_back','core','grip'],featured:true,popularity:100}),
   exerciseEntry('Sumo Deadlift',{aliases:['Sumomaastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['glutes','adductors','quads'],secondaryMuscles:['hamstrings','core'],featured:true,popularity:60}),
   exerciseEntry('Romanian Deadlift',{aliases:['Romanian Deadlifts (RDL)','Romanialainen maastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['barbell'],primaryMuscles:['hamstrings','glutes'],secondaryMuscles:['lower_back','core'],featured:true,popularity:68}),
   exerciseEntry('Trap Bar Deadlift',{aliases:['Trap bar -maastaveto'],category:'hinge',movementTags:['hinge'],equipmentTags:['trap_bar'],primaryMuscles:['quads','glutes','hamstrings'],secondaryMuscles:['core'],popularity:26}),
@@ -349,7 +343,7 @@ const EXERCISE_METADATA_OVERRIDES={
   'barbell bench press':{movementTags:['horizontal_press'],primaryMuscles:['chest','front_delts','triceps'],secondaryMuscles:[]},
   'barbell row':{movementTags:['horizontal_pull'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts']},
   'barbell rows':{movementTags:['horizontal_pull'],primaryMuscles:['upper_back','lats'],secondaryMuscles:['biceps','rear_delts']},
-  'deadlift':{movementTags:['hinge'],primaryMuscles:['hamstrings','glutes','lower_back'],secondaryMuscles:['upper_back','core']},
+  'deadlift':{movementTags:['hinge'],primaryMuscles:['hamstrings','glutes','lower_back'],secondaryMuscles:['upper_back','core','grip']},
   'sumo deadlift':{movementTags:['hinge'],primaryMuscles:['glutes','adductors','quads'],secondaryMuscles:['hamstrings','core']},
   'front squat':{movementTags:['squat'],primaryMuscles:['quads','glutes'],secondaryMuscles:['upper_back','core']},
   'ohp':{movementTags:['vertical_press'],primaryMuscles:['front_delts','triceps'],secondaryMuscles:['upper_chest','core']},
