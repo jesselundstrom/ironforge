@@ -1406,6 +1406,22 @@ function expandCompletedExercise(exerciseRef){
   updateExerciseCard(ensureExerciseUiKey(exercise));
 }
 
+function collapseCompletedExercise(exerciseRef){
+  const exercise=typeof exerciseRef==='string'
+    ? getExerciseByUiKey(exerciseRef)
+    : activeWorkout?.exercises?.[exerciseRef];
+  if(!exercise||!isExerciseComplete(exercise))return;
+  const uiKey=ensureExerciseUiKey(exercise);
+  setExerciseCardCollapsed(exercise,true);
+  const card=getExerciseCardElement(uiKey);
+  if(card){
+    card.style.maxHeight=card.offsetHeight+'px';
+    void card.offsetHeight;
+    card.classList.add('collapsing');
+  }
+  window.setTimeout(()=>updateExerciseCard(uiKey),260);
+}
+
 function getExerciseSetsId(exercise){
   return `sets-${ensureExerciseUiKey(exercise)}`;
 }
@@ -1509,7 +1525,7 @@ function createExerciseCardElement(exercise,exerciseIndex){
           </div>
           <div class="last-session">${prevText}</div>
         </div>
-        <div class="exercise-action-row">${swapBtn}<button class="btn btn-icon btn-secondary exercise-action-btn exercise-remove-btn" type="button" data-action="remove-exercise" title="${escapeHtml(i18nText('workout.remove_exercise','Remove exercise'))}" aria-label="${escapeHtml(i18nText('workout.remove_exercise','Remove exercise'))}">✕</button></div>
+        <div class="exercise-action-row">${swapBtn}${isComplete?`<button class="btn btn-icon btn-secondary exercise-action-btn exercise-collapse-btn" type="button" data-action="collapse-exercise" title="${escapeHtml(i18nText('workout.collapse','Minimize'))}" aria-label="${escapeHtml(i18nText('workout.collapse','Minimize'))}">▾</button>`:''}<button class="btn btn-icon btn-secondary exercise-action-btn exercise-remove-btn" type="button" data-action="remove-exercise" title="${escapeHtml(i18nText('workout.remove_exercise','Remove exercise'))}" aria-label="${escapeHtml(i18nText('workout.remove_exercise','Remove exercise'))}">✕</button></div>
       </div>
       ${badgesHtml}
     </div>
@@ -1606,6 +1622,7 @@ function handleExerciseListClick(event){
   if(!context)return;
   if(action==='open-guide'){openExerciseGuide(context.uiKey);return;}
   if(action==='expand-exercise'){expandCompletedExercise(context.uiKey);return;}
+  if(action==='collapse-exercise'){collapseCompletedExercise(context.uiKey);return;}
   if(action==='toggle-set'&&context.setIndex>=0){toggleSet(context.exerciseIndex,context.setIndex);return;}
   if(action==='add-set'){addSet(context.exerciseIndex);return;}
   if(action==='remove-exercise'){removeEx(context.exerciseIndex);return;}
