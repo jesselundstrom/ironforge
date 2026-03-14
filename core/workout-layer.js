@@ -2389,7 +2389,11 @@ function toggleSet(ei,si){
       }
     }
     startRestTimer();
-    if(shouldPromptForSetRIR(exercise,si))showSetRIRPrompt(ei,si);
+    if(shouldPromptForSetRIR(exercise,si)){
+      // Delay RIR prompt so forge strike + collapse animations finish first
+      const rirDelay=isExerciseComplete(exercise)?900:550;
+      window.setTimeout(()=>showSetRIRPrompt(ei,si),rirDelay);
+    }
   }else{
     set.done=false;
     set.rir=undefined;
