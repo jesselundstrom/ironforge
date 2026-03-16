@@ -36,6 +36,8 @@
 - Keep English and Finnish translations in sync.
 - Prefer existing `tr(...)`, `I18N.t(...)`, `data-i18n`, and `data-i18n-placeholder` patterns.
 - Do not hardcode new visible UI strings directly into templates or DOM updates unless there is a very strong reason.
+- Follow the `section.area.action` naming style for translation keys.
+- Avoid verbose labels that wrap badly on narrow screens or weaken tap-target layouts.
 
 ## Data And Persistence
 - Respect the current localStorage-backed state and existing data shapes.
@@ -50,6 +52,11 @@
 - Keep profile-document sync compatible with the additive migration flow under `supabase/migrations/`.
 - Preserve soft-delete behavior for synced workouts unless the task explicitly requires a different deletion model.
 - Avoid changes that could silently invalidate existing user data on devices.
+- Use canonical workout payload fields: `program`, `programMeta`, `programDayNum`. Do not reintroduce legacy fields like `forgeWeek` or `forgeDayNum`.
+- Profile and schedule sync use section-level timestamps in `profile.syncMeta`. Preserve that merge behavior when changing profile persistence.
+- Keep saves targeted: program-state writes should update the relevant `program:<id>` document instead of re-writing every program state blob.
+- When changing import, clear-all, delete, or undo flows, ensure behavior stays correct for both the local localStorage cache and the `workouts` Supabase table.
+- Prefer small, explicit sync helpers in `core/data-layer.js` over spreading Supabase calls across unrelated files.
 
 ## Program Files
 - Files under `programs/` define training logic and metadata.
@@ -57,13 +64,16 @@
 - Avoid mixing program logic into unrelated UI code when a program file or layer file is the correct home.
 - Exercise metadata such as movement tags, muscle groups, and equipment tags belongs in `core/exercise-library.js`. Reuse that catalog instead of scattering duplicate exercise heuristics across program files.
 - User-facing muscle-load UI should use the display-group mapping from `core/exercise-library.js` instead of inventing separate dashboard-only muscle labels.
+- Keep new program objects compatible with the existing integration points: id, name, description, icon, session options, session building, state advancement, and settings hooks. Extend the existing shape instead of introducing new abstractions.
+- When adding settings UI from a program file, follow the existing inline DOM rendering style already used by current program modules.
 
 ## Change Strategy
 - Fix root causes instead of layering on narrow patches when feasible.
 - Avoid unrelated refactors.
 - If adding a feature, update all affected layers, translations, and UI states.
 - Prefer finishing requested development work end-to-end instead of only listing suggested next steps. If the repo needs tooling, tests, config, or small supporting changes to make the solution real, add them directly unless the user explicitly wants planning only.
-- For meaningful behavior or UI changes, add or update automated tests when feasible. Prefer Playwright for user flows and deterministic validation paths over flaky network-dependent tests.
+- For meaningful behavior or UI changes, add or update automated tests when feasible. Prefer Playwright for user flows and deterministic validation paths over flaky network-dependent tests. If you skip test coverage, say why.
+- Keep tests small, readable, and purpose-driven. One user flow per test is preferred over giant all-in-one scripts.
 - Before closing meaningful work, run the relevant verification commands from the current toolchain such as `npm.cmd run lint`, `npm.cmd run typecheck`, `npm.cmd run build`, and targeted `npm.cmd run test:e2e` coverage when applicable.
 - When a change alters architecture, persistence, sync behavior, migrations, or contributor workflow, also update the relevant AI instructions under `.github/` before committing.
 - When changing recommendation logic, readiness logic, or future AI-training groundwork, check whether `profile.preferences` shape or related guidance in `.github/` needs to be updated too.
