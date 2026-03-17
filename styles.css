@@ -7613,6 +7613,17 @@ body.login-active::before {
   padding: 0;
 }
 
+/* React island wrapper divs must participate in the flex column layout so
+   the messages area can grow and the input bar stays visible at the bottom */
+#nutrition-react-root,
+#nutrition-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* -- Header -- */
 .nutrition-page-header {
   display: flex;
