@@ -661,6 +661,75 @@ function getSettingsAccountReactSnapshot(){
 window.__IRONFORGE_SETTINGS_ACCOUNT_ISLAND_EVENT__=SETTINGS_ACCOUNT_ISLAND_EVENT;
 window.getSettingsAccountReactSnapshot=getSettingsAccountReactSnapshot;
 window.notifySettingsAccountIsland=notifySettingsAccountIsland;
+const SETTINGS_PREFERENCES_ISLAND_EVENT='ironforge:settings-preferences-updated';
+function hasSettingsPreferencesIslandMount(){
+  return !!document.getElementById('settings-preferences-react-root');
+}
+function isSettingsPreferencesIslandActive(){
+  return window.__IRONFORGE_SETTINGS_PREFERENCES_ISLAND_MOUNTED__===true;
+}
+function notifySettingsPreferencesIsland(){
+  if(!hasSettingsPreferencesIslandMount())return;
+  window.dispatchEvent(new CustomEvent(SETTINGS_PREFERENCES_ISLAND_EVENT));
+}
+function getSettingsPreferencesReactSnapshot(){
+  const prefs=normalizeTrainingPreferences(profile);
+  return{
+    labels:{
+      statusBar:getTrainingPreferencesSummary(profile),
+      title:tr('settings.preferences.title','Training Preferences'),
+      help:tr('settings.preferences.help','These preferences shape future smart recommendations and AI-generated training.'),
+      goalsSection:tr('settings.preferences.section.goals','Goals & Volume'),
+      goalLabel:tr('settings.preferences.goal','Primary Goal'),
+      goalStrength:tr('settings.preferences.goal.strength','Strength'),
+      goalHypertrophy:tr('settings.preferences.goal.hypertrophy','Hypertrophy'),
+      goalGeneralFitness:tr('settings.preferences.goal.general_fitness','General Fitness'),
+      goalSportSupport:tr('settings.preferences.goal.sport_support','Sport Support'),
+      trainingDaysLabel:tr('settings.preferences.training_days','Target Training Frequency'),
+      trainingDays2:tr('settings.preferences.training_days_value','{count} sessions / week',{count:2}),
+      trainingDays3:tr('settings.preferences.training_days_value','{count} sessions / week',{count:3}),
+      trainingDays4:tr('settings.preferences.training_days_value','{count} sessions / week',{count:4}),
+      trainingDays5:tr('settings.preferences.training_days_value','{count} sessions / week',{count:5}),
+      trainingDays6:tr('settings.preferences.training_days_value','{count} sessions / week',{count:6}),
+      sessionDurationLabel:tr('settings.preferences.session_duration','Target Session Length'),
+      duration30:tr('settings.preferences.duration_value.30','30 min'),
+      duration45:tr('settings.preferences.duration_value.45','45 min'),
+      duration60:tr('settings.preferences.duration_value.60','60 min'),
+      duration75:tr('settings.preferences.duration_value.75','75 min'),
+      duration90:tr('settings.preferences.duration_value.90','90 min'),
+      equipmentSection:tr('settings.preferences.section.equipment','Equipment & Session Prep'),
+      equipmentLabel:tr('settings.preferences.equipment','Equipment Access'),
+      equipmentFullGym:tr('settings.preferences.equipment.full_gym','Full Gym'),
+      equipmentBasicGym:tr('settings.preferences.equipment.basic_gym','Basic Gym'),
+      equipmentHomeGym:tr('settings.preferences.equipment.home_gym','Home Gym'),
+      equipmentMinimal:tr('settings.preferences.equipment.minimal','Minimal Equipment'),
+      warmupTitle:tr('settings.preferences.warmup_sets','Automatic warm-up sets'),
+      warmupHelp:tr('settings.preferences.warmup_sets_help','Prepend warm-up ramp sets (50%-85%) to main compound lifts at the start of each workout.'),
+      sportCheckTitle:tr('settings.preferences.sport_check','Pre-workout sport check-in'),
+      sportCheckHelp:tr('settings.preferences.sport_check_help','Ask about sport load around today before recommending the session.'),
+      sessionSection:tr('settings.preferences.section.session','Session Settings'),
+      restLabel:tr('settings.default_rest','Default Rest Timer'),
+      off:tr('common.off','Off'),
+      notesLabel:tr('settings.preferences.notes','Notes, limitations, preferences'),
+      notesPlaceholder:tr('settings.preferences.notes_placeholder','e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap'),
+      restartOnboarding:tr('settings.preferences.restart_onboarding','Run Guided Setup Again')
+    },
+    values:{
+      summary:getTrainingPreferencesSummary(profile),
+      goal:prefs.goal,
+      trainingDaysPerWeek:String(prefs.trainingDaysPerWeek),
+      sessionMinutes:String(prefs.sessionMinutes),
+      equipmentAccess:prefs.equipmentAccess,
+      warmupSetsEnabled:prefs.warmupSetsEnabled===true,
+      sportReadinessCheckEnabled:prefs.sportReadinessCheckEnabled===true,
+      defaultRest:String(profile.defaultRest||120),
+      notes:prefs.notes||''
+    }
+  };
+}
+window.__IRONFORGE_SETTINGS_PREFERENCES_ISLAND_EVENT__=SETTINGS_PREFERENCES_ISLAND_EVENT;
+window.getSettingsPreferencesReactSnapshot=getSettingsPreferencesReactSnapshot;
+window.notifySettingsPreferencesIsland=notifySettingsPreferencesIsland;
 const SETTINGS_BODY_ISLAND_EVENT='ironforge:settings-body-updated';
 function hasSettingsBodyIslandMount(){
   return !!document.getElementById('settings-body-react-root');
@@ -768,6 +837,7 @@ function renderTrainingPreferencesSummary(){
   const summaryEl=document.getElementById('training-preferences-summary');
   if(summaryEl)summaryEl.textContent=getTrainingPreferencesSummary(profile);
   renderTrainingStatusBar();
+  if(isSettingsPreferencesIslandActive())notifySettingsPreferencesIsland();
 }
 function renderSportStatusBar(){
   const bar=document.getElementById('sport-status-bar');
@@ -1290,6 +1360,7 @@ function initSettings(){
   showSettingsTab(_settingsTab);
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
   if(isSettingsAccountIslandActive())notifySettingsAccountIsland();
+  if(isSettingsPreferencesIslandActive())notifySettingsPreferencesIsland();
   if(isSettingsBodyIslandActive())notifySettingsBodyIsland();
 }
 
@@ -1307,6 +1378,7 @@ function saveRestTimer(){
   profile.defaultRest=parseInt(document.getElementById('default-rest').value)||120;
   restDuration=profile.defaultRest;
   saveProfileData({docKeys:['profile_core']});
+  notifySettingsPreferencesIsland();
   _showAutoSaveToast(tr('toast.rest_updated','Saved'),'var(--blue)');
 }
 function saveBodyMetrics(){
@@ -1337,6 +1409,7 @@ function saveTrainingPreferences(){
   profile.preferences=normalizeTrainingPreferences({...profile,preferences:{...prefs,goal,trainingDaysPerWeek,sessionMinutes,equipmentAccess,sportReadinessCheckEnabled,warmupSetsEnabled,notes}});
   saveProfileData({docKeys:['profile_core']});
   renderTrainingPreferencesSummary();
+  notifySettingsPreferencesIsland();
   renderProgramBasics();
   updateDashboard();
   updateProgramDisplay();
