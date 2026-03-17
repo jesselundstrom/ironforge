@@ -68,7 +68,7 @@
   - Settings migration uses bounded slices with the Body tab as the proving pattern; Body, Account, Preferences, Schedule, and Program now run as React islands while advanced program setup stays on the legacy sheet flow
   - Log migration now runs both the workout start shell and active workout editor through React islands, while the workout logic, draft persistence, rest-timer bar, modals, and finish/discard handlers stay legacy-backed under the same DOM contract
   - Nutrition migration now runs the visible chat shell through a React island while the Claude request flow, local history, setup card, clear-history flow, and photo handling remain legacy-backed under explicit snapshot events
-  - The first shell-replacement step now runs the visible bottom nav, toast host, and confirm modal through a top-level React AppShell island, while the exercise catalog/name modal host mounts through a dedicated React shell island and `core/ui-shell.js` remains the compatibility bridge for `showPage(...)`, `showToast(...)`, `showConfirm(...)`, page activation side effects, and legacy DOM ids
+  - The first shell-replacement step now runs the visible bottom nav, toast host, and confirm modal through a top-level React AppShell island; the exercise catalog/name modal host and workout overlay hosts (RPE, summary, sport-check, exercise guide) mount through dedicated React shell islands; and `core/ui-shell.js` remains the compatibility bridge for `showPage(...)`, `showToast(...)`, `showConfirm(...)`, page activation side effects, and legacy DOM ids
   - localStorage/Supabase data model unchanged throughout migration
   - Service worker must handle Vite's hashed output filenames
   - i18n and offline behavior preserved from day one in every migrated page
