@@ -59,3 +59,12 @@
 - **Layer architecture**: Business logic split into `core/*.js` layers, not a single monolith
 - **Sport schedule**: Configurable sport type (not hardcoded to hockey)
 - **Mobile strategy**: Capacitor for PWA wrapping first, React Native as future option
+- **React migration**: Gradual island-based migration using React + Vite (not Next.js, not full rewrite)
+  - Vite builds React islands as JS bundles loaded into the existing index.html (library/bundle mode)
+  - Existing vanilla shell (app.js, showPage, global state) stays as source of truth during migration
+  - React islands are consumers of existing state via a thin adapter layer (custom events for sync)
+  - Program plugins stay as vanilla `<script>` tags; React accesses them via global `PROGRAMS` object
+  - Migration order: History (read-only first) → Dashboard → Settings → full shell replacement
+  - localStorage/Supabase data model unchanged throughout migration
+  - Service worker must handle Vite's hashed output filenames
+  - i18n and offline behavior preserved from day one in every migrated page
