@@ -2267,6 +2267,9 @@ function setLanguage(locale,opts){
     document.documentElement.setAttribute('lang',currentLocale);
   }
   applyTranslations(document);
+  if(typeof window!=='undefined'&&typeof window.dispatchEvent==='function'){
+    window.dispatchEvent(new CustomEvent('ironforge:language-changed',{detail:{locale:currentLocale}}));
+  }
   if(options.notify!==false)notifyLanguageChange();
   return currentLocale;
 }

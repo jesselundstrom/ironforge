@@ -3,6 +3,7 @@ import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
 
 const HISTORY_EVENT =
   window.__IRONFORGE_HISTORY_ISLAND_EVENT__ || 'ironforge:history-updated';
+const LANGUAGE_EVENT = 'ironforge:language-changed';
 
 function getSnapshot() {
   if (typeof window.getHistoryReactSnapshot === 'function') {
@@ -24,7 +25,7 @@ function getSnapshot() {
 }
 
 function HistoryIsland() {
-  const snapshot = useIslandSnapshot(HISTORY_EVENT, getSnapshot);
+  const snapshot = useIslandSnapshot([HISTORY_EVENT, LANGUAGE_EVENT], getSnapshot);
   const isStatsTab = snapshot.tab === 'stats';
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
 const SETTINGS_BODY_EVENT =
   window.__IRONFORGE_SETTINGS_BODY_ISLAND_EVENT__ ||
   'ironforge:settings-body-updated';
+const LANGUAGE_EVENT = 'ironforge:language-changed';
 
 function getSnapshot() {
   if (typeof window.getSettingsBodyReactSnapshot === 'function') {
@@ -63,7 +64,10 @@ function getFormValues(snapshot) {
 }
 
 function SettingsBodyIsland() {
-  const snapshot = useIslandSnapshot(SETTINGS_BODY_EVENT, getSnapshot);
+  const snapshot = useIslandSnapshot(
+    [SETTINGS_BODY_EVENT, LANGUAGE_EVENT],
+    getSnapshot
+  );
   const [formValues, setFormValues] = useState(() => getFormValues(snapshot));
 
   useEffect(() => {

@@ -1,8 +1,9 @@
 import { startTransition, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
-export function useIslandSnapshot(eventName, getSnapshot) {
+export function useIslandSnapshot(eventNames, getSnapshot) {
   const [snapshot, setSnapshot] = useState(() => getSnapshot());
+  const names = Array.isArray(eventNames) ? eventNames : [eventNames];
 
   useEffect(() => {
     const handleChange = () => {
@@ -11,9 +12,11 @@ export function useIslandSnapshot(eventName, getSnapshot) {
       });
     };
 
-    window.addEventListener(eventName, handleChange);
-    return () => window.removeEventListener(eventName, handleChange);
-  }, [eventName, getSnapshot]);
+    names.forEach((eventName) => window.addEventListener(eventName, handleChange));
+    return () => {
+      names.forEach((eventName) => window.removeEventListener(eventName, handleChange));
+    };
+  }, [getSnapshot, ...names]);
 
   return snapshot;
 }

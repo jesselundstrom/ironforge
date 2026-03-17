@@ -24,15 +24,18 @@
     return localStorage.getItem(_apiKeyStorageKey()) || '';
   }
 
-  function saveNutritionApiKey() {
+  function saveNutritionApiKey(nextValue) {
     const inp = document.getElementById('nutrition-api-key-input');
-    const val = inp ? inp.value.trim() : '';
+    const val = typeof nextValue === 'string' ? nextValue.trim() : (inp ? inp.value.trim() : '');
     if (val) {
       localStorage.setItem(_apiKeyStorageKey(), val);
       showToast(tr('settings.claude_api_key.saved', 'API key saved'), 'var(--green)');
     } else {
       localStorage.removeItem(_apiKeyStorageKey());
       showToast(tr('settings.claude_api_key.cleared', 'API key removed'), 'var(--muted)');
+    }
+    if (typeof window.notifySettingsAccountIsland === 'function') {
+      window.notifySettingsAccountIsland();
     }
   }
 

@@ -148,10 +148,14 @@ function getSyncStatusLabel(){
 
 function renderSyncStatus(){
   const el=document.getElementById('sync-status');
-  if(!el)return;
+  if(!el){
+    if(typeof notifySettingsAccountIsland==='function')notifySettingsAccountIsland();
+    return;
+  }
   const next=getSyncStatusLabel();
   el.className=next.className;
   el.textContent=next.label;
+  if(typeof notifySettingsAccountIsland==='function')notifySettingsAccountIsland();
 }
 
 window.addEventListener('online',()=>{
@@ -1526,6 +1530,7 @@ function hideLoginScreen(){
   const el=document.getElementById('account-email');
   if(el)el.textContent=currentUser?.email??'';
   renderSyncStatus();
+  if(typeof notifySettingsAccountIsland==='function')notifySettingsAccountIsland();
 }
 
 async function loginWithEmail(){
@@ -1554,5 +1559,6 @@ async function logout(){
   currentUser=null;
   resetRuntimeState();
   renderSyncStatus();
+  if(typeof notifySettingsAccountIsland==='function')notifySettingsAccountIsland();
   updateDashboard();
 }

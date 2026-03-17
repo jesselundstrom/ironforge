@@ -1262,6 +1262,7 @@
 
           <!-- ── Account tab ── -->
           <div id="settings-tab-account" style="display: none">
+            <div id="settings-account-legacy-shell">
             <div class="card">
               <div class="card-title" data-i18n="settings.account_section">
                 Account
@@ -1407,6 +1408,8 @@
               </button>
             </div>
             <div class="app-version" id="app-version"></div>
+            </div>
+            <div id="settings-account-react-root"></div>
           </div>
 
           <!-- ── Body tab ── -->
@@ -1776,6 +1779,7 @@
     <script src="programs/stronglifts5x5.js"></script>
     <script src="programs/casualfullbody.js"></script>
     <script src="programs/hypertrophysplit.js"></script>
+    <script type="module" src="/src/settings-account-island/main.jsx"></script>
     <script type="module" src="/src/dashboard-island/main.jsx"></script>
     <script type="module" src="/src/history-island/main.jsx"></script>
     <script type="module" src="/src/settings-body-island/main.jsx"></script>

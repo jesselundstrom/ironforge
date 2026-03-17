@@ -3,6 +3,7 @@ import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
 
 const DASHBOARD_EVENT =
   window.__IRONFORGE_DASHBOARD_ISLAND_EVENT__ || 'ironforge:dashboard-updated';
+const LANGUAGE_EVENT = 'ironforge:language-changed';
 
 function getSnapshot() {
   if (typeof window.getDashboardReactSnapshot === 'function') {
@@ -33,7 +34,7 @@ function getSnapshot() {
 }
 
 function DashboardIsland() {
-  const snapshot = useIslandSnapshot(DASHBOARD_EVENT, getSnapshot);
+  const snapshot = useIslandSnapshot([DASHBOARD_EVENT, LANGUAGE_EVENT], getSnapshot);
 
   useEffect(() => {
     if (typeof window.animateDashboardPlanMuscleBars === 'function') {

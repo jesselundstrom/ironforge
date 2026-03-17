@@ -582,6 +582,7 @@ function setSportIntensity(val,el){
   saveSchedule();
 }
 let _settingsTab='schedule';
+let settingsAccountUiState={dangerOpen:false,dangerInput:''};
 function showSettingsTab(name,el){
   _settingsTab=name;
   ['schedule','preferences','program','account','body'].forEach(t=>{
@@ -594,6 +595,72 @@ function showSettingsTab(name,el){
     tab.setAttribute('aria-selected',isActive?'true':'false');
   });
 }
+const SETTINGS_ACCOUNT_ISLAND_EVENT='ironforge:settings-account-updated';
+function hasSettingsAccountIslandMount(){
+  return !!document.getElementById('settings-account-react-root');
+}
+function isSettingsAccountIslandActive(){
+  return window.__IRONFORGE_SETTINGS_ACCOUNT_ISLAND_MOUNTED__===true;
+}
+function notifySettingsAccountIsland(){
+  if(!hasSettingsAccountIslandMount())return;
+  window.dispatchEvent(new CustomEvent(SETTINGS_ACCOUNT_ISLAND_EVENT));
+}
+function getAccountBackupContextText(){
+  const count=workouts?workouts.length:0;
+  if(!count)return tr('settings.backup_empty','No workouts recorded yet.');
+  const dates=workouts.map(w=>w.date).filter(Boolean).sort();
+  const first=dates[0]||'';
+  const firstFormatted=first?new Date(first).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):'';
+  return tr('settings.backup_context','{count} workouts since {date}',{count,date:firstFormatted});
+}
+function isDangerDeleteConfirmed(){
+  return String(settingsAccountUiState.dangerInput||'').trim().toUpperCase()==='DELETE';
+}
+function getSettingsAccountReactSnapshot(){
+  const syncStatus=typeof getSyncStatusLabel==='function'
+    ? getSyncStatusLabel()
+    : {label:tr('settings.sync.synced','Synced to cloud'),className:'sync-status synced'};
+  const apiKey=typeof getNutritionApiKey==='function'?getNutritionApiKey():'';
+  return{
+    labels:{
+      accountSection:tr('settings.account_section','Account'),
+      languageLabel:tr('settings.language.label','App language'),
+      optionEn:tr('settings.language.option.en','English'),
+      optionFi:tr('settings.language.option.fi','Finnish'),
+      signOut:tr('settings.sign_out','Sign Out'),
+      dataBackup:tr('settings.data_backup','Data Backup'),
+      export:tr('settings.export','Export'),
+      import:tr('settings.import','Import'),
+      backupHelp:tr('settings.backup_help','Export saves all data as a JSON file. Import replaces all current data.'),
+      apiTitle:tr('settings.claude_api_key.title','AI Nutrition Coach'),
+      apiHelp:tr('settings.claude_api_key.help','Get your free API key at console.anthropic.com. The key is stored only on this device and is never synced to the cloud.'),
+      apiLabel:tr('settings.claude_api_key.label','Claude API Key'),
+      apiPlaceholder:tr('settings.claude_api_key.placeholder','sk-ant-...'),
+      apiSave:tr('settings.claude_api_key.save','Save Key'),
+      danger:tr('settings.danger','Danger Zone'),
+      dangerDesc:tr('settings.danger_desc','This permanently deletes all your workouts, programs, and settings. This cannot be undone.'),
+      dangerTypeConfirm:tr('settings.danger_type_confirm','Type DELETE to confirm'),
+      clearAll:tr('settings.clear_all','Clear All Data'),
+      clearAllConfirm:tr('settings.clear_all_confirm','Permanently Delete All Data')
+    },
+    values:{
+      email:currentUser?.email||'',
+      syncLabel:syncStatus.label,
+      syncClassName:syncStatus.className,
+      language:profile.language||(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),
+      backupContext:getAccountBackupContextText(),
+      apiKey,
+      appVersion:'Ironforge v'+APP_VERSION,
+      dangerOpen:settingsAccountUiState.dangerOpen===true,
+      dangerInput:settingsAccountUiState.dangerInput||'',
+      dangerDeleteDisabled:!isDangerDeleteConfirmed()
+    }
+  };
+}
+window.__IRONFORGE_SETTINGS_ACCOUNT_ISLAND_EVENT__=SETTINGS_ACCOUNT_ISLAND_EVENT;
+window.getSettingsAccountReactSnapshot=getSettingsAccountReactSnapshot;
+window.notifySettingsAccountIsland=notifySettingsAccountIsland;
 const SETTINGS_BODY_ISLAND_EVENT='ironforge:settings-body-updated';
 function hasSettingsBodyIslandMount(){
   return !!document.getElementById('settings-body-react-root');
@@ -1215,12 +1282,14 @@ function initSettings(){
   // Version display
   {const vEl=document.getElementById('app-version');if(vEl)vEl.textContent='Ironforge v'+APP_VERSION;}
   // Reset danger zone confirm state
+  settingsAccountUiState={dangerOpen:false,dangerInput:''};
   {const dzt=document.getElementById('danger-zone-trigger');if(dzt)dzt.style.display='';
    const dzc=document.getElementById('danger-zone-confirm');if(dzc)dzc.style.display='none';
    const dzi=document.getElementById('danger-zone-input');if(dzi)dzi.value='';
    const dzb=document.getElementById('danger-zone-delete-btn');if(dzb)dzb.disabled=true;}
   showSettingsTab(_settingsTab);
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
+  if(isSettingsAccountIslandActive())notifySettingsAccountIsland();
   if(isSettingsBodyIslandActive())notifySettingsBodyIsland();
 }
 
@@ -1304,10 +1373,11 @@ function saveSimpleProgramSettings(){
   _showAutoSaveToast(tr('program.setup_saved','Saved'),'var(--purple)');
 }
 function saveLanguageSetting(){
-  const lang=document.getElementById('app-language')?.value||'en';
+  const lang=arguments.length&&typeof arguments[0]==='string'?arguments[0]:(document.getElementById('app-language')?.value||'en');
   if(window.I18N&&I18N.setLanguage)I18N.setLanguage(lang,{persist:true});
   profile.language=lang;
   saveProfileData({docKeys:['profile_core']});
+  notifySettingsAccountIsland();
   notifySettingsBodyIsland();
   const msg=window.I18N&&I18N.t?I18N.t('settings.language.saved'):'Language updated';
   showToast(msg,'var(--blue)');
@@ -1331,13 +1401,14 @@ function saveSchedule(){
 
 function renderBackupContext(){
   const el=document.getElementById('backup-context');
-  if(!el)return;
-  const count=workouts?workouts.length:0;
-  if(!count){el.textContent=tr('settings.backup_empty','No workouts recorded yet.');return;}
-  const dates=workouts.map(w=>w.date).filter(Boolean).sort();
-  const first=dates[0]||'';
-  const firstFormatted=first?new Date(first).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):'';
-  el.textContent=tr('settings.backup_context','{count} workouts since {date}',{count,date:firstFormatted});
+  const text=getAccountBackupContextText();
+  if(isSettingsAccountIslandActive()){
+    notifySettingsAccountIsland();
+    return text;
+  }
+  if(!el)return text;
+  el.textContent=text;
+  return text;
 }
 function exportData(){
   const data={version:1,exported:new Date().toISOString(),workouts,schedule,profile};
@@ -1370,6 +1441,8 @@ function importData(event){
         normalizeCoachingProfile(profile);
         await replaceWorkoutTableSnapshot(workouts);
         await saveWorkouts();await saveScheduleData();await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
+        notifySettingsAccountIsland();
+        notifySettingsBodyIsland();
         showToast(tr('toast.data_imported','Data imported! Reloading...'),"var(--green)");
         setTimeout(()=>location.reload(),1000);
       });
@@ -1380,6 +1453,11 @@ function importData(event){
 }
 
 function showDangerConfirm(){
+  settingsAccountUiState={dangerOpen:true,dangerInput:''};
+  if(isSettingsAccountIslandActive()){
+    notifySettingsAccountIsland();
+    return;
+  }
   document.getElementById('danger-zone-trigger').style.display='none';
   const panel=document.getElementById('danger-zone-confirm');
   panel.style.display='';
@@ -1389,8 +1467,15 @@ function showDangerConfirm(){
   inp.focus();
 }
 function checkDangerConfirm(){
-  const inp=document.getElementById('danger-zone-input');
-  document.getElementById('danger-zone-delete-btn').disabled=inp.value.trim().toUpperCase()!=='DELETE';
+  const nextValue=arguments.length&&typeof arguments[0]==='string'
+    ? arguments[0]
+    : (document.getElementById('danger-zone-input')?.value||'');
+  settingsAccountUiState={...settingsAccountUiState,dangerInput:nextValue};
+  if(isSettingsAccountIslandActive()){
+    notifySettingsAccountIsland();
+    return;
+  }
+  document.getElementById('danger-zone-delete-btn').disabled=nextValue.trim().toUpperCase()!=='DELETE';
 }
 async function clearAllData(){
   if(typeof clearLocalDataCache==='function')clearLocalDataCache({includeScoped:true,includeLegacy:true});
@@ -1399,9 +1484,12 @@ async function clearAllData(){
   }
   workouts=[];schedule={sportName:getDefaultSportName(),sportDays:[],sportIntensity:'hard',sportLegsHeavy:true};
   profile={defaultRest:120,activeProgram:'forge',programs:{},language:(window.I18N&&I18N.getLanguage?I18N.getLanguage():'en'),preferences:getDefaultTrainingPreferences(),coaching:getDefaultCoachingProfile()};
+  settingsAccountUiState={dangerOpen:false,dangerInput:''};
   Object.values(PROGRAMS).forEach(prog=>{profile.programs[prog.id]=prog.getInitialState();});
   await replaceWorkoutTableSnapshot([]);
   await saveWorkouts();await saveScheduleData();await saveProfileData({docKeys:getAllProfileDocumentKeys(profile)});
+  notifySettingsAccountIsland();
+  notifySettingsBodyIsland();
   updateDashboard();
   if(typeof maybeOpenOnboarding==='function')maybeOpenOnboarding({force:true});
   showToast(tr('toast.all_data_cleared','All data cleared'),'var(--accent)');
@@ -1410,6 +1498,7 @@ async function clearAllData(){
 function updateLanguageDependentUI(){
   refreshDayNames();
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
+  notifySettingsAccountIsland();
   notifySettingsBodyIsland();
   updateDashboard();
   renderSportDayToggles();
