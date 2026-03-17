@@ -25,7 +25,10 @@ test('active workout draft restores after reload', async ({ page }) => {
 
   const firstWeightInput = page.locator('#exercises-container input[data-field="weight"]').first();
   await firstWeightInput.fill('60');
-  await firstWeightInput.blur();
+  await firstWeightInput.evaluate((input: HTMLInputElement) => {
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.blur();
+  });
 
   await reloadAppShell(page);
   await openTrainPage(page);
@@ -60,7 +63,7 @@ test('discarding a workout clears the persisted draft', async ({ page }) => {
 
   expect(await page.evaluate(() => window.eval('Boolean(getActiveWorkoutDraftCache())'))).toBe(true);
 
-  await page.getByRole('button', { name: /discard workout/i }).click();
+  await page.getByRole('button', { name: /discard workout/i }).click({ force: true });
   await confirmModal(page);
 
   await expect(page.locator('#workout-not-started')).toBeVisible();

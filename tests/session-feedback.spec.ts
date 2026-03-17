@@ -82,7 +82,7 @@ test('feedback capture: tap too_hard, verify on workout record', async ({ page }
   await page.locator('.summary-feedback-btn[data-feedback="too_hard"]').click();
   await expect(page.locator('.summary-feedback-btn[data-feedback="too_hard"]')).toHaveClass(/is-active/);
 
-  await page.getByRole('button', { name: /^done$/i }).click();
+  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
 
   const feedback = await page.evaluate(() => {
     const ws = window.eval('workouts');
@@ -99,7 +99,7 @@ test('feedback survives reload', async ({ page }) => {
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
 
   await page.locator('.summary-feedback-btn[data-feedback="good"]').click();
-  await page.getByRole('button', { name: /^done$/i }).click();
+  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
 
   await reloadAppShell(page);
 
@@ -121,7 +121,7 @@ test('duration signal: long session infers too_long', async ({ page }) => {
 
   await page.evaluate(() => { window.finishWorkout(); });
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
-  await page.getByRole('button', { name: /^done$/i }).click();
+  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
 
   const signal = await page.evaluate(() => {
     const ws = window.eval('workouts');

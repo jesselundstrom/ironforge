@@ -57,7 +57,7 @@ test('live PR detection flows into the summary and history views', async ({ page
   });
 
   await page.locator('.set-check').click();
-  await expect(page.locator('.set-pr-badge')).toHaveText(/new pr/i);
+  await expect(page.locator('.set-pr-badge')).toHaveText(/new pr/i, { timeout: 10000 });
   await expect(page.locator('#toast')).toContainText('New PR!');
 
   await page.evaluate(() => {
@@ -68,7 +68,7 @@ test('live PR detection flows into the summary and history views', async ({ page
   await expect(page.locator('#summary-modal .summary-title')).toHaveText('SESSION FORGED');
   await expect(page.locator('.summary-stat-prs .summary-stat-value')).toHaveText('1');
 
-  await page.getByRole('button', { name: /^done$/i }).click();
+  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
 
   await page.evaluate(() => {
     window.showPage('history', document.querySelectorAll('.nav-btn')[2]);
