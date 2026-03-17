@@ -638,43 +638,48 @@
 
         <!-- ===== HISTORY ===== -->
         <div class="page" id="page-history">
-          <div id="history-heatmap"></div>
-          <div class="tabs" role="tablist" aria-label="History sections">
-            <button
-              class="tab active"
-              type="button"
-              role="tab"
-              aria-selected="true"
-              onclick="switchHistoryTab('log', event)"
-              data-i18n="history.tab.log"
-            >
-              Workout Log
-            </button>
-            <button
-              class="tab"
-              type="button"
-              role="tab"
-              aria-selected="false"
-              onclick="switchHistoryTab('stats', event)"
-              data-i18n="history.tab.stats"
-            >
-              Stats
-            </button>
+          <div id="history-legacy-shell">
+            <div id="history-heatmap"></div>
+            <div class="tabs" role="tablist" aria-label="History sections">
+              <button
+                class="tab active"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                onclick="switchHistoryTab('log', event)"
+                data-history-tab="log"
+                data-i18n="history.tab.log"
+              >
+                Workout Log
+              </button>
+              <button
+                class="tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                onclick="switchHistoryTab('stats', event)"
+                data-history-tab="stats"
+                data-i18n="history.tab.stats"
+              >
+                Stats
+              </button>
+            </div>
+            <div id="history-log"><div id="history-list"></div></div>
+            <div id="history-stats" style="display: none">
+              <div class="stats-numbers-grid" id="stats-numbers-grid"></div>
+              <div
+                class="card stats-chart-card"
+                id="stats-volume-wrap"
+                style="display: none"
+              ></div>
+              <div
+                class="card stats-chart-card"
+                id="stats-strength-wrap"
+                style="display: none"
+              ></div>
+            </div>
           </div>
-          <div id="history-log"><div id="history-list"></div></div>
-          <div id="history-stats" style="display: none">
-            <div class="stats-numbers-grid" id="stats-numbers-grid"></div>
-            <div
-              class="card stats-chart-card"
-              id="stats-volume-wrap"
-              style="display: none"
-            ></div>
-            <div
-              class="card stats-chart-card"
-              id="stats-strength-wrap"
-              style="display: none"
-            ></div>
-          </div>
+          <div id="history-react-root"></div>
         </div>
 
         <!-- ===== SETTINGS ===== -->
@@ -1765,5 +1770,6 @@
     <script src="programs/stronglifts5x5.js"></script>
     <script src="programs/casualfullbody.js"></script>
     <script src="programs/hypertrophysplit.js"></script>
+    <script type="module" src="/src/history-island/main.jsx"></script>
   </body>
 </html>

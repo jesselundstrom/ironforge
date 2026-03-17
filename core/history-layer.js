@@ -1,16 +1,33 @@
-function switchHistoryTab(tab,e){
-  document.querySelectorAll('#page-history .tab').forEach(t=>{
-    t.classList.remove('active');
-    t.setAttribute('aria-selected','false');
-  });
-  const trigger=e?.currentTarget||e?.target;
-  if(trigger){
-    trigger.classList.add('active');
-    trigger.setAttribute('aria-selected','true');
+const HISTORY_ISLAND_EVENT='ironforge:history-updated';
+let historyTabState='log';
+let historyHeatmapOpen=false;
+
+function hasHistoryIslandMount(){
+  return !!document.getElementById('history-react-root');
+}
+
+function isHistoryIslandActive(){
+  return window.__IRONFORGE_HISTORY_ISLAND_MOUNTED__===true;
+}
+
+function notifyHistoryIsland(){
+  if(!hasHistoryIslandMount())return;
+  window.dispatchEvent(new CustomEvent(HISTORY_ISLAND_EVENT));
+}
+
+function switchHistoryTab(tab){
+  historyTabState=tab==='stats'?'stats':'log';
+  if(isHistoryIslandActive()){
+    notifyHistoryIsland();
+    return;
   }
-  document.getElementById('history-log').style.display=tab==='log'?'block':'none';
-  document.getElementById('history-stats').style.display=tab==='stats'?'block':'none';
-  if(tab==='stats')updateStats();
+  document.querySelectorAll('#page-history .tab').forEach(t=>{
+    t.classList.toggle('active',t.dataset.historyTab===historyTabState);
+    t.setAttribute('aria-selected',t.dataset.historyTab===historyTabState?'true':'false');
+  });
+  document.getElementById('history-log').style.display=historyTabState==='log'?'block':'none';
+  document.getElementById('history-stats').style.display=historyTabState==='stats'?'block':'none';
+  if(historyTabState==='stats')updateStats();
 }
 
 function trHist(key,fallback,params){
@@ -156,7 +173,8 @@ function histRecoveryStyle(pct){
   return{color:'var(--accent)',bg:'rgba(230,57,70,0.12)',border:'rgba(230,57,70,0.3)'};
 }
 
-function histDeleteAction(w){
+function histDeleteAction(w,options){
+  if(options?.interactive===false)return'';
   const actionLabel=trHist('common.delete','Delete');
   const titleLabel=escapeHtml(histDeleteTitle(w));
   return`<button class="hist-delete-btn" type="button" onclick="deleteWorkout(${w.id})" title="${titleLabel}" aria-label="${titleLabel}">${escapeHtml(actionLabel)}</button>`;
@@ -174,7 +192,7 @@ function histDeleteMessage(w,dateStr){
   return trHist('history.remove_sport_from','Remove {sport} session from {date}?',{sport:sportLabel,date:dateStr});
 }
 
-function histRenderCard(w,isPR,recovery){
+function histRenderCard(w,isPR,recovery,options){
   const d=new Date(w.date);
   const dateStr=d.toLocaleDateString(histLocale(),{weekday:'short',day:'numeric',month:'short'});
   const mins=Math.floor((w.duration||0)/60);
@@ -193,7 +211,7 @@ function histRenderCard(w,isPR,recovery){
             ${mins>0?`<div class="hist-sport-duration">${mins} min</div>`:''}
           </div>
         </div>
-        ${histDeleteAction(w)}
+        ${histDeleteAction(w,options)}
       </div>
     </div>`;
   }
@@ -269,20 +287,20 @@ function histRenderCard(w,isPR,recovery){
           <div class="hist-card-date">${escapeHtml(cardSub)}</div>
         </div>
       </div>
-      ${histDeleteAction(w)}
+      ${histDeleteAction(w,options)}
     </div>
     ${exRows?`<div class="hist-exercises">${exRows}</div>`:''}
     ${footerHtml}
   </div>`;
 }
 
-function histRenderWeekGroup(wk,isOpen,prSet,recovMap){
+function histRenderWeekGroup(wk,isOpen,prSet,recovMap,options){
   if(!wk.weekLabel){
     // No week sub-grouping - render cards flat
-    return wk.workouts.map(w=>histRenderCard(w,prSet.has(w.id),recovMap[w.id]??null)).join('');
+    return wk.workouts.map(w=>histRenderCard(w,prSet.has(w.id),recovMap[w.id]??null,options)).join('');
   }
   const count=wk.workouts.length;
-  const cards=wk.workouts.map(w=>histRenderCard(w,prSet.has(w.id),recovMap[w.id]??null)).join('');
+  const cards=wk.workouts.map(w=>histRenderCard(w,prSet.has(w.id),recovMap[w.id]??null,options)).join('');
   return`<details class="hist-week-details"${isOpen?' open':''}>
     <summary class="hist-week-toggle">
       <div class="hist-week-toggle-left">
@@ -295,9 +313,9 @@ function histRenderWeekGroup(wk,isOpen,prSet,recovMap){
   </details>`;
 }
 
-function histRenderGroup(g,prSet,recovMap){
+function histRenderGroup(g,prSet,recovMap,options){
   const total=g.weeks.reduce((n,wk)=>n+wk.workouts.length,0);
-  const weeks=g.weeks.map((wk,i)=>histRenderWeekGroup(wk,i===0,prSet,recovMap)).join('');
+  const weeks=g.weeks.map((wk,i)=>histRenderWeekGroup(wk,i===0,prSet,recovMap,options)).join('');
   return`<div class="hist-cycle-group">
     <div class="hist-cycle-header">
       <span class="hist-cycle-icon">${escapeHtml(g.groupIcon)}</span>
@@ -330,10 +348,7 @@ function histEmptyState(){
   </div>`;
 }
 
-function renderHeatmap(){
-  const el=document.getElementById('history-heatmap');
-  if(!el)return;
-
+function buildHeatmapMarkup(isOpen){
   const WEEKS=14;
   const today=new Date();today.setHours(0,0,0,0);
 
@@ -433,7 +448,6 @@ function renderHeatmap(){
   </div>`;
 
   const inlineStatsHtml=`<div class="heatmap-inline-stats">${streakHtml}${rateHtml}${volHtml}</div>`;
-  const isOpen=el.querySelector('.heatmap-wrap.open')!==null;
   const openCls=isOpen?' open':'';
 
   const titleHtml=`<div class="heatmap-title-row" onclick="toggleHeatmap()">
@@ -442,7 +456,7 @@ function renderHeatmap(){
     ${legendHtml}
   </div>`;
 
-  el.innerHTML=`<div class="heatmap-wrap${openCls}">
+  return`<div class="heatmap-wrap${openCls}">
     ${titleHtml}
     <div class="heatmap-collapsible"><div class="heatmap-collapsible-inner">
       <div class="heatmap-board">
@@ -458,20 +472,38 @@ function renderHeatmap(){
   </div>`;
 }
 
-function toggleHeatmap(){
-  const wrap=document.querySelector('#history-heatmap .heatmap-wrap');
-  if(!wrap)return;
-  wrap.classList.toggle('open');
+function renderHeatmap(){
+  const el=document.getElementById('history-heatmap');
+  if(!el)return;
+  el.innerHTML=buildHeatmapMarkup(historyHeatmapOpen);
 }
 
-function renderHistory(){
+function toggleHeatmap(){
+  historyHeatmapOpen=!historyHeatmapOpen;
+  if(isHistoryIslandActive()){
+    notifyHistoryIsland();
+    return;
+  }
   renderHeatmap();
-  const list=document.getElementById('history-list');
-  if(!workouts.length){list.innerHTML=histEmptyState();return;}
+}
+
+function buildHistoryLogMarkup(options){
+  if(!workouts.length)return histEmptyState();
   const prSet=histComputePRs();
   const recovMap=histComputeRecovery();
   const groups=histGroupWorkouts();
-  list.innerHTML=groups.map(g=>histRenderGroup(g,prSet,recovMap)).join('');
+  return groups.map(g=>histRenderGroup(g,prSet,recovMap,options)).join('');
+}
+
+function renderHistory(){
+  if(isHistoryIslandActive()){
+    notifyHistoryIsland();
+    return;
+  }
+  renderHeatmap();
+  const list=document.getElementById('history-list');
+  if(!list)return;
+  list.innerHTML=buildHistoryLogMarkup();
   list.querySelectorAll('.hist-card').forEach((el,i)=>el.style.setProperty('--i',Math.min(i,10)));
 }
 
@@ -594,7 +626,7 @@ function _svgLiftLines(lifts,nWeeks){
   return`<svg viewBox="0 0 ${W} ${H}" class="stats-svg">${grids}${lines}</svg>`;
 }
 
-function updateStats(){
+function buildHistoryStatsMarkup(){
   const liftWks=workouts.filter(w=>!isSportWorkout(w));
   const sportWks=workouts.filter(w=>isSportWorkout(w));
   const m=new Date().getMonth();
@@ -602,38 +634,79 @@ function updateStats(){
   const allRPE=workouts.filter(w=>w.rpe).map(w=>w.rpe);
   const avgRPE=allRPE.length?(allRPE.reduce((a,b)=>a+b,0)/allRPE.length).toFixed(1):'\u2014';
 
-  const numEl=document.getElementById('stats-numbers-grid');
-  if(numEl){
-    numEl.innerHTML=`
-      <div class="stats-num-card" style="--c:var(--gold)"><div class="stats-num-label">${trHist('history.total_sessions','Total Sessions')}</div><div class="stats-num-val">${liftWks.length}</div></div>
-      <div class="stats-num-card" style="--c:var(--blue)"><div class="stats-num-label">${trHist('history.sport_sessions','Sport Sessions')}</div><div class="stats-num-val">${sportWks.length}</div></div>
-      <div class="stats-num-card" style="--c:var(--accent)"><div class="stats-num-label">${trHist('history.sets_this_month','Sets This Month')}</div><div class="stats-num-val">${sets}</div></div>
-      <div class="stats-num-card" style="--c:var(--purple)"><div class="stats-num-label">${trHist('history.avg_rpe','Avg RPE')}</div><div class="stats-num-val">${avgRPE}</div></div>`;
+  const numbersHtml=`
+    <div class="stats-num-card" style="--c:var(--gold)"><div class="stats-num-label">${trHist('history.total_sessions','Total Sessions')}</div><div class="stats-num-val">${liftWks.length}</div></div>
+    <div class="stats-num-card" style="--c:var(--blue)"><div class="stats-num-label">${trHist('history.sport_sessions','Sport Sessions')}</div><div class="stats-num-val">${sportWks.length}</div></div>
+    <div class="stats-num-card" style="--c:var(--accent)"><div class="stats-num-label">${trHist('history.sets_this_month','Sets This Month')}</div><div class="stats-num-val">${sets}</div></div>
+    <div class="stats-num-card" style="--c:var(--purple)"><div class="stats-num-label">${trHist('history.avg_rpe','Avg RPE')}</div><div class="stats-num-val">${avgRPE}</div></div>`;
+
+  const weeks=_statsWeeklyVolume(10);
+  const volumeVisible=weeks.some(w=>w.vol>0);
+  const volumeHtml=volumeVisible
+    ? `<div class="stats-chart-title">${trHist('history.stats.volume','Weekly Volume')}</div>${_svgVolumeBars(weeks)}`
+    : '';
+
+  const NWEEKS=16;
+  const lifts=[
+    {label:trHist('history.stats.lift.squat','Squat'),color:'var(--orange)',pts:_statsLiftProgress(n=>n==='Squat',NWEEKS)},
+    {label:trHist('history.stats.lift.bench','Bench'),color:'var(--blue)',pts:_statsLiftProgress(n=>n==='Bench Press',NWEEKS)},
+    {label:trHist('history.stats.lift.deadlift','Deadlift'),color:'var(--gold)',pts:_statsLiftProgress(n=>n==='Deadlift',NWEEKS)},
+    {label:trHist('history.stats.lift.ohp','OH Press'),color:'var(--purple)',pts:_statsLiftProgress(n=>n==='OHP'||n==='Overhead Press (OHP)',NWEEKS)},
+  ];
+  const svg=_svgLiftLines(lifts,NWEEKS);
+  const strengthVisible=!!svg;
+  const legend=strengthVisible
+    ? lifts.filter(l=>l.pts.length>0).map(l=>`<span class="stats-legend-item" style="color:${l.color}"><span class="stats-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('')
+    : '';
+  const strengthHtml=strengthVisible
+    ? `<div class="stats-chart-title">${trHist('history.stats.strength','Strength Progress')}</div>${svg}<div class="stats-chart-legend">${legend}</div>`
+    : '';
+
+  return{
+    numbersHtml,
+    volumeHtml,
+    volumeVisible,
+    strengthHtml,
+    strengthVisible
+  };
+}
+
+function updateStats(){
+  const stats=buildHistoryStatsMarkup();
+  if(isHistoryIslandActive()){
+    notifyHistoryIsland();
+    return stats;
   }
+  const numEl=document.getElementById('stats-numbers-grid');
+  if(numEl)numEl.innerHTML=stats.numbersHtml;
 
   const volEl=document.getElementById('stats-volume-wrap');
   if(volEl){
-    const weeks=_statsWeeklyVolume(10);
-    if(weeks.some(w=>w.vol>0)){
-      volEl.style.display='';
-      volEl.innerHTML=`<div class="stats-chart-title">${trHist('history.stats.volume','Weekly Volume')}</div>${_svgVolumeBars(weeks)}`;
-    }else{volEl.style.display='none';}
+    volEl.style.display=stats.volumeVisible?'':'none';
+    volEl.innerHTML=stats.volumeHtml;
   }
 
-  const NWEEKS=16;
   const strEl=document.getElementById('stats-strength-wrap');
   if(strEl){
-    const lifts=[
-      {label:trHist('history.stats.lift.squat','Squat'),color:'var(--orange)',pts:_statsLiftProgress(n=>n==='Squat',NWEEKS)},
-      {label:trHist('history.stats.lift.bench','Bench'),color:'var(--blue)',pts:_statsLiftProgress(n=>n==='Bench Press',NWEEKS)},
-      {label:trHist('history.stats.lift.deadlift','Deadlift'),color:'var(--gold)',pts:_statsLiftProgress(n=>n==='Deadlift',NWEEKS)},
-      {label:trHist('history.stats.lift.ohp','OH Press'),color:'var(--purple)',pts:_statsLiftProgress(n=>n==='OHP'||n==='Overhead Press (OHP)',NWEEKS)},
-    ];
-    const svg=_svgLiftLines(lifts,NWEEKS);
-    if(svg){
-      strEl.style.display='';
-      const legend=lifts.filter(l=>l.pts.length>0).map(l=>`<span class="stats-legend-item" style="color:${l.color}"><span class="stats-legend-dot" style="background:${l.color}"></span>${l.label}</span>`).join('');
-      strEl.innerHTML=`<div class="stats-chart-title">${trHist('history.stats.strength','Strength Progress')}</div>${svg}<div class="stats-chart-legend">${legend}</div>`;
-    }else{strEl.style.display='none';}
+    strEl.style.display=stats.strengthVisible?'':'none';
+    strEl.innerHTML=stats.strengthHtml;
   }
+  return stats;
 }
+
+function getHistoryReactSnapshot(){
+  const stats=buildHistoryStatsMarkup();
+  return{
+    tab:historyTabState,
+    labels:{
+      log:trHist('history.tab.log','Workout Log'),
+      stats:trHist('history.tab.stats','Stats')
+    },
+    heatmapHtml:buildHeatmapMarkup(historyHeatmapOpen),
+    logHtml:buildHistoryLogMarkup({interactive:false}),
+    stats
+  };
+}
+
+window.__IRONFORGE_HISTORY_ISLAND_EVENT__=HISTORY_ISLAND_EVENT;
+window.getHistoryReactSnapshot=getHistoryReactSnapshot;

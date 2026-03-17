@@ -1377,6 +1377,7 @@ function updateLanguageDependentUI(){
   if(document.getElementById('onboarding-modal')?.classList.contains('active')){
     renderOnboarding();
   }
+  else if(document.getElementById('page-history')?.classList.contains('active'))renderHistory();
   else if(document.getElementById('page-log')?.classList.contains('active'))resetNotStartedView();
 }
 window.updateLanguageDependentUI=updateLanguageDependentUI;
@@ -1387,5 +1388,4 @@ initAuth();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
 }
-
 

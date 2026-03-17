@@ -1,31 +1,10 @@
-const CACHE = 'ironforge-v41';
+const CACHE = 'ironforge-v42';
 
 // Only cache local assets — Google Fonts URLs can fail offline and would
 // break the entire SW install. Fonts are cached on first successful fetch.
 const PRE_CACHE = [
   '/',
   'index.html',
-  'styles.css',
-  'app.js',
-  'core/data-layer.js',
-  'core/i18n-layer.js',
-  'core/exercise-library.js',
-  'core/program-layer.js',
-  'core/plan-engine.js',
-  'core/muscle-body-svg.js',
-  'core/dashboard-layer.js',
-  'core/history-layer.js',
-  'core/workout-layer.js',
-  'core/ui-shell.js',
-  'manifest.json',
-  'programs/forge.js',
-  'programs/wendler531.js',
-  'programs/stronglifts5x5.js',
-  'programs/casualfullbody.js',
-  'programs/hypertrophysplit.js',
-  'icon-180.png',
-  'icon-512.png',
-  'assets/ironforge_bg.jpg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -58,6 +37,7 @@ self.addEventListener('fetch', (event) => {
     (event.request.destination === 'script' ||
       event.request.destination === 'style' ||
       url.pathname.endsWith('.json'));
+  const isBundledAsset = isSameOrigin && url.pathname.startsWith('/assets/');
   const isImageAsset = isSameOrigin && event.request.destination === 'image';
 
   // Network-first for HTML/documents keeps app updates fresher.
@@ -81,7 +61,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Network-first for app code avoids serving stale JS/CSS after local changes or deploys.
-  if (isCodeAsset) {
+  if (isCodeAsset || isBundledAsset) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
