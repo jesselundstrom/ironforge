@@ -7599,6 +7599,17 @@ body.login-active::before {
 
 /* ── Nutrition Coach page ───────────────────────────────────────────────── */
 
+/* Chat-style layout: fixed height flex column so messages scroll internally
+   and the input bar stays above the keyboard on mobile */
+#page-nutrition {
+  display: flex;
+  flex-direction: column;
+  /* Fill the space between the content top padding and the nav bar */
+  height: calc(var(--app-vh) - var(--sat) - var(--nav-h) - var(--sab) - 28px);
+  overflow: hidden;
+  padding: 0;
+}
+
 /* -- Header -- */
 .nutrition-page-header {
   display: flex;
@@ -7706,7 +7717,10 @@ body.login-active::before {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 120px;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0; /* allows flex child to shrink below its content size */
   padding-bottom: 8px;
 }
 
@@ -8096,11 +8110,10 @@ body.login-active::before {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 10px 0 0;
+  padding: 10px 0 8px;
   margin-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.07);
-  position: sticky;
-  bottom: calc(var(--nav-h) + var(--sab));
+  flex-shrink: 0;
   background: var(--bg);
 }
 .nutrition-input-bar.nc-hidden {

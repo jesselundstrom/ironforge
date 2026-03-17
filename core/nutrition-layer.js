@@ -1057,16 +1057,27 @@
       };
     }
 
-    // Mobile keyboard handling
+    // Mobile keyboard handling — resize the page to fit above the keyboard
+    // so the input bar never gets pushed behind it
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', function () {
-        var bar = document.querySelector('.nutrition-input-bar');
-        if (!bar) return;
+        var page = document.getElementById('page-nutrition');
+        if (!page) return;
         var kbHeight = window.innerHeight - window.visualViewport.height;
-        bar.style.bottom = kbHeight > 0
-          ? kbHeight + 'px'
-          : 'calc(var(--nav-h) + var(--sab))';
-        if (kbHeight > 0) _scrollToBottom();
+        if (kbHeight > 50) {
+          // Keyboard is open: shrink the page to the visible area.
+          // Reset any content scroll first so getBoundingClientRect is stable.
+          var content = document.querySelector('.content');
+          if (content) content.scrollTop = 0;
+          var nav = document.querySelector('.bottom-nav');
+          var navH = nav ? nav.offsetHeight : 60;
+          var pageTop = page.getBoundingClientRect().top;
+          page.style.height = Math.max(200, window.visualViewport.height - Math.max(0, pageTop) - navH) + 'px';
+          _scrollToBottom();
+        } else {
+          // Keyboard closed: restore CSS-driven height
+          page.style.height = '';
+        }
       });
     }
 
