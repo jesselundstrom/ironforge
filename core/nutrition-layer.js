@@ -308,7 +308,22 @@
   async function sendNutritionMessage(text, imageDataUrl) {
     if (_loading) return;
 
-    const userEntry = {
+    // Offline check
+    if (!navigator.onLine) {
+      _history.push({
+        id: Date.now() + '-a',
+        role: 'assistant',
+        text: tr('nutrition.error.offline', 'You are offline. Connect to the internet and try again.'),
+        timestamp: Date.now(),
+        isError: true,
+      });
+      _saveHistory();
+      _renderMessages();
+      _scrollToBottom();
+      return;
+    }
+
+    var userEntry = {
       id: Date.now() + '-u',
       role: 'user',
       text: text || '',
@@ -319,12 +334,12 @@
     _saveHistory();
     _renderMessages();
     _scrollToBottom();
-    _setLoading(true);
+    _setLoading(true, imageDataUrl ? 'photo' : 'text');
 
-    const apiMessages = _buildApiMessages(imageDataUrl, text);
+    var apiMessages = _buildApiMessages(imageDataUrl, text);
 
     try {
-      const responseText = await _callClaude(apiMessages);
+      var responseText = await _callClaude(apiMessages);
       _history.push({
         id: Date.now() + '-a',
         role: 'assistant',
@@ -333,7 +348,7 @@
       });
       _saveHistory();
     } catch (e) {
-      const isNoKey = e.message === 'no_key';
+      var isNoKey = e.message === 'no_key';
       _history.push({
         id: Date.now() + '-a',
         role: 'assistant',
@@ -357,12 +372,21 @@
 
   // ─── UI helpers ───────────────────────────────────────────────────────────────
 
-  function _setLoading(loading) {
+  function _setLoading(loading, context) {
     _loading = loading;
-    const el = document.getElementById('nutrition-loading');
+    var el = document.getElementById('nutrition-loading');
     if (el) el.style.display = loading ? 'flex' : 'none';
-    const btn = document.getElementById('nutrition-send-btn');
+    var btn = document.getElementById('nutrition-send-btn');
     if (btn) btn.disabled = loading;
+    if (loading) {
+      var textEl = document.getElementById('nutrition-loading-text');
+      if (textEl) {
+        var msg = context === 'photo'
+          ? tr('nutrition.loading.analyzing', 'Analyzing your meal...')
+          : tr('nutrition.loading.thinking', 'Thinking...');
+        textEl.textContent = msg;
+      }
+    }
   }
 
   function _scrollToBottom() {
@@ -370,57 +394,372 @@
     if (content) content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
   }
 
-  // Minimal markdown: bold + line breaks. Escaping happens first.
+  // Lightweight markdown renderer for coach responses.
+  // Handles: ## headings, **bold**, `code`, bullet/numbered lists, paragraphs.
   function _formatText(text) {
-    return escapeHtml(text)
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br>');
+    var lines = text.split('\n');
+    var html = [];
+    var inUl = false, inOl = false;
+
+    function closeLists() {
+      if (inUl) { html.push('</ul>'); inUl = false; }
+      if (inOl) { html.push('</ol>'); inOl = false; }
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+      var raw = lines[i];
+      var line = escapeHtml(raw);
+
+      // Headings
+      if (/^###\s/.test(raw)) {
+        closeLists();
+        html.push('<div class="nc-h3">' + _inlineFormat(line.replace(/^###\s+/, '')) + '</div>');
+        continue;
+      }
+      if (/^##\s/.test(raw)) {
+        closeLists();
+        html.push('<div class="nc-h2">' + _inlineFormat(line.replace(/^##\s+/, '')) + '</div>');
+        continue;
+      }
+      if (/^#\s/.test(raw)) {
+        closeLists();
+        html.push('<div class="nc-h2">' + _inlineFormat(line.replace(/^#\s+/, '')) + '</div>');
+        continue;
+      }
+
+      // Unordered list
+      if (/^[-*]\s/.test(raw)) {
+        if (inOl) { html.push('</ol>'); inOl = false; }
+        if (!inUl) { html.push('<ul class="nc-list">'); inUl = true; }
+        html.push('<li>' + _inlineFormat(line.replace(/^[-*]\s+/, '')) + '</li>');
+        continue;
+      }
+
+      // Ordered list
+      if (/^\d+[.)]\s/.test(raw)) {
+        if (inUl) { html.push('</ul>'); inUl = false; }
+        if (!inOl) { html.push('<ol class="nc-list">'); inOl = true; }
+        html.push('<li>' + _inlineFormat(line.replace(/^\d+[.)]\s+/, '')) + '</li>');
+        continue;
+      }
+
+      // Empty line = paragraph break
+      if (raw.trim() === '') {
+        closeLists();
+        html.push('<div class="nc-break"></div>');
+        continue;
+      }
+
+      // Normal paragraph line
+      closeLists();
+      html.push('<p class="nc-p">' + _inlineFormat(line) + '</p>');
+    }
+    closeLists();
+    return html.join('');
   }
 
-  function _renderMessages() {
-    const container = document.getElementById('nutrition-messages');
-    if (!container) return;
+  // Inline formatting: bold, code, italic
+  function _inlineFormat(escaped) {
+    return escaped
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<span class="nc-code">$1</span>');
+  }
 
-    if (!_history.length) {
-      container.innerHTML =
-        '<div class="nutrition-empty">' +
-        '<div class="nutrition-empty-icon">&#x1F957;</div>' +
-        '<div class="nutrition-empty-title" data-i18n="nutrition.empty.title">Your nutrition coach is ready</div>' +
-        '<div class="nutrition-empty-body" data-i18n="nutrition.empty.body">Take a photo of your food and get a nutritional analysis and coaching advice.</div>' +
-        '</div>';
+  // ─── Macro extraction ──────────────────────────────────────────────────
+  // Pulls structured macro data from Claude's text response when present.
+
+  function _extractMacros(text) {
+    var result = {};
+    var calMatch = text.match(/(?:calories|kcal|cal)[:\s~]*(\d[\d,.]*)/i) ||
+                   text.match(/(\d[\d,.]*)\s*(?:kcal|calories|cal)\b/i);
+    var proMatch = text.match(/protein[:\s~]*(\d[\d,.]*)\s*g/i);
+    var carbMatch = text.match(/carb(?:s|ohydrate)?[:\s~]*(\d[\d,.]*)\s*g/i);
+    var fatMatch = text.match(/fat[:\s~]*(\d[\d,.]*)\s*g/i);
+
+    if (calMatch) result.calories = calMatch[1].replace(',', '');
+    if (proMatch) result.protein = proMatch[1].replace(',', '');
+    if (carbMatch) result.carbs = carbMatch[1].replace(',', '');
+    if (fatMatch) result.fat = fatMatch[1].replace(',', '');
+
+    // Only return if we found at least 2 values (meaningful data)
+    return Object.keys(result).length >= 2 ? result : null;
+  }
+
+  function _renderMacroCard(macros) {
+    var items = [];
+    if (macros.calories) items.push(
+      '<div class="nutrition-macro-item nc-macro-cal">' +
+      '<div class="nutrition-macro-value">' + escapeHtml(macros.calories) + '</div>' +
+      '<div class="nutrition-macro-label">kcal</div></div>'
+    );
+    if (macros.protein) items.push(
+      '<div class="nutrition-macro-item nc-macro-pro">' +
+      '<div class="nutrition-macro-value">' + escapeHtml(macros.protein) + 'g</div>' +
+      '<div class="nutrition-macro-label">' + tr('nutrition.macro.protein', 'Protein') + '</div></div>'
+    );
+    if (macros.carbs) items.push(
+      '<div class="nutrition-macro-item nc-macro-carb">' +
+      '<div class="nutrition-macro-value">' + escapeHtml(macros.carbs) + 'g</div>' +
+      '<div class="nutrition-macro-label">' + tr('nutrition.macro.carbs', 'Carbs') + '</div></div>'
+    );
+    if (macros.fat) items.push(
+      '<div class="nutrition-macro-item nc-macro-fat">' +
+      '<div class="nutrition-macro-value">' + escapeHtml(macros.fat) + 'g</div>' +
+      '<div class="nutrition-macro-label">' + tr('nutrition.macro.fat', 'Fat') + '</div></div>'
+    );
+    return '<div class="nutrition-macro-card">' + items.join('') + '</div>';
+  }
+
+  // ─── Timestamp formatting ─────────────────────────────────────────────
+
+  function _formatTimestamp(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    var now = new Date();
+    var hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    var sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return hm;
+    var yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) {
+      return tr('nutrition.time.yesterday', 'Yesterday') + ' ' + hm;
+    }
+    return d.getDate() + '.' + (d.getMonth() + 1) + '. ' + hm;
+  }
+
+  // ─── Coach avatar SVG fragment ────────────────────────────────────────
+
+  var _avatarHtml =
+    '<div class="nutrition-coach-avatar">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14">' +
+    '<path d="M17 8c.7-3.4-.8-6.2-3-7.5C12.3 3 11.5 5.4 12 8"/>' +
+    '<path d="M12 8c-4 0-7 2.5-7 6 0 4.5 3 8 7 8s7-3.5 7-8c0-3.5-3-6-7-6z"/>' +
+    '</svg></div>';
+
+  // ─── Render messages ──────────────────────────────────────────────────
+
+  function _renderMessages() {
+    var container = document.getElementById('nutrition-messages');
+    if (!container) return;
+    var inputBar = document.querySelector('.nutrition-input-bar');
+
+    // If no API key, show setup card
+    if (!getNutritionApiKey()) {
+      if (inputBar) inputBar.classList.add('nc-hidden');
+      container.innerHTML = _renderSetupCard();
       if (window.I18N && I18N.applyTranslations) I18N.applyTranslations(container);
       return;
     }
 
+    // Show input bar
+    if (inputBar) inputBar.classList.remove('nc-hidden');
+
+    // Empty state with quick prompts
+    if (!_history.length) {
+      container.innerHTML = _renderEmptyState();
+      if (window.I18N && I18N.applyTranslations) I18N.applyTranslations(container);
+      return;
+    }
+
+    // Render conversation
     container.innerHTML = _history
       .map(function (msg) {
+        var time = '<div class="nutrition-msg-time">' + _formatTimestamp(msg.timestamp) + '</div>';
         if (msg.role === 'user') {
           return (
             '<div class="nutrition-msg nutrition-msg-user">' +
             (msg.imageDataUrl
-              ? '<img class="nutrition-msg-img" src="' +
-                escapeHtml(msg.imageDataUrl) +
-                '" alt="">'
+              ? '<img class="nutrition-msg-img" src="' + escapeHtml(msg.imageDataUrl) + '" alt="">'
               : '') +
             (msg.text
-              ? '<div class="nutrition-msg-text">' +
-                escapeHtml(msg.text) +
-                '</div>'
+              ? '<div class="nutrition-msg-text">' + escapeHtml(msg.text) + '</div>'
               : '') +
+            time +
             '</div>'
           );
         }
+        // Coach message with avatar + macro card
+        var macros = !msg.isError ? _extractMacros(msg.text || '') : null;
+        var macroHtml = macros ? _renderMacroCard(macros) : '';
+        var retryHtml = msg.isError
+          ? '<div class="nutrition-msg-text"><button class="nutrition-retry-btn" onclick="retryLastNutritionMessage()" data-i18n="nutrition.retry">' +
+            tr('nutrition.retry', 'Try again') + '</button></div>'
+          : '';
         return (
           '<div class="nutrition-msg nutrition-msg-coach' +
-          (msg.isError ? ' nutrition-msg-error' : '') +
-          '">' +
+          (msg.isError ? ' nutrition-msg-error' : '') + '">' +
+          _avatarHtml +
+          '<div class="nutrition-msg-body">' +
+          macroHtml +
           '<div class="nutrition-msg-text">' +
           _formatText(msg.text || '') +
           '</div>' +
-          '</div>'
+          retryHtml +
+          time +
+          '</div></div>'
         );
       })
       .join('');
+  }
+
+  // ─── Setup card (no API key) ──────────────────────────────────────────
+
+  function _renderSetupCard() {
+    return (
+      '<div class="nutrition-setup-card">' +
+      '<div class="card-title" data-i18n="nutrition.setup.title">Setup Required</div>' +
+      '<div class="nutrition-setup-icon">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="24" height="24">' +
+      '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>' +
+      '<path d="M7 11V7a5 5 0 0 1 10 0v4"/>' +
+      '</svg></div>' +
+      '<div class="nutrition-setup-desc" data-i18n="nutrition.setup.body">' +
+      'Add your Claude API key to use the Nutrition Coach. Your key is stored only on this device.' +
+      '</div>' +
+      '<div class="account-field">' +
+      '<label data-i18n="settings.claude_api_key.label">Claude API Key</label>' +
+      '<input type="password" id="nutrition-setup-key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">' +
+      '</div>' +
+      '<button class="btn btn-primary" type="button" onclick="saveNutritionSetupKey()" data-i18n="nutrition.setup.save">' +
+      'Save &amp; Start</button>' +
+      '<div class="nutrition-setup-desc" style="margin-top:12px;font-size:12px;" data-i18n="nutrition.setup.help">' +
+      'Get your API key at console.anthropic.com</div>' +
+      '</div>'
+    );
+  }
+
+  // Save API key from the in-page setup card
+  function saveNutritionSetupKey() {
+    var inp = document.getElementById('nutrition-setup-key-input');
+    var val = inp ? inp.value.trim() : '';
+    if (!val) { showToast(tr('nutrition.setup.empty', 'Enter an API key'), 'var(--red)'); return; }
+    localStorage.setItem(_apiKeyStorageKey(), val);
+    // Also update the Settings input if it exists
+    var settingsInp = document.getElementById('nutrition-api-key-input');
+    if (settingsInp) settingsInp.value = val;
+    showToast(tr('settings.claude_api_key.saved', 'API key saved'), 'var(--green)');
+    _renderMessages();
+  }
+
+  // ─── Premium empty state ──────────────────────────────────────────────
+
+  function _renderEmptyState() {
+    return (
+      '<div class="nutrition-empty">' +
+      '<div class="nutrition-empty-kicker" data-i18n="nutrition.empty.kicker">AI NUTRITION COACH</div>' +
+      '<div class="nutrition-empty-orb">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36">' +
+      '<path d="M17 8c.7-3.4-.8-6.2-3-7.5C12.3 3 11.5 5.4 12 8"/>' +
+      '<path d="M12 8c-4 0-7 2.5-7 6 0 4.5 3 8 7 8s7-3.5 7-8c0-3.5-3-6-7-6z"/>' +
+      '</svg></div>' +
+      '<div class="nutrition-empty-title" data-i18n="nutrition.empty.title">Your personal nutrition coach</div>' +
+      '<div class="nutrition-empty-sub" data-i18n="nutrition.empty.body">' +
+      'Snap a meal photo, ask questions, and get personalised advice based on your training.</div>' +
+      '<div class="nutrition-quick-prompts">' +
+      _renderPromptChip('nutrition.prompt.pre_workout', 'What should I eat before training?') +
+      _renderPromptChip('nutrition.prompt.protein', 'Help me hit my protein target') +
+      _renderPromptChip('nutrition.prompt.rate', 'Rate my last meal') +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  function _renderPromptChip(i18nKey, fallback) {
+    return (
+      '<button class="nutrition-prompt-chip" data-nc-prompt="' + escapeHtml(fallback) + '" data-nc-prompt-key="' + i18nKey + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+      '<line x1="5" y1="12" x2="19" y2="12"/>' +
+      '<polyline points="12 5 19 12 12 19"/>' +
+      '</svg>' +
+      '<span data-i18n="' + i18nKey + '">' + escapeHtml(fallback) + '</span>' +
+      '</button>'
+    );
+  }
+
+  // Delegated click handler for prompt chips (avoids inline onclick escaping issues)
+  document.addEventListener('click', function (e) {
+    var chip = e.target.closest('.nutrition-prompt-chip');
+    if (!chip) return;
+    var key = chip.getAttribute('data-nc-prompt-key');
+    var fallback = chip.getAttribute('data-nc-prompt');
+    var text = key ? tr(key, fallback) : fallback;
+    if (text) {
+      var input = document.getElementById('nutrition-input');
+      if (input) { input.value = text; input.focus(); }
+      submitNutritionMessage();
+    }
+  });
+
+  // ─── Body metrics context banner ──────────────────────────────────────
+
+  function _renderContextBanner() {
+    var bm = (typeof profile !== 'undefined' && profile.bodyMetrics) || {};
+    var parts = [];
+    if (bm.weight) parts.push(bm.weight + ' kg');
+    var goalLabels = { lose_fat: 'lose fat', gain_muscle: 'gain muscle', recomp: 'recomp', maintain: 'maintain' };
+    if (bm.bodyGoal && goalLabels[bm.bodyGoal]) parts.push(goalLabels[bm.bodyGoal]);
+    if (parts.length) {
+      return (
+        '<div class="nutrition-context-banner">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+        '<span>' + tr('nutrition.banner.personalized', 'Personalised for') + ': ' + escapeHtml(parts.join(', ')) + '</span>' +
+        '</div>'
+      );
+    }
+    return (
+      '<div class="nutrition-context-banner">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+      '<span>' + tr('nutrition.banner.setup_body', 'Set up your body profile for personalised advice') +
+      ' <a onclick="showPage(\'settings\', document.querySelectorAll(\'.nav-btn\')[3])">' +
+      tr('nutrition.banner.settings_link', 'Settings') + ' &rarr;</a></span>' +
+      '</div>'
+    );
+  }
+
+  // ─── Overflow menu ────────────────────────────────────────────────────
+
+  function toggleNutritionMenu() {
+    var menu = document.getElementById('nutrition-overflow-menu');
+    if (!menu) return;
+    var isOpen = menu.classList.contains('open');
+    menu.classList.toggle('open', !isOpen);
+    if (!isOpen) {
+      // Close on outside click
+      setTimeout(function () {
+        document.addEventListener('click', _closeMenuOnOutside, { once: true });
+      }, 10);
+    }
+  }
+
+  function _closeMenuOnOutside(e) {
+    var menu = document.getElementById('nutrition-overflow-menu');
+    var wrap = menu && menu.closest('.nutrition-overflow-wrap');
+    if (menu && wrap && !wrap.contains(e.target)) {
+      menu.classList.remove('open');
+    } else if (menu && menu.classList.contains('open')) {
+      // Still open, re-listen
+      setTimeout(function () {
+        document.addEventListener('click', _closeMenuOnOutside, { once: true });
+      }, 10);
+    }
+  }
+
+  // ─── Retry last message ───────────────────────────────────────────────
+
+  function retryLastNutritionMessage() {
+    // Find the last user message and replay it
+    for (var i = _history.length - 1; i >= 0; i--) {
+      if (_history[i].role === 'user') {
+        var text = _history[i].text;
+        var image = _history[i].imageDataUrl;
+        // Remove the user message and everything after it (error response)
+        _history.splice(i);
+        _saveHistory();
+        _renderMessages();
+        sendNutritionMessage(text, image);
+        return;
+      }
+    }
   }
 
   // ─── Photo handling ───────────────────────────────────────────────────────────
@@ -487,8 +826,19 @@
     _loadHistory();
     _renderMessages();
 
+    // Body metrics banner (only when API key is set and history exists)
+    // Remove any previous banner first to avoid duplicates
+    var oldBanner = document.querySelector('.nutrition-context-banner');
+    if (oldBanner) oldBanner.remove();
+    if (getNutritionApiKey()) {
+      var bannerSlot = document.getElementById('nutrition-messages');
+      if (bannerSlot && _history.length) {
+        bannerSlot.insertAdjacentHTML('beforebegin', _renderContextBanner());
+      }
+    }
+
     // Attach enter-key handler each time (safe to re-attach)
-    const input = document.getElementById('nutrition-input');
+    var input = document.getElementById('nutrition-input');
     if (input) {
       input.onkeydown = function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -496,6 +846,19 @@
           submitNutritionMessage();
         }
       };
+    }
+
+    // Mobile keyboard handling
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () {
+        var bar = document.querySelector('.nutrition-input-bar');
+        if (!bar) return;
+        var kbHeight = window.innerHeight - window.visualViewport.height;
+        bar.style.bottom = kbHeight > 0
+          ? kbHeight + 'px'
+          : 'calc(var(--nav-h) + var(--sab))';
+        if (kbHeight > 0) _scrollToBottom();
+      });
     }
 
     _scrollToBottom();
@@ -510,4 +873,7 @@
   window.clearNutritionHistory = clearNutritionHistory;
   window.getNutritionApiKey = getNutritionApiKey;
   window.saveNutritionApiKey = saveNutritionApiKey;
+  window.saveNutritionSetupKey = saveNutritionSetupKey;
+  window.toggleNutritionMenu = toggleNutritionMenu;
+  window.retryLastNutritionMessage = retryLastNutritionMessage;
 })();
