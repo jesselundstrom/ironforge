@@ -26,7 +26,11 @@ function showPage(name, btn) {
   }
 
   const contentScroller = document.querySelector('.content');
-  if (contentScroller) contentScroller.scrollTo({ top: 0, behavior: 'auto' });
+  if (contentScroller) {
+    contentScroller.scrollTo({ top: 0, behavior: 'auto' });
+    // Nutrition page manages its own scroll — prevent double-scrolling
+    contentScroller.classList.toggle('no-scroll', name === 'nutrition');
+  }
 
   if (name === 'dashboard') updateDashboard();
   if (name === 'history') renderHistory();

@@ -114,6 +114,9 @@ button,
   padding-right: calc(var(--sar) + var(--page-pad));
   padding-bottom: calc(var(--nav-h) + var(--sab) + 18px);
 }
+.content.no-scroll {
+  overflow: hidden;
+}
 .section {
   margin-bottom: var(--section-gap);
 }
@@ -7601,7 +7604,7 @@ body.login-active::before {
 
 /* Chat-style layout: fixed height flex column so messages scroll internally
    and the input bar stays above the keyboard on mobile */
-#page-nutrition {
+#page-nutrition.active {
   display: flex;
   flex-direction: column;
   /* Fill the space between the content top padding and the nav bar */
@@ -8082,10 +8085,10 @@ body.login-active::before {
   padding: 8px 0 4px;
 }
 .nutrition-photo-preview img {
-  width: 96px;
-  height: 96px;
+  width: 64px;
+  height: 64px;
   object-fit: cover;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 2px solid var(--accent);
 }
 .nutrition-photo-clear {

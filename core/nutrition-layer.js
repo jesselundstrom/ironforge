@@ -493,7 +493,7 @@
           requestAnimationFrame(function () {
             _renderPending = false;
             _renderMessages();
-            _scrollToBottom();
+            _scrollToBottom(true);
           });
         }
       });
@@ -543,9 +543,9 @@
     }
   }
 
-  function _scrollToBottom() {
-    const content = document.querySelector('.content');
-    if (content) content.scrollTo({ top: content.scrollHeight, behavior: 'smooth' });
+  function _scrollToBottom(instant) {
+    var el = document.getElementById('nutrition-messages');
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: instant ? 'auto' : 'smooth' });
   }
 
   // Lightweight markdown renderer for coach responses.
@@ -997,6 +997,13 @@
     if (img) img.src = '';
   }
 
+  // ─── Textarea auto-resize ────────────────────────────────────────────────────
+
+  function _autoResizeInput(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
   function submitNutritionMessage() {
@@ -1006,7 +1013,10 @@
 
     if (!text && !image) return;
 
-    if (input) input.value = '';
+    if (input) {
+      input.value = '';
+      input.style.height = '';  // Reset to CSS default (1 row)
+    }
     clearNutritionPhoto();
 
     sendNutritionMessage(text, image);
@@ -1046,7 +1056,7 @@
       }
     }
 
-    // Attach enter-key handler each time (safe to re-attach)
+    // Attach enter-key and auto-resize handlers (safe to re-attach via onX)
     var input = document.getElementById('nutrition-input');
     if (input) {
       input.onkeydown = function (e) {
@@ -1055,30 +1065,7 @@
           submitNutritionMessage();
         }
       };
-    }
-
-    // Mobile keyboard handling — resize the page to fit above the keyboard
-    // so the input bar never gets pushed behind it
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', function () {
-        var page = document.getElementById('page-nutrition');
-        if (!page) return;
-        var kbHeight = window.innerHeight - window.visualViewport.height;
-        if (kbHeight > 50) {
-          // Keyboard is open: shrink the page to the visible area.
-          // Reset any content scroll first so getBoundingClientRect is stable.
-          var content = document.querySelector('.content');
-          if (content) content.scrollTop = 0;
-          var nav = document.querySelector('.bottom-nav');
-          var navH = nav ? nav.offsetHeight : 60;
-          var pageTop = page.getBoundingClientRect().top;
-          page.style.height = Math.max(200, window.visualViewport.height - Math.max(0, pageTop) - navH) + 'px';
-          _scrollToBottom();
-        } else {
-          // Keyboard closed: restore CSS-driven height
-          page.style.height = '';
-        }
-      });
+      input.oninput = function () { _autoResizeInput(this); };
     }
 
     _scrollToBottom();
