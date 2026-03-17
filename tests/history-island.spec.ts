@@ -27,7 +27,7 @@ test('history island renders read-only cards and refreshes from the legacy bridg
   });
 
   await expect(page.locator('.hist-card')).toHaveCount(1);
-  await expect(page.locator('.hist-delete-btn')).toHaveCount(0);
+  await expect(page.locator('.hist-delete-btn')).toHaveCount(1);
 
   await page.evaluate(() => {
     window.eval(`

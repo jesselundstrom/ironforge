@@ -694,17 +694,223 @@ function updateStats(){
   return stats;
 }
 
+function _buildStructuredHeatmap(){
+  const WEEKS=14;
+  const today=new Date();today.setHours(0,0,0,0);
+  const weekStart=getWeekStart(today);
+  const gridStart=new Date(weekStart);gridStart.setDate(weekStart.getDate()-(WEEKS-1)*7);
+
+  const dayMap={};
+  workouts.forEach(w=>{
+    const d=new Date(w.date);d.setHours(0,0,0,0);
+    const k=d.toISOString().slice(0,10);
+    if(!dayMap[k])dayMap[k]={lift:false,sport:false};
+    if(isSportWorkout(w))dayMap[k].sport=true;
+    else dayMap[k].lift=true;
+  });
+
+  const cells=[];
+  for(let i=0;i<WEEKS*7;i++){
+    const d=new Date(gridStart);d.setDate(gridStart.getDate()+i);
+    const k=d.toISOString().slice(0,10);
+    cells.push({key:k,isToday:d.getTime()===today.getTime(),isFuture:d>today,lift:!!(dayMap[k]?.lift),sport:!!(dayMap[k]?.sport)});
+  }
+
+  let weekStreak=0;
+  for(let i=0;i<WEEKS;i++){
+    const ws=new Date(weekStart);ws.setDate(weekStart.getDate()-i*7);
+    const we=new Date(ws);we.setDate(ws.getDate()+6);
+    const hasLift=workouts.some(w=>{
+      if(isSportWorkout(w))return false;
+      const wd=new Date(w.date);wd.setHours(0,0,0,0);
+      return wd>=ws&&wd<=we;
+    });
+    if(hasLift)weekStreak++;
+    else if(i===0){}
+    else break;
+  }
+
+  const cut28=new Date(today);cut28.setDate(today.getDate()-27);
+  const last28=workouts.filter(w=>!isSportWorkout(w)&&new Date(w.date)>=cut28).length;
+  const perWeek=(last28/4).toFixed(1);
+
+  let totalVol=0;
+  workouts.forEach(w=>{
+    if(isSportWorkout(w))return;
+    const wd=new Date(w.date);wd.setHours(0,0,0,0);
+    if(wd>=gridStart&&wd<=today)(w.exercises||[]).forEach(ex=>{ex.sets.filter(s=>s.done).forEach(s=>{totalVol+=(parseFloat(s.weight)||0)*(parseInt(s.reps)||0);});});
+  });
+
+  const weekNums=[];
+  for(let i=0;i<WEEKS;i++){
+    const mon=new Date(gridStart);mon.setDate(gridStart.getDate()+i*7);
+    const tmp=new Date(mon.getTime());tmp.setDate(tmp.getDate()+3-(tmp.getDay()+6)%7);
+    const w1=new Date(tmp.getFullYear(),0,4);
+    weekNums.push(1+Math.round(((tmp.getTime()-w1.getTime())/86400000-3+(w1.getDay()+6)%7)/7));
+  }
+
+  const dayLabels=histLocale()==='fi-FI'?['M','T','K','T','P','L','S']:['M','T','W','T','F','S','S'];
+
+  return{
+    isOpen:historyHeatmapOpen,
+    weeks:WEEKS,
+    cells,weekNums,dayLabels,
+    stats:{weekStreak,perWeek,totalVolume:totalVol},
+    sportName:schedule.sportName||trHist('common.sport','Sport'),
+    labels:{
+      title:trHist('history.activity_title','ACTIVITY \u00B7 {weeks} WK',{weeks:WEEKS}),
+      noStreak:trHist('history.no_streak','No streak yet'),
+      liftsPerWeek:trHist('history.lifts_per_week','lifts/wk'),
+      totalVolumeLabel:trHist('history.total_volume_label','total volume'),
+      lift:trHist('history.legend.lift','Lift')
+    }
+  };
+}
+
+function _buildStructuredCard(w,isPR,recovery){
+  const d=new Date(w.date);
+  const dateStr=d.toLocaleDateString(histLocale(),{weekday:'short',day:'numeric',month:'short'});
+  const mins=Math.floor((w.duration||0)/60);
+  const isExtra=w.subtype==='extra';
+
+  if(isSportWorkout(w)){
+    const sportLabel=w.type==='hockey'?'Hockey':(schedule.sportName||trHist('common.sport','Sport'));
+    const sLabel=isExtra?trHist('history.extra_sport_session','Extra {sport} Session',{sport:sportLabel}):trHist('history.sport_session','{sport} Session',{sport:sportLabel});
+    return{id:w.id,isSport:true,title:sLabel,date:dateStr,duration:mins,iconLabel:trHist('history.sport','Sport')};
+  }
+
+  const MAIN=['Squat','Bench Press','Deadlift','Overhead Press','OHP'];
+  const mainEx=(w.exercises||[]).find(e=>MAIN.some(l=>e.name.includes(l)));
+  const liftIcon=histLiftIcon(mainEx?.name||(w.exercises||[])[0]?.name||'');
+
+  const meta=w.programMeta||{};
+  let cardTitle;
+  if(w.program==='forge'&&meta.week){
+    const blockNum=meta.week<=7?1:meta.week<=14?2:3;
+    const blockKeys={1:'program.forge.block.hypertrophy',2:'program.forge.block.strength',3:'program.forge.block.peaking'};
+    const blockFallbacks={1:'Hypertrophy',2:'Strength',3:'Peaking'};
+    const blockName=trHist(blockKeys[blockNum],blockFallbacks[blockNum]);
+    cardTitle=trHist('history.card.week_day','Week {week} · Day {day}',{week:meta.week,day:w.programDayNum||1})+' \u2014 '+blockName;
+  } else {
+    const rawLabel=w.programLabel||'';
+    cardTitle=rawLabel.replace(/^[\u{1F300}-\u{1FFFF}\u2600-\u27FF]\s*/u,'').trim()||d.toLocaleDateString(histLocale(),{weekday:'long',day:'numeric',month:'short'});
+  }
+
+  const descPart=w.sessionDescription?' \u00B7 '+w.sessionDescription:'';
+  const cardSub=dateStr+descPart;
+
+  let tonnage=0;
+  (w.exercises||[]).forEach(ex=>{ex.sets.filter(s=>s.done).forEach(s=>{tonnage+=(parseFloat(s.weight)||0)*(parseInt(s.reps)||0);});});
+
+  const completedExercises=(w.exercises||[]).filter(ex=>ex.sets.some(s=>s.done));
+  const exercises=completedExercises.map(ex=>{
+    const done=ex.sets.filter(s=>s.done);
+    const maxKg=Math.max(...done.map(s=>parseFloat(s.weight)||0));
+    const lastHeavy=ex.sets.find(s=>s.isLastHeavySet&&s.done);
+    const amrapReps=lastHeavy&&parseInt(lastHeavy.reps)>0?parseInt(lastHeavy.reps):null;
+    return{name:histDisplayName(ex.name),setCount:done.length,maxKg,amrapReps};
+  });
+
+  const rs=histRecoveryStyle(recovery);
+
+  return{
+    id:w.id,isSport:false,liftIcon,title:cardTitle,sub:cardSub,
+    isPR,recovery:recovery!=null?recovery:null,recoveryStyle:rs,
+    duration:mins,tonnage,
+    exerciseCount:completedExercises.length,rpe:w.rpe||null,exercises,
+    deleteTitle:histDeleteTitle(w)
+  };
+}
+
+function _buildStructuredLog(){
+  if(!workouts.length){
+    const prog=getActiveProgram();
+    const state=getActiveProgramState();
+    const bi=prog.getBlockInfo?prog.getBlockInfo(state):null;
+    return{
+      empty:true,
+      labels:{
+        kicker:trHist('history.activity_title','Activity'),
+        title:trHist('history.empty_title','No sessions yet'),
+        sub:trHist('history.empty_sub','Complete your first workout to start building your training history.'),
+        cta:trHist('history.start_today','Start Today\'s Workout'),
+        currentPhase:trHist('history.current_phase','Current Phase')
+      },
+      phase:bi&&(bi.name||bi.modeDesc||bi.weekLabel)?{name:bi.name||bi.weekLabel||'Week '+state.week,desc:bi.modeDesc||null}:null
+    };
+  }
+  const prSet=histComputePRs();
+  const recovMap=histComputeRecovery();
+  const groups=histGroupWorkouts();
+  return{
+    empty:false,
+    groups:groups.map(g=>({
+      key:g.key,
+      groupLabel:g.groupLabel,
+      groupIcon:g.groupIcon,
+      total:g.weeks.reduce((n,wk)=>n+wk.workouts.length,0),
+      weeks:g.weeks.map(wk=>({
+        weekKey:wk.weekKey,
+        weekLabel:wk.weekLabel,
+        count:wk.workouts.length,
+        cards:wk.workouts.map(w=>_buildStructuredCard(w,prSet.has(w.id),recovMap[w.id]??null))
+      }))
+    }))
+  };
+}
+
+function _buildStructuredStats(){
+  const liftWks=workouts.filter(w=>!isSportWorkout(w));
+  const sportWks=workouts.filter(w=>isSportWorkout(w));
+  const m=new Date().getMonth();
+  let sets=0;liftWks.filter(w=>new Date(w.date).getMonth()===m).forEach(w=>(w.exercises||[]).forEach(e=>sets+=e.sets.filter(s=>s.done).length));
+  const allRPE=workouts.filter(w=>w.rpe).map(w=>w.rpe);
+  const avgRPE=allRPE.length?(allRPE.reduce((a,b)=>a+b,0)/allRPE.length).toFixed(1):null;
+
+  const NWEEKS=16;
+  const lifts=[
+    {label:trHist('history.stats.lift.squat','Squat'),color:'var(--orange)',pts:_statsLiftProgress(n=>n==='Squat',NWEEKS)},
+    {label:trHist('history.stats.lift.bench','Bench'),color:'var(--blue)',pts:_statsLiftProgress(n=>n==='Bench Press',NWEEKS)},
+    {label:trHist('history.stats.lift.deadlift','Deadlift'),color:'var(--gold)',pts:_statsLiftProgress(n=>n==='Deadlift',NWEEKS)},
+    {label:trHist('history.stats.lift.ohp','OH Press'),color:'var(--purple)',pts:_statsLiftProgress(n=>n==='OHP'||n==='Overhead Press (OHP)',NWEEKS)},
+  ];
+
+  return{
+    numbers:[
+      {label:trHist('history.total_sessions','Total Sessions'),value:liftWks.length,color:'var(--gold)'},
+      {label:trHist('history.sport_sessions','Sport Sessions'),value:sportWks.length,color:'var(--blue)'},
+      {label:trHist('history.sets_this_month','Sets This Month'),value:sets,color:'var(--accent)'},
+      {label:trHist('history.avg_rpe','Avg RPE'),value:avgRPE||'\u2014',color:'var(--purple)'}
+    ],
+    volume:{
+      title:trHist('history.stats.volume','Weekly Volume'),
+      weeks:_statsWeeklyVolume(10),
+      visible:_statsWeeklyVolume(10).some(w=>w.vol>0)
+    },
+    strength:{
+      title:trHist('history.stats.strength','Strength Progress'),
+      lifts,nWeeks:NWEEKS,
+      visible:lifts.some(l=>l.pts.length>=1)
+    }
+  };
+}
+
 function getHistoryReactSnapshot(){
-  const stats=buildHistoryStatsMarkup();
   return{
     tab:historyTabState,
     labels:{
       log:trHist('history.tab.log','Workout Log'),
-      stats:trHist('history.tab.stats','Stats')
+      stats:trHist('history.tab.stats','Stats'),
+      sessions:trHist('dashboard.sessions_left','sessions'),
+      session:trHist('dashboard.session_left','session',{count:1}),
+      delete:trHist('common.delete','Delete'),
+      prBadge:trHist('history.pr_badge','NEW PR'),
+      volume:trHist('history.card.volume','Volume'),
+      exercises:trHist('history.card.exercises','Exercises')
     },
-    heatmapHtml:buildHeatmapMarkup(historyHeatmapOpen),
-    logHtml:buildHistoryLogMarkup({interactive:false}),
-    stats
+    heatmap:_buildStructuredHeatmap(),
+    log:_buildStructuredLog(),
+    stats:_buildStructuredStats()
   };
 }
 
