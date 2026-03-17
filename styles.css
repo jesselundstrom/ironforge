@@ -8172,6 +8172,60 @@ body.login-active::before {
   height: 18px;
 }
 
+/* ── Streaming cursor ──────────────────────────────────────────────────── */
+.nc-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--text);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: nc-blink 0.8s steps(2) infinite;
+}
+@keyframes nc-blink {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Today's intake summary card ──────────────────────────────────────── */
+.nutrition-today-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.nutrition-today-card .nc-today-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.nutrition-today-card .nc-today-values {
+  font-size: 13px;
+  color: var(--text);
+  flex: 1;
+}
+.nutrition-today-card .nc-today-values strong {
+  color: var(--accent);
+}
+.nc-today-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.nc-today-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
 /* ── Body settings tab ──────────────────────────────────────────────────── */
 .settings-row-2col {
   display: grid;

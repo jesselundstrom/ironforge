@@ -1152,6 +1152,8 @@ function initSettings(){
    if(keyInp&&typeof getNutritionApiKey==='function')keyInp.value=getNutritionApiKey();}
   // Body metrics
   {const bm=profile.bodyMetrics||{};
+   const sx=document.getElementById('body-sex');if(sx)sx.value=bm.sex||'';
+   const al=document.getElementById('body-activity');if(al)al.value=bm.activityLevel||'';
    const w=document.getElementById('body-weight');if(w)w.value=bm.weight||'';
    const h=document.getElementById('body-height');if(h)h.value=bm.height||'';
    const a=document.getElementById('body-age');if(a)a.value=bm.age||'';
@@ -1188,6 +1190,8 @@ function saveBodyMetrics(){
   const toNum=(id,parse)=>{const v=document.getElementById(id)?.value;return v?parse(v):null;};
   if(!profile.bodyMetrics)profile.bodyMetrics={};
   profile.bodyMetrics={
+    sex:document.getElementById('body-sex')?.value||null,
+    activityLevel:document.getElementById('body-activity')?.value||null,
     weight:toNum('body-weight',parseFloat),
     height:toNum('body-height',parseFloat),
     age:toNum('body-age',parseInt),

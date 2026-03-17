@@ -5,6 +5,7 @@
 
   let _history = [];
   let _loading = false;
+  let _streaming = false;
   let _pendingImage = null; // base64 data URL of selected photo
 
   // ─── Storage keys ────────────────────────────────────────────────────────────
@@ -103,11 +104,21 @@
 
     // Body metrics
     var bm = (typeof profile !== 'undefined' && profile.bodyMetrics) || {};
+    if (bm.sex) lines.push('Sex: ' + (bm.sex === 'male' ? 'Male' : 'Female'));
     var bodyParts = [];
     if (bm.weight) bodyParts.push('weight ' + bm.weight + ' kg');
     if (bm.height) bodyParts.push('height ' + bm.height + ' cm');
     if (bm.age) bodyParts.push('age ' + bm.age);
     if (bodyParts.length) lines.push('Body: ' + bodyParts.join(', '));
+    if (bm.activityLevel) {
+      var activityLabels = {
+        sedentary: 'Sedentary (desk job, little exercise)',
+        light: 'Lightly active (light exercise 1-3 days/week)',
+        moderate: 'Active (moderate exercise 3-5 days/week)',
+        very_active: 'Very active (hard exercise 6-7 days/week)',
+      };
+      lines.push('Activity level: ' + (activityLabels[bm.activityLevel] || bm.activityLevel));
+    }
     if (bm.targetWeight) lines.push('Target weight: ' + bm.targetWeight + ' kg');
     if (bm.bodyGoal) {
       var bodyGoalLabels = {
@@ -214,22 +225,110 @@
     return lines.join('\n');
   }
 
+  // ─── TDEE & macro targets (Mifflin-St Jeor) ─────────────────────────────────
+
+  var _activityMultipliers = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    very_active: 1.725,
+  };
+
+  function _calculateTargets() {
+    var bm = (typeof profile !== 'undefined' && profile.bodyMetrics) || {};
+    if (!bm.weight || !bm.height || !bm.age || !bm.sex) return null;
+
+    // Mifflin-St Jeor
+    var bmr = 10 * bm.weight + 6.25 * bm.height - 5 * bm.age;
+    bmr += bm.sex === 'male' ? 5 : -161;
+
+    var multiplier = _activityMultipliers[bm.activityLevel] || 1.375;
+    var tdee = Math.round(bmr * multiplier);
+
+    // Adjust for goal
+    var goalAdjust = { lose_fat: -500, gain_muscle: 300, recomp: 0, maintain: 0 };
+    var targetCal = tdee + (goalAdjust[bm.bodyGoal] || 0);
+
+    // Protein: 2g/kg for muscle gain, 2.2g/kg for fat loss (preserve muscle), 1.8g/kg maintain
+    var proteinPerKg = { lose_fat: 2.2, gain_muscle: 2.0, recomp: 2.0, maintain: 1.8 };
+    var protein = Math.round(bm.weight * (proteinPerKg[bm.bodyGoal] || 1.8));
+
+    // Fat: ~25-30% of target calories
+    var fat = Math.round((targetCal * 0.27) / 9);
+
+    // Carbs: remainder
+    var carbs = Math.round((targetCal - protein * 4 - fat * 9) / 4);
+    if (carbs < 0) carbs = 0;
+
+    return { tdee: tdee, calories: targetCal, protein: protein, carbs: carbs, fat: fat };
+  }
+
+  // ─── Today's intake summary ──────────────────────────────────────────────────
+  // Sums macros extracted from today's coach responses so the system prompt
+  // knows what the user has already eaten.
+
+  function _buildTodayIntakeSummary() {
+    var todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    var ts = todayStart.getTime();
+
+    var totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    var mealCount = 0;
+
+    for (var i = 0; i < _history.length; i++) {
+      var msg = _history[i];
+      if (msg.role !== 'assistant' || msg.isError || !msg.timestamp || msg.timestamp < ts) continue;
+      var macros = _extractMacros(msg.text || '');
+      if (!macros) continue;
+      mealCount++;
+      if (macros.calories) totals.calories += parseFloat(macros.calories) || 0;
+      if (macros.protein) totals.protein += parseFloat(macros.protein) || 0;
+      if (macros.carbs) totals.carbs += parseFloat(macros.carbs) || 0;
+      if (macros.fat) totals.fat += parseFloat(macros.fat) || 0;
+    }
+
+    if (!mealCount) return '';
+    return (
+      "Today's tracked intake so far: ~" +
+      Math.round(totals.calories) + ' kcal, ' +
+      Math.round(totals.protein) + 'g protein, ' +
+      Math.round(totals.carbs) + 'g carbs, ' +
+      Math.round(totals.fat) + 'g fat (' +
+      mealCount + (mealCount === 1 ? ' meal' : ' meals') + ' logged today)'
+    );
+  }
+
   // ─── Claude API call ──────────────────────────────────────────────────────────
 
-  async function _callClaude(apiMessages) {
+  // Auto-select model: Sonnet for photos (good vision), Haiku for text (fast + cheap)
+  function _pickModel(hasImage) {
+    return hasImage ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+  }
+
+  async function _callClaude(apiMessages, hasImage) {
     const apiKey = getNutritionApiKey();
     if (!apiKey) {
       const err = new Error('no_key');
       throw err;
     }
 
+    const model = _pickModel(hasImage);
     const context = _buildTrainingContext();
+    const todayIntake = _buildTodayIntakeSummary();
+    const targets = _calculateTargets();
+    const targetsStr = targets
+      ? 'Daily targets: ' + targets.calories + ' kcal, ' +
+        targets.protein + 'g protein, ' + targets.carbs + 'g carbs, ' + targets.fat + 'g fat' +
+        ' (TDEE ' + targets.tdee + ' kcal)'
+      : '';
     const systemPrompt =
       'You are a knowledgeable nutrition coach for a strength athlete who trains with weights. ' +
       'When the user shares food photos or asks questions, analyze the food, estimate macros ' +
       '(protein, carbs, fat, calories) when possible, and give practical coaching advice. ' +
       'Keep responses concise and actionable. Use metric units. Be supportive and direct.' +
-      (context ? '\n\nUser context:\n' + context : '');
+      (context ? '\n\nUser context:\n' + context : '') +
+      (targetsStr ? '\n\n' + targetsStr : '') +
+      (todayIntake ? '\n' + todayIntake : '');
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -240,10 +339,11 @@
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-6',
+        model: model,
         max_tokens: 1024,
         system: systemPrompt,
         messages: apiMessages,
+        stream: true,
       }),
     });
 
@@ -256,8 +356,7 @@
       );
     }
 
-    const data = await resp.json();
-    return data.content[0].text;
+    return { response: resp, model: model };
   }
 
   // ─── Build API messages from history ─────────────────────────────────────────
@@ -265,7 +364,9 @@
   // old entries to keep the request small. Only the current message carries an image.
 
   function _buildApiMessages(newImageDataUrl, newText) {
-    const contextEntries = _history.slice(-10);
+    // Exclude the last entry — it's the user message we just pushed to _history
+    // and we'll re-add it below with the full image payload.
+    const contextEntries = _history.slice(-11, -1);
     const apiMessages = contextEntries.map(function (msg) {
       if (msg.role === 'user') {
         // Include image only if it's the most recent user message with an image
@@ -303,6 +404,36 @@
     return apiMessages;
   }
 
+  // ─── SSE stream parser ───────────────────────────────────────────────────────
+
+  async function _readStream(resp, onChunk) {
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+
+    while (true) {
+      var result = await reader.read();
+      if (result.done) break;
+      buffer += decoder.decode(result.value, { stream: true });
+
+      var lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // keep incomplete line in buffer
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line.startsWith('data: ')) continue;
+        var json = line.slice(6);
+        if (json === '[DONE]') return;
+        try {
+          var evt = JSON.parse(json);
+          if (evt.type === 'content_block_delta' && evt.delta && evt.delta.text) {
+            onChunk(evt.delta.text);
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
   // ─── Send a message ───────────────────────────────────────────────────────────
 
   async function sendNutritionMessage(text, imageDataUrl) {
@@ -336,18 +467,42 @@
     _scrollToBottom();
     _setLoading(true, imageDataUrl ? 'photo' : 'text');
 
+    var hasImage = !!imageDataUrl;
     var apiMessages = _buildApiMessages(imageDataUrl, text);
 
     try {
-      var responseText = await _callClaude(apiMessages);
-      _history.push({
+      var result = await _callClaude(apiMessages, hasImage);
+      var assistantEntry = {
         id: Date.now() + '-a',
         role: 'assistant',
-        text: responseText,
+        text: '',
         timestamp: Date.now(),
+        model: result.model,
+      };
+      _history.push(assistantEntry);
+      _setLoading(false);
+      _streaming = true;
+      _renderMessages();
+      _scrollToBottom();
+
+      var _renderPending = false;
+      await _readStream(result.response, function (chunk) {
+        assistantEntry.text += chunk;
+        if (!_renderPending) {
+          _renderPending = true;
+          requestAnimationFrame(function () {
+            _renderPending = false;
+            _renderMessages();
+            _scrollToBottom();
+          });
+        }
       });
+
+      _streaming = false;
       _saveHistory();
     } catch (e) {
+      _setLoading(false);
+      _streaming = false;
       var isNoKey = e.message === 'no_key';
       _history.push({
         id: Date.now() + '-a',
@@ -365,7 +520,6 @@
       _saveHistory();
     }
 
-    _setLoading(false);
     _renderMessages();
     _scrollToBottom();
   }
@@ -563,7 +717,7 @@
 
     // Render conversation
     container.innerHTML = _history
-      .map(function (msg) {
+      .map(function (msg, idx) {
         var time = '<div class="nutrition-msg-time">' + _formatTimestamp(msg.timestamp) + '</div>';
         if (msg.role === 'user') {
           return (
@@ -579,12 +733,18 @@
           );
         }
         // Coach message with avatar + macro card
-        var macros = !msg.isError ? _extractMacros(msg.text || '') : null;
+        var isLast = idx === _history.length - 1;
+        var isStreaming = isLast && _streaming;
+        var macros = !msg.isError && !isStreaming ? _extractMacros(msg.text || '') : null;
         var macroHtml = macros ? _renderMacroCard(macros) : '';
         var retryHtml = msg.isError
           ? '<div class="nutrition-msg-text"><button class="nutrition-retry-btn" onclick="retryLastNutritionMessage()" data-i18n="nutrition.retry">' +
             tr('nutrition.retry', 'Try again') + '</button></div>'
           : '';
+        var modelTag = msg.model
+          ? ' · ' + msg.model.replace(/^claude-/, '').replace(/-\d{8}$/, '').replace(/-\d+$/, '')
+          : '';
+        var cursorHtml = isStreaming ? '<span class="nc-cursor"></span>' : '';
         return (
           '<div class="nutrition-msg nutrition-msg-coach' +
           (msg.isError ? ' nutrition-msg-error' : '') + '">' +
@@ -593,9 +753,10 @@
           macroHtml +
           '<div class="nutrition-msg-text">' +
           _formatText(msg.text || '') +
+          cursorHtml +
           '</div>' +
           retryHtml +
-          time +
+          '<div class="nutrition-msg-time">' + _formatTimestamp(msg.timestamp) + modelTag + '</div>' +
           '</div></div>'
         );
       })
@@ -698,6 +859,10 @@
     if (bm.weight) parts.push(bm.weight + ' kg');
     var goalLabels = { lose_fat: 'lose fat', gain_muscle: 'gain muscle', recomp: 'recomp', maintain: 'maintain' };
     if (bm.bodyGoal && goalLabels[bm.bodyGoal]) parts.push(goalLabels[bm.bodyGoal]);
+
+    var targets = _calculateTargets();
+    if (targets) parts.push(targets.calories + ' kcal/day');
+
     if (parts.length) {
       return (
         '<div class="nutrition-context-banner">' +
@@ -713,6 +878,46 @@
       ' <a onclick="showPage(\'settings\', document.querySelectorAll(\'.nav-btn\')[3])">' +
       tr('nutrition.banner.settings_link', 'Settings') + ' &rarr;</a></span>' +
       '</div>'
+    );
+  }
+
+  // ─── Today's intake summary card ─────────────────────────────────────
+
+  function _renderTodayCard() {
+    var todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    var ts = todayStart.getTime();
+
+    var totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    var mealCount = 0;
+
+    for (var i = 0; i < _history.length; i++) {
+      var msg = _history[i];
+      if (msg.role !== 'assistant' || msg.isError || !msg.timestamp || msg.timestamp < ts) continue;
+      var macros = _extractMacros(msg.text || '');
+      if (!macros) continue;
+      mealCount++;
+      if (macros.calories) totals.calories += parseFloat(macros.calories) || 0;
+      if (macros.protein) totals.protein += parseFloat(macros.protein) || 0;
+      if (macros.carbs) totals.carbs += parseFloat(macros.carbs) || 0;
+      if (macros.fat) totals.fat += parseFloat(macros.fat) || 0;
+    }
+
+    if (!mealCount) return '';
+
+    var targets = _calculateTargets();
+    var calStr = Math.round(totals.calories) + (targets ? ' / ' + targets.calories : '') + ' kcal';
+    var proStr = Math.round(totals.protein) + 'g ' + tr('nutrition.macro.protein', 'protein');
+    var pct = targets ? Math.min(100, Math.round((totals.calories / targets.calories) * 100)) : 0;
+    var barHtml = targets
+      ? '<div class="nc-today-bar"><div class="nc-today-bar-fill" style="width:' + pct + '%"></div></div>'
+      : '';
+
+    return (
+      '<div class="nutrition-today-card">' +
+      '<div><div class="nc-today-label">' + tr('nutrition.today.label', 'Today') + '</div></div>' +
+      '<div style="flex:1"><div class="nc-today-values"><strong>' + calStr + '</strong> · ' + proStr + '</div>' +
+      barHtml + '</div></div>'
     );
   }
 
@@ -826,13 +1031,17 @@
     _loadHistory();
     _renderMessages();
 
-    // Body metrics banner (only when API key is set and history exists)
-    // Remove any previous banner first to avoid duplicates
+    // Remove previous banners/cards to avoid duplicates
     var oldBanner = document.querySelector('.nutrition-context-banner');
     if (oldBanner) oldBanner.remove();
+    var oldCard = document.querySelector('.nutrition-today-card');
+    if (oldCard) oldCard.remove();
+
     if (getNutritionApiKey()) {
       var bannerSlot = document.getElementById('nutrition-messages');
       if (bannerSlot && _history.length) {
+        var todayHtml = _renderTodayCard();
+        if (todayHtml) bannerSlot.insertAdjacentHTML('beforebegin', todayHtml);
         bannerSlot.insertAdjacentHTML('beforebegin', _renderContextBanner());
       }
     }
