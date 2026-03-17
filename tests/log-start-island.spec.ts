@@ -22,7 +22,9 @@ test('log start island renders from the legacy bridge and still starts a workout
   await page.getByRole('button', { name: /start workout/i }).click();
 
   await expect(page.locator('#workout-active')).toBeVisible();
-  await expect(page.locator('#log-start-react-root #workout-not-started')).toBeHidden();
+  await expect(
+    page.locator('#log-start-react-root').getByRole('button', { name: /start workout/i })
+  ).toHaveCount(0);
 });
 
 test('log start island keeps sport readiness check-in interactions working', async ({ page }) => {

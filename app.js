@@ -479,6 +479,7 @@ function getSportRecentHours(){return SPORT_RECENT_HOURS[schedule.sportIntensity
 function updateRestDuration(){
   restDuration=parseInt(document.getElementById('rest-duration').value,10)||0;
   if(activeWorkout&&typeof persistActiveWorkoutDraft==='function')persistActiveWorkoutDraft();
+  if(typeof isLogActiveIslandActive==='function'&&isLogActiveIslandActive())notifyLogActiveIsland();
 }
 function clearRestInterval(){if(restInterval){clearInterval(restInterval);restInterval=null;}}
 function clearRestHideTimer(){if(restHideTimeout){clearTimeout(restHideTimeout);restHideTimeout=null;}}
@@ -1721,6 +1722,7 @@ function updateLanguageDependentUI(){
       descEl.textContent=sessionDescription?(prefix+': '+sessionDescription):'';
       descEl.style.display=sessionDescription?'':'none';
     }
+    if(typeof isLogActiveIslandActive==='function'&&isLogActiveIslandActive())notifyLogActiveIsland();
   }
   if(document.getElementById('name-modal')?.classList.contains('active')&&typeof renderExerciseCatalog==='function'){
     renderExerciseCatalog();

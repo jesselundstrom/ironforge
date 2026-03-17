@@ -564,82 +564,85 @@
           </div>
           <div id="log-start-react-root"></div>
 
-          <div id="workout-active" style="display: none">
-            <div class="active-session-header">
-              <div class="active-session-heading">
-                <div
-                  class="active-session-title"
-                  id="active-session-title"
-                  data-i18n="common.session"
+          <div id="log-active-legacy-shell">
+            <div id="workout-active" style="display: none">
+              <div class="active-session-header">
+                <div class="active-session-heading">
+                  <div
+                    class="active-session-title"
+                    id="active-session-title"
+                    data-i18n="common.session"
+                  >
+                    Session
+                  </div>
+                  <div
+                    class="active-session-description"
+                    id="active-session-description"
+                  ></div>
+                  <div class="active-session-timer" id="active-session-timer">
+                    00:00
+                  </div>
+                </div>
+                <button
+                  class="btn btn-sm btn-secondary active-session-add-btn"
+                  type="button"
+                  onclick="openExerciseCatalogForAdd()"
+                  data-i18n="workout.add_exercise"
                 >
-                  Session
-                </div>
-                <div
-                  class="active-session-description"
-                  id="active-session-description"
-                ></div>
-                <div class="active-session-timer" id="active-session-timer">
-                  00:00
-                </div>
+                  Add Exercise
+                </button>
               </div>
+              <div id="active-session-plan"></div>
+              <div class="rest-timer-inline">
+                <span
+                  class="rest-timer-inline-label"
+                  data-i18n="workout.rest_timer"
+                  >Rest timer</span
+                >
+                <select
+                  id="rest-duration"
+                  class="rest-timer-inline-select"
+                  onchange="updateRestDuration()"
+                >
+                  <option value="60">1 min</option>
+                  <option value="90">90s</option>
+                  <option value="120" selected>2 min</option>
+                  <option value="180">3 min</option>
+                  <option value="240">4 min</option>
+                  <option value="300">5 min</option>
+                  <option value="0" data-i18n="common.off">Off</option>
+                </select>
+              </div>
+              <div id="exercises-container"></div>
               <button
-                class="btn btn-sm btn-secondary active-session-add-btn"
+                class="btn btn-primary session-primary-action"
                 type="button"
-                onclick="openExerciseCatalogForAdd()"
-                data-i18n="workout.add_exercise"
+                onclick="finishWorkout()"
+                data-i18n="workout.finish_session"
               >
-                Add Exercise
+                Finish Session
+              </button>
+              <button
+                class="btn btn-ghost session-secondary-action"
+                type="button"
+                onclick="
+                  showConfirm(
+                    I18N.t('workout.cancel_session', null, 'Discard Workout'),
+                    I18N.t(
+                      'workout.discard_session',
+                      null,
+                      'Discard this in-progress workout? Sets won\'t be saved.'
+                    ),
+                    cancelWorkout
+                  )
+                "
+                data-i18n="workout.cancel_session"
+              >
+                Discard Workout
               </button>
             </div>
-            <div id="active-session-plan"></div>
-            <div class="rest-timer-inline">
-              <span
-                class="rest-timer-inline-label"
-                data-i18n="workout.rest_timer"
-                >Rest timer</span
-              >
-              <select
-                id="rest-duration"
-                class="rest-timer-inline-select"
-                onchange="updateRestDuration()"
-              >
-                <option value="60">1 min</option>
-                <option value="90">90s</option>
-                <option value="120" selected>2 min</option>
-                <option value="180">3 min</option>
-                <option value="240">4 min</option>
-                <option value="300">5 min</option>
-                <option value="0" data-i18n="common.off">Off</option>
-              </select>
-            </div>
-            <div id="exercises-container"></div>
-            <button
-              class="btn btn-primary session-primary-action"
-              type="button"
-              onclick="finishWorkout()"
-              data-i18n="workout.finish_session"
-            >
-              Finish Session
-            </button>
-            <button
-              class="btn btn-ghost session-secondary-action"
-              type="button"
-              onclick="
-                showConfirm(
-                  I18N.t('workout.cancel_session', null, 'Discard Workout'),
-                  I18N.t(
-                    'workout.discard_session',
-                    null,
-                    'Discard this in-progress workout? Sets won\'t be saved.'
-                  ),
-                  cancelWorkout
-                )
-              "
-              data-i18n="workout.cancel_session"
-            >
-              Discard Workout
-            </button>
           </div>
+          <div id="log-active-react-root"></div>
         </div>
 
         <!-- ===== HISTORY ===== -->
@@ -1799,5 +1802,6 @@
     <script type="module" src="/src/history-island/main.jsx"></script>
     <script type="module" src="/src/settings-body-island/main.jsx"></script>
     <script type="module" src="/src/log-start-island/main.jsx"></script>
+    <script type="module" src="/src/log-active-island/main.jsx"></script>
   </body>
 </html>

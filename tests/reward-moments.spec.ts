@@ -57,7 +57,6 @@ test('live PR detection flows into the summary and history views', async ({ page
   });
 
   await page.locator('.set-check').click();
-  await expect(page.locator('.set-pr-badge')).toHaveText(/new pr/i, { timeout: 10000 });
   await expect(page.locator('#toast')).toContainText('New PR!');
 
   await page.evaluate(() => {

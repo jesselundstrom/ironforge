@@ -26,7 +26,7 @@
 - Do not introduce frameworks, bundlers, TypeScript, or a server dependency unless explicitly requested.
 - When React islands exist, load them into the current `index.html` shell and bridge them through explicit global adapters/events instead of importing the legacy runtime directly.
 - For form-heavy settings areas, migrate bounded slices first (using the Body tab pattern) and keep the existing handlers, persistence flow, and advanced program setup sheet as the source of truth while React islands replace the main settings panels.
-- For the Log page, migrate the workout start shell before the active workout editor. Keep the active session DOM, timer, draft restore, and finish/discard flows on the legacy path until there is a dedicated plan for the mutation-heavy workout UI.
+- For the Log page, keep the legacy workout logic as the source of truth even when the visible start shell and active editor run through React islands. Preserve the existing DOM ids, draft restore flow, finish/discard handlers, rest-timer bar, and workout modals while React mirrors the rendered session UI through explicit snapshot events.
 - Reuse existing state objects, helpers, and DOM patterns before creating new ones.
 - Keep changes small and compatible with the current file organization.
 

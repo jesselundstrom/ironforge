@@ -44,6 +44,71 @@ window.__IRONFORGE_LOG_START_ISLAND_EVENT__=LOG_START_ISLAND_EVENT;
 window.getLogStartReactSnapshot=getLogStartReactSnapshot;
 window.notifyLogStartIsland=notifyLogStartIsland;
 
+const LOG_ACTIVE_ISLAND_EVENT='ironforge:log-active-updated';
+
+function hasLogActiveIslandMount(){
+  return !!document.getElementById('log-active-react-root');
+}
+
+function isLogActiveIslandActive(){
+  return window.__IRONFORGE_LOG_ACTIVE_ISLAND_MOUNTED__===true;
+}
+
+function notifyLogActiveIsland(){
+  if(!hasLogActiveIslandMount())return;
+  window.dispatchEvent(new CustomEvent(LOG_ACTIVE_ISLAND_EVENT));
+}
+
+function getLogActiveTimerText(){
+  const elapsedSeconds=Math.max(0,getWorkoutElapsedSeconds());
+  const minutes=String(Math.floor(elapsedSeconds/60)).padStart(2,'0');
+  const seconds=String(elapsedSeconds%60).padStart(2,'0');
+  return `${minutes}:${seconds}`;
+}
+
+function getLogActiveReactSnapshot(){
+  const shell=document.getElementById('workout-active');
+  const titleEl=document.getElementById('active-session-title');
+  const descriptionEl=document.getElementById('active-session-description');
+  const planEl=document.getElementById('active-session-plan');
+  const exercisesEl=document.getElementById('exercises-container');
+  return{
+    labels:{
+      addExercise:i18nText('workout.add_exercise','Add Exercise'),
+      restTimer:i18nText('workout.rest_timer','Rest timer'),
+      finishSession:i18nText('workout.finish_session','Finish Session'),
+      cancelSession:i18nText('workout.cancel_session','Discard Workout'),
+      cancelConfirmTitle:i18nText('workout.cancel_session','Discard Workout'),
+      cancelConfirmMessage:i18nText('workout.discard_session','Discard this in-progress workout? Sets won\'t be saved.'),
+      restOptions:[
+        {value:'60',label:'1 min'},
+        {value:'90',label:'90s'},
+        {value:'120',label:'2 min'},
+        {value:'180',label:'3 min'},
+        {value:'240',label:'4 min'},
+        {value:'300',label:'5 min'},
+        {value:'0',label:i18nText('common.off','Off')}
+      ]
+    },
+    values:{
+      visible:!!shell&&shell.style.display!=='none',
+      title:titleEl?.textContent||i18nText('common.session','Session'),
+      description:descriptionEl?.textContent||'',
+      descriptionVisible:!!descriptionEl&&(descriptionEl.style.display!=='none')&&!!descriptionEl.textContent,
+      timerText:getLogActiveTimerText(),
+      timerSeed:activeWorkout?.startTime||0,
+      planHtml:planEl?.innerHTML||'',
+      restDuration:String(restDuration||profile.defaultRest||120),
+      exercisesHtml:exercisesEl?.innerHTML||''
+    }
+  };
+}
+
+window.__IRONFORGE_LOG_ACTIVE_ISLAND_EVENT__=LOG_ACTIVE_ISLAND_EVENT;
+window.getLogActiveReactSnapshot=getLogActiveReactSnapshot;
+window.getLogActiveTimerText=getLogActiveTimerText;
+window.notifyLogActiveIsland=notifyLogActiveIsland;
+
 function persistCurrentWorkoutDraft(){
   if(typeof persistActiveWorkoutDraft==='function')persistActiveWorkoutDraft();
 }
@@ -118,6 +183,7 @@ function resumeActiveWorkoutUI(options){
   }else{
     document.getElementById('rest-timer-bar')?.classList.remove('active');
   }
+  if(isLogActiveIslandActive())notifyLogActiveIsland();
   if(isLogStartIslandActive())notifyLogStartIsland();
   if(options?.toast){
     showToast(i18nText('workout.resumed','Resumed your in-progress workout.'),'var(--blue)');
@@ -422,6 +488,7 @@ function playSetPrCelebration(row,check,prEvent){
   row.classList.add('set-pr-celebration');
   check.classList.add('set-pr-highlight');
   requestAnimationFrame(()=>badge?.classList.add('is-visible'));
+  if(isLogActiveIslandActive())notifyLogActiveIsland();
   spawnForgeEmbers(check,{
     colors:['#ffd700','#ffec8b','#f5c842','#fff8dc'],
     count:5,
@@ -1233,6 +1300,7 @@ function renderActiveWorkoutPlanPanel(){
       ${getRunnerUndoAvailable(activeWorkout)?`<button class="btn btn-secondary btn-sm btn-full" type="button" onclick="undoQuickWorkoutAdjustment()">${escapeHtml(i18nText('workout.runner.undo_btn','Undo adjustment'))}</button>`:''}
     </div>
   </div>`;
+  if(isLogActiveIslandActive())notifyLogActiveIsland();
 }
 
 function applySportReadinessAdjustments(adjusted,sportContext){
@@ -3189,6 +3257,7 @@ async function finishWorkout(){
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
   resetNotStartedView();
+  if(isLogActiveIslandActive())notifyLogActiveIsland();
   updateDashboard();
 
   if(programHookFailed)showToast(i18nText('workout.program_error','Session saved, but program state may need review.'),'var(--orange)');
@@ -3207,5 +3276,6 @@ function cancelWorkout(){
   document.getElementById('workout-not-started').style.display='block';
   document.getElementById('workout-active').style.display='none';
   resetNotStartedView();
+  if(isLogActiveIslandActive())notifyLogActiveIsland();
   showToast(i18nText('workout.session_discarded','Workout discarded.'));
 }
