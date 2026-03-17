@@ -29,28 +29,6 @@ function getNavButtonForPage(name) {
   );
 }
 
-function getNavLabel(name) {
-  switch (name) {
-    case 'dashboard':
-      return tr('nav.dashboard', 'Dashboard');
-    case 'log':
-      return tr('nav.train', 'Train');
-    case 'history':
-      return tr('nav.history', 'History');
-    case 'settings':
-      return tr('nav.settings', 'Settings');
-    case 'nutrition':
-      return tr('nav.nutrition', 'Nutrition');
-    default:
-      return name;
-  }
-}
-
-function getNavIndicatorIndex(name) {
-  const idx = APP_SHELL_PAGES.indexOf(name);
-  return idx >= 0 ? idx : 0;
-}
-
 function syncLegacyShellDom(name, btn) {
   document.querySelectorAll('.page').forEach((page) => page.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach((navBtn) => navBtn.classList.remove('active'));
@@ -61,7 +39,7 @@ function syncLegacyShellDom(name, btn) {
   if (resolvedButton) resolvedButton.classList.add('active');
 
   const nav = document.querySelector('.bottom-nav');
-  if (nav) nav.style.setProperty('--nav-indicator-x', getNavIndicatorIndex(name));
+  if (nav) nav.style.setProperty('--nav-indicator-x', APP_SHELL_PAGES.indexOf(name));
 
   return resolvedButton;
 }
@@ -94,18 +72,6 @@ function getConfirmReactSnapshot() {
     message: confirmState.message || 'Are you sure?',
     confirmLabel: tr('modal.confirm.ok', 'Confirm'),
     cancelLabel: tr('modal.confirm.cancel', 'Cancel'),
-  };
-}
-
-function getAppShellReactSnapshot() {
-  return {
-    activePage: activePageName,
-    navIndicatorIndex: getNavIndicatorIndex(activePageName),
-    navItems: APP_SHELL_PAGES.map((name) => ({
-      id: name,
-      label: getNavLabel(name),
-    })),
-    confirm: getConfirmReactSnapshot(),
   };
 }
 
@@ -248,8 +214,8 @@ function submitNameModal() {
 }
 
 window.__IRONFORGE_APP_SHELL_EVENT__ = APP_SHELL_EVENT;
-window.getAppShellReactSnapshot = getAppShellReactSnapshot;
 window.getActivePageName = () => activePageName;
+window.getConfirmReactSnapshot = getConfirmReactSnapshot;
 window.runPageActivationSideEffects = runPageActivationSideEffects;
 window.showPage = showPage;
 window.goToLog = goToLog;

@@ -5,11 +5,16 @@ import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
 const APP_SHELL_EVENT =
   window.__IRONFORGE_APP_SHELL_EVENT__ || 'ironforge:app-shell-updated';
 const LANGUAGE_EVENT = 'ironforge:language-changed';
-const PAGE_NAMES = ['dashboard', 'log', 'history', 'settings', 'nutrition'];
+const PAGE_META = [
+  { id: 'dashboard', labelKey: 'nav.dashboard', fallbackLabel: 'Dashboard' },
+  { id: 'log', labelKey: 'nav.train', fallbackLabel: 'Train' },
+  { id: 'history', labelKey: 'nav.history', fallbackLabel: 'History' },
+  { id: 'settings', labelKey: 'nav.settings', fallbackLabel: 'Settings' },
+  { id: 'nutrition', labelKey: 'nav.nutrition', fallbackLabel: 'Nutrition' },
+];
+const PAGE_NAMES = PAGE_META.map((page) => page.id);
 
 const pageSources = collectPageSources();
-window.__IRONFORGE_PAGE_CONTAINER_SHELL_MOUNTED__ =
-  document.getElementById('page-container-react-root') !== null;
 
 function collectPageSources() {
   return PAGE_NAMES.reduce((acc, name) => {
@@ -59,26 +64,32 @@ const NAV_ICONS = {
 };
 
 function getSnapshot() {
-  if (typeof window.getAppShellReactSnapshot === 'function') {
-    return window.getAppShellReactSnapshot();
-  }
+  const activePage =
+    typeof window.getActivePageName === 'function'
+      ? window.getActivePageName()
+      : 'dashboard';
+  const confirm =
+    typeof window.getConfirmReactSnapshot === 'function'
+      ? window.getConfirmReactSnapshot()
+      : {
+          open: false,
+          title: 'Confirm',
+          message: 'Are you sure?',
+          confirmLabel: 'Confirm',
+          cancelLabel: 'Cancel',
+        };
+
   return {
-    activePage: 'dashboard',
-    navIndicatorIndex: 0,
-    navItems: [
-      { id: 'dashboard', label: 'Dashboard' },
-      { id: 'log', label: 'Train' },
-      { id: 'history', label: 'History' },
-      { id: 'settings', label: 'Settings' },
-      { id: 'nutrition', label: 'Nutrition' },
-    ],
-    confirm: {
-      open: false,
-      title: 'Confirm',
-      message: 'Are you sure?',
-      confirmLabel: 'Confirm',
-      cancelLabel: 'Cancel',
-    },
+    activePage,
+    navIndicatorIndex: Math.max(0, PAGE_NAMES.indexOf(activePage)),
+    navItems: PAGE_META.map((page) => ({
+      id: page.id,
+      label:
+        typeof window.tr === 'function'
+          ? window.tr(page.labelKey, page.fallbackLabel)
+          : page.fallbackLabel,
+    })),
+    confirm,
   };
 }
 
