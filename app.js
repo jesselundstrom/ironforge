@@ -574,12 +574,13 @@ function renderSportDayToggles(){
     const dow=(i+1)%7,active=schedule.sportDays.includes(dow);
     grid.innerHTML+=`<div class="day-toggle ${active?'sport-day':''}" onclick="toggleDay('sport',${dow},this)">${DAY_NAMES[dow]}</div>`;
   }
+  if(typeof isSettingsScheduleIslandActive==='function'&&isSettingsScheduleIslandActive())notifySettingsScheduleIsland();
 }
 function setSportIntensity(val,el){
   schedule.sportIntensity=val;
   document.querySelectorAll('#sport-intensity-btns button').forEach(b=>b.classList.remove('active'));
   if(el)el.classList.add('active');
-  saveSchedule();
+  saveSchedule({sportIntensity:val});
 }
 let _settingsTab='schedule';
 let settingsAccountUiState={dangerOpen:false,dangerInput:''};
@@ -661,6 +662,59 @@ function getSettingsAccountReactSnapshot(){
 window.__IRONFORGE_SETTINGS_ACCOUNT_ISLAND_EVENT__=SETTINGS_ACCOUNT_ISLAND_EVENT;
 window.getSettingsAccountReactSnapshot=getSettingsAccountReactSnapshot;
 window.notifySettingsAccountIsland=notifySettingsAccountIsland;
+const SETTINGS_SCHEDULE_ISLAND_EVENT='ironforge:settings-schedule-updated';
+function hasSettingsScheduleIslandMount(){
+  return !!document.getElementById('settings-schedule-react-root');
+}
+function isSettingsScheduleIslandActive(){
+  return window.__IRONFORGE_SETTINGS_SCHEDULE_ISLAND_MOUNTED__===true;
+}
+function notifySettingsScheduleIsland(){
+  if(!hasSettingsScheduleIslandMount())return;
+  window.dispatchEvent(new CustomEvent(SETTINGS_SCHEDULE_ISLAND_EVENT));
+}
+function getSettingsScheduleStatusText(){
+  const sep=' · ';
+  const name=schedule.sportName||getDefaultSportName();
+  const intensity=schedule.sportIntensity||'hard';
+  const intensityLabel=tr('settings.intensity.'+intensity,intensity.charAt(0).toUpperCase()+intensity.slice(1));
+  const days=schedule.sportDays||[];
+  const dayStr=days.length?days.slice().sort((a,b)=>a-b).map(d=>DAY_NAMES[d]).join(', '):tr('settings.status.no_days','No days set');
+  return name+sep+intensityLabel+sep+dayStr;
+}
+function getSettingsScheduleReactSnapshot(){
+  const intensity=schedule.sportIntensity||'hard';
+  return{
+    labels:{
+      statusBar:getSettingsScheduleStatusText(),
+      title:tr('settings.sport_load.title','Sport Load'),
+      subtitle:tr('settings.sport_load.subtitle','Set up your regular sport so the planner can steer sessions around it.'),
+      activitySection:tr('settings.sport_load.section.activity','Sport'),
+      activitySectionSub:tr('settings.sport_load.section.activity_sub','Name the recurring sport or cardio that affects your training week.'),
+      activityName:tr('settings.activity_name','Activity name'),
+      activityPlaceholder:tr('settings.activity_placeholder','e.g. Hockey, Soccer, Running'),
+      profileSection:tr('settings.sport_load.section.profile','Load profile'),
+      profileSectionSub:tr('settings.sport_load.section.profile_sub','Shape how strongly sport load should push training away from hard lower-body work.'),
+      intensityLabel:tr('settings.intensity','Intensity'),
+      intensityEasy:tr('settings.intensity.easy','Easy'),
+      intensityModerate:tr('settings.intensity.moderate','Moderate'),
+      intensityHard:tr('settings.intensity.hard','Hard'),
+      legHeavy:tr('settings.leg_heavy','Leg-heavy'),
+      legHeavySub:tr('settings.leg_heavy_sub','Warns when scheduling legs after sport'),
+      regularSportDays:tr('settings.regular_sport_days','Regular Sport Days')
+    },
+    values:{
+      sportName:schedule.sportName||getDefaultSportName(),
+      sportIntensity:intensity,
+      sportLegsHeavy:schedule.sportLegsHeavy!==false,
+      sportDays:[...(schedule.sportDays||[])],
+      dayNames:Array.from({length:7},(_,i)=>DAY_NAMES[(i+1)%7]||'')
+    }
+  };
+}
+window.__IRONFORGE_SETTINGS_SCHEDULE_ISLAND_EVENT__=SETTINGS_SCHEDULE_ISLAND_EVENT;
+window.getSettingsScheduleReactSnapshot=getSettingsScheduleReactSnapshot;
+window.notifySettingsScheduleIsland=notifySettingsScheduleIsland;
 const SETTINGS_PREFERENCES_ISLAND_EVENT='ironforge:settings-preferences-updated';
 function hasSettingsPreferencesIslandMount(){
   return !!document.getElementById('settings-preferences-react-root');
@@ -841,7 +895,10 @@ function renderTrainingPreferencesSummary(){
 }
 function renderSportStatusBar(){
   const bar=document.getElementById('sport-status-bar');
-  if(!bar)return;
+  if(!bar){
+    if(isSettingsScheduleIslandActive())notifySettingsScheduleIsland();
+    return;
+  }
   const sep='<span class="status-sep">\u00b7</span>';
   const name=schedule.sportName||getDefaultSportName();
   const intensity=schedule.sportIntensity||'hard';
@@ -849,6 +906,7 @@ function renderSportStatusBar(){
   const days=schedule.sportDays||[];
   const dayStr=days.length?days.sort((a,b)=>a-b).map(d=>DAY_NAMES[d]).join(', '):tr('settings.status.no_days','No days set');
   bar.innerHTML=name+sep+intensityLabel+sep+dayStr;
+  if(isSettingsScheduleIslandActive())notifySettingsScheduleIsland();
 }
 function renderTrainingStatusBar(){
   const bar=document.getElementById('training-status-bar');
@@ -1360,6 +1418,7 @@ function initSettings(){
   showSettingsTab(_settingsTab);
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
   if(isSettingsAccountIslandActive())notifySettingsAccountIsland();
+  if(isSettingsScheduleIslandActive())notifySettingsScheduleIsland();
   if(isSettingsPreferencesIslandActive())notifySettingsPreferencesIsland();
   if(isSettingsBodyIslandActive())notifySettingsBodyIsland();
 }
@@ -1460,14 +1519,22 @@ function _showAutoSaveToast(msg,color){
   clearTimeout(_autoSaveToastTimer);
   _autoSaveToastTimer=setTimeout(()=>showToast(msg,color),600);
 }
-function saveSchedule(){
-  const nameInp=document.getElementById('sport-name');
-  if(nameInp)schedule.sportName=nameInp.value.trim()||getDefaultSportName();
-  const cb=document.getElementById('sport-legs-heavy');
-  if(cb)schedule.sportLegsHeavy=cb.checked;
+function saveSchedule(nextValues){
+  if(nextValues&&typeof nextValues==='object'){
+    if('sportName' in nextValues)schedule.sportName=String(nextValues.sportName||'').trim()||getDefaultSportName();
+    if('sportLegsHeavy' in nextValues)schedule.sportLegsHeavy=nextValues.sportLegsHeavy!==false;
+    if('sportIntensity' in nextValues)schedule.sportIntensity=nextValues.sportIntensity||'hard';
+    if('sportDays' in nextValues)schedule.sportDays=Array.isArray(nextValues.sportDays)?[...nextValues.sportDays]:[];
+  }else{
+    const nameInp=document.getElementById('sport-name');
+    if(nameInp)schedule.sportName=nameInp.value.trim()||getDefaultSportName();
+    const cb=document.getElementById('sport-legs-heavy');
+    if(cb)schedule.sportLegsHeavy=cb.checked;
+  }
   if(!activeWorkout)resetNotStartedView();
   saveScheduleData();
   saveProfileData({docKeys:['profile_core']});
+  if(isSettingsScheduleIslandActive())notifySettingsScheduleIsland();
   updateProgramDisplay();updateDashboard();renderSportStatusBar();
   _showAutoSaveToast(tr('toast.schedule_saved','Saved'),'var(--blue)');
 }
@@ -1572,6 +1639,8 @@ function updateLanguageDependentUI(){
   refreshDayNames();
   if(window.I18N&&I18N.applyTranslations)I18N.applyTranslations(document);
   notifySettingsAccountIsland();
+  notifySettingsScheduleIsland();
+  notifySettingsPreferencesIsland();
   notifySettingsBodyIsland();
   updateDashboard();
   renderSportDayToggles();

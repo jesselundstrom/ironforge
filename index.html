@@ -752,6 +752,7 @@
 
           <!-- ── Schedule tab ── -->
           <div id="settings-tab-schedule">
+            <div id="settings-schedule-legacy-shell">
             <div class="settings-status-bar" id="sport-status-bar"></div>
             <div class="card sport-load-card">
               <div class="card-title" data-i18n="settings.sport_load.title">
@@ -871,6 +872,8 @@
                 <div class="day-toggle-grid" id="sport-day-toggles"></div>
               </div>
             </div>
+            </div>
+            <div id="settings-schedule-react-root"></div>
           </div>
 
           <!-- ── Preferences tab ── -->
@@ -1783,6 +1786,7 @@
     <script src="programs/casualfullbody.js"></script>
     <script src="programs/hypertrophysplit.js"></script>
     <script type="module" src="/src/settings-account-island/main.jsx"></script>
+    <script type="module" src="/src/settings-schedule-island/main.jsx"></script>
     <script type="module" src="/src/settings-preferences-island/main.jsx"></script>
     <script type="module" src="/src/dashboard-island/main.jsx"></script>
     <script type="module" src="/src/history-island/main.jsx"></script>
