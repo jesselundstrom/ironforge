@@ -52,17 +52,25 @@ function getNavIndicatorIndex(name) {
 }
 
 function syncShellDom(name, btn) {
-  document.querySelectorAll('.page').forEach((page) => page.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach((navBtn) => navBtn.classList.remove('active'));
+  if (!isPageContainerShellActive()) {
+    document.querySelectorAll('.page').forEach((page) => page.classList.remove('active'));
+  }
+  if (!isAppShellActive()) {
+    document.querySelectorAll('.nav-btn').forEach((navBtn) => navBtn.classList.remove('active'));
+  }
 
-  const page = document.getElementById(`page-${name}`);
-  if (page) page.classList.add('active');
+  if (!isPageContainerShellActive()) {
+    const page = document.getElementById(`page-${name}`);
+    if (page) page.classList.add('active');
+  }
 
   const resolvedButton = btn || getNavButtonForPage(name);
-  if (resolvedButton) resolvedButton.classList.add('active');
+  if (!isAppShellActive() && resolvedButton) resolvedButton.classList.add('active');
 
-  const nav = document.querySelector('.bottom-nav');
-  if (nav) nav.style.setProperty('--nav-indicator-x', getNavIndicatorIndex(name));
+  if (!isAppShellActive()) {
+    const nav = document.querySelector('.bottom-nav');
+    if (nav) nav.style.setProperty('--nav-indicator-x', getNavIndicatorIndex(name));
+  }
 
   const contentScroller = document.querySelector('.content');
   if (contentScroller) {
@@ -93,6 +101,10 @@ function notifyAppShell() {
 
 function isAppShellActive() {
   return window.__IRONFORGE_APP_SHELL_MOUNTED__ === true;
+}
+
+function isPageContainerShellActive() {
+  return window.__IRONFORGE_PAGE_CONTAINER_SHELL_MOUNTED__ === true;
 }
 
 function getConfirmReactSnapshot() {
