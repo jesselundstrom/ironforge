@@ -729,6 +729,17 @@
             >
               App
             </button>
+            <button
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-settings-tab="body"
+              onclick="showSettingsTab('body', this)"
+              data-i18n="settings.tabs.body"
+            >
+              Body
+            </button>
           </div>
 
           <!-- ── Schedule tab ── -->
@@ -1306,6 +1317,36 @@
                 current data.
               </div>
             </div>
+            <div class="card">
+              <div class="card-title" data-i18n="settings.claude_api_key.title">
+                AI Nutrition Coach
+              </div>
+              <div
+                class="settings-note settings-note-top"
+                data-i18n="settings.claude_api_key.help"
+              >
+                Get your free API key at console.anthropic.com. The key is stored only on this device and is never synced to the cloud.
+              </div>
+              <div class="account-field">
+                <label data-i18n="settings.claude_api_key.label">Claude API Key</label>
+                <input
+                  type="password"
+                  id="nutrition-api-key-input"
+                  data-i18n-placeholder="settings.claude_api_key.placeholder"
+                  placeholder="sk-ant-..."
+                  autocomplete="off"
+                  spellcheck="false"
+                >
+              </div>
+              <button
+                class="btn btn-secondary"
+                type="button"
+                onclick="saveNutritionApiKey()"
+                data-i18n="settings.claude_api_key.save"
+              >
+                Save Key
+              </button>
+            </div>
             <div class="card danger-zone-card">
               <div class="danger-zone-header">
                 <span class="danger-zone-icon">&#9888;</span>
@@ -1358,6 +1399,155 @@
               </button>
             </div>
             <div class="app-version" id="app-version"></div>
+          </div>
+
+          <!-- ── Body tab ── -->
+          <div id="settings-tab-body" style="display: none">
+            <div class="card">
+              <div class="card-title" data-i18n="settings.body.metrics_title">
+                Body Metrics
+              </div>
+              <div
+                class="settings-note settings-note-top"
+                data-i18n="settings.body.metrics_help"
+              >
+                Used by the AI Nutrition Coach to personalise advice. All weights in kg.
+              </div>
+              <div class="settings-row-2col">
+                <div class="account-field">
+                  <label data-i18n="settings.body.weight">Current weight (kg)</label>
+                  <input
+                    type="number"
+                    id="body-weight"
+                    min="30"
+                    max="300"
+                    step="0.1"
+                    placeholder="e.g. 82"
+                  >
+                </div>
+                <div class="account-field">
+                  <label data-i18n="settings.body.height">Height (cm)</label>
+                  <input
+                    type="number"
+                    id="body-height"
+                    min="100"
+                    max="250"
+                    step="1"
+                    placeholder="e.g. 178"
+                  >
+                </div>
+              </div>
+              <div class="settings-row-2col">
+                <div class="account-field">
+                  <label data-i18n="settings.body.age">Age</label>
+                  <input
+                    type="number"
+                    id="body-age"
+                    min="10"
+                    max="100"
+                    step="1"
+                    placeholder="e.g. 28"
+                  >
+                </div>
+                <div class="account-field">
+                  <label data-i18n="settings.body.target_weight">Target weight (kg)</label>
+                  <input
+                    type="number"
+                    id="body-target-weight"
+                    min="30"
+                    max="300"
+                    step="0.1"
+                    placeholder="e.g. 85"
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title" data-i18n="settings.body.goal_title">
+                Body Composition Goal
+              </div>
+              <div class="account-field">
+                <label data-i18n="settings.body.goal_label">What are you working towards?</label>
+                <select id="body-goal">
+                  <option value="" data-i18n="settings.body.goal_none">— select —</option>
+                  <option value="lose_fat" data-i18n="settings.body.goal.lose_fat">Lose fat</option>
+                  <option value="gain_muscle" data-i18n="settings.body.goal.gain_muscle">Gain muscle</option>
+                  <option value="recomp" data-i18n="settings.body.goal.recomp">Body recomp (lose fat + gain muscle)</option>
+                  <option value="maintain" data-i18n="settings.body.goal.maintain">Maintain</option>
+                </select>
+              </div>
+              <button
+                class="btn btn-secondary"
+                type="button"
+                onclick="saveBodyMetrics()"
+                data-i18n="settings.body.save"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== NUTRITION COACH ===== -->
+        <div class="page" id="page-nutrition">
+          <div class="nutrition-page-header">
+            <div class="nutrition-page-title" data-i18n="nutrition.page.title">Nutrition Coach</div>
+            <button
+              class="btn btn-ghost nutrition-clear-btn"
+              type="button"
+              onclick="clearNutritionHistory()"
+              data-i18n="nutrition.clear.btn"
+            >Clear</button>
+          </div>
+          <div class="nutrition-messages" id="nutrition-messages"></div>
+          <div class="nutrition-loading" id="nutrition-loading" style="display:none">
+            <span class="nutrition-dot"></span>
+            <span class="nutrition-dot"></span>
+            <span class="nutrition-dot"></span>
+          </div>
+          <div class="nutrition-photo-preview" id="nutrition-photo-preview" style="display:none">
+            <img id="nutrition-preview-img" src="" alt="">
+            <button
+              class="nutrition-photo-clear"
+              type="button"
+              onclick="clearNutritionPhoto()"
+              aria-label="Remove photo"
+            >&#x2715;</button>
+          </div>
+          <div class="nutrition-input-bar">
+            <label class="nutrition-photo-btn" for="nutrition-photo-input" aria-label="Add photo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <input
+                type="file"
+                id="nutrition-photo-input"
+                accept="image/*"
+                capture="environment"
+                onchange="handleNutritionPhoto(event)"
+                class="file-input-hidden"
+              >
+            </label>
+            <textarea
+              class="nutrition-input"
+              id="nutrition-input"
+              rows="1"
+              data-i18n-placeholder="nutrition.input.placeholder"
+              placeholder="Ask about your food..."
+            ></textarea>
+            <button
+              class="nutrition-send-btn"
+              id="nutrition-send-btn"
+              type="button"
+              onclick="submitNutritionMessage()"
+              aria-label="Send"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -1449,6 +1639,17 @@
           </svg>
           <span data-i18n="nav.settings">Settings</span>
         </button>
+        <button class="nav-btn" onclick="showPage('nutrition', this)">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span data-i18n="nav.nutrition">Nutrition</span>
+        </button>
       </nav>
     </div>
 
@@ -1504,6 +1705,7 @@
     <script src="core/history-layer.js"></script>
     <script src="core/workout-layer.js"></script>
     <script src="core/ui-shell.js"></script>
+    <script src="core/nutrition-layer.js"></script>
     <script src="app.js"></script>
     <script src="programs/forge.js"></script>
     <script src="programs/wendler531.js"></script>

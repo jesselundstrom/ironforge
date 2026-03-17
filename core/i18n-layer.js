@@ -1041,7 +1041,45 @@ const STRINGS={
     'program.hs.simple.overview':'Training frequency now comes from Training Preferences. The split adapts automatically, while you set the current training maxes here.',
     'program.hs.save_setup':'Save Program Setup',
     'program.hs.simple.save':'Save Basics',
-    'program.hs.simple.summary':'{count} sessions/week · {split}'
+    'program.hs.simple.summary':'{count} sessions/week · {split}',
+
+    /* ── Body settings tab ───────────────────────────────────────── */
+    'settings.tabs.body':'Body',
+    'settings.body.metrics_title':'Body Metrics',
+    'settings.body.metrics_help':'Used by the AI Nutrition Coach to personalise advice. All weights in kg.',
+    'settings.body.weight':'Current weight (kg)',
+    'settings.body.height':'Height (cm)',
+    'settings.body.age':'Age',
+    'settings.body.target_weight':'Target weight (kg)',
+    'settings.body.goal_title':'Body Composition Goal',
+    'settings.body.goal_label':'What are you working towards?',
+    'settings.body.goal_none':'\u2014 select \u2014',
+    'settings.body.goal.lose_fat':'Lose fat',
+    'settings.body.goal.gain_muscle':'Gain muscle',
+    'settings.body.goal.recomp':'Body recomp (lose fat + gain muscle)',
+    'settings.body.goal.maintain':'Maintain',
+    'settings.body.save':'Save',
+    'settings.body.saved':'Body metrics saved',
+
+    /* ── Nutrition Coach ──────────────────────────────────────────── */
+    'nav.nutrition':'Nutrition',
+    'nutrition.page.title':'Nutrition Coach',
+    'nutrition.clear.btn':'Clear',
+    'nutrition.clear.title':'Clear conversation',
+    'nutrition.clear.body':'This will delete your entire nutrition conversation history.',
+    'nutrition.empty.title':'Your nutrition coach is ready',
+    'nutrition.empty.body':'Take a photo of your food and get a nutritional analysis and coaching advice.',
+    'nutrition.input.placeholder':'Ask about your food...',
+    'nutrition.default_prompt':'What can you tell me about this food?',
+    'nutrition.error.no_key':'Please add your Claude API key in Settings \u2192 Account to use the Nutrition Coach.',
+    'nutrition.error.api':'Something went wrong. Check your API key and try again.',
+    'settings.claude_api_key.title':'AI Nutrition Coach',
+    'settings.claude_api_key.label':'Claude API Key',
+    'settings.claude_api_key.placeholder':'sk-ant-...',
+    'settings.claude_api_key.help':'Get your free API key at console.anthropic.com. The key is stored only on this device and is never synced to the cloud.',
+    'settings.claude_api_key.save':'Save Key',
+    'settings.claude_api_key.saved':'API key saved',
+    'settings.claude_api_key.cleared':'API key removed'
   },
   fi:{
     'common.undo':'Kumoa',
@@ -2049,7 +2087,45 @@ const STRINGS={
     'program.hs.simple.save':'Tallenna perusasetukset',
     'program.hs.simple.summary':'{count} sessiota/viikko · {split}',
     'common.sets':'sarjaa',
-    'program.future':'Tuleva'
+    'program.future':'Tuleva',
+
+    /* ── Body settings tab ───────────────────────────────────────── */
+    'settings.tabs.body':'Keho',
+    'settings.body.metrics_title':'Kehon mittasuhteet',
+    'settings.body.metrics_help':'AI-ravintocoach k\u00e4ytt\u00e4\u00e4 n\u00e4it\u00e4 tietoja neuvojen r\u00e4\u00e4t\u00e4l\u00f6imiseen. Kaikki painot kilogrammoina.',
+    'settings.body.weight':'Nykyinen paino (kg)',
+    'settings.body.height':'Pituus (cm)',
+    'settings.body.age':'Ik\u00e4',
+    'settings.body.target_weight':'Tavoitepaino (kg)',
+    'settings.body.goal_title':'Kehonkoostumustavoite',
+    'settings.body.goal_label':'Mihin t\u00e4ht\u00e4\u00e4t?',
+    'settings.body.goal_none':'\u2014 valitse \u2014',
+    'settings.body.goal.lose_fat':'Rasvanpoltto',
+    'settings.body.goal.gain_muscle':'Lihasmassan kasvatus',
+    'settings.body.goal.recomp':'Kehon rekomp (rasvaa pois + lihasta lis\u00e4\u00e4)',
+    'settings.body.goal.maintain':'Yllapito',
+    'settings.body.save':'Tallenna',
+    'settings.body.saved':'Kehon tiedot tallennettu',
+
+    /* ── Nutrition Coach ──────────────────────────────────────────── */
+    'nav.nutrition':'Ravinto',
+    'nutrition.page.title':'Ravintocoach',
+    'nutrition.clear.btn':'Tyhjenn\u00e4',
+    'nutrition.clear.title':'Tyhjenn\u00e4 keskustelu',
+    'nutrition.clear.body':'T\u00e4m\u00e4 poistaa koko ravintokeskusteluhistoriasi.',
+    'nutrition.empty.title':'Ravintocoachisi on valmis',
+    'nutrition.empty.body':'Ota kuva ruoastasi ja saat ravintosisält\u00f6analyysin ja valmennusneuvoja.',
+    'nutrition.input.placeholder':'Kysy ruoastasi...',
+    'nutrition.default_prompt':'Mitä voit kertoa tästä ruoasta?',
+    'nutrition.error.no_key':'Lis\u00e4\u00e4 Claude API -avaimesi kohdassa Asetukset \u2192 Tili k\u00e4ytt\u00e4\u00e4ksesi ravintocoachia.',
+    'nutrition.error.api':'Jokin meni pieleen. Tarkista API-avaimesi ja yrit\u00e4 uudelleen.',
+    'settings.claude_api_key.title':'AI-ravintocoach',
+    'settings.claude_api_key.label':'Claude API -avain',
+    'settings.claude_api_key.placeholder':'sk-ant-...',
+    'settings.claude_api_key.help':'Hanki ilmainen API-avain osoitteesta console.anthropic.com. Avain tallennetaan vain t\u00e4lle laitteelle eik\u00e4 synkronoidu pilveen.',
+    'settings.claude_api_key.save':'Tallenna avain',
+    'settings.claude_api_key.saved':'API-avain tallennettu',
+    'settings.claude_api_key.cleared':'API-avain poistettu'
   }
 };
 

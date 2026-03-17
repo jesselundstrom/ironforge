@@ -584,7 +584,7 @@ function setSportIntensity(val,el){
 let _settingsTab='schedule';
 function showSettingsTab(name,el){
   _settingsTab=name;
-  ['schedule','preferences','program','account'].forEach(t=>{
+  ['schedule','preferences','program','account','body'].forEach(t=>{
     const d=document.getElementById('settings-tab-'+t);
     if(d)d.style.display=t===name?'':'none';
   });
@@ -1147,6 +1147,16 @@ function initSettings(){
   renderSportStatusBar();
   renderProgramStatusBar();
   renderBackupContext();
+  // Claude API key field (nutrition coach)
+  {const keyInp=document.getElementById('nutrition-api-key-input');
+   if(keyInp&&typeof getNutritionApiKey==='function')keyInp.value=getNutritionApiKey();}
+  // Body metrics
+  {const bm=profile.bodyMetrics||{};
+   const w=document.getElementById('body-weight');if(w)w.value=bm.weight||'';
+   const h=document.getElementById('body-height');if(h)h.value=bm.height||'';
+   const a=document.getElementById('body-age');if(a)a.value=bm.age||'';
+   const tw=document.getElementById('body-target-weight');if(tw)tw.value=bm.targetWeight||'';
+   const bg=document.getElementById('body-goal');if(bg)bg.value=bm.bodyGoal||'';}
   // Version display
   {const vEl=document.getElementById('app-version');if(vEl)vEl.textContent='Ironforge v'+APP_VERSION;}
   // Reset danger zone confirm state
@@ -1173,6 +1183,19 @@ function saveRestTimer(){
   restDuration=profile.defaultRest;
   saveProfileData({docKeys:['profile_core']});
   _showAutoSaveToast(tr('toast.rest_updated','Saved'),'var(--blue)');
+}
+function saveBodyMetrics(){
+  const toNum=(id,parse)=>{const v=document.getElementById(id)?.value;return v?parse(v):null;};
+  if(!profile.bodyMetrics)profile.bodyMetrics={};
+  profile.bodyMetrics={
+    weight:toNum('body-weight',parseFloat),
+    height:toNum('body-height',parseFloat),
+    age:toNum('body-age',parseInt),
+    targetWeight:toNum('body-target-weight',parseFloat),
+    bodyGoal:document.getElementById('body-goal')?.value||null,
+  };
+  saveProfileData({docKeys:['profile_core']});
+  showToast(tr('settings.body.saved','Saved'),'var(--green)');
 }
 function saveTrainingPreferences(){
   const prefs=normalizeTrainingPreferences(profile);
