@@ -8336,24 +8336,6 @@ body.login-active::before {
   width: 22px;
   height: 22px;
 }
-.nutrition-input {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 9px 14px;
-  font-size: 15px;
-  color: var(--text);
-  resize: none;
-  min-height: 40px;
-  max-height: 120px;
-  line-height: 1.4;
-  font-family: inherit;
-  outline: none;
-}
-.nutrition-input:focus {
-  border-color: var(--accent);
-}
 .nutrition-send-btn {
   flex-shrink: 0;
   width: 40px;
@@ -8463,10 +8445,6 @@ body.login-active::before {
     ),
     linear-gradient(180deg, #11131a 0%, #090b10 100%);
 }
-.content.nutrition-active.nutrition-keyboard-open {
-  padding-top: calc(var(--sat) + 4px);
-  padding-bottom: calc(var(--sab) + 10px);
-}
 .content.nutrition-active .header {
   display: none;
 }
@@ -8478,11 +8456,6 @@ body.login-active::before {
 .app.nutrition-active .bottom-nav {
   background: rgba(10, 11, 15, 0.9);
   border-top-color: rgba(255, 181, 94, 0.12);
-}
-.app.nutrition-keyboard-open .bottom-nav {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(calc(100% + 16px));
 }
 .content.nutrition-active #page-nutrition.active {
   flex: 1;
@@ -8500,7 +8473,7 @@ body.login-active::before {
 .content.nutrition-active #nutrition-shell {
   position: relative;
   border-radius: 30px;
-  padding: 16px 14px 14px;
+  padding: 14px 12px 12px;
   overflow: hidden;
   background:
     linear-gradient(
@@ -8539,7 +8512,7 @@ body.login-active::before {
 .content.nutrition-active .nutrition-page-header {
   align-items: flex-start;
   gap: 12px;
-  padding: 4px 2px 14px;
+  padding: 4px 2px 8px;
 }
 .content.nutrition-active .nutrition-page-heading {
   min-width: 0;
@@ -8552,9 +8525,6 @@ body.login-active::before {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   margin-bottom: 6px;
-}
-.content.nutrition-active.nutrition-keyboard-open .nutrition-page-kicker {
-  display: none;
 }
 .content.nutrition-active .nutrition-page-title {
   font-family: 'Cinzel', serif;
@@ -8592,17 +8562,14 @@ body.login-active::before {
 }
 .content.nutrition-active .nutrition-meta-stack {
   display: grid;
-  gap: 10px;
-  margin-bottom: 8px;
-  max-height: calc(var(--app-vh) * 0.24);
+  gap: 6px;
+  margin-bottom: 6px;
+  max-height: calc(var(--app-vh) * 0.18);
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .content.nutrition-active .nutrition-meta-stack::-webkit-scrollbar {
-  display: none;
-}
-.content.nutrition-active.nutrition-keyboard-open .nutrition-meta-stack {
   display: none;
 }
 .content.nutrition-active .nutrition-meta-stack:empty {
@@ -8622,10 +8589,11 @@ body.login-active::before {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .content.nutrition-active .nutrition-context-banner {
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
   color: rgba(232, 222, 211, 0.78);
+  font-size: 11px;
 }
 .content.nutrition-active .nutrition-context-banner svg {
   width: 16px;
@@ -8656,17 +8624,17 @@ body.login-active::before {
 .content.nutrition-active .nutrition-empty {
   justify-content: center;
   min-height: 100%;
-  padding: 20px 10px 28px;
+  padding: 16px 10px 20px;
 }
 .content.nutrition-active .nutrition-empty-kicker {
   color: rgba(255, 216, 147, 0.88);
   letter-spacing: 0.18em;
 }
 .content.nutrition-active .nutrition-empty-orb {
-  width: 108px;
-  height: 108px;
-  margin: 18px 0 16px;
-  border-radius: 34px;
+  width: 88px;
+  height: 88px;
+  margin: 14px 0 12px;
+  border-radius: 28px;
   background:
     radial-gradient(
       circle at top,
@@ -8681,23 +8649,24 @@ body.login-active::before {
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .content.nutrition-active .nutrition-empty-orb svg {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   color: #ffdba6;
 }
 .content.nutrition-active .nutrition-empty-title {
-  font-size: 28px;
+  font-size: 24px;
   color: #fff4de;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .content.nutrition-active .nutrition-empty-sub {
   color: rgba(236, 228, 218, 0.72);
-  max-width: 320px;
-  line-height: 1.7;
+  max-width: 300px;
+  line-height: 1.6;
+  font-size: 13px;
 }
 .content.nutrition-active .nutrition-empty-reset {
-  margin-top: 16px;
-  padding: 10px 14px;
+  margin-top: 12px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -8712,18 +8681,20 @@ body.login-active::before {
 }
 .content.nutrition-active .nutrition-action-grid {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-mask-image: linear-gradient(to right, #000 85%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 85%, transparent 100%);
 }
 .content.nutrition-active .nutrition-action-grid::-webkit-scrollbar {
   display: none;
 }
 .content.nutrition-active .nutrition-prompt-chip {
-  gap: 10px;
-  padding: 14px 16px;
+  gap: 8px;
+  padding: 10px 14px;
   background:
     linear-gradient(
       180deg,
@@ -8732,30 +8703,35 @@ body.login-active::before {
     ),
     rgba(18, 21, 27, 0.94);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
+  border-radius: 16px;
   color: rgba(255, 244, 228, 0.92);
+  font-size: 12px;
   font-weight: 600;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .content.nutrition-active .nutrition-action-card {
-  flex: 0 0 min(220px, 78%);
-  min-height: 60px;
+  flex: 0 0 min(180px, 72%);
+  min-height: 44px;
   align-items: flex-start;
   justify-content: flex-start;
   text-align: left;
 }
 .content.nutrition-active .nutrition-action-card.active {
-  border-color: rgba(255, 181, 94, 0.42);
+  border-color: rgba(255, 181, 94, 0.5);
   background:
     linear-gradient(
       180deg,
-      rgba(255, 181, 94, 0.16),
+      rgba(255, 181, 94, 0.18),
       rgba(255, 255, 255, 0.02)
     ),
     rgba(18, 21, 27, 0.98);
   box-shadow:
-    0 16px 26px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(255, 181, 94, 0.15),
+    0 12px 22px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.content.nutrition-active .nutrition-action-card.active svg {
+  color: #ffb65e;
 }
 .content.nutrition-active .nutrition-prompt-chip:hover {
   border-color: rgba(255, 181, 94, 0.3);
@@ -8899,10 +8875,10 @@ body.login-active::before {
 }
 .content.nutrition-active .nutrition-composer {
   flex-shrink: 0;
-  margin-top: 8px;
+  margin-top: 6px;
   padding: 10px;
   border-radius: 26px;
-  max-height: calc(var(--app-vh) * 0.32);
+  max-height: calc(var(--app-vh) * 0.28);
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -8922,7 +8898,7 @@ body.login-active::before {
   display: none;
 }
 .content.nutrition-active .nutrition-composer-copy {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .content.nutrition-active .nutrition-composer-kicker {
   font-size: 10px;
@@ -8931,22 +8907,13 @@ body.login-active::before {
   color: rgba(255, 211, 139, 0.84);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 .content.nutrition-active .nutrition-composer-title {
   color: #fff4de;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.3;
-}
-.content.nutrition-active.nutrition-keyboard-open .nutrition-composer {
-  margin-top: 8px;
-  padding: 10px;
-  border-radius: 22px;
-}
-.content.nutrition-active.nutrition-keyboard-open .nutrition-composer-copy,
-.content.nutrition-active.nutrition-keyboard-open .nutrition-action-grid {
-  display: none;
 }
 .content.nutrition-active .nutrition-composer.nc-hidden {
   display: none;
@@ -8967,24 +8934,13 @@ body.login-active::before {
   width: 26px;
   height: 26px;
 }
-.content.nutrition-active .nutrition-note-wrap {
-  margin-top: 10px;
-}
-.content.nutrition-active .nutrition-note-label {
-  display: block;
-  margin: 0 0 8px;
-  color: rgba(236, 228, 218, 0.68);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
 .content.nutrition-active .nutrition-input-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   padding: 0;
-  margin-top: 10px;
+  margin-top: 8px;
   border-top: none;
   background: none;
 }
@@ -9004,25 +8960,6 @@ body.login-active::before {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 181, 94, 0.2);
 }
-.content.nutrition-active .nutrition-input {
-  width: 100%;
-  background: rgba(7, 9, 14, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 10px 14px;
-  color: #fff4e8;
-  min-height: 42px;
-  line-height: 1.45;
-  box-shadow: none;
-}
-.content.nutrition-active.nutrition-keyboard-open .nutrition-input {
-  min-height: 42px;
-  max-height: 88px;
-}
-.content.nutrition-active .nutrition-input:focus {
-  border-color: rgba(245, 130, 31, 0.68);
-  box-shadow: 0 0 0 3px rgba(245, 130, 31, 0.12);
-}
 .content.nutrition-active .nutrition-send-btn {
   width: auto;
   height: 42px;
@@ -9039,8 +8976,8 @@ body.login-active::before {
   text-transform: uppercase;
 }
 .content.nutrition-active .nutrition-today-card {
-  align-items: flex-start;
-  padding: 14px 16px;
+  align-items: center;
+  padding: 10px 12px;
 }
 .content.nutrition-active .nutrition-today-card .nc-today-label {
   font-weight: 700;

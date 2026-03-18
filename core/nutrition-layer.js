@@ -7,7 +7,6 @@
   let _loading = false;
   let _streaming = false;
   let _pendingImage = null; // base64 data URL of selected photo
-  let _keyboardViewportBound = false;
   let _activeHistoryDate = '';
   let _selectedActionId = 'plan_today';
 
@@ -708,7 +707,6 @@
       promptText: payload.promptText || payload.displayText || '',
       imageDataUrl: payload.imageDataUrl || null,
       actionId: payload.actionId || null,
-      note: payload.note || '',
       timestamp: Date.now(),
     };
     _history.push(userEntry);
@@ -806,46 +804,6 @@
       });
   }
 
-  function _setNutritionKeyboardMode(active) {
-    var content = document.querySelector('.content');
-    var appRoot = document.getElementById('app-root');
-    if (content) {
-      content.classList.toggle('nutrition-keyboard-open', active);
-    }
-    if (appRoot) {
-      appRoot.classList.toggle('nutrition-keyboard-open', active);
-    }
-  }
-
-  function _updateNutritionKeyboardMode() {
-    var page = document.getElementById('page-nutrition');
-    var input = document.getElementById('nutrition-input');
-    var viewport = window.visualViewport;
-    var isNutritionActive = !!(
-      page &&
-      page.classList.contains('active') &&
-      document.querySelector('.content.nutrition-active')
-    );
-    var isInputFocused = document.activeElement === input;
-    var keyboardInset =
-      viewport && typeof window.innerHeight === 'number'
-        ? Math.max(0, window.innerHeight - viewport.height)
-        : 0;
-    var keyboardLikelyOpen = !!(
-      isNutritionActive &&
-      isInputFocused &&
-      keyboardInset > 120
-    );
-
-    _setNutritionKeyboardMode(keyboardLikelyOpen);
-
-    if (keyboardLikelyOpen) {
-      requestAnimationFrame(function () {
-        window.scrollTo(0, 0);
-        _scrollToBottom(true);
-      });
-    }
-  }
 
   // Lightweight markdown renderer for coach responses.
   // Handles: ## headings, **bold**, `code`, bullet/numbered lists, paragraphs.
@@ -1223,17 +1181,10 @@
 
   // ─── Premium empty state ──────────────────────────────────────────────
 
-  function _buildActionRequest(action, note, imageDataUrl) {
-    var trimmedNote = (note || '').trim();
+  function _buildActionRequest(action, imageDataUrl) {
     var label = _getActionLabel(action);
-    var displayText = label;
-    if (trimmedNote) {
-      displayText +=
-        '\n' + tr('nutrition.note.prefix', 'Note') + ': ' + trimmedNote;
-    }
 
     var promptParts = ['Primary task: ' + label, action.prompt];
-    if (trimmedNote) promptParts.push('User note: ' + trimmedNote);
     if (imageDataUrl) {
       promptParts.push('A food photo is attached.');
     } else if (action.id === 'analyze_photo') {
@@ -1242,10 +1193,9 @@
 
     return {
       actionId: action.id,
-      displayText: displayText,
+      displayText: label,
       promptText: promptParts.join('\n\n'),
       imageDataUrl: imageDataUrl || null,
-      note: trimmedNote,
     };
   }
 
@@ -1293,9 +1243,9 @@
       '</svg></div>' +
       '<div class="nutrition-empty-title" data-i18n="nutrition.empty.title">Your daily nutrition coach</div>' +
       '<div class="nutrition-empty-sub" data-i18n="nutrition.empty.body">' +
-      'Pick one guided action for today, add a short note only if needed, and keep the session focused on this day.</div>' +
+      'Pick a guided action below and get personalised nutrition advice for today.</div>' +
       '<div class="nutrition-empty-reset" data-i18n="nutrition.empty.reset">' +
-      'This coach resets to a fresh day automatically tomorrow.</div>' +
+      'Resets automatically each day.</div>' +
       '</div>'
     );
   }
@@ -1315,14 +1265,20 @@
     var bm = (typeof profile !== 'undefined' && profile.bodyMetrics) || {};
     var parts = [];
     if (bm.weight) parts.push(bm.weight + ' kg');
-    var goalLabels = {
-      lose_fat: 'lose fat',
-      gain_muscle: 'gain muscle',
+    var goalKeys = {
+      lose_fat: 'nutrition.goal.lose_fat',
+      gain_muscle: 'nutrition.goal.gain_muscle',
+      recomp: 'nutrition.goal.recomp',
+      maintain: 'nutrition.goal.maintain',
+    };
+    var goalFallbacks = {
+      lose_fat: 'fat loss',
+      gain_muscle: 'muscle gain',
       recomp: 'recomp',
       maintain: 'maintain',
     };
-    if (bm.bodyGoal && goalLabels[bm.bodyGoal])
-      parts.push(goalLabels[bm.bodyGoal]);
+    if (bm.bodyGoal && goalKeys[bm.bodyGoal])
+      parts.push(tr(goalKeys[bm.bodyGoal], goalFallbacks[bm.bodyGoal]));
 
     var targets = _calculateTargets();
     if (targets) parts.push(targets.calories + ' kcal/day');
@@ -1332,8 +1288,8 @@
         '<div class="nutrition-context-banner">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
         '<span>' +
-        tr('nutrition.banner.personalized', 'Personalised for') +
-        ': ' +
+        tr('nutrition.banner.personalized', 'Personalised') +
+        ' · ' +
         escapeHtml(parts.join(', ')) +
         '</span>' +
         '</div>'
@@ -1462,7 +1418,6 @@
           displayText: entry.text,
           promptText: entry.promptText || entry.text,
           imageDataUrl: entry.imageDataUrl,
-          note: entry.note || '',
         });
         return;
       }
@@ -1501,31 +1456,18 @@
     notifyNutritionIsland();
   }
 
-  // ─── Textarea auto-resize ────────────────────────────────────────────────────
-
-  function _autoResizeInput(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 96) + 'px';
-  }
-
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
   function submitNutritionMessage() {
     _ensureTodayHistoryLoaded();
-    const input = document.getElementById('nutrition-input');
-    const note = input ? input.value.trim() : '';
     const image = _pendingImage;
     const action = _getSelectedAction();
 
     if (!action) return;
 
-    if (input) {
-      input.value = '';
-      input.style.height = ''; // Reset to CSS default (1 row)
-    }
     clearNutritionPhoto();
 
-    sendNutritionMessage(_buildActionRequest(action, note, image));
+    sendNutritionMessage(_buildActionRequest(action, image));
   }
 
   // ─── Clear history ────────────────────────────────────────────────────────────
@@ -1550,44 +1492,7 @@
   function initNutritionPage() {
     _loadHistory();
     _renderMessages();
-
-    // Attach enter-key and auto-resize handlers (safe to re-attach via onX)
-    var input = document.getElementById('nutrition-input');
-    if (!_keyboardViewportBound && window.visualViewport) {
-      window.visualViewport.addEventListener(
-        'resize',
-        _updateNutritionKeyboardMode
-      );
-      window.visualViewport.addEventListener(
-        'scroll',
-        _updateNutritionKeyboardMode
-      );
-      _keyboardViewportBound = true;
-    }
-    if (input) {
-      input.onkeydown = function (e) {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          submitNutritionMessage();
-        }
-      };
-      input.oninput = function () {
-        _autoResizeInput(this);
-      };
-      input.onfocus = function () {
-        requestAnimationFrame(function () {
-          _scrollToBottom(true);
-          _updateNutritionKeyboardMode();
-          window.scrollTo(0, 0);
-        });
-      };
-      input.onblur = function () {
-        window.setTimeout(_updateNutritionKeyboardMode, 120);
-      };
-    }
-
     _scrollToBottom();
-    _updateNutritionKeyboardMode();
     notifyNutritionIsland();
   }
 

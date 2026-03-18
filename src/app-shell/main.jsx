@@ -149,12 +149,6 @@ function AppShellIsland() {
     if (appRoot) {
       appRoot.classList.toggle('nutrition-active', isNutritionActive);
     }
-    if (!isNutritionActive) {
-      contentScroller.classList.remove('nutrition-keyboard-open');
-      if (appRoot) {
-        appRoot.classList.remove('nutrition-keyboard-open');
-      }
-    }
   }, [snapshot.activePage]);
 
   useEffect(() => {

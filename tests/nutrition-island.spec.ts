@@ -123,9 +123,6 @@ test('nutrition island renders today session, guided actions, and can clear the 
   await expect(
     page.locator('#nutrition-react-root .nutrition-action-grid')
   ).toBeVisible();
-  await expect(
-    page.locator('#nutrition-react-root .nutrition-note-label')
-  ).toBeVisible();
 
   await page.evaluate(() => {
     window.eval('clearNutritionHistory()');
