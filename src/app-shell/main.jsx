@@ -146,8 +146,15 @@ function AppShellIsland() {
     // Nutrition page manages its own scroll so the shell should not fight it.
     contentScroller.classList.toggle('no-scroll', isNutritionActive);
     contentScroller.classList.toggle('nutrition-active', isNutritionActive);
-    if (appRoot)
+    if (appRoot) {
       appRoot.classList.toggle('nutrition-active', isNutritionActive);
+    }
+    if (!isNutritionActive) {
+      contentScroller.classList.remove('nutrition-keyboard-open');
+      if (appRoot) {
+        appRoot.classList.remove('nutrition-keyboard-open');
+      }
+    }
   }, [snapshot.activePage]);
 
   useEffect(() => {

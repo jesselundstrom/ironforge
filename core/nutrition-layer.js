@@ -7,6 +7,7 @@
   let _loading = false;
   let _streaming = false;
   let _pendingImage = null; // base64 data URL of selected photo
+  let _keyboardViewportBound = false;
 
   const NUTRITION_ISLAND_EVENT = 'ironforge:nutrition-updated';
 
@@ -694,6 +695,47 @@
       });
   }
 
+  function _setNutritionKeyboardMode(active) {
+    var content = document.querySelector('.content');
+    var appRoot = document.getElementById('app-root');
+    if (content) {
+      content.classList.toggle('nutrition-keyboard-open', active);
+    }
+    if (appRoot) {
+      appRoot.classList.toggle('nutrition-keyboard-open', active);
+    }
+  }
+
+  function _updateNutritionKeyboardMode() {
+    var page = document.getElementById('page-nutrition');
+    var input = document.getElementById('nutrition-input');
+    var viewport = window.visualViewport;
+    var isNutritionActive = !!(
+      page &&
+      page.classList.contains('active') &&
+      document.querySelector('.content.nutrition-active')
+    );
+    var isInputFocused = document.activeElement === input;
+    var keyboardInset =
+      viewport && typeof window.innerHeight === 'number'
+        ? Math.max(0, window.innerHeight - viewport.height)
+        : 0;
+    var keyboardLikelyOpen = !!(
+      isNutritionActive &&
+      isInputFocused &&
+      keyboardInset > 120
+    );
+
+    _setNutritionKeyboardMode(keyboardLikelyOpen);
+
+    if (keyboardLikelyOpen) {
+      requestAnimationFrame(function () {
+        window.scrollTo(0, 0);
+        _scrollToBottom(true);
+      });
+    }
+  }
+
   // Lightweight markdown renderer for coach responses.
   // Handles: ## headings, **bold**, `code`, bullet/numbered lists, paragraphs.
   function _formatText(text) {
@@ -1369,6 +1411,17 @@
 
     // Attach enter-key and auto-resize handlers (safe to re-attach via onX)
     var input = document.getElementById('nutrition-input');
+    if (!_keyboardViewportBound && window.visualViewport) {
+      window.visualViewport.addEventListener(
+        'resize',
+        _updateNutritionKeyboardMode
+      );
+      window.visualViewport.addEventListener(
+        'scroll',
+        _updateNutritionKeyboardMode
+      );
+      _keyboardViewportBound = true;
+    }
     if (input) {
       input.onkeydown = function (e) {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -1382,11 +1435,17 @@
       input.onfocus = function () {
         requestAnimationFrame(function () {
           _scrollToBottom(true);
+          _updateNutritionKeyboardMode();
+          window.scrollTo(0, 0);
         });
+      };
+      input.onblur = function () {
+        window.setTimeout(_updateNutritionKeyboardMode, 120);
       };
     }
 
     _scrollToBottom();
+    _updateNutritionKeyboardMode();
     notifyNutritionIsland();
   }
 
