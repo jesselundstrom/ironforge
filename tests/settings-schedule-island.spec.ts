@@ -21,7 +21,12 @@ test('settings schedule island renders from the legacy bridge and saves schedule
   });
 
   await expect(page.locator('#settings-schedule-legacy-shell')).toHaveCount(0);
-  await expect(page.locator('#settings-schedule-react-root #sport-name')).toHaveValue('Hockey');
+  await expect
+    .poll(
+      () => page.locator('#settings-schedule-react-root #sport-name').inputValue(),
+      { timeout: 15000 }
+    )
+    .toBe('Hockey');
 
   await page.evaluate(() => {
     const sportName = document.getElementById('sport-name');

@@ -5,9 +5,11 @@
 
   let _history = [];
   let _loading = false;
+  let _loadingContext = 'text';
   let _streaming = false;
   let _activeHistoryDate = '';
   let _selectedActionId = 'plan_today';
+  let _nutritionMenuOpen = false;
 
   const NUTRITION_ISLAND_EVENT = 'ironforge:nutrition-updated';
   const NUTRITION_ACTIONS = [
@@ -63,12 +65,31 @@
   }
 
   function getNutritionReactSnapshot() {
-    var shell =
-      document.getElementById('nutrition-shell') ||
-      document.getElementById('nutrition-legacy-shell');
+    _ensureTodayHistoryLoaded();
+    var hasApiKey = !!getNutritionApiKey();
+    var loadingText = _loading
+      ? _loadingContext === 'photo'
+        ? tr('nutrition.loading.analyzing', 'Analyzing your meal...')
+        : tr('nutrition.loading.thinking', 'Thinking...')
+      : '';
     return {
       values: {
-        html: shell ? shell.innerHTML : '',
+        hasApiKey: hasApiKey,
+        menuOpen: _nutritionMenuOpen,
+        loading: {
+          visible: _loading,
+          text: loadingText,
+        },
+        selectedActionId: _selectedActionId,
+        actions: NUTRITION_ACTIONS.map(_getNutritionActionSnapshot),
+        contextBanner: hasApiKey ? _getNutritionContextBannerSnapshot() : null,
+        todayCard: hasApiKey ? _getNutritionTodayCardSnapshot() : null,
+        messagesState: !hasApiKey
+          ? 'setup'
+          : !_history.length
+            ? 'empty'
+            : 'thread',
+        messages: hasApiKey ? _getNutritionMessagesSnapshot() : [],
       },
     };
   }
@@ -76,6 +97,7 @@
   window.__IRONFORGE_NUTRITION_ISLAND_EVENT__ = NUTRITION_ISLAND_EVENT;
   window.getNutritionReactSnapshot = getNutritionReactSnapshot;
   window.notifyNutritionIsland = notifyNutritionIsland;
+  window.setSelectedNutritionAction = setSelectedNutritionAction;
 
   // ─── Storage keys ────────────────────────────────────────────────────────────
 
@@ -119,6 +141,156 @@
 
   function _getActionLabel(action) {
     return tr(action.labelKey, action.fallbackLabel);
+  }
+
+  function setSelectedNutritionAction(actionId) {
+    _selectedActionId = _getActionById(actionId).id;
+    if (!isNutritionIslandActive()) {
+      _renderComposerControls();
+    }
+    notifyNutritionIsland();
+  }
+
+  function _getNutritionActionSnapshot(action) {
+    return {
+      id: action.id,
+      labelKey: action.labelKey,
+      fallbackLabel: action.fallbackLabel,
+      selected: action.id === _selectedActionId,
+    };
+  }
+
+  function _getNutritionContextBannerSnapshot() {
+    var bm = (typeof profile !== 'undefined' && profile.bodyMetrics) || {};
+    var parts = [];
+    var goalKeys = {
+      lose_fat: 'nutrition.goal.lose_fat',
+      gain_muscle: 'nutrition.goal.gain_muscle',
+      recomp: 'nutrition.goal.recomp',
+      maintain: 'nutrition.goal.maintain',
+    };
+    var goalFallbacks = {
+      lose_fat: 'fat loss',
+      gain_muscle: 'muscle gain',
+      recomp: 'recomp',
+      maintain: 'maintain',
+    };
+    if (bm.weight) parts.push(bm.weight + ' kg');
+    if (bm.bodyGoal && goalKeys[bm.bodyGoal]) {
+      parts.push(tr(goalKeys[bm.bodyGoal], goalFallbacks[bm.bodyGoal]));
+    }
+    var targets = _calculateTargets();
+    if (targets) parts.push(targets.calories + ' kcal/day');
+
+    if (parts.length) {
+      return {
+        kind: 'personalized',
+        text: tr('nutrition.banner.personalized', 'Personalised'),
+        details: parts.join(', '),
+      };
+    }
+
+    return {
+      kind: 'setup_body',
+      text: tr(
+        'nutrition.banner.setup_body',
+        'Set up your body profile for personalised advice'
+      ),
+      linkText: tr('nutrition.banner.settings_link', 'Settings'),
+    };
+  }
+
+  function _getNutritionTodayCardSnapshot() {
+    _ensureTodayHistoryLoaded();
+    var ts = _todayStartTimestamp();
+    var totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    var mealCount = 0;
+
+    for (var i = 0; i < _history.length; i++) {
+      var msg = _history[i];
+      if (
+        msg.role !== 'assistant' ||
+        msg.isError ||
+        !msg.timestamp ||
+        msg.timestamp < ts
+      ) {
+        continue;
+      }
+      var macros = _extractMacros(msg.text || '');
+      if (!macros) continue;
+      mealCount++;
+      if (macros.calories) totals.calories += parseFloat(macros.calories) || 0;
+      if (macros.protein) totals.protein += parseFloat(macros.protein) || 0;
+      if (macros.carbs) totals.carbs += parseFloat(macros.carbs) || 0;
+      if (macros.fat) totals.fat += parseFloat(macros.fat) || 0;
+    }
+
+    if (!mealCount) return null;
+
+    var targets = _calculateTargets();
+    return {
+      calories: {
+        value: Math.round(totals.calories),
+        target: targets ? targets.calories : null,
+        progress: targets
+          ? Math.min(100, Math.round((totals.calories / targets.calories) * 100))
+          : 0,
+      },
+      protein: {
+        value: Math.round(totals.protein),
+        target: targets ? targets.protein : null,
+        progress: targets
+          ? Math.min(100, Math.round((totals.protein / targets.protein) * 100))
+          : 0,
+      },
+      carbs: Math.round(totals.carbs),
+      fat: Math.round(totals.fat),
+    };
+  }
+
+  function _getNutritionMessageSnapshot(msg, idx) {
+    if (msg.role === 'user') {
+      if (msg.imageDataUrl) {
+        return {
+          id: msg.id || 'nutrition-user-photo-' + idx,
+          kind: 'photo',
+          imageDataUrl: msg.imageDataUrl,
+        };
+      }
+      return {
+        id: msg.id || 'nutrition-user-action-' + idx,
+        kind: 'action',
+        text: msg.text || '',
+      };
+    }
+
+    var isLast = idx === _history.length - 1;
+    var isStreaming = isLast && _streaming;
+    var macros =
+      !msg.isError && !isStreaming ? _extractMacros(msg.text || '') : null;
+    var modelTag = msg.model
+      ? ' · ' +
+        msg.model
+          .replace(/^claude-/, '')
+          .replace(/-\d{8}$/, '')
+          .replace(/-\d+$/, '')
+      : '';
+
+    return {
+      id: msg.id || 'nutrition-coach-' + idx,
+      kind: 'coach',
+      text: msg.text || '',
+      isError: msg.isError === true,
+      isStreaming: isStreaming,
+      macros: macros,
+      timestamp: _formatTimestamp(msg.timestamp),
+      modelTag: modelTag,
+    };
+  }
+
+  function _getNutritionMessagesSnapshot() {
+    _ensureTodayHistoryLoaded();
+    return _history.map(_getNutritionMessageSnapshot);
   }
 
   function _ensureTodayHistoryLoaded() {
@@ -804,6 +976,7 @@
 
   function _setLoading(loading, context) {
     _loading = loading;
+    _loadingContext = context || 'text';
     var el = document.getElementById('nutrition-loading');
     if (el) el.style.display = loading ? 'flex' : 'none';
     var btn = document.getElementById('nutrition-send-btn');
@@ -1033,6 +1206,10 @@
   // ─── Render messages ──────────────────────────────────────────────────
 
   function _updateMetaStack() {
+    if (isNutritionIslandActive()) {
+      notifyNutritionIsland();
+      return;
+    }
     _ensureTodayHistoryLoaded();
     var metaStack = document.getElementById('nutrition-meta-stack');
     if (!metaStack) return;
@@ -1051,6 +1228,10 @@
 
   function _renderMessages() {
     _ensureTodayHistoryLoaded();
+    if (isNutritionIslandActive()) {
+      notifyNutritionIsland();
+      return;
+    }
     var container = document.getElementById('nutrition-messages');
     if (!container) return;
     var inputBar = document.querySelector('.nutrition-input-bar');
@@ -1255,6 +1436,10 @@
   }
 
   function _renderComposerControls() {
+    if (isNutritionIslandActive()) {
+      notifyNutritionIsland();
+      return;
+    }
     var grid = document.getElementById('nutrition-action-grid');
     if (!grid) return;
     grid.innerHTML = _renderActionGrid();
@@ -1420,11 +1605,8 @@
   // ─── Overflow menu ────────────────────────────────────────────────────
 
   function toggleNutritionMenu() {
-    var menu = document.getElementById('nutrition-overflow-menu');
-    if (!menu) return;
-    var isOpen = menu.classList.contains('open');
-    menu.classList.toggle('open', !isOpen);
-    if (!isOpen) {
+    _nutritionMenuOpen = !_nutritionMenuOpen;
+    if (_nutritionMenuOpen) {
       // Close on outside click
       setTimeout(function () {
         document.addEventListener('click', _closeMenuOnOutside, { once: true });
@@ -1434,12 +1616,14 @@
   }
 
   function _closeMenuOnOutside(e) {
-    var menu = document.getElementById('nutrition-overflow-menu');
-    var wrap = menu && menu.closest('.nutrition-overflow-wrap');
-    if (menu && wrap && !wrap.contains(e.target)) {
-      menu.classList.remove('open');
+    var wrap =
+      e && e.target && typeof e.target.closest === 'function'
+        ? e.target.closest('.nutrition-overflow-wrap')
+        : null;
+    if (_nutritionMenuOpen && !wrap) {
+      _nutritionMenuOpen = false;
       notifyNutritionIsland();
-    } else if (menu && menu.classList.contains('open')) {
+    } else if (_nutritionMenuOpen) {
       // Still open, re-listen
       setTimeout(function () {
         document.addEventListener('click', _closeMenuOnOutside, { once: true });

@@ -26,6 +26,9 @@ test('history island renders read-only cards and refreshes from the legacy bridg
     `);
   });
 
+  await page.waitForFunction(
+    () => document.querySelectorAll('.hist-card').length === 1
+  );
   await expect(page.locator('.hist-card')).toHaveCount(1);
   await expect(page.locator('.hist-delete-btn')).toHaveCount(1);
 
@@ -50,6 +53,9 @@ test('history island renders read-only cards and refreshes from the legacy bridg
     `);
   });
 
+  await page.waitForFunction(
+    () => document.querySelectorAll('.hist-card').length === 2
+  );
   await expect(page.locator('.hist-card')).toHaveCount(2);
 });
 

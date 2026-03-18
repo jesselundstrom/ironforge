@@ -576,7 +576,51 @@ function notifySettingsProgramIsland(){
   if(!hasSettingsProgramIslandMount())return;
   window.dispatchEvent(new CustomEvent(SETTINGS_PROGRAM_ISLAND_EVENT));
 }
-function getProgramBasicsSnapshotMarkup(){
+function parseInlineStyle(styleText){
+  return String(styleText||'').split(';').reduce((acc,entry)=>{
+    const [rawKey,rawValue]=entry.split(':');
+    const key=String(rawKey||'').trim();
+    const value=String(rawValue||'').trim();
+    if(!key||!value)return acc;
+    const camelKey=key.replace(/-([a-z])/g,(_,char)=>char.toUpperCase());
+    acc[camelKey]=value;
+    return acc;
+  },{});
+}
+function serializeSettingsNode(node){
+  if(!node)return null;
+  if(node.nodeType===Node.TEXT_NODE){
+    return node.textContent?{type:'text',text:node.textContent}:null;
+  }
+  if(node.nodeType!==Node.ELEMENT_NODE)return null;
+  const el=node;
+  const attrs={};
+  Array.from(el.attributes||[]).forEach(attr=>{
+    if(attr.name==='class')attrs.className=attr.value;
+    else if(attr.name==='for')attrs.htmlFor=attr.value;
+    else if(attr.name==='style')attrs.style=parseInlineStyle(attr.value);
+    else if(attr.name==='onclick')attrs.onClickCode=attr.value;
+    else if(attr.name==='onchange')attrs.onChangeCode=attr.value;
+    else if(attr.name==='checked')attrs.defaultChecked=true;
+    else attrs[attr.name]=attr.value===''?true:attr.value;
+  });
+  if(el.tagName==='INPUT'&&el.type==='checkbox'){
+    attrs.defaultChecked=el.checked===true;
+  }else if(el.tagName==='TEXTAREA'){
+    attrs.defaultValue=el.value||'';
+  }else if(el.tagName==='SELECT'){
+    attrs.defaultValue=el.value||'';
+  }else if(el.tagName==='INPUT'&&attrs.value===undefined&&el.value!==''){
+    attrs.defaultValue=el.value;
+  }
+  return{
+    type:'element',
+    tag:el.tagName.toLowerCase(),
+    attrs,
+    children:Array.from(el.childNodes||[]).map(serializeSettingsNode).filter(Boolean)
+  };
+}
+function getProgramBasicsSnapshotData(){
   const card=document.createElement('details');
   const container=document.createElement('div');
   const summaryEl=document.createElement('div');
@@ -584,17 +628,49 @@ function getProgramBasicsSnapshotMarkup(){
   return{
     visible:card.style.display!=='none',
     summary:summaryEl.textContent||'',
-    html:container.innerHTML||''
+    tree:Array.from(container.childNodes).map(serializeSettingsNode).filter(Boolean)
   };
 }
-function getProgramSwitcherSnapshotMarkup(){
-  const container=document.createElement('div');
-  renderProgramSwitcher(container);
-  return container.innerHTML||'';
+function getProgramSwitcherSnapshotData(){
+  const active=getActiveProgramId();
+  const requested=typeof getPreferredTrainingDaysPerWeek==='function'
+    ? getPreferredTrainingDaysPerWeek(profile)
+    : 3;
+  const requestedLabel=typeof getTrainingDaysPerWeekLabel==='function'
+    ? getTrainingDaysPerWeekLabel(requested)
+    : requested+' sessions / week';
+  const exactPrograms=getSuggestedProgramsForTrainingDays(requested,profile);
+  const visible=exactPrograms.slice();
+  if(active&&!visible.some(program=>program.id===active)&&PROGRAMS[active]){
+    visible.push(PROGRAMS[active]);
+  }
+  const cards=(visible.length?visible:Object.values(PROGRAMS)).map(program=>{
+    const compatibility=getProgramFrequencyCompatibility(program.id,profile);
+    const effectiveLabel=typeof getTrainingDaysPerWeekLabel==='function'
+      ? getTrainingDaysPerWeekLabel(compatibility.effective)
+      : compatibility.effective+' sessions / week';
+    return{
+      id:program.id,
+      icon:program.icon||'🏋️',
+      name:(window.I18N&&I18N.t)?I18N.t('program.'+program.id+'.name',null,program.name):program.name,
+      description:(window.I18N&&I18N.t)?I18N.t('program.'+program.id+'.description',null,program.description||''):program.description||'',
+      fitLabel:compatibility.supportsExact
+        ? tr('program.frequency_card.fit','Fits {value}',{value:requestedLabel})
+        : tr('program.frequency_card.fallback','Uses {value}',{value:effectiveLabel}),
+      fitTone:compatibility.supportsExact?'ok':'fallback',
+      active:program.id===active,
+      activeLabel:tr('program.active','Active')
+    };
+  });
+  return{
+    helper:tr('program.frequency_filter.showing','Showing programs that fit {value}. Your current program stays visible if it needs a fallback.',{value:requestedLabel}),
+    cards
+  };
 }
 function getSettingsProgramReactSnapshot(){
   const prog=getActiveProgram();
-  const basics=getProgramBasicsSnapshotMarkup();
+  const basics=getProgramBasicsSnapshotData();
+  const switcher=getProgramSwitcherSnapshotData();
   const progName=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.name',null,prog.name):prog.name;
   const progDesc=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.description',null,prog.description||''):prog.description||'';
   return{
@@ -606,11 +682,13 @@ function getSettingsProgramReactSnapshot(){
       advancedHelp:tr('settings.program_advanced_help','Exercise swaps, cycle controls, peak block, and program-specific options.')
     },
     values:{
+      programId:prog.id,
       basicsVisible:basics.visible,
       basicsSummary:basics.summary,
-      basicsHtml:basics.html,
+      basicsTree:basics.tree,
+      basicsRenderKey:JSON.stringify(basics.tree),
       trainingProgramSummary:progDesc?`${progName} · ${progDesc}`:progName,
-      switcherHtml:getProgramSwitcherSnapshotMarkup()
+      switcher
     }
   };
 }
@@ -758,6 +836,10 @@ function renderProgramBasics(options){
   const summaryEl=opts.summaryEl||document.getElementById('program-basics-summary');
   const prog=getActiveProgram(),state=getActiveProgramState();
   if(!card||!container)return;
+  if(!opts.container&&isSettingsProgramIslandActive()){
+    notifySettingsProgramIsland();
+    return;
+  }
   if(prog&&prog.renderSimpleSettings){
     card.style.display='';
     prog.renderSimpleSettings(state,container);
@@ -787,6 +869,10 @@ function renderProgramBasics(options){
 function renderTrainingProgramSummary(){
   const summaryEl=document.getElementById('training-program-summary');
   const prog=getActiveProgram();
+  if(isSettingsProgramIslandActive()){
+    notifySettingsProgramIsland();
+    return;
+  }
   if(!summaryEl||!prog)return;
   const progName=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.name',null,prog.name):prog.name;
   const progDesc=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.description',null,prog.description||''):prog.description||'';
@@ -821,6 +907,10 @@ function renderTrainingStatusBar(){
 }
 function renderProgramStatusBar(){
   const bar=document.getElementById('program-status-bar');
+  if(isSettingsProgramIslandActive()){
+    notifySettingsProgramIsland();
+    return;
+  }
   if(!bar){
     if(isSettingsProgramIslandActive())notifySettingsProgramIsland();
     return;

@@ -319,6 +319,10 @@ function buildProgramSwitcherMarkup(){
 
 function renderProgramSwitcher(targetContainer){
   const container=targetContainer||document.getElementById('program-switcher-container');if(!container)return;
+  if(!targetContainer&&typeof isSettingsProgramIslandActive==='function'&&isSettingsProgramIslandActive()){
+    notifySettingsProgramIsland();
+    return;
+  }
   container.innerHTML=buildProgramSwitcherMarkup();
 }
 
@@ -716,6 +720,10 @@ function updateProgramDisplay(){
   const selectedValue=String(hasMatch?prevVal:(recommended?.value||options[0]?.value||''));
   const selectedOption=(hasMatch?options.find(o=>o.value===prevVal):recommended)||recommended||null;
   ds.value=selectedValue;
+  if(typeof isLogStartIslandActive==='function'&&isLogStartIslandActive()&&!activeWorkout){
+    notifyLogStartIsland();
+    return;
+  }
   if(optionWrap){
     optionWrap.innerHTML=options.map(o=>{
       const selected=String(o.value)===selectedValue;

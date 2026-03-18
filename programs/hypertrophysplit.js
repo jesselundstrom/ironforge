@@ -10,6 +10,8 @@
 (function(){
 'use strict';
 
+const MS_PER_DAY = 864e5;
+
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 function tr(key,fallback,params){
   if(window.I18N)return I18N.t(key,params,fallback);

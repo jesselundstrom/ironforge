@@ -8,7 +8,7 @@
 - Key layers: `core/workout-layer.js` (session logic), `core/nutrition-layer.js` (AI nutrition coach), `core/dashboard-layer.js`, `core/history-layer.js`, `core/plan-engine.js` (planning utilities), `core/data-layer.js` (persistence/sync), `core/i18n-layer.js` (translations), `core/exercise-library.js` (exercise catalog), `core/program-layer.js` (program helpers).
 - Training program definitions live under `programs/` (5 programs: forge, wendler531, stronglifts5x5, casualfullbody, hypertrophysplit).
 - Contributor tooling now uses `npm` scripts plus `Vite`, `TypeScript`, `ESLint`, `Prettier`, and `Playwright`.
-- React islands may be introduced incrementally when explicitly requested, but the existing vanilla shell remains the source of truth during migration.
+- React islands now own every visible page and settings surface, while the existing vanilla shell/runtime still remains the source of truth for business logic, persistence, and mutation flows behind explicit bridge events and DOM-compatible handlers.
 - Prefer extending the current global-function and shared-state style instead of introducing new architectural patterns.
 
 ## Primary Product Context

@@ -30,12 +30,282 @@ function notifyLogStartIsland(){
   window.dispatchEvent(new CustomEvent(LOG_START_ISLAND_EVENT));
 }
 
+function getLogStartPreviewSnapshot(prog,selectedOption,snapshot){
+  if(!selectedOption||!snapshot)return null;
+  const previewState=snapshot.buildState||{};
+  const session=Array.isArray(snapshot.exercises)?snapshot.exercises:[];
+  const chips=typeof getProgramPreviewHeaderChips==='function'
+    ? getProgramPreviewHeaderChips(prog,previewState,session)
+    : [];
+  const title=typeof cleanProgramOptionLabel==='function'
+    ? cleanProgramOptionLabel(selectedOption.label)
+    : String(selectedOption.label||'').trim();
+  const dayNumber=typeof getProgramOptionDayNumber==='function'
+    ? getProgramOptionDayNumber(selectedOption)
+    : '';
+  const headerTitle=dayNumber?`${i18nText('workout.day','Day')} ${dayNumber}`:(title||i18nText('workout.training_day','Training Day'));
+  const rows=session.map((exercise,index)=>{
+    const meta=typeof getProgramPreviewExerciseMeta==='function'
+      ? getProgramPreviewExerciseMeta(exercise)
+      : {pattern:'',weight:''};
+    return{
+      id:`preview-${index}-${exercise?.name||'exercise'}`,
+      index:index+1,
+      name:displayExerciseName(exercise?.name||''),
+      pattern:meta.pattern||'',
+      weight:meta.weight||''
+    };
+  });
+  return{
+    headerTitle,
+    chips,
+    rows
+  };
+}
+
+function getLogStartDecisionCardSnapshot(prog,state,decision,sessionModeBundle,context){
+  const recommendedMode=sessionModeBundle?.recommendedSessionMode==='light'?'light':'normal';
+  const displayDecision=recommendedMode==='light'&&!isLightTrainingAction(decision?.action)
+    ? applySessionModeToDecision(decision,'light')
+    : decision;
+  const summary=getWorkoutDecisionSummary(displayDecision,context);
+  if(!summary)return null;
+  const summaryVm=(typeof buildTrainingCommentaryState==='function'&&typeof presentTrainingCommentary==='function')
+    ? presentTrainingCommentary(buildTrainingCommentaryState({decision:displayDecision,context}),'workout_summary')
+    : null;
+  const reasons=summary.reasonLabels||[];
+  const selectedMode=normalizeSessionMode(sessionModeBundle?.selectedSessionMode||'auto');
+  const autoCopy=i18nText(
+    recommendedMode==='light'?'workout.session_mode.auto_copy_light':'workout.session_mode.auto_copy_normal',
+    recommendedMode==='light'
+      ? 'Follow today\'s light-session recommendation automatically.'
+      : 'Follow today\'s normal-session recommendation automatically.'
+  );
+  return{
+    kicker:summaryVm?.kicker||i18nText('workout.plan.kicker',"Today's decision"),
+    title:summary.title,
+    copy:summary.copy,
+    reasons,
+    options:[
+      {
+        value:'auto',
+        title:i18nText('workout.session_mode.auto','Auto'),
+        copy:autoCopy,
+        active:selectedMode==='auto'
+      },
+      {
+        value:'normal',
+        title:i18nText('workout.session_mode.normal','Normal session'),
+        copy:i18nText('workout.session_mode.normal_copy','Keep the original plan and suppress the automatic lightening.'),
+        active:selectedMode==='normal'
+      },
+      {
+        value:'light',
+        title:i18nText('workout.session_mode.light','Light session'),
+        copy:i18nText('workout.session_mode.light_copy','Start with the lighter session version even if today would otherwise be normal.'),
+        active:selectedMode==='light'
+      }
+    ]
+  };
+}
+
+function getLogStartTodayPanelsSnapshot(prog,state,trainingDecision,sessionModeBundle,planningContext,selectedOption){
+  const effectiveDecision=sessionModeBundle?.effectiveDecision||trainingDecision;
+  const fatigue=planningContext?.fatigue||computeFatigue();
+  const recovery=Math.max(0,100-(fatigue?.overall||0));
+  const guidance=(typeof getPreferenceGuidance==='function')
+    ? getPreferenceGuidance(profile,{canPushVolume:recovery>=70&&effectiveDecision?.action==='train'})
+    : [];
+  const commentaryState=(typeof buildTrainingCommentaryState==='function')
+    ? buildTrainingCommentaryState({decision:effectiveDecision||trainingDecision,context:planningContext})
+    : null;
+  const summary=(typeof presentTrainingCommentary==='function'&&commentaryState)
+    ? presentTrainingCommentary(commentaryState,'workout_summary')
+    : null;
+  const warningSummary=(typeof presentTrainingCommentary==='function'&&commentaryState)
+    ? presentTrainingCommentary(commentaryState,'program_warning')
+    : null;
+  const tags=typeof getProgramTodayMuscleTags==='function'
+    ? getProgramTodayMuscleTags(planningContext)
+    : [];
+  const decisionCard=getLogStartDecisionCardSnapshot(
+    prog,
+    state,
+    trainingDecision||effectiveDecision,
+    sessionModeBundle,
+    planningContext
+  );
+  const needsWarning=(trainingDecision?.action&&trainingDecision.action!=='train')
+    || (trainingDecision?.restrictionFlags||[]).includes('avoid_heavy_legs')
+    || (trainingDecision?.reasonCodes||[]).includes('low_recovery')
+    || (trainingDecision?.reasonCodes||[]).includes('conservative_recovery');
+  const caution=trainingDecision?.action==='shorten'||(trainingDecision?.restrictionFlags||[]).includes('avoid_heavy_legs');
+  return{
+    focus:{
+      kicker:i18nText('workout.today.kicker',"Today's focus"),
+      copy:guidance[0]||i18nText('workout.today.focus','Train sharp and keep the main work crisp.'),
+      sub:summary?.copy||'',
+      tags
+    },
+    decisionCard,
+    warning:!decisionCard&&warningSummary&&needsWarning
+      ? {
+        title:warningSummary.title||i18nText('workout.warning.low_recovery','Low recovery'),
+        copy:warningSummary.copy||i18nText('workout.warning.low_recovery_copy','Consider resting. If you train, Day {day} is the safer option.',{day:typeof getProgramOptionDayNumber==='function'?(getProgramOptionDayNumber(selectedOption)||'1'):'1'}),
+        caution
+      }
+      : null
+  };
+}
+
 function getLogStartReactSnapshot(){
   const shell=document.getElementById('workout-not-started');
+  const prefs=normalizeTrainingPreferences(profile);
+  const prog=getActiveProgram();
+  let state=getActiveProgramState()||(prog?.getInitialState?prog.getInitialState():{});
+  if(prefs.sportReadinessCheckEnabled&&!pendingSportReadinessLevel)pendingSportReadinessLevel='none';
+  const manualSportContext=getPendingSportReadinessContext();
+  const sportContext=mergeSportPreferenceContext(
+    getAutomaticSportPreferenceContext(schedule,workouts),
+    manualSportContext
+  );
+  if(prog?.getSessionOptions){
+    try{
+      prog.getSessionOptions(state,workouts,schedule);
+    }catch(_error){
+      state=prog.getInitialState?prog.getInitialState():state;
+    }
+  }
+  const decisionBundle=prog
+    ? getWorkoutStartDecisionBundle({prog,state,sportContext})
+    : null;
+  const rawOptions=prog?.getSessionOptions?prog.getSessionOptions(state,workouts,schedule):[];
+  const options=prog?applyPreferenceRecommendation(prog,rawOptions,state,sportContext):[];
+  const previousSelectedOption=document.getElementById('program-day-select')?.value||'';
+  const recommended=options.find(o=>o.isRecommended)||options[0];
+  const hasMatch=previousSelectedOption&&options.some(o=>o.value===previousSelectedOption);
+  const selectedValue=String(hasMatch?previousSelectedOption:(recommended?.value||options[0]?.value||''));
+  const selectedOption=(hasMatch?options.find(o=>o.value===previousSelectedOption):recommended)||recommended||null;
+  const daySelect=document.getElementById('program-day-select');
+  if(daySelect)daySelect.value=selectedValue;
+  const startSnapshot=(prog&&selectedOption?.value!==undefined)
+    ? getWorkoutStartSnapshot({
+      prog,
+      state,
+      selectedOption:selectedOption.value,
+      sportContext,
+      decisionBundle
+    })
+    : null;
+  const panels=(prog&&decisionBundle)
+    ? getLogStartTodayPanelsSnapshot(
+      prog,
+      state,
+      decisionBundle.trainingDecision,
+      decisionBundle,
+      decisionBundle.planningContext,
+      selectedOption
+    )
+    : {focus:null,decisionCard:null,warning:null};
+  const sportLoadLevel=pendingSportReadinessLevel||'none';
+  const sportLoadTiming=getEffectivePendingSportReadinessTiming();
+  const showTimingStep=sportLoadLevel!=='none';
+  const autoSelectedToday=showTimingStep&&sportLoadTiming==='today'&&!pendingSportReadinessTimingTouched&&isTodayRegularSportDay();
+  const timingTone=sportLoadLevel==='heavy'?'warning':'info';
+  const quickLogMeta=getSportQuickLogMeta();
   return{
+    labels:{
+      trainingSession:i18nText('workout.training_session','Training Session'),
+      startWorkout:i18nText('workout.start_workout','Start Workout'),
+      day:i18nText('workout.day','Day'),
+      warningTitle:i18nText('workout.warning.title','Training warning'),
+      quickLogTitle:i18nText('workout.log_extra_sport','Log Extra Sport'),
+      quickLogSubtitle:quickLogMeta.subtitle
+    },
     values:{
-      html:shell?.innerHTML||'',
-      visible:!!shell&&shell.style.display!=='none'
+      visible:!shell||shell.style.display!=='none',
+      quickLog:{
+        icon:quickLogMeta.icon,
+        title:i18nText('workout.log_extra_sport','Log Extra Sport'),
+        subtitle:quickLogMeta.subtitle
+      },
+      selectedOption:selectedValue,
+      options:options.map(o=>{
+        const isSelected=String(o.value)===selectedValue;
+        return{
+          value:String(o.value||''),
+          dayNumber:typeof getProgramOptionDayNumber==='function'?getProgramOptionDayNumber(o):String(o.value||''),
+          status:o.done
+            ? i18nText('program.done','Done')
+            : (o.isRecommended?i18nText('program.recommended','Recommended'):i18nText('program.future','Upcoming')),
+          statusIcon:o.done?'OK':(o.isRecommended?'*':''),
+          selected:isSelected,
+          done:o.done===true,
+          upcoming:!o.done&&!o.isRecommended
+        };
+      }),
+      preview:getLogStartPreviewSnapshot(prog,selectedOption,startSnapshot),
+      focusPanel:panels.focus,
+      decisionCard:panels.decisionCard,
+      warningCard:panels.warning,
+      sportReadiness:prefs.sportReadinessCheckEnabled
+        ? {
+          level:sportLoadLevel,
+          timing:sportLoadTiming,
+          showTimingStep,
+          autoSelectedToday,
+          timingTone,
+          levelTitle:i18nText('workout.sport_check.level_title','How much sport load are you working around?'),
+          timingTitle:i18nText('workout.sport_check.timing_title','When is it?'),
+          title:i18nText('workout.sport_check.inline_title','Sport load check-in'),
+          subtitle:i18nText('workout.sport_check.inline_sub','Use sport load around today to guide the session recommendation.'),
+          levels:[
+            {
+              value:'none',
+              label:i18nText('workout.sport_check.none','No sport load'),
+              tone:'positive',
+              active:sportLoadLevel==='none'
+            },
+            {
+              value:'light',
+              label:i18nText('workout.sport_check.light','Light sport load'),
+              tone:'info',
+              active:sportLoadLevel==='light'
+            },
+            {
+              value:'heavy',
+              label:i18nText('workout.sport_check.heavy','Heavy sport load'),
+              tone:'warning',
+              active:sportLoadLevel==='heavy'
+            }
+          ],
+          timings:[
+            {
+              value:'today',
+              label:i18nText('workout.sport_check.today','Today'),
+              active:sportLoadTiming==='today'
+            },
+            {
+              value:'yesterday',
+              label:i18nText('workout.sport_check.yesterday','Yesterday'),
+              active:sportLoadTiming==='yesterday'
+            },
+            {
+              value:'tomorrow',
+              label:i18nText('workout.sport_check.tomorrow','Tomorrow'),
+              active:sportLoadTiming==='tomorrow'
+            },
+            {
+              value:'both',
+              label:i18nText('workout.sport_check.both','Both days'),
+              active:sportLoadTiming==='both'
+            }
+          ],
+          hint:autoSelectedToday
+            ? i18nText('workout.sport_check.today_hint','Today is marked as a regular sport day, so timing was preselected.')
+            : ''
+        }
+        : null
     }
   };
 }
@@ -314,6 +584,11 @@ function resetNotStartedView(){
   const showTimingStep=sportLoadLevel!=='none';
   const autoSelectedToday=showTimingStep&&sportLoadTiming==='today'&&!pendingSportReadinessTimingTouched&&isTodayRegularSportDay();
   const timingTone=sportLoadLevel==='heavy'?'warning':'info';
+  if(isLogStartIslandActive()){
+    if(typeof updateProgramDisplay==='function')updateProgramDisplay();
+    notifyLogStartIsland();
+    return;
+  }
   const sportCheckControls=prefs.sportReadinessCheckEnabled
     ? `<div class="sport-readiness-inline">
         <div class="sport-readiness-inline-header">
@@ -739,6 +1014,10 @@ function getPendingSportReadinessContext(){
 }
 
 function updateSportReadinessChoiceUI(){
+  if(isLogStartIslandActive()&&!activeWorkout){
+    notifyLogStartIsland();
+    return;
+  }
   const level=pendingSportReadinessLevel||'none';
   const timing=getEffectivePendingSportReadinessTiming();
   document.querySelectorAll('[data-sport-check-kind="level"]').forEach(btn=>{

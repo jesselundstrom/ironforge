@@ -58,7 +58,11 @@ async function openNutrition(page: Page) {
   await expect(
     page.locator('#app-shell-react-root .nav-btn[data-page="nutrition"]')
   ).toHaveClass(/active/);
-  await expect(page.locator('.content')).toHaveClass(/nutrition-active/);
+  await expect
+    .poll(() => page.locator('.content').getAttribute('class'), {
+      timeout: 15000,
+    })
+    .toMatch(/nutrition-active/);
 }
 
 test('nutrition island renders the setup card when no API key is present', async ({
@@ -179,7 +183,7 @@ test('nutrition layout keeps the action tray inside the shell when app viewport 
       .getElementById('page-nutrition')
       ?.getBoundingClientRect();
     const shellRect = document
-      .getElementById('nutrition-legacy-shell')
+      .getElementById('nutrition-shell')
       ?.getBoundingClientRect();
     const composerRect = document
       .querySelector('.nutrition-composer')

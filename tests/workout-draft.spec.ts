@@ -37,9 +37,6 @@ test('active workout draft restores after reload', async ({ page }) => {
   await openTrainPage(page);
 
   await page.waitForFunction(() => window.eval('!!activeWorkout'));
-  await page.evaluate(() => {
-    window.eval("resumeActiveWorkoutUI({toast:false})");
-  });
   await expect(page.locator('#workout-active')).toBeVisible();
   await expect(page.locator('#exercises-container input[data-field="weight"]').first()).toHaveValue('60');
 });

@@ -3,6 +3,8 @@
 (function(){
 'use strict';
 
+const MS_PER_DAY = 864e5;
+
 function trForge(key,fallback,params){
   if(window.I18N)return I18N.t(key,params,fallback);
   return fallback;

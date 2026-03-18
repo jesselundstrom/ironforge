@@ -1,3 +1,4 @@
+import React from 'react';
 import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
 
 const SETTINGS_PROGRAM_EVENT =
@@ -20,13 +21,119 @@ function getSnapshot() {
         'Exercise swaps, cycle controls, peak block, and program-specific options.',
     },
     values: {
+      programId: 'forge',
       basicsVisible: false,
       basicsSummary: '',
-      basicsHtml: '',
+      basicsTree: [],
+      basicsRenderKey: 'forge',
       trainingProgramSummary: '',
-      switcherHtml: '',
+      switcher: {
+        helper: '',
+        cards: [],
+      },
     },
   };
+}
+
+function runInlineHandler(code, event) {
+  if (!code) return;
+  const checkedValue = event?.target?.checked ? 'true' : 'false';
+  const expression = String(code).replace(/\bthis\.checked\b/g, checkedValue);
+  window.eval?.(expression);
+}
+
+function SettingsTreeNode({ node }) {
+  if (!node) return null;
+  if (node.type === 'text') {
+    return node.text;
+  }
+
+  const { tag, attrs = {}, children = [] } = node;
+  const props = {};
+
+  Object.entries(attrs).forEach(([key, value]) => {
+    if (key === 'onClickCode' || key === 'onChangeCode') return;
+    if (key === 'defaultValue' || key === 'defaultChecked') {
+      props[key] = value;
+      return;
+    }
+    if (key.startsWith('data-') || key.startsWith('aria-')) {
+      props[key] = value;
+      return;
+    }
+    if (key === 'className' || key === 'id' || key === 'type' || key === 'min' || key === 'max' || key === 'step' || key === 'placeholder' || key === 'htmlFor' || key === 'style' || key === 'role' || key === 'hidden' || key === 'value') {
+      props[key] = value;
+    }
+  });
+
+  if (tag === 'input') {
+    delete props.value;
+  }
+  if (tag === 'select' || tag === 'textarea') {
+    delete props.value;
+  }
+
+  if (attrs.onClickCode) {
+    props.onClick = (event) => {
+      runInlineHandler(attrs.onClickCode, event);
+      if (String(attrs.className || '').includes('sl-basic-next-btn')) {
+        window.saveSimpleProgramSettings?.();
+      }
+    };
+  }
+
+  if (tag === 'input' || tag === 'select' || tag === 'textarea') {
+    props.onChange = (event) => {
+      runInlineHandler(attrs.onChangeCode, event);
+      window.saveSimpleProgramSettings?.();
+    };
+  }
+
+  const childNodes = children.map((child, index) => (
+    <SettingsTreeNode
+      key={`${tag}-${attrs.id || attrs.className || 'node'}-${index}`}
+      node={child}
+    />
+  ));
+  const voidTags = new Set(['input', 'img', 'br', 'hr', 'meta', 'link']);
+  return voidTags.has(tag)
+    ? React.createElement(tag, props)
+    : React.createElement(tag, props, childNodes);
+}
+
+function ProgramSwitcher({ switcher }) {
+  return (
+    <div id="program-switcher-container">
+      {switcher.helper ? <div className="program-switcher-note">{switcher.helper}</div> : null}
+      {switcher.cards.map((card) => (
+        <div
+          className={`program-card${card.active ? ' active' : ''}`}
+          key={card.id}
+          onClick={() => window.switchProgram?.(card.id)}
+        >
+          <div className="program-card-icon">{card.icon}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="program-card-name">{card.name}</div>
+            <div className="program-card-desc">{card.description}</div>
+            <div className="program-card-meta">
+              <span
+                className={`program-card-fit ${
+                  card.fitTone === 'ok'
+                    ? 'program-card-fit-ok'
+                    : 'program-card-fit-fallback'
+                }`}
+              >
+                {card.fitLabel}
+              </span>
+            </div>
+          </div>
+          {card.active ? (
+            <div className="program-card-badge">{card.activeLabel}</div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function SettingsProgramIsland() {
@@ -57,10 +164,14 @@ function SettingsProgramIsland() {
           <div className="settings-panel-chevron">⌄</div>
         </summary>
         <div className="settings-panel-body">
-          <div
-            id="program-basics-container"
-            dangerouslySetInnerHTML={{ __html: snapshot.values.basicsHtml }}
-          />
+          <div id="program-basics-container" key={snapshot.values.basicsRenderKey}>
+            {snapshot.values.basicsTree.map((node, index) => (
+              <SettingsTreeNode
+                key={`basics-${snapshot.values.programId}-${index}`}
+                node={node}
+              />
+            ))}
+          </div>
         </div>
       </details>
 
@@ -75,10 +186,7 @@ function SettingsProgramIsland() {
           <div className="settings-panel-chevron">⌄</div>
         </summary>
         <div className="settings-panel-body">
-          <div
-            id="program-switcher-container"
-            dangerouslySetInnerHTML={{ __html: snapshot.values.switcherHtml }}
-          />
+          <ProgramSwitcher switcher={snapshot.values.switcher} />
         </div>
       </details>
 
