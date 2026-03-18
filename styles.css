@@ -8268,36 +8268,6 @@ body.login-active::before {
   }
 }
 
-/* -- Photo preview -- */
-.nutrition-photo-preview {
-  display: none;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 0 4px;
-}
-.nutrition-photo-preview img {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border-radius: 12px;
-  border: 2px solid var(--accent);
-}
-.nutrition-photo-clear {
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  cursor: pointer;
-  margin-top: 2px;
-  flex-shrink: 0;
-  touch-action: manipulation;
-}
 
 /* -- Input bar -- */
 .nutrition-input-bar {
@@ -8917,22 +8887,6 @@ body.login-active::before {
 }
 .content.nutrition-active .nutrition-composer.nc-hidden {
   display: none;
-}
-.content.nutrition-active .nutrition-photo-preview {
-  padding: 0 0 10px;
-}
-.content.nutrition-active .nutrition-photo-preview img {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 181, 94, 0.28);
-  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
-}
-.content.nutrition-active .nutrition-photo-clear {
-  background: rgba(6, 8, 12, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  width: 26px;
-  height: 26px;
 }
 .content.nutrition-active .nutrition-input-bar {
   display: flex;

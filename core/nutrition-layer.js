@@ -6,7 +6,6 @@
   let _history = [];
   let _loading = false;
   let _streaming = false;
-  let _pendingImage = null; // base64 data URL of selected photo
   let _activeHistoryDate = '';
   let _selectedActionId = 'plan_today';
 
@@ -124,11 +123,6 @@
   function _ensureTodayHistoryLoaded() {
     var today = _todaySessionDate();
     if (_activeHistoryDate === today) return;
-    _pendingImage = null;
-    var preview = document.getElementById('nutrition-photo-preview');
-    var img = document.getElementById('nutrition-preview-img');
-    if (preview) preview.style.display = 'none';
-    if (img) img.src = '';
     _loadHistory();
   }
 
@@ -557,10 +551,15 @@
         ' kcal)'
       : '';
     const systemPrompt =
-      'You are a knowledgeable nutrition coach for a strength athlete who trains with weights. ' +
-      'Treat this as a day-specific nutrition session. When the user shares food photos or asks for a coaching action, analyze the food, estimate macros ' +
-      '(protein, carbs, fat, calories) when possible, and give practical coaching advice. ' +
-      'Keep responses concise and actionable. Use metric units. Be supportive and direct.' +
+      'You are a concise, motivating nutrition coach for a strength athlete. ' +
+      'Keep every response SHORT — 3-5 sentences max for simple queries, a brief list for meal plans. ' +
+      'No filler, no disclaimers, no generic health warnings.\n\n' +
+      'RULES:\n' +
+      '- When the user logs food or shares a photo, estimate macros (protein, carbs, fat, calories) ' +
+      'and ALWAYS end with a "remaining today" line showing calories and protein left vs targets.\n' +
+      '- Be direct and encouraging. Celebrate hitting targets, flag shortfalls matter-of-factly.\n' +
+      '- Use metric units (g, kg, kcal). Format macros clearly.\n' +
+      '- When giving meal suggestions, keep them practical — real foods, not exotic ingredients.' +
       (context ? '\n\nUser context:\n' + context : '') +
       (targetsStr ? '\n\n' + targetsStr : '') +
       (todayIntake ? '\n' + todayIntake : '');
@@ -1433,41 +1432,25 @@
     const reader = new FileReader();
     reader.onload = function (e) {
       _compressImage(e.target.result).then(function (compressed) {
-        _pendingImage = compressed;
-        const preview = document.getElementById('nutrition-photo-preview');
-        const img = document.getElementById('nutrition-preview-img');
-        if (preview && img) {
-          img.src = compressed;
-          preview.style.display = 'flex';
-        }
-        notifyNutritionIsland();
+        // Auto-send as "analyze photo" — no extra tap needed
+        var action = _getActionById('analyze_photo');
+        sendNutritionMessage(_buildActionRequest(action, compressed));
       });
     };
     reader.readAsDataURL(file);
     event.target.value = ''; // allow re-selecting same file
   }
 
-  function clearNutritionPhoto() {
-    _pendingImage = null;
-    const preview = document.getElementById('nutrition-photo-preview');
-    const img = document.getElementById('nutrition-preview-img');
-    if (preview) preview.style.display = 'none';
-    if (img) img.src = '';
-    notifyNutritionIsland();
-  }
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
   function submitNutritionMessage() {
     _ensureTodayHistoryLoaded();
-    const image = _pendingImage;
     const action = _getSelectedAction();
 
     if (!action) return;
 
-    clearNutritionPhoto();
-
-    sendNutritionMessage(_buildActionRequest(action, image));
+    sendNutritionMessage(_buildActionRequest(action, null));
   }
 
   // ─── Clear history ────────────────────────────────────────────────────────────
@@ -1500,7 +1483,6 @@
 
   window.initNutritionPage = initNutritionPage;
   window.handleNutritionPhoto = handleNutritionPhoto;
-  window.clearNutritionPhoto = clearNutritionPhoto;
   window.submitNutritionMessage = submitNutritionMessage;
   window.clearNutritionHistory = clearNutritionHistory;
   window.getNutritionApiKey = getNutritionApiKey;
