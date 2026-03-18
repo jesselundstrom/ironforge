@@ -370,146 +370,149 @@
         <!-- ===== DASHBOARD ===== -->
         <div class="page active" id="page-dashboard">
           <div id="dashboard-legacy-shell">
-          <div class="dashboard-hero dashboard-animate dashboard-delay-1">
-            <div class="card dashboard-card dashboard-hero-card">
-              <div class="dashboard-card-body dashboard-hero-body">
-                <div class="dashboard-hero-copy">
-                  <div
-                    class="dashboard-hero-kicker"
-                    data-i18n="dashboard.today_plan"
-                  >
-                    Today's Plan
+            <div class="dashboard-hero dashboard-animate dashboard-delay-1">
+              <div class="card dashboard-card dashboard-hero-card">
+                <div class="dashboard-card-body dashboard-hero-body">
+                  <div class="dashboard-hero-copy">
+                    <div
+                      class="dashboard-hero-kicker"
+                      data-i18n="dashboard.today_plan"
+                    >
+                      Today's Plan
+                    </div>
+                    <div class="dashboard-hero-status" id="today-status"></div>
                   </div>
-                  <div class="dashboard-hero-status" id="today-status"></div>
+                  <div
+                    class="dashboard-hero-cta"
+                    id="dashboard-start-session-slot"
+                  ></div>
                 </div>
-                <div
-                  class="dashboard-hero-cta"
-                  id="dashboard-start-session-slot"
-                ></div>
               </div>
             </div>
-          </div>
-          <div
-            class="dashboard-section dashboard-week-section dashboard-animate dashboard-delay-2"
-          >
             <div
-              class="dashboard-section-label"
-              data-i18n="dashboard.weekly_sessions"
+              class="dashboard-section dashboard-week-section dashboard-animate dashboard-delay-2"
             >
-              Viikon sessiot
-            </div>
-            <div class="card dashboard-card dashboard-calendar-card">
-              <div class="week-strip" id="week-strip"></div>
               <div
-                class="dashboard-week-legend"
-                id="dashboard-week-legend"
-              ></div>
-              <div id="day-detail-panel" style="display: none"></div>
-            </div>
-            <div
-              id="session-progress"
-              class="dashboard-session-progress"
-              aria-live="polite"
-            ></div>
-          </div>
-          <div class="dashboard-section dashboard-animate dashboard-delay-3">
-            <div
-              class="dashboard-section-label"
-              data-i18n="dashboard.today_plan"
-            >
-              Tämän päivän suunnitelma
-            </div>
-            <div class="card dashboard-card" id="todays-plan-card">
-              <div
-                class="dashboard-card-body"
-                id="next-session-content"
-                data-i18n="common.loading"
+                class="dashboard-section-label"
+                data-i18n="dashboard.weekly_sessions"
               >
-                Ladataan...
+                Viikon sessiot
               </div>
+              <div class="card dashboard-card dashboard-calendar-card">
+                <div class="week-strip" id="week-strip"></div>
+                <div
+                  class="dashboard-week-legend"
+                  id="dashboard-week-legend"
+                ></div>
+                <div id="day-detail-panel" style="display: none"></div>
+              </div>
+              <div
+                id="session-progress"
+                class="dashboard-session-progress"
+                aria-live="polite"
+              ></div>
             </div>
-          </div>
-          <div
-            class="dashboard-section dashboard-section-recovery dashboard-animate dashboard-delay-4"
-          >
-            <div class="dashboard-section-label" data-i18n="dashboard.recovery">
-              Palautuminen
-            </div>
-            <div class="card dashboard-card dashboard-recovery-card">
-              <div class="dashboard-card-body">
-                <div class="dashboard-recovery-summary">
-                  <div>
-                    <div
-                      class="dashboard-recovery-summary-label"
-                      data-i18n="dashboard.overall"
-                    >
-                      Yhteensä
-                    </div>
-                    <div
-                      class="dashboard-recovery-summary-copy"
-                      id="recovery-overall-copy"
-                    ></div>
-                    <div
-                      class="dashboard-recovery-summary-badge"
-                      id="recovery-badge"
-                    >
-                      <span data-i18n="dashboard.log_to_see"
-                        >Kirjaa treenejä, niin data tulee näkyviin</span
-                      >
-                    </div>
-                  </div>
-                  <div
-                    class="dashboard-recovery-summary-value"
-                    id="recovery-overall-value"
-                  >
-                    —
-                  </div>
-                </div>
-                <div class="fatigue-row">
-                  <div class="fatigue-label" data-i18n="dashboard.muscular">
-                    Lihaksisto
-                  </div>
-                  <div class="fatigue-bar-wrap">
-                    <div
-                      class="fatigue-fill"
-                      id="f-muscular"
-                      style="width: 0%"
-                    ></div>
-                  </div>
-                  <div class="fatigue-value" id="f-muscular-val">—</div>
-                </div>
-                <div class="fatigue-row">
-                  <div class="fatigue-label" data-i18n="dashboard.nervous">
-                    Hermosto
-                  </div>
-                  <div class="fatigue-bar-wrap">
-                    <div
-                      class="fatigue-fill"
-                      id="f-cns"
-                      style="width: 0%"
-                    ></div>
-                  </div>
-                  <div class="fatigue-value" id="f-cns-val">—</div>
+            <div class="dashboard-section dashboard-animate dashboard-delay-3">
+              <div
+                class="dashboard-section-label"
+                data-i18n="dashboard.today_plan"
+              >
+                Tämän päivän suunnitelma
+              </div>
+              <div class="card dashboard-card" id="todays-plan-card">
+                <div
+                  class="dashboard-card-body"
+                  id="next-session-content"
+                  data-i18n="common.loading"
+                >
+                  Ladataan...
                 </div>
               </div>
             </div>
-          </div>
-          <div
-            class="dashboard-section dashboard-section-maxes dashboard-animate dashboard-delay-5"
-          >
             <div
-              class="dashboard-section-label"
-              id="tm-section-title"
-              data-i18n="dashboard.maxes"
+              class="dashboard-section dashboard-section-recovery dashboard-animate dashboard-delay-4"
             >
-              Maksimit
-            </div>
-            <div class="card dashboard-card dashboard-maxes-card">
-              <div class="dashboard-card-body">
-                <div class="lifts-grid" id="tm-grid"></div>
+              <div
+                class="dashboard-section-label"
+                data-i18n="dashboard.recovery"
+              >
+                Palautuminen
+              </div>
+              <div class="card dashboard-card dashboard-recovery-card">
+                <div class="dashboard-card-body">
+                  <div class="dashboard-recovery-summary">
+                    <div>
+                      <div
+                        class="dashboard-recovery-summary-label"
+                        data-i18n="dashboard.overall"
+                      >
+                        Yhteensä
+                      </div>
+                      <div
+                        class="dashboard-recovery-summary-copy"
+                        id="recovery-overall-copy"
+                      ></div>
+                      <div
+                        class="dashboard-recovery-summary-badge"
+                        id="recovery-badge"
+                      >
+                        <span data-i18n="dashboard.log_to_see"
+                          >Kirjaa treenejä, niin data tulee näkyviin</span
+                        >
+                      </div>
+                    </div>
+                    <div
+                      class="dashboard-recovery-summary-value"
+                      id="recovery-overall-value"
+                    >
+                      —
+                    </div>
+                  </div>
+                  <div class="fatigue-row">
+                    <div class="fatigue-label" data-i18n="dashboard.muscular">
+                      Lihaksisto
+                    </div>
+                    <div class="fatigue-bar-wrap">
+                      <div
+                        class="fatigue-fill"
+                        id="f-muscular"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                    <div class="fatigue-value" id="f-muscular-val">—</div>
+                  </div>
+                  <div class="fatigue-row">
+                    <div class="fatigue-label" data-i18n="dashboard.nervous">
+                      Hermosto
+                    </div>
+                    <div class="fatigue-bar-wrap">
+                      <div
+                        class="fatigue-fill"
+                        id="f-cns"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                    <div class="fatigue-value" id="f-cns-val">—</div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+            <div
+              class="dashboard-section dashboard-section-maxes dashboard-animate dashboard-delay-5"
+            >
+              <div
+                class="dashboard-section-label"
+                id="tm-section-title"
+                data-i18n="dashboard.maxes"
+              >
+                Maksimit
+              </div>
+              <div class="card dashboard-card dashboard-maxes-card">
+                <div class="dashboard-card-body">
+                  <div class="lifts-grid" id="tm-grid"></div>
+                </div>
+              </div>
+            </div>
           </div>
           <div id="dashboard-react-root"></div>
         </div>
@@ -539,7 +542,9 @@
                 </button>
               </div>
               <div class="divider-label">
-                <span data-i18n="workout.training_session">Training Session</span>
+                <span data-i18n="workout.training_session"
+                  >Training Session</span
+                >
               </div>
               <div class="card card-roomy workout-start-card">
                 <label class="label-compact" data-i18n="workout.training_day"
@@ -758,125 +763,127 @@
           <!-- ── Schedule tab ── -->
           <div id="settings-tab-schedule">
             <div id="settings-schedule-legacy-shell">
-            <div class="settings-status-bar" id="sport-status-bar"></div>
-            <div class="card sport-load-card">
-              <div class="card-title" data-i18n="settings.sport_load.title">
-                Sport Load
-              </div>
-              <div
-                class="sport-load-intro"
-                data-i18n="settings.sport_load.subtitle"
-              >
-                Set up your regular sport so the planner can steer sessions
-                around it.
-              </div>
+              <div class="settings-status-bar" id="sport-status-bar"></div>
+              <div class="card sport-load-card">
+                <div class="card-title" data-i18n="settings.sport_load.title">
+                  Sport Load
+                </div>
+                <div
+                  class="sport-load-intro"
+                  data-i18n="settings.sport_load.subtitle"
+                >
+                  Set up your regular sport so the planner can steer sessions
+                  around it.
+                </div>
 
-              <div class="settings-subsection">
-                <div
-                  class="settings-subsection-title"
-                  data-i18n="settings.sport_load.section.activity"
-                >
-                  Sport
+                <div class="settings-subsection">
+                  <div
+                    class="settings-subsection-title"
+                    data-i18n="settings.sport_load.section.activity"
+                  >
+                    Sport
+                  </div>
+                  <div
+                    class="settings-subsection-sub"
+                    data-i18n="settings.sport_load.section.activity_sub"
+                  >
+                    Name the recurring sport or cardio that affects your
+                    training week.
+                  </div>
+                  <label data-i18n="settings.activity_name"
+                    >Activity name</label
+                  >
+                  <input
+                    id="sport-name"
+                    type="text"
+                    data-i18n-placeholder="settings.activity_placeholder"
+                    placeholder="e.g. Hockey, Soccer, Running"
+                    onchange="saveSchedule()"
+                  />
                 </div>
-                <div
-                  class="settings-subsection-sub"
-                  data-i18n="settings.sport_load.section.activity_sub"
-                >
-                  Name the recurring sport or cardio that affects your training
-                  week.
-                </div>
-                <label data-i18n="settings.activity_name">Activity name</label>
-                <input
-                  id="sport-name"
-                  type="text"
-                  data-i18n-placeholder="settings.activity_placeholder"
-                  placeholder="e.g. Hockey, Soccer, Running"
-                  onchange="saveSchedule()"
-                />
-              </div>
 
-              <div class="settings-subsection">
-                <div
-                  class="settings-subsection-title"
-                  data-i18n="settings.sport_load.section.profile"
-                >
-                  Load profile
-                </div>
-                <div
-                  class="settings-subsection-sub"
-                  data-i18n="settings.sport_load.section.profile_sub"
-                >
-                  Shape how strongly sport load should push training away from
-                  hard lower-body work.
-                </div>
-                <label data-i18n="settings.intensity">Intensity</label>
-                <div
-                  class="segment-control segment-control-equal"
-                  id="sport-intensity-btns"
-                >
-                  <button
-                    class="btn btn-secondary sport-intensity-btn"
-                    type="button"
-                    data-intensity="easy"
-                    onclick="setSportIntensity('easy', this)"
-                    data-i18n="settings.intensity.easy"
+                <div class="settings-subsection">
+                  <div
+                    class="settings-subsection-title"
+                    data-i18n="settings.sport_load.section.profile"
                   >
-                    Easy
-                  </button>
-                  <button
-                    class="btn btn-secondary sport-intensity-btn"
-                    type="button"
-                    data-intensity="moderate"
-                    onclick="setSportIntensity('moderate', this)"
-                    data-i18n="settings.intensity.moderate"
-                  >
-                    Moderate
-                  </button>
-                  <button
-                    class="btn btn-secondary sport-intensity-btn"
-                    type="button"
-                    data-intensity="hard"
-                    onclick="setSportIntensity('hard', this)"
-                    data-i18n="settings.intensity.hard"
-                  >
-                    Hard
-                  </button>
-                </div>
-                <label class="toggle-row" for="sport-legs-heavy">
-                  <div>
-                    <div
-                      class="toggle-row-title"
-                      data-i18n="settings.leg_heavy"
-                    >
-                      Leg-heavy
-                    </div>
-                    <div
-                      class="toggle-row-sub"
-                      data-i18n="settings.leg_heavy_sub"
-                    >
-                      Warns when scheduling legs after sport
-                    </div>
+                    Load profile
                   </div>
-                  <div class="toggle-switch warning-toggle">
-                    <input
-                      type="checkbox"
-                      id="sport-legs-heavy"
-                      onchange="saveSchedule()"
-                    />
-                    <span class="toggle-track"
-                      ><span class="toggle-thumb"></span
-                    ></span>
+                  <div
+                    class="settings-subsection-sub"
+                    data-i18n="settings.sport_load.section.profile_sub"
+                  >
+                    Shape how strongly sport load should push training away from
+                    hard lower-body work.
                   </div>
-                </label>
-                <div
-                  class="settings-inline-label"
-                  data-i18n="settings.regular_sport_days"
-                >
-                  Regular Sport Days
+                  <label data-i18n="settings.intensity">Intensity</label>
+                  <div
+                    class="segment-control segment-control-equal"
+                    id="sport-intensity-btns"
+                  >
+                    <button
+                      class="btn btn-secondary sport-intensity-btn"
+                      type="button"
+                      data-intensity="easy"
+                      onclick="setSportIntensity('easy', this)"
+                      data-i18n="settings.intensity.easy"
+                    >
+                      Easy
+                    </button>
+                    <button
+                      class="btn btn-secondary sport-intensity-btn"
+                      type="button"
+                      data-intensity="moderate"
+                      onclick="setSportIntensity('moderate', this)"
+                      data-i18n="settings.intensity.moderate"
+                    >
+                      Moderate
+                    </button>
+                    <button
+                      class="btn btn-secondary sport-intensity-btn"
+                      type="button"
+                      data-intensity="hard"
+                      onclick="setSportIntensity('hard', this)"
+                      data-i18n="settings.intensity.hard"
+                    >
+                      Hard
+                    </button>
+                  </div>
+                  <label class="toggle-row" for="sport-legs-heavy">
+                    <div>
+                      <div
+                        class="toggle-row-title"
+                        data-i18n="settings.leg_heavy"
+                      >
+                        Leg-heavy
+                      </div>
+                      <div
+                        class="toggle-row-sub"
+                        data-i18n="settings.leg_heavy_sub"
+                      >
+                        Warns when scheduling legs after sport
+                      </div>
+                    </div>
+                    <div class="toggle-switch warning-toggle">
+                      <input
+                        type="checkbox"
+                        id="sport-legs-heavy"
+                        onchange="saveSchedule()"
+                      />
+                      <span class="toggle-track"
+                        ><span class="toggle-thumb"></span
+                      ></span>
+                    </div>
+                  </label>
+                  <div
+                    class="settings-inline-label"
+                    data-i18n="settings.regular_sport_days"
+                  >
+                    Regular Sport Days
+                  </div>
+                  <div class="day-toggle-grid" id="sport-day-toggles"></div>
                 </div>
-                <div class="day-toggle-grid" id="sport-day-toggles"></div>
               </div>
-            </div>
             </div>
             <div id="settings-schedule-react-root"></div>
           </div>
@@ -884,314 +891,314 @@
           <!-- ── Preferences tab ── -->
           <div id="settings-tab-preferences" style="display: none">
             <div id="settings-preferences-legacy-shell">
-            <div class="settings-status-bar" id="training-status-bar"></div>
-            <details
-              class="settings-panel"
-              id="training-preferences-panel"
-              open
-            >
-              <summary class="settings-panel-summary">
-                <div>
-                  <div
-                    class="settings-panel-title"
-                    data-i18n="settings.preferences.title"
-                  >
-                    Training Preferences
+              <div class="settings-status-bar" id="training-status-bar"></div>
+              <details
+                class="settings-panel"
+                id="training-preferences-panel"
+                open
+              >
+                <summary class="settings-panel-summary">
+                  <div>
+                    <div
+                      class="settings-panel-title"
+                      data-i18n="settings.preferences.title"
+                    >
+                      Training Preferences
+                    </div>
+                    <div
+                      class="settings-panel-sub"
+                      id="training-preferences-summary"
+                    ></div>
                   </div>
+                  <div class="settings-panel-chevron">⌄</div>
+                </summary>
+                <div class="settings-panel-body">
                   <div
-                    class="settings-panel-sub"
-                    id="training-preferences-summary"
-                  ></div>
-                </div>
-                <div class="settings-panel-chevron">⌄</div>
-              </summary>
-              <div class="settings-panel-body">
-                <div
-                  class="settings-help-text"
-                  data-i18n="settings.preferences.help"
-                >
-                  These preferences shape future smart recommendations and
-                  AI-generated training.
-                </div>
+                    class="settings-help-text"
+                    data-i18n="settings.preferences.help"
+                  >
+                    These preferences shape future smart recommendations and
+                    AI-generated training.
+                  </div>
 
-                <div class="settings-subsection">
-                  <div
-                    class="settings-subsection-title"
-                    data-i18n="settings.preferences.section.goals"
-                  >
-                    Goals & Volume
-                  </div>
-                  <label data-i18n="settings.preferences.goal"
-                    >Primary Goal</label
-                  >
-                  <select
-                    id="training-goal"
-                    onchange="saveTrainingPreferences()"
-                  >
-                    <option
-                      value="strength"
-                      data-i18n="settings.preferences.goal.strength"
+                  <div class="settings-subsection">
+                    <div
+                      class="settings-subsection-title"
+                      data-i18n="settings.preferences.section.goals"
                     >
-                      Strength
-                    </option>
-                    <option
-                      value="hypertrophy"
-                      data-i18n="settings.preferences.goal.hypertrophy"
-                    >
-                      Hypertrophy
-                    </option>
-                    <option
-                      value="general_fitness"
-                      data-i18n="settings.preferences.goal.general_fitness"
-                    >
-                      General Fitness
-                    </option>
-                    <option
-                      value="sport_support"
-                      data-i18n="settings.preferences.goal.sport_support"
-                    >
-                      Sport Support
-                    </option>
-                  </select>
-                  <label
-                    class="label-spaced"
-                    data-i18n="settings.preferences.training_days"
-                    >Target Training Frequency</label
-                  >
-                  <select
-                    id="training-days-per-week"
-                    onchange="saveTrainingPreferences()"
-                  >
-                    <option
-                      value="2"
-                      data-i18n="settings.preferences.training_days_value"
-                      data-i18n-params='{"count":2}'
-                    >
-                      2 sessions / week
-                    </option>
-                    <option
-                      value="3"
-                      data-i18n="settings.preferences.training_days_value"
-                      data-i18n-params='{"count":3}'
-                    >
-                      3 sessions / week
-                    </option>
-                    <option
-                      value="4"
-                      data-i18n="settings.preferences.training_days_value"
-                      data-i18n-params='{"count":4}'
-                    >
-                      4 sessions / week
-                    </option>
-                    <option
-                      value="5"
-                      data-i18n="settings.preferences.training_days_value"
-                      data-i18n-params='{"count":5}'
-                    >
-                      5 sessions / week
-                    </option>
-                    <option
-                      value="6"
-                      data-i18n="settings.preferences.training_days_value"
-                      data-i18n-params='{"count":6}'
-                    >
-                      6 sessions / week
-                    </option>
-                  </select>
-                  <label
-                    class="label-spaced"
-                    data-i18n="settings.preferences.session_duration"
-                    >Target Session Length</label
-                  >
-                  <select
-                    id="training-session-minutes"
-                    onchange="saveTrainingPreferences()"
-                  >
-                    <option
-                      value="30"
-                      data-i18n="settings.preferences.duration_value.30"
-                    >
-                      30 min
-                    </option>
-                    <option
-                      value="45"
-                      data-i18n="settings.preferences.duration_value.45"
-                    >
-                      45 min
-                    </option>
-                    <option
-                      value="60"
-                      data-i18n="settings.preferences.duration_value.60"
-                    >
-                      60 min
-                    </option>
-                    <option
-                      value="75"
-                      data-i18n="settings.preferences.duration_value.75"
-                    >
-                      75 min
-                    </option>
-                    <option
-                      value="90"
-                      data-i18n="settings.preferences.duration_value.90"
-                    >
-                      90 min
-                    </option>
-                  </select>
-                </div>
-
-                <div class="settings-subsection">
-                  <div
-                    class="settings-subsection-title"
-                    data-i18n="settings.preferences.section.equipment"
-                  >
-                    Equipment & Warm-up
-                  </div>
-                  <label data-i18n="settings.preferences.equipment"
-                    >Equipment Access</label
-                  >
-                  <select
-                    id="training-equipment"
-                    onchange="saveTrainingPreferences()"
-                  >
-                    <option
-                      value="full_gym"
-                      data-i18n="settings.preferences.equipment.full_gym"
-                    >
-                      Full Gym
-                    </option>
-                    <option
-                      value="basic_gym"
-                      data-i18n="settings.preferences.equipment.basic_gym"
-                    >
-                      Basic Gym
-                    </option>
-                    <option
-                      value="home_gym"
-                      data-i18n="settings.preferences.equipment.home_gym"
-                    >
-                      Home Gym
-                    </option>
-                    <option
-                      value="minimal"
-                      data-i18n="settings.preferences.equipment.minimal"
-                    >
-                      Minimal Equipment
-                    </option>
-                  </select>
-                  <label
-                    class="toggle-row toggle-row-spaced"
-                    for="training-warmup-sets"
-                  >
-                    <div>
-                      <div
-                        class="toggle-row-title"
-                        data-i18n="settings.preferences.warmup_sets"
-                      >
-                        Automatic warm-up sets
-                      </div>
-                      <div
-                        class="toggle-row-sub"
-                        data-i18n="settings.preferences.warmup_sets_help"
-                      >
-                        Prepend warm-up ramp sets (50%-85%) to main compound
-                        lifts at the start of each workout.
-                      </div>
+                      Goals & Volume
                     </div>
-                    <div class="toggle-switch">
-                      <input
-                        type="checkbox"
-                        id="training-warmup-sets"
-                        onchange="saveTrainingPreferences()"
-                      />
-                      <span class="toggle-track"
-                        ><span class="toggle-thumb"></span
-                      ></span>
-                    </div>
-                  </label>
-                  <label class="toggle-row" for="training-sport-check">
-                    <div>
-                      <div
-                        class="toggle-row-title"
-                        data-i18n="settings.preferences.sport_check"
-                      >
-                        Pre-workout sport check-in
-                      </div>
-                      <div
-                        class="toggle-row-sub"
-                        data-i18n="settings.preferences.sport_check_help"
-                      >
-                        Ask about sport load around today before recommending
-                        the session.
-                      </div>
-                    </div>
-                    <div class="toggle-switch sport-toggle">
-                      <input
-                        type="checkbox"
-                        id="training-sport-check"
-                        onchange="saveTrainingPreferences()"
-                      />
-                      <span class="toggle-track"
-                        ><span class="toggle-thumb"></span
-                      ></span>
-                    </div>
-                  </label>
-                </div>
-
-                <div class="settings-subsection">
-                  <div
-                    class="settings-subsection-title"
-                    data-i18n="settings.preferences.section.session"
-                  >
-                    Session Settings
-                  </div>
-                  <div
-                    class="settings-panel-inline-row"
-                    style="margin-top: 0; padding-top: 0; border-top: none"
-                  >
-                    <label
-                      class="settings-inline-control-label"
-                      for="default-rest"
-                      data-i18n="settings.default_rest"
-                      >Default Rest Timer</label
+                    <label data-i18n="settings.preferences.goal"
+                      >Primary Goal</label
                     >
                     <select
-                      id="default-rest"
-                      class="settings-inline-control-select"
-                      onchange="saveRestTimer()"
+                      id="training-goal"
+                      onchange="saveTrainingPreferences()"
                     >
-                      <option value="60">1 min</option>
-                      <option value="90">90 sec</option>
-                      <option value="120" selected>2 min</option>
-                      <option value="180">3 min</option>
-                      <option value="300">5 min</option>
-                      <option value="0" data-i18n="common.off">Off</option>
+                      <option
+                        value="strength"
+                        data-i18n="settings.preferences.goal.strength"
+                      >
+                        Strength
+                      </option>
+                      <option
+                        value="hypertrophy"
+                        data-i18n="settings.preferences.goal.hypertrophy"
+                      >
+                        Hypertrophy
+                      </option>
+                      <option
+                        value="general_fitness"
+                        data-i18n="settings.preferences.goal.general_fitness"
+                      >
+                        General Fitness
+                      </option>
+                      <option
+                        value="sport_support"
+                        data-i18n="settings.preferences.goal.sport_support"
+                      >
+                        Sport Support
+                      </option>
+                    </select>
+                    <label
+                      class="label-spaced"
+                      data-i18n="settings.preferences.training_days"
+                      >Target Training Frequency</label
+                    >
+                    <select
+                      id="training-days-per-week"
+                      onchange="saveTrainingPreferences()"
+                    >
+                      <option
+                        value="2"
+                        data-i18n="settings.preferences.training_days_value"
+                        data-i18n-params='{"count":2}'
+                      >
+                        2 sessions / week
+                      </option>
+                      <option
+                        value="3"
+                        data-i18n="settings.preferences.training_days_value"
+                        data-i18n-params='{"count":3}'
+                      >
+                        3 sessions / week
+                      </option>
+                      <option
+                        value="4"
+                        data-i18n="settings.preferences.training_days_value"
+                        data-i18n-params='{"count":4}'
+                      >
+                        4 sessions / week
+                      </option>
+                      <option
+                        value="5"
+                        data-i18n="settings.preferences.training_days_value"
+                        data-i18n-params='{"count":5}'
+                      >
+                        5 sessions / week
+                      </option>
+                      <option
+                        value="6"
+                        data-i18n="settings.preferences.training_days_value"
+                        data-i18n-params='{"count":6}'
+                      >
+                        6 sessions / week
+                      </option>
+                    </select>
+                    <label
+                      class="label-spaced"
+                      data-i18n="settings.preferences.session_duration"
+                      >Target Session Length</label
+                    >
+                    <select
+                      id="training-session-minutes"
+                      onchange="saveTrainingPreferences()"
+                    >
+                      <option
+                        value="30"
+                        data-i18n="settings.preferences.duration_value.30"
+                      >
+                        30 min
+                      </option>
+                      <option
+                        value="45"
+                        data-i18n="settings.preferences.duration_value.45"
+                      >
+                        45 min
+                      </option>
+                      <option
+                        value="60"
+                        data-i18n="settings.preferences.duration_value.60"
+                      >
+                        60 min
+                      </option>
+                      <option
+                        value="75"
+                        data-i18n="settings.preferences.duration_value.75"
+                      >
+                        75 min
+                      </option>
+                      <option
+                        value="90"
+                        data-i18n="settings.preferences.duration_value.90"
+                      >
+                        90 min
+                      </option>
                     </select>
                   </div>
-                  <label
-                    class="label-spaced"
-                    data-i18n="settings.preferences.notes"
-                    >Notes, limitations, preferences</label
-                  >
-                  <textarea
-                    id="training-preferences-notes"
-                    rows="4"
-                    data-i18n-placeholder="settings.preferences.notes_placeholder"
-                    placeholder="e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap"
-                    onchange="saveTrainingPreferences()"
-                  ></textarea>
-                </div>
 
-                <button
-                  class="btn btn-secondary settings-action-primary"
-                  type="button"
-                  onclick="restartOnboarding()"
-                  data-i18n="settings.preferences.restart_onboarding"
-                >
-                  Run Guided Setup Again
-                </button>
-              </div>
-            </details>
+                  <div class="settings-subsection">
+                    <div
+                      class="settings-subsection-title"
+                      data-i18n="settings.preferences.section.equipment"
+                    >
+                      Equipment & Warm-up
+                    </div>
+                    <label data-i18n="settings.preferences.equipment"
+                      >Equipment Access</label
+                    >
+                    <select
+                      id="training-equipment"
+                      onchange="saveTrainingPreferences()"
+                    >
+                      <option
+                        value="full_gym"
+                        data-i18n="settings.preferences.equipment.full_gym"
+                      >
+                        Full Gym
+                      </option>
+                      <option
+                        value="basic_gym"
+                        data-i18n="settings.preferences.equipment.basic_gym"
+                      >
+                        Basic Gym
+                      </option>
+                      <option
+                        value="home_gym"
+                        data-i18n="settings.preferences.equipment.home_gym"
+                      >
+                        Home Gym
+                      </option>
+                      <option
+                        value="minimal"
+                        data-i18n="settings.preferences.equipment.minimal"
+                      >
+                        Minimal Equipment
+                      </option>
+                    </select>
+                    <label
+                      class="toggle-row toggle-row-spaced"
+                      for="training-warmup-sets"
+                    >
+                      <div>
+                        <div
+                          class="toggle-row-title"
+                          data-i18n="settings.preferences.warmup_sets"
+                        >
+                          Automatic warm-up sets
+                        </div>
+                        <div
+                          class="toggle-row-sub"
+                          data-i18n="settings.preferences.warmup_sets_help"
+                        >
+                          Prepend warm-up ramp sets (50%-85%) to main compound
+                          lifts at the start of each workout.
+                        </div>
+                      </div>
+                      <div class="toggle-switch">
+                        <input
+                          type="checkbox"
+                          id="training-warmup-sets"
+                          onchange="saveTrainingPreferences()"
+                        />
+                        <span class="toggle-track"
+                          ><span class="toggle-thumb"></span
+                        ></span>
+                      </div>
+                    </label>
+                    <label class="toggle-row" for="training-sport-check">
+                      <div>
+                        <div
+                          class="toggle-row-title"
+                          data-i18n="settings.preferences.sport_check"
+                        >
+                          Pre-workout sport check-in
+                        </div>
+                        <div
+                          class="toggle-row-sub"
+                          data-i18n="settings.preferences.sport_check_help"
+                        >
+                          Ask about sport load around today before recommending
+                          the session.
+                        </div>
+                      </div>
+                      <div class="toggle-switch sport-toggle">
+                        <input
+                          type="checkbox"
+                          id="training-sport-check"
+                          onchange="saveTrainingPreferences()"
+                        />
+                        <span class="toggle-track"
+                          ><span class="toggle-thumb"></span
+                        ></span>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="settings-subsection">
+                    <div
+                      class="settings-subsection-title"
+                      data-i18n="settings.preferences.section.session"
+                    >
+                      Session Settings
+                    </div>
+                    <div
+                      class="settings-panel-inline-row"
+                      style="margin-top: 0; padding-top: 0; border-top: none"
+                    >
+                      <label
+                        class="settings-inline-control-label"
+                        for="default-rest"
+                        data-i18n="settings.default_rest"
+                        >Default Rest Timer</label
+                      >
+                      <select
+                        id="default-rest"
+                        class="settings-inline-control-select"
+                        onchange="saveRestTimer()"
+                      >
+                        <option value="60">1 min</option>
+                        <option value="90">90 sec</option>
+                        <option value="120" selected>2 min</option>
+                        <option value="180">3 min</option>
+                        <option value="300">5 min</option>
+                        <option value="0" data-i18n="common.off">Off</option>
+                      </select>
+                    </div>
+                    <label
+                      class="label-spaced"
+                      data-i18n="settings.preferences.notes"
+                      >Notes, limitations, preferences</label
+                    >
+                    <textarea
+                      id="training-preferences-notes"
+                      rows="4"
+                      data-i18n-placeholder="settings.preferences.notes_placeholder"
+                      placeholder="e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap"
+                      onchange="saveTrainingPreferences()"
+                    ></textarea>
+                  </div>
+
+                  <button
+                    class="btn btn-secondary settings-action-primary"
+                    type="button"
+                    onclick="restartOnboarding()"
+                    data-i18n="settings.preferences.restart_onboarding"
+                  >
+                    Run Guided Setup Again
+                  </button>
+                </div>
+              </details>
             </div>
             <div id="settings-preferences-react-root"></div>
           </div>
@@ -1199,77 +1206,79 @@
           <!-- ── Program tab ── -->
           <div id="settings-tab-program" style="display: none">
             <div id="settings-program-legacy-shell">
-            <div class="settings-status-bar" id="program-status-bar"></div>
-            <details
-              class="settings-panel"
-              id="program-basics-panel"
-              style="display: none"
-              open
-            >
-              <summary class="settings-panel-summary">
-                <div>
-                  <div
-                    class="settings-panel-title"
-                    data-i18n="settings.program_basics"
-                  >
-                    Program Basics
+              <div class="settings-status-bar" id="program-status-bar"></div>
+              <details
+                class="settings-panel"
+                id="program-basics-panel"
+                style="display: none"
+                open
+              >
+                <summary class="settings-panel-summary">
+                  <div>
+                    <div
+                      class="settings-panel-title"
+                      data-i18n="settings.program_basics"
+                    >
+                      Program Basics
+                    </div>
+                    <div
+                      class="settings-panel-sub"
+                      id="program-basics-summary"
+                    ></div>
                   </div>
-                  <div
-                    class="settings-panel-sub"
-                    id="program-basics-summary"
-                  ></div>
+                  <div class="settings-panel-chevron">⌄</div>
+                </summary>
+                <div class="settings-panel-body">
+                  <div id="program-basics-container"></div>
                 </div>
-                <div class="settings-panel-chevron">⌄</div>
-              </summary>
-              <div class="settings-panel-body">
-                <div id="program-basics-container"></div>
-              </div>
-            </details>
-            <details class="settings-panel" id="training-program-panel">
-              <summary class="settings-panel-summary">
-                <div>
-                  <div
-                    class="settings-panel-title"
-                    data-i18n="settings.training_program"
-                  >
-                    Training Program
+              </details>
+              <details class="settings-panel" id="training-program-panel">
+                <summary class="settings-panel-summary">
+                  <div>
+                    <div
+                      class="settings-panel-title"
+                      data-i18n="settings.training_program"
+                    >
+                      Training Program
+                    </div>
+                    <div
+                      class="settings-panel-sub"
+                      id="training-program-summary"
+                    ></div>
                   </div>
-                  <div
-                    class="settings-panel-sub"
-                    id="training-program-summary"
-                  ></div>
+                  <div class="settings-panel-chevron">⌄</div>
+                </summary>
+                <div class="settings-panel-body">
+                  <div id="program-switcher-container"></div>
                 </div>
-                <div class="settings-panel-chevron">⌄</div>
-              </summary>
-              <div class="settings-panel-body">
-                <div id="program-switcher-container"></div>
-              </div>
-            </details>
-            <div
-              class="settings-panel settings-panel-static program-advanced-card"
-              id="program-advanced-panel"
-              onclick="openProgramSetupSheet()"
-              style="cursor: pointer"
-            >
-              <div class="settings-panel-summary settings-panel-summary-static">
-                <div>
-                  <div
-                    class="settings-panel-title"
-                    data-i18n="settings.program_advanced_title"
-                  >
-                    Advanced Setup
+              </details>
+              <div
+                class="settings-panel settings-panel-static program-advanced-card"
+                id="program-advanced-panel"
+                onclick="openProgramSetupSheet()"
+                style="cursor: pointer"
+              >
+                <div
+                  class="settings-panel-summary settings-panel-summary-static"
+                >
+                  <div>
+                    <div
+                      class="settings-panel-title"
+                      data-i18n="settings.program_advanced_title"
+                    >
+                      Advanced Setup
+                    </div>
+                    <div
+                      class="settings-panel-sub"
+                      data-i18n="settings.program_advanced_help"
+                    >
+                      Exercise swaps, cycle controls, peak block, and
+                      program-specific options.
+                    </div>
                   </div>
-                  <div
-                    class="settings-panel-sub"
-                    data-i18n="settings.program_advanced_help"
-                  >
-                    Exercise swaps, cycle controls, peak block, and
-                    program-specific options.
-                  </div>
+                  <div class="program-advanced-chevron">&#8250;</div>
                 </div>
-                <div class="program-advanced-chevron">&#8250;</div>
               </div>
-            </div>
             </div>
             <div id="settings-program-react-root"></div>
           </div>
@@ -1277,151 +1286,159 @@
           <!-- ── Account tab ── -->
           <div id="settings-tab-account" style="display: none">
             <div id="settings-account-legacy-shell">
-            <div class="card">
-              <div class="card-title" data-i18n="settings.account_section">
-                Account
-              </div>
-              <div class="account-email" id="account-email"></div>
-              <div class="sync-status" id="sync-status">Synced to cloud</div>
-              <div class="account-field">
-                <label data-i18n="settings.language.label">App language</label>
-                <select id="app-language" onchange="saveLanguageSetting()">
-                  <option value="en" data-i18n="settings.language.option.en">
-                    English
-                  </option>
-                  <option value="fi" data-i18n="settings.language.option.fi">
-                    Finnish
-                  </option>
-                </select>
-              </div>
-              <button
-                class="btn btn-ghost"
-                type="button"
-                onclick="logout()"
-                data-i18n="settings.sign_out"
-              >
-                Sign Out
-              </button>
-            </div>
-            <div class="card">
-              <div class="card-title" data-i18n="settings.data_backup">
-                Data Backup
-              </div>
-              <div
-                class="settings-note settings-note-top"
-                id="backup-context"
-              ></div>
-              <div class="settings-button-row">
+              <div class="card">
+                <div class="card-title" data-i18n="settings.account_section">
+                  Account
+                </div>
+                <div class="account-email" id="account-email"></div>
+                <div class="sync-status" id="sync-status">Synced to cloud</div>
+                <div class="account-field">
+                  <label data-i18n="settings.language.label"
+                    >App language</label
+                  >
+                  <select id="app-language" onchange="saveLanguageSetting()">
+                    <option value="en" data-i18n="settings.language.option.en">
+                      English
+                    </option>
+                    <option value="fi" data-i18n="settings.language.option.fi">
+                      Finnish
+                    </option>
+                  </select>
+                </div>
                 <button
-                  class="btn btn-secondary settings-row-button"
+                  class="btn btn-ghost"
                   type="button"
-                  onclick="exportData()"
-                  data-i18n="settings.export"
+                  onclick="logout()"
+                  data-i18n="settings.sign_out"
                 >
-                  Export
+                  Sign Out
                 </button>
-                <label
-                  class="btn btn-secondary settings-row-button settings-import-button"
-                  data-i18n="settings.import"
-                  >Import
-                  <input
-                    type="file"
-                    accept=".json"
-                    onchange="importData(event)"
-                    class="file-input-hidden"
-                  />
-                </label>
               </div>
-              <div
-                class="settings-note settings-note-tight"
-                data-i18n="settings.backup_help"
-              >
-                Export saves all data as a JSON file. Import replaces all
-                current data.
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-title" data-i18n="settings.claude_api_key.title">
-                AI Nutrition Coach
-              </div>
-              <div
-                class="settings-note settings-note-top"
-                data-i18n="settings.claude_api_key.help"
-              >
-                Get your free API key at console.anthropic.com. The key is stored only on this device and is never synced to the cloud.
-              </div>
-              <div class="account-field">
-                <label data-i18n="settings.claude_api_key.label">Claude API Key</label>
-                <input
-                  type="password"
-                  id="nutrition-api-key-input"
-                  data-i18n-placeholder="settings.claude_api_key.placeholder"
-                  placeholder="sk-ant-..."
-                  autocomplete="off"
-                  spellcheck="false"
+              <div class="card">
+                <div class="card-title" data-i18n="settings.data_backup">
+                  Data Backup
+                </div>
+                <div
+                  class="settings-note settings-note-top"
+                  id="backup-context"
+                ></div>
+                <div class="settings-button-row">
+                  <button
+                    class="btn btn-secondary settings-row-button"
+                    type="button"
+                    onclick="exportData()"
+                    data-i18n="settings.export"
+                  >
+                    Export
+                  </button>
+                  <label
+                    class="btn btn-secondary settings-row-button settings-import-button"
+                    data-i18n="settings.import"
+                    >Import
+                    <input
+                      type="file"
+                      accept=".json"
+                      onchange="importData(event)"
+                      class="file-input-hidden"
+                    />
+                  </label>
+                </div>
+                <div
+                  class="settings-note settings-note-tight"
+                  data-i18n="settings.backup_help"
                 >
-              </div>
-              <button
-                class="btn btn-secondary"
-                type="button"
-                onclick="saveNutritionApiKey()"
-                data-i18n="settings.claude_api_key.save"
-              >
-                Save Key
-              </button>
-            </div>
-            <div class="card danger-zone-card">
-              <div class="danger-zone-header">
-                <span class="danger-zone-icon">&#9888;</span>
-                <div class="card-title" data-i18n="settings.danger">
-                  Danger Zone
+                  Export saves all data as a JSON file. Import replaces all
+                  current data.
                 </div>
               </div>
-              <div class="danger-zone-desc" data-i18n="settings.danger_desc">
-                This permanently deletes all your workouts, programs, and
-                settings. This cannot be undone.
-              </div>
-              <div
-                class="danger-zone-confirm"
-                id="danger-zone-confirm"
-                style="display: none"
-              >
-                <label
-                  class="danger-zone-label"
-                  data-i18n="settings.danger_type_confirm"
-                  >Type DELETE to confirm</label
+              <div class="card">
+                <div
+                  class="card-title"
+                  data-i18n="settings.claude_api_key.title"
                 >
-                <input
-                  type="text"
-                  id="danger-zone-input"
-                  class="danger-zone-input"
-                  placeholder="DELETE"
-                  autocomplete="off"
-                  spellcheck="false"
-                  oninput="checkDangerConfirm()"
-                />
+                  AI Nutrition Coach
+                </div>
+                <div
+                  class="settings-note settings-note-top"
+                  data-i18n="settings.claude_api_key.help"
+                >
+                  Get your free API key at console.anthropic.com. The key is
+                  stored only on this device and is never synced to the cloud.
+                </div>
+                <div class="account-field">
+                  <label data-i18n="settings.claude_api_key.label"
+                    >Claude API Key</label
+                  >
+                  <input
+                    type="password"
+                    id="nutrition-api-key-input"
+                    data-i18n-placeholder="settings.claude_api_key.placeholder"
+                    placeholder="sk-ant-..."
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
                 <button
-                  class="btn btn-ghost danger-btn danger-btn-final"
-                  id="danger-zone-delete-btn"
+                  class="btn btn-secondary"
                   type="button"
-                  disabled
-                  onclick="clearAllData()"
-                  data-i18n="settings.clear_all_confirm"
+                  onclick="saveNutritionApiKey()"
+                  data-i18n="settings.claude_api_key.save"
                 >
-                  Permanently Delete All Data
+                  Save Key
                 </button>
               </div>
-              <button
-                class="btn btn-ghost danger-btn"
-                id="danger-zone-trigger"
-                type="button"
-                onclick="showDangerConfirm()"
-                data-i18n="settings.clear_all"
-              >
-                Clear All Data
-              </button>
-            </div>
-            <div class="app-version" id="app-version"></div>
+              <div class="card danger-zone-card">
+                <div class="danger-zone-header">
+                  <span class="danger-zone-icon">&#9888;</span>
+                  <div class="card-title" data-i18n="settings.danger">
+                    Danger Zone
+                  </div>
+                </div>
+                <div class="danger-zone-desc" data-i18n="settings.danger_desc">
+                  This permanently deletes all your workouts, programs, and
+                  settings. This cannot be undone.
+                </div>
+                <div
+                  class="danger-zone-confirm"
+                  id="danger-zone-confirm"
+                  style="display: none"
+                >
+                  <label
+                    class="danger-zone-label"
+                    data-i18n="settings.danger_type_confirm"
+                    >Type DELETE to confirm</label
+                  >
+                  <input
+                    type="text"
+                    id="danger-zone-input"
+                    class="danger-zone-input"
+                    placeholder="DELETE"
+                    autocomplete="off"
+                    spellcheck="false"
+                    oninput="checkDangerConfirm()"
+                  />
+                  <button
+                    class="btn btn-ghost danger-btn danger-btn-final"
+                    id="danger-zone-delete-btn"
+                    type="button"
+                    disabled
+                    onclick="clearAllData()"
+                    data-i18n="settings.clear_all_confirm"
+                  >
+                    Permanently Delete All Data
+                  </button>
+                </div>
+                <button
+                  class="btn btn-ghost danger-btn"
+                  id="danger-zone-trigger"
+                  type="button"
+                  onclick="showDangerConfirm()"
+                  data-i18n="settings.clear_all"
+                >
+                  Clear All Data
+                </button>
+              </div>
+              <div class="app-version" id="app-version"></div>
             </div>
             <div id="settings-account-react-root"></div>
           </div>
@@ -1429,108 +1446,170 @@
           <!-- ── Body tab ── -->
           <div id="settings-tab-body" style="display: none">
             <div id="settings-body-legacy-shell">
-            <div class="card">
-              <div class="card-title" data-i18n="settings.body.metrics_title">
-                Body Metrics
+              <div class="card">
+                <div class="card-title" data-i18n="settings.body.metrics_title">
+                  Body Metrics
+                </div>
+                <div
+                  class="settings-note settings-note-top"
+                  data-i18n="settings.body.metrics_help"
+                >
+                  Used by the AI Nutrition Coach to personalise advice. All
+                  weights in kg.
+                </div>
+                <div class="settings-row-2col">
+                  <div class="account-field">
+                    <label data-i18n="settings.body.sex">Sex</label>
+                    <select id="body-sex">
+                      <option value="" data-i18n="settings.body.sex_none">
+                        — select —
+                      </option>
+                      <option value="male" data-i18n="settings.body.sex_male">
+                        Male
+                      </option>
+                      <option
+                        value="female"
+                        data-i18n="settings.body.sex_female"
+                      >
+                        Female
+                      </option>
+                    </select>
+                  </div>
+                  <div class="account-field">
+                    <label data-i18n="settings.body.activity"
+                      >Activity level</label
+                    >
+                    <select id="body-activity">
+                      <option value="" data-i18n="settings.body.activity_none">
+                        — select —
+                      </option>
+                      <option
+                        value="sedentary"
+                        data-i18n="settings.body.activity_sedentary"
+                      >
+                        Sedentary
+                      </option>
+                      <option
+                        value="light"
+                        data-i18n="settings.body.activity_light"
+                      >
+                        Lightly active
+                      </option>
+                      <option
+                        value="moderate"
+                        data-i18n="settings.body.activity_moderate"
+                      >
+                        Active
+                      </option>
+                      <option
+                        value="very_active"
+                        data-i18n="settings.body.activity_very"
+                      >
+                        Very active
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="settings-row-2col">
+                  <div class="account-field">
+                    <label data-i18n="settings.body.weight"
+                      >Current weight (kg)</label
+                    >
+                    <input
+                      type="number"
+                      id="body-weight"
+                      min="30"
+                      max="300"
+                      step="0.1"
+                      placeholder="e.g. 82"
+                    />
+                  </div>
+                  <div class="account-field">
+                    <label data-i18n="settings.body.height">Height (cm)</label>
+                    <input
+                      type="number"
+                      id="body-height"
+                      min="100"
+                      max="250"
+                      step="1"
+                      placeholder="e.g. 178"
+                    />
+                  </div>
+                </div>
+                <div class="settings-row-2col">
+                  <div class="account-field">
+                    <label data-i18n="settings.body.age">Age</label>
+                    <input
+                      type="number"
+                      id="body-age"
+                      min="10"
+                      max="100"
+                      step="1"
+                      placeholder="e.g. 28"
+                    />
+                  </div>
+                  <div class="account-field">
+                    <label data-i18n="settings.body.target_weight"
+                      >Target weight (kg)</label
+                    >
+                    <input
+                      type="number"
+                      id="body-target-weight"
+                      min="30"
+                      max="300"
+                      step="0.1"
+                      placeholder="e.g. 85"
+                    />
+                  </div>
+                </div>
               </div>
-              <div
-                class="settings-note settings-note-top"
-                data-i18n="settings.body.metrics_help"
-              >
-                Used by the AI Nutrition Coach to personalise advice. All weights in kg.
-              </div>
-              <div class="settings-row-2col">
+              <div class="card">
+                <div class="card-title" data-i18n="settings.body.goal_title">
+                  Body Composition Goal
+                </div>
                 <div class="account-field">
-                  <label data-i18n="settings.body.sex">Sex</label>
-                  <select id="body-sex">
-                    <option value="" data-i18n="settings.body.sex_none">— select —</option>
-                    <option value="male" data-i18n="settings.body.sex_male">Male</option>
-                    <option value="female" data-i18n="settings.body.sex_female">Female</option>
+                  <label data-i18n="settings.body.goal_label"
+                    >What are you working towards?</label
+                  >
+                  <select id="body-goal">
+                    <option value="" data-i18n="settings.body.goal_none">
+                      — select —
+                    </option>
+                    <option
+                      value="lose_fat"
+                      data-i18n="settings.body.goal.lose_fat"
+                    >
+                      Lose fat
+                    </option>
+                    <option
+                      value="gain_muscle"
+                      data-i18n="settings.body.goal.gain_muscle"
+                    >
+                      Gain muscle
+                    </option>
+                    <option
+                      value="recomp"
+                      data-i18n="settings.body.goal.recomp"
+                    >
+                      Body recomp (lose fat + gain muscle)
+                    </option>
+                    <option
+                      value="maintain"
+                      data-i18n="settings.body.goal.maintain"
+                    >
+                      Maintain
+                    </option>
                   </select>
                 </div>
-                <div class="account-field">
-                  <label data-i18n="settings.body.activity">Activity level</label>
-                  <select id="body-activity">
-                    <option value="" data-i18n="settings.body.activity_none">— select —</option>
-                    <option value="sedentary" data-i18n="settings.body.activity_sedentary">Sedentary</option>
-                    <option value="light" data-i18n="settings.body.activity_light">Lightly active</option>
-                    <option value="moderate" data-i18n="settings.body.activity_moderate">Active</option>
-                    <option value="very_active" data-i18n="settings.body.activity_very">Very active</option>
-                  </select>
-                </div>
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  onclick="saveBodyMetrics()"
+                  data-i18n="settings.body.save"
+                >
+                  Save
+                </button>
               </div>
-              <div class="settings-row-2col">
-                <div class="account-field">
-                  <label data-i18n="settings.body.weight">Current weight (kg)</label>
-                  <input
-                    type="number"
-                    id="body-weight"
-                    min="30"
-                    max="300"
-                    step="0.1"
-                    placeholder="e.g. 82"
-                  >
-                </div>
-                <div class="account-field">
-                  <label data-i18n="settings.body.height">Height (cm)</label>
-                  <input
-                    type="number"
-                    id="body-height"
-                    min="100"
-                    max="250"
-                    step="1"
-                    placeholder="e.g. 178"
-                  >
-                </div>
-              </div>
-              <div class="settings-row-2col">
-                <div class="account-field">
-                  <label data-i18n="settings.body.age">Age</label>
-                  <input
-                    type="number"
-                    id="body-age"
-                    min="10"
-                    max="100"
-                    step="1"
-                    placeholder="e.g. 28"
-                  >
-                </div>
-                <div class="account-field">
-                  <label data-i18n="settings.body.target_weight">Target weight (kg)</label>
-                  <input
-                    type="number"
-                    id="body-target-weight"
-                    min="30"
-                    max="300"
-                    step="0.1"
-                    placeholder="e.g. 85"
-                  >
-                </div>
-              </div>
-            </div>
-            <div class="card">
-              <div class="card-title" data-i18n="settings.body.goal_title">
-                Body Composition Goal
-              </div>
-              <div class="account-field">
-                <label data-i18n="settings.body.goal_label">What are you working towards?</label>
-                <select id="body-goal">
-                  <option value="" data-i18n="settings.body.goal_none">— select —</option>
-                  <option value="lose_fat" data-i18n="settings.body.goal.lose_fat">Lose fat</option>
-                  <option value="gain_muscle" data-i18n="settings.body.goal.gain_muscle">Gain muscle</option>
-                  <option value="recomp" data-i18n="settings.body.goal.recomp">Body recomp (lose fat + gain muscle)</option>
-                  <option value="maintain" data-i18n="settings.body.goal.maintain">Maintain</option>
-                </select>
-              </div>
-              <button
-                class="btn btn-secondary"
-                type="button"
-                onclick="saveBodyMetrics()"
-                data-i18n="settings.body.save"
-              >
-                Save
-              </button>
-            </div>
             </div>
             <div id="settings-body-react-root"></div>
           </div>
@@ -1540,7 +1619,20 @@
         <div class="page" id="page-nutrition">
           <div id="nutrition-legacy-shell">
             <div class="nutrition-page-header">
-              <div class="nutrition-page-title" data-i18n="nutrition.page.title">Nutrition Coach</div>
+              <div class="nutrition-page-heading">
+                <div
+                  class="nutrition-page-kicker"
+                  data-i18n="nutrition.empty.kicker"
+                >
+                  AI NUTRITION COACH
+                </div>
+                <div
+                  class="nutrition-page-title"
+                  data-i18n="nutrition.page.title"
+                >
+                  Nutrition Coach
+                </div>
+              </div>
               <div class="nutrition-overflow-wrap">
                 <button
                   class="nutrition-overflow-btn"
@@ -1548,92 +1640,160 @@
                   onclick="toggleNutritionMenu()"
                   aria-label="Menu"
                 >
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-                    <circle cx="12" cy="5" r="1.5"/>
-                    <circle cx="12" cy="12" r="1.5"/>
-                    <circle cx="12" cy="19" r="1.5"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    width="20"
+                    height="20"
+                  >
+                    <circle cx="12" cy="5" r="1.5" />
+                    <circle cx="12" cy="12" r="1.5" />
+                    <circle cx="12" cy="19" r="1.5" />
                   </svg>
                 </button>
-                <div class="nutrition-overflow-menu" id="nutrition-overflow-menu">
-                  <button type="button" onclick="clearNutritionHistory(); toggleNutritionMenu()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6l-1 14H6L5 6"/>
-                      <path d="M10 11v6"/>
-                      <path d="M14 11v6"/>
-                      <path d="M9 6V4h6v2"/>
+                <div
+                  class="nutrition-overflow-menu"
+                  id="nutrition-overflow-menu"
+                >
+                  <button
+                    type="button"
+                    onclick="
+                      clearNutritionHistory();
+                      toggleNutritionMenu();
+                    "
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      width="16"
+                      height="16"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                      <path d="M9 6V4h6v2" />
                     </svg>
-                    <span data-i18n="nutrition.clear.btn">Clear conversation</span>
+                    <span data-i18n="nutrition.clear.btn"
+                      >Clear conversation</span
+                    >
                   </button>
                 </div>
               </div>
             </div>
-            <div class="nutrition-messages" id="nutrition-messages"></div>
-            <div class="nutrition-loading" id="nutrition-loading" style="display:none">
-              <div class="nutrition-coach-avatar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16">
-                  <path d="M17 8c.7-3.4-.8-6.2-3-7.5C12.3 3 11.5 5.4 12 8"/>
-                  <path d="M12 8c-4 0-7 2.5-7 6 0 4.5 3 8 7 8s7-3.5 7-8c0-3.5-3-6-7-6z"/>
-                </svg>
-              </div>
-              <div class="nutrition-loading-content">
-                <div class="nutrition-loading-text" id="nutrition-loading-text" data-i18n="nutrition.loading.thinking">Thinking...</div>
-                <div class="nutrition-loading-dots">
-                  <span class="nutrition-dot"></span>
-                  <span class="nutrition-dot"></span>
-                  <span class="nutrition-dot"></span>
+            <div class="nutrition-meta-stack" id="nutrition-meta-stack"></div>
+            <div class="nutrition-stage">
+              <div class="nutrition-messages" id="nutrition-messages"></div>
+              <div
+                class="nutrition-loading"
+                id="nutrition-loading"
+                style="display: none"
+              >
+                <div class="nutrition-coach-avatar">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    width="16"
+                    height="16"
+                  >
+                    <path d="M17 8c.7-3.4-.8-6.2-3-7.5C12.3 3 11.5 5.4 12 8" />
+                    <path
+                      d="M12 8c-4 0-7 2.5-7 6 0 4.5 3 8 7 8s7-3.5 7-8c0-3.5-3-6-7-6z"
+                    />
+                  </svg>
+                </div>
+                <div class="nutrition-loading-content">
+                  <div
+                    class="nutrition-loading-text"
+                    id="nutrition-loading-text"
+                    data-i18n="nutrition.loading.thinking"
+                  >
+                    Thinking...
+                  </div>
+                  <div class="nutrition-loading-dots">
+                    <span class="nutrition-dot"></span>
+                    <span class="nutrition-dot"></span>
+                    <span class="nutrition-dot"></span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="nutrition-photo-preview" id="nutrition-photo-preview" style="display:none">
-              <img id="nutrition-preview-img" src="" alt="">
-              <button
-                class="nutrition-photo-clear"
-                type="button"
-                onclick="clearNutritionPhoto()"
-                aria-label="Remove photo"
-              >&#x2715;</button>
-            </div>
-            <div class="nutrition-input-bar">
-              <label class="nutrition-photo-btn" for="nutrition-photo-input" aria-label="Add photo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-                <input
-                  type="file"
-                  id="nutrition-photo-input"
-                  accept="image/*"
-                  capture="environment"
-                  onchange="handleNutritionPhoto(event)"
-                  class="file-input-hidden"
-                >
-              </label>
-              <textarea
-                class="nutrition-input"
-                id="nutrition-input"
-                rows="1"
-                inputmode="text"
-                data-i18n-placeholder="nutrition.input.placeholder"
-                placeholder="Ask about your food..."
-              ></textarea>
-              <button
-                class="nutrition-send-btn"
-                id="nutrition-send-btn"
-                type="button"
-                onclick="submitNutritionMessage()"
-                aria-label="Send"
+            <div class="nutrition-composer">
+              <div
+                class="nutrition-photo-preview"
+                id="nutrition-photo-preview"
+                style="display: none"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-              </button>
+                <img id="nutrition-preview-img" src="" alt="" />
+                <button
+                  class="nutrition-photo-clear"
+                  type="button"
+                  onclick="clearNutritionPhoto()"
+                  aria-label="Remove photo"
+                >
+                  &#x2715;
+                </button>
+              </div>
+              <div class="nutrition-input-bar">
+                <label
+                  class="nutrition-photo-btn"
+                  for="nutrition-photo-input"
+                  aria-label="Add photo"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+                    />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  <input
+                    type="file"
+                    id="nutrition-photo-input"
+                    accept="image/*"
+                    capture="environment"
+                    onchange="handleNutritionPhoto(event)"
+                    class="file-input-hidden"
+                  />
+                </label>
+                <textarea
+                  class="nutrition-input"
+                  id="nutrition-input"
+                  rows="1"
+                  inputmode="text"
+                  data-i18n-placeholder="nutrition.input.placeholder"
+                  placeholder="Ask about your food..."
+                ></textarea>
+                <button
+                  class="nutrition-send-btn"
+                  id="nutrition-send-btn"
+                  type="button"
+                  onclick="submitNutritionMessage()"
+                  aria-label="Send"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
           <div id="nutrition-react-root"></div>
         </div>
-
       </main>
 
       <!-- BOTTOM NAV -->
@@ -1727,8 +1887,10 @@
             stroke="currentColor"
             stroke-width="2"
           >
-            <path d="M17 8c.7-3.4-.8-6.2-3-7.5C12.3 3 11.5 5.4 12 8"/>
-            <path d="M12 8c-4 0-7 2.5-7 6 0 4.5 3 8 7 8s7-3.5 7-8c0-3.5-3-6-7-6z"/>
+            <path d="M17 8c.7-3.4-.8-6.2-3-7.5C12.3 3 11.5 5.4 12 8" />
+            <path
+              d="M12 8c-4 0-7 2.5-7 6 0 4.5 3 8 7 8s7-3.5 7-8c0-3.5-3-6-7-6z"
+            />
           </svg>
           <span data-i18n="nav.nutrition">Nutrition</span>
         </button>
@@ -1796,7 +1958,10 @@
     <script src="programs/hypertrophysplit.js"></script>
     <script type="module" src="/src/settings-account-island/main.jsx"></script>
     <script type="module" src="/src/settings-schedule-island/main.jsx"></script>
-    <script type="module" src="/src/settings-preferences-island/main.jsx"></script>
+    <script
+      type="module"
+      src="/src/settings-preferences-island/main.jsx"
+    ></script>
     <script type="module" src="/src/settings-program-island/main.jsx"></script>
     <script type="module" src="/src/dashboard-island/main.jsx"></script>
     <script type="module" src="/src/history-island/main.jsx"></script>

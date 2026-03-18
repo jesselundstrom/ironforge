@@ -1091,7 +1091,9 @@ h2 {
   box-shadow: 0 12px 30px rgba(245, 130, 31, 0.22);
   position: relative;
   overflow: hidden;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .btn-primary:active {
   transform: scale(0.96);
@@ -2008,44 +2010,101 @@ select optgroup {
 
 /* Phase 1: Impact — button squishes down then springs back */
 @keyframes forgeStrike {
-  0%   { transform: scale(1);    }
-  12%  { transform: scale(0.72); }
-  32%  { transform: scale(1.22); }
-  52%  { transform: scale(0.94); }
-  72%  { transform: scale(1.06); }
-  100% { transform: scale(1);    }
+  0% {
+    transform: scale(1);
+  }
+  12% {
+    transform: scale(0.72);
+  }
+  32% {
+    transform: scale(1.22);
+  }
+  52% {
+    transform: scale(0.94);
+  }
+  72% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Phase 2: Hot flash — white-orange → green cooldown on the button */
 @keyframes forgeCooldown {
-  0%   { background: #fff8f0; border-color: #ffa040; box-shadow: 0 0 18px 4px rgba(255,160,64,0.7), 0 0 40px 8px rgba(255,120,40,0.3); }
-  30%  { background: #ffb347; border-color: #ff8c1a; box-shadow: 0 0 14px 3px rgba(255,140,50,0.5), 0 0 28px 6px rgba(255,100,30,0.2); }
-  65%  { background: #6dd49a; border-color: #4caf79; box-shadow: 0 0 12px 2px rgba(76,175,121,0.45), 0 0 24px 4px rgba(76,175,121,0.15); }
-  100% { background: var(--green); border-color: var(--green); box-shadow: 0 2px 10px rgba(52,211,153,0.3); }
+  0% {
+    background: #fff8f0;
+    border-color: #ffa040;
+    box-shadow:
+      0 0 18px 4px rgba(255, 160, 64, 0.7),
+      0 0 40px 8px rgba(255, 120, 40, 0.3);
+  }
+  30% {
+    background: #ffb347;
+    border-color: #ff8c1a;
+    box-shadow:
+      0 0 14px 3px rgba(255, 140, 50, 0.5),
+      0 0 28px 6px rgba(255, 100, 30, 0.2);
+  }
+  65% {
+    background: #6dd49a;
+    border-color: #4caf79;
+    box-shadow:
+      0 0 12px 2px rgba(76, 175, 121, 0.45),
+      0 0 24px 4px rgba(76, 175, 121, 0.15);
+  }
+  100% {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
+  }
 }
 
 /* Phase 3: Shockwave ring expanding outward */
 @keyframes forgeShockwave {
-  0%   { transform: scale(0.5);  opacity: 0.9; border-width: 3px; }
-  60%  { opacity: 0.5; }
-  100% { transform: scale(3);    opacity: 0;   border-width: 0.5px; }
+  0% {
+    transform: scale(0.5);
+    opacity: 0.9;
+    border-width: 3px;
+  }
+  60% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+    border-width: 0.5px;
+  }
 }
 
 /* Ember particle flying outward */
 @keyframes emberFly {
-  0%   { transform: translate(0,0) scale(1); opacity: 1; }
-  30%  { opacity: 1; }
-  100% { transform: translate(var(--ember-x), var(--ember-y)) scale(0); opacity: 0; }
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--ember-x), var(--ember-y)) scale(0);
+    opacity: 0;
+  }
 }
 /* Ember glow trail */
 @keyframes emberGlow {
-  0%   { box-shadow: 0 0 4px 2px var(--ember-color); }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0% {
+    box-shadow: 0 0 4px 2px var(--ember-color);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 .set-check.set-done-anim {
-  animation: forgeStrike 0.42s cubic-bezier(0.22, 1, 0.36, 1) both,
-             forgeCooldown 0.5s ease-out both;
+  animation:
+    forgeStrike 0.42s cubic-bezier(0.22, 1, 0.36, 1) both,
+    forgeCooldown 0.5s ease-out both;
   transition: none;
 }
 /* Shockwave ring */
@@ -2054,7 +2113,7 @@ select optgroup {
   position: absolute;
   inset: -2px;
   border-radius: inherit;
-  border: 3px solid rgba(255,160,64,0.7);
+  border: 3px solid rgba(255, 160, 64, 0.7);
   background: transparent;
   pointer-events: none;
   animation: forgeShockwave 0.45s ease-out forwards;
@@ -2101,8 +2160,9 @@ select optgroup {
   background: var(--ember-color, #ffa040);
   pointer-events: none;
   z-index: 20;
-  animation: emberFly 0.52s cubic-bezier(0.15, 0, 0.4, 1) forwards,
-             emberGlow 0.52s ease-out forwards;
+  animation:
+    emberFly 0.52s cubic-bezier(0.15, 0, 0.4, 1) forwards,
+    emberGlow 0.52s ease-out forwards;
 }
 @keyframes prRowFlare {
   0% {
@@ -2167,14 +2227,32 @@ select optgroup {
 }
 /* ── Forge Seal: exercise collapse animation ── */
 @keyframes forgeSeal {
-  0%   { opacity: 1; transform: scale(1); }
-  40%  { opacity: 0.85; transform: scale(0.97); }
-  100% { opacity: 0; transform: scale(0.94); }
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  40% {
+    opacity: 0.85;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
 }
 @keyframes forgeSealReveal {
-  0%   { opacity: 0; transform: scale(0.96) translateY(-4px); }
-  60%  { opacity: 1; transform: scale(1.015) translateY(0); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.015) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 .exercise-block.collapsing {
   overflow: hidden;
@@ -2514,7 +2592,9 @@ select optgroup {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.22s ease, visibility 0.22s;
+  transition:
+    opacity 0.22s ease,
+    visibility 0.22s;
 }
 .modal-overlay.active {
   visibility: visible;
@@ -3210,7 +3290,9 @@ select optgroup {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s ease, visibility 0.2s;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s;
 }
 .confirm-modal.active {
   visibility: visible;
@@ -4195,8 +4277,9 @@ select optgroup {
   height: 18px;
   background: #fff;
   border-radius: 50%;
-  transition: transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1),
-              box-shadow 0.2s ease;
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.2, 0.64, 1),
+    box-shadow 0.2s ease;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 .toggle-switch input[type='checkbox']:checked ~ .toggle-track {
@@ -4214,10 +4297,17 @@ select optgroup {
 }
 .toggle-switch input[type='checkbox']:checked ~ .toggle-track .toggle-thumb {
   transform: translateX(18px);
-  box-shadow: 0 0 8px rgba(74, 143, 232, 0.4), 0 1px 4px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 8px rgba(74, 143, 232, 0.4),
+    0 1px 4px rgba(0, 0, 0, 0.4);
 }
-.toggle-switch.warning-toggle input[type='checkbox']:checked ~ .toggle-track .toggle-thumb {
-  box-shadow: 0 0 8px rgba(245, 130, 31, 0.5), 0 1px 4px rgba(0, 0, 0, 0.4);
+.toggle-switch.warning-toggle
+  input[type='checkbox']:checked
+  ~ .toggle-track
+  .toggle-thumb {
+  box-shadow:
+    0 0 8px rgba(245, 130, 31, 0.5),
+    0 1px 4px rgba(0, 0, 0, 0.4);
 }
 .day-toggle-grid {
   display: grid;
@@ -5023,15 +5113,17 @@ select optgroup {
 .summary-feedback-btn {
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 .summary-feedback-btn.is-active {
   background: var(--accent);
@@ -5044,17 +5136,38 @@ select optgroup {
 
 /* ── SUMMARY CELEBRATION ── */
 @keyframes summaryIconPulse {
-  0%   { transform: scale(0.5); opacity: 0; }
-  60%  { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 @keyframes summaryReveal {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 @keyframes summaryStatReveal {
-  from { opacity: 0; transform: scale(0.85); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .modal-overlay.active .summary-icon {
   animation: summaryIconPulse 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
@@ -5095,7 +5208,11 @@ select optgroup {
   border-top: none;
   padding: 0;
   background:
-    radial-gradient(circle at 50% 82%, rgba(245, 130, 31, 0.1), rgba(0, 0, 0, 0) 28%),
+    radial-gradient(
+      circle at 50% 82%,
+      rgba(245, 130, 31, 0.1),
+      rgba(0, 0, 0, 0) 28%
+    ),
     linear-gradient(180deg, rgba(15, 15, 18, 0.96), rgba(7, 7, 10, 0.98));
   box-shadow: none;
   transform: none;
@@ -5150,7 +5267,11 @@ select optgroup {
   border-radius: 30px;
   border: 1px solid rgba(245, 200, 66, 0.12);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.015)
+    ),
     rgba(13, 13, 16, 0.62);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -5185,7 +5306,8 @@ select optgroup {
     drop-shadow(0 0 18px rgba(245, 130, 31, 0.18));
   opacity: 0;
   transform: translateY(14px);
-  animation: summaryForgeReveal 0.36s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
+  animation: summaryForgeReveal 0.36s cubic-bezier(0.22, 1, 0.36, 1) 0.12s
+    forwards;
 }
 #summary-modal .summary-program {
   font-size: 13px;
@@ -5208,14 +5330,19 @@ select optgroup {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.02)
+    ),
     rgba(20, 20, 24, 0.86);
   padding: 16px 12px 14px;
   opacity: 0;
   transform: scale(0.7);
 }
 #summary-modal .summary-stat.is-visible {
-  animation: summaryForgeStatReveal 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: summaryForgeStatReveal 0.32s cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
 }
 #summary-modal .summary-stat-value {
   font-size: clamp(28px, 8vw, 42px);
@@ -5252,7 +5379,9 @@ select optgroup {
     0 0 0 rgba(245, 200, 66, 0);
   opacity: 0;
   transform: translateY(10px);
-  animation: summaryForgeReveal 0.3s ease 0.7s forwards, summaryForgeButtonGlow 1.8s ease-in-out 0.9s infinite;
+  animation:
+    summaryForgeReveal 0.3s ease 0.7s forwards,
+    summaryForgeButtonGlow 1.8s ease-in-out 0.9s infinite;
 }
 @keyframes summaryForgeReveal {
   from {
@@ -5299,12 +5428,22 @@ select optgroup {
 }
 
 @keyframes modalOverlayIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 @keyframes modalSheetIn {
-  from { opacity: 0; transform: translateY(24px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .custom-modal-overlay {
   position: fixed;
@@ -6592,8 +6731,8 @@ body.login-active::before {
   align-items: center;
   padding: 5px 9px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.045);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text);
   font-size: 10px;
   font-weight: 800;
@@ -6737,25 +6876,27 @@ body.login-active::before {
 .muscle-body-svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 2px 12px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.3));
 }
 
 /* Muscle zone coloring */
 .muscle-zone {
   fill: var(--muscle-none);
-  transition: fill 0.5s ease, filter 0.5s ease;
-  stroke: rgba(255,255,255,0.04);
+  transition:
+    fill 0.5s ease,
+    filter 0.5s ease;
+  stroke: rgba(255, 255, 255, 0.04);
   stroke-width: 0.5;
 }
-.muscle-zone[data-level="light"] {
+.muscle-zone[data-level='light'] {
   fill: var(--muscle-low);
   filter: drop-shadow(0 0 4px rgba(76, 175, 121, 0.3));
 }
-.muscle-zone[data-level="moderate"] {
+.muscle-zone[data-level='moderate'] {
   fill: var(--muscle-moderate);
   filter: drop-shadow(0 0 6px rgba(245, 200, 66, 0.3));
 }
-.muscle-zone[data-level="high"] {
+.muscle-zone[data-level='high'] {
   fill: var(--muscle-high);
   filter: drop-shadow(0 0 8px rgba(224, 82, 82, 0.35));
 }
@@ -6779,7 +6920,9 @@ body.login-active::before {
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.2s, color 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
 }
 .muscle-body-flip-btn:active {
   border-color: var(--accent);
@@ -7641,7 +7784,9 @@ body.login-active::before {
   color: var(--muted);
   cursor: pointer;
   border-radius: 50%;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   touch-action: manipulation;
 }
 .nutrition-overflow-btn:hover {
@@ -7658,7 +7803,7 @@ body.login-active::before {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 6px;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.38);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
   z-index: 50;
 }
 .nutrition-overflow-menu.open {
@@ -7666,8 +7811,14 @@ body.login-active::before {
   animation: nutritionMenuIn 0.15s ease;
 }
 @keyframes nutritionMenuIn {
-  from { opacity: 0; transform: translateY(-6px) scale(0.96); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .nutrition-overflow-menu button {
   display: flex;
@@ -7686,7 +7837,7 @@ body.login-active::before {
   touch-action: manipulation;
 }
 .nutrition-overflow-menu button:hover {
-  background: rgba(224,82,82,0.1);
+  background: rgba(224, 82, 82, 0.1);
 }
 
 /* -- Context banner (body metrics) -- */
@@ -7751,10 +7902,15 @@ body.login-active::before {
   margin: 16px 0 14px;
   border-radius: 28px;
   background:
-    radial-gradient(circle at top, rgba(76,175,121,0.22), rgba(76,175,121,0.06) 58%, rgba(255,255,255,0.02) 100%),
+    radial-gradient(
+      circle at top,
+      rgba(76, 175, 121, 0.22),
+      rgba(76, 175, 121, 0.06) 58%,
+      rgba(255, 255, 255, 0.02) 100%
+    ),
     var(--surface2);
-  border: 1px solid rgba(76,175,121,0.18);
-  box-shadow: 0 16px 36px rgba(0,0,0,0.22);
+  border: 1px solid rgba(76, 175, 121, 0.18);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
 }
 .nutrition-empty-orb svg {
   width: 36px;
@@ -7797,7 +7953,10 @@ body.login-active::before {
   font-family: inherit;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.12s;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.12s;
   touch-action: manipulation;
   text-align: left;
 }
@@ -7818,7 +7977,7 @@ body.login-active::before {
 /* -- Setup card (no API key) -- */
 .nutrition-setup-card {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
     var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -7849,9 +8008,13 @@ body.login-active::before {
   margin: 0 auto 14px;
   border-radius: 16px;
   background:
-    radial-gradient(circle at top, rgba(245,130,31,0.2), rgba(245,130,31,0.04) 70%),
+    radial-gradient(
+      circle at top,
+      rgba(245, 130, 31, 0.2),
+      rgba(245, 130, 31, 0.04) 70%
+    ),
     var(--surface2);
-  border: 1px solid rgba(245,130,31,0.15);
+  border: 1px solid rgba(245, 130, 31, 0.15);
 }
 .nutrition-setup-icon svg {
   width: 24px;
@@ -7882,8 +8045,14 @@ body.login-active::before {
   animation: nutritionMsgIn 0.24s ease both;
 }
 @keyframes nutritionMsgIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .nutrition-msg-user {
   align-self: flex-end;
@@ -7907,8 +8076,8 @@ body.login-active::before {
   min-width: 0;
 }
 .nutrition-msg-error .nutrition-msg-body {
-  background: rgba(239,68,68,0.12);
-  border: 1px solid rgba(239,68,68,0.25);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 .nutrition-msg-text {
   padding: 10px 14px;
@@ -7921,7 +8090,7 @@ body.login-active::before {
 }
 .nutrition-msg-user .nutrition-msg-time {
   text-align: right;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255, 255, 255, 0.5);
 }
 .nutrition-msg-img {
   display: block;
@@ -7940,7 +8109,7 @@ body.login-active::before {
   place-items: center;
   border-radius: 50%;
   background: var(--surface2);
-  border: 1px solid rgba(245,130,31,0.2);
+  border: 1px solid rgba(245, 130, 31, 0.2);
   margin-top: 2px;
 }
 .nutrition-coach-avatar svg {
@@ -8014,10 +8183,18 @@ body.login-active::before {
   color: var(--muted);
   margin-top: 1px;
 }
-.nc-macro-cal .nutrition-macro-value { color: var(--accent); }
-.nc-macro-pro .nutrition-macro-value { color: var(--green); }
-.nc-macro-carb .nutrition-macro-value { color: var(--gold); }
-.nc-macro-fat .nutrition-macro-value { color: var(--muted); }
+.nc-macro-cal .nutrition-macro-value {
+  color: var(--accent);
+}
+.nc-macro-pro .nutrition-macro-value {
+  color: var(--green);
+}
+.nc-macro-carb .nutrition-macro-value {
+  color: var(--gold);
+}
+.nc-macro-fat .nutrition-macro-value {
+  color: var(--muted);
+}
 
 /* -- Error retry -- */
 .nutrition-retry-btn {
@@ -8031,14 +8208,16 @@ body.login-active::before {
   letter-spacing: 0.04em;
   color: var(--red);
   background: none;
-  border: 1px solid rgba(224,82,82,0.3);
+  border: 1px solid rgba(224, 82, 82, 0.3);
   border-radius: 999px;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
   touch-action: manipulation;
 }
 .nutrition-retry-btn:hover {
-  background: rgba(224,82,82,0.1);
+  background: rgba(224, 82, 82, 0.1);
   border-color: var(--red);
 }
 
@@ -8070,11 +8249,23 @@ body.login-active::before {
   background: var(--muted);
   animation: nutritionPulse 1.2s ease-in-out infinite;
 }
-.nutrition-dot:nth-child(2) { animation-delay: 0.2s; }
-.nutrition-dot:nth-child(3) { animation-delay: 0.4s; }
+.nutrition-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.nutrition-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
 @keyframes nutritionPulse {
-  0%, 60%, 100% { opacity: 0.35; transform: scale(0.85); }
-  30% { opacity: 1; transform: scale(1); }
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* -- Photo preview -- */
@@ -8092,7 +8283,7 @@ body.login-active::before {
   border: 2px solid var(--accent);
 }
 .nutrition-photo-clear {
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   color: #fff;
   border: none;
   border-radius: 50%;
@@ -8115,7 +8306,7 @@ body.login-active::before {
   gap: 8px;
   padding: 10px 0 8px;
   margin-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   flex-shrink: 0;
   background: var(--bg);
 }
@@ -8132,12 +8323,14 @@ body.login-active::before {
   color: var(--muted);
   cursor: pointer;
   border-radius: 50%;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
   touch-action: manipulation;
 }
 .nutrition-photo-btn:hover {
   color: var(--accent);
-  background: rgba(245,130,31,0.1);
+  background: rgba(245, 130, 31, 0.1);
 }
 .nutrition-photo-btn svg {
   width: 22px;
@@ -8146,7 +8339,7 @@ body.login-active::before {
 .nutrition-input {
   flex: 1;
   background: var(--surface);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 9px 14px;
   font-size: 15px;
@@ -8173,7 +8366,9 @@ body.login-active::before {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.12s;
+  transition:
+    opacity 0.15s,
+    transform 0.12s;
   touch-action: manipulation;
 }
 .nutrition-send-btn:disabled {
@@ -8199,8 +8394,12 @@ body.login-active::before {
   animation: nc-blink 0.8s steps(2) infinite;
 }
 @keyframes nc-blink {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* ── Today's intake summary card ──────────────────────────────────────── */
@@ -8243,6 +8442,499 @@ body.login-active::before {
 }
 
 /* ── Body settings tab ──────────────────────────────────────────────────── */
+.content.nutrition-active {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-top: calc(var(--sat) + 8px);
+  padding-left: calc(var(--sal) + 14px);
+  padding-right: calc(var(--sar) + 14px);
+  padding-bottom: calc(var(--nav-h) + var(--sab) + 10px);
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(245, 130, 31, 0.16),
+      rgba(12, 14, 18, 0) 34%
+    ),
+    radial-gradient(
+      circle at 88% 18%,
+      rgba(255, 208, 129, 0.08),
+      rgba(255, 208, 129, 0) 28%
+    ),
+    linear-gradient(180deg, #11131a 0%, #090b10 100%);
+}
+.content.nutrition-active .header {
+  display: none;
+}
+.content.nutrition-active #page-container-react-root {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.app.nutrition-active .bottom-nav {
+  background: rgba(10, 11, 15, 0.9);
+  border-top-color: rgba(255, 181, 94, 0.12);
+}
+.content.nutrition-active #page-nutrition.active {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+.content.nutrition-active #nutrition-react-root,
+.content.nutrition-active #nutrition-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+.content.nutrition-active #nutrition-shell {
+  position: relative;
+  border-radius: 30px;
+  padding: 16px 14px 14px;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.015)
+    ),
+    linear-gradient(180deg, rgba(15, 17, 24, 0.98), rgba(9, 10, 14, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 30px 70px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.content.nutrition-active #nutrition-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(245, 130, 31, 0.18),
+      rgba(245, 130, 31, 0) 28%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.035),
+      rgba(255, 255, 255, 0) 42%
+    );
+  opacity: 0.85;
+}
+.content.nutrition-active #nutrition-shell > * {
+  position: relative;
+  z-index: 1;
+}
+.content.nutrition-active .nutrition-page-header {
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 2px 14px;
+}
+.content.nutrition-active .nutrition-page-heading {
+  min-width: 0;
+}
+.content.nutrition-active .nutrition-page-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  font-family: 'Barlow Condensed', sans-serif;
+  color: rgba(255, 211, 139, 0.9);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.content.nutrition-active .nutrition-page-title {
+  font-family: 'Cinzel', serif;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff4dc;
+  line-height: 1.1;
+}
+.content.nutrition-active .nutrition-overflow-btn {
+  width: 42px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 240, 219, 0.72);
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+.content.nutrition-active .nutrition-overflow-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 181, 94, 0.22);
+  color: #fff2db;
+}
+.content.nutrition-active .nutrition-overflow-menu {
+  top: calc(100% + 6px);
+  background: rgba(12, 14, 19, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.content.nutrition-active .nutrition-meta-stack {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.content.nutrition-active .nutrition-meta-stack:empty {
+  display: none;
+}
+.content.nutrition-active .nutrition-context-banner,
+.content.nutrition-active .nutrition-today-card {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.045),
+      rgba(255, 255, 255, 0.015)
+    ),
+    rgba(18, 21, 28, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.content.nutrition-active .nutrition-context-banner {
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  color: rgba(232, 222, 211, 0.78);
+}
+.content.nutrition-active .nutrition-context-banner svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+.content.nutrition-active .nutrition-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 2px 2px 0;
+}
+.content.nutrition-active .nutrition-messages {
+  gap: 12px;
+  padding: 4px 2px 8px;
+  scroll-padding-bottom: 14px;
+}
+.content.nutrition-active .nutrition-messages-setup,
+.content.nutrition-active .nutrition-messages-empty {
+  justify-content: center;
+}
+.content.nutrition-active .nutrition-messages-empty .nutrition-empty,
+.content.nutrition-active .nutrition-messages-setup .nutrition-setup-card {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+.content.nutrition-active .nutrition-empty {
+  justify-content: center;
+  min-height: 100%;
+  padding: 20px 10px 28px;
+}
+.content.nutrition-active .nutrition-empty-kicker {
+  color: rgba(255, 216, 147, 0.88);
+  letter-spacing: 0.18em;
+}
+.content.nutrition-active .nutrition-empty-orb {
+  width: 108px;
+  height: 108px;
+  margin: 18px 0 16px;
+  border-radius: 34px;
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(245, 130, 31, 0.24),
+      rgba(245, 130, 31, 0.06) 58%,
+      rgba(255, 255, 255, 0.02) 100%
+    ),
+    rgba(26, 29, 36, 0.94);
+  border: 1px solid rgba(255, 186, 109, 0.18);
+  box-shadow:
+    0 20px 42px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.content.nutrition-active .nutrition-empty-orb svg {
+  width: 40px;
+  height: 40px;
+  color: #ffdba6;
+}
+.content.nutrition-active .nutrition-empty-title {
+  font-size: 28px;
+  color: #fff4de;
+  margin-bottom: 10px;
+}
+.content.nutrition-active .nutrition-empty-sub {
+  color: rgba(236, 228, 218, 0.72);
+  max-width: 320px;
+  line-height: 1.7;
+}
+.content.nutrition-active .nutrition-quick-prompts {
+  display: grid;
+  max-width: 340px;
+}
+.content.nutrition-active .nutrition-prompt-chip {
+  gap: 10px;
+  padding: 14px 16px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.015)
+    ),
+    rgba(18, 21, 27, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  color: rgba(255, 244, 228, 0.92);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.content.nutrition-active .nutrition-prompt-chip:hover {
+  border-color: rgba(255, 181, 94, 0.3);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 181, 94, 0.12),
+      rgba(255, 255, 255, 0.02)
+    ),
+    rgba(18, 21, 27, 0.98);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.18);
+}
+.content.nutrition-active .nutrition-prompt-chip svg {
+  width: 18px;
+  height: 18px;
+}
+.content.nutrition-active .nutrition-setup-card {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.015)
+    ),
+    rgba(18, 21, 28, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  padding: 28px 22px;
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.content.nutrition-active .nutrition-setup-card .card-title {
+  letter-spacing: 1.4px;
+  color: rgba(255, 215, 145, 0.78);
+  margin-bottom: 16px;
+}
+.content.nutrition-active .nutrition-setup-card .card-title::before {
+  opacity: 0.7;
+}
+.content.nutrition-active .nutrition-setup-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(245, 130, 31, 0.24),
+      rgba(245, 130, 31, 0.05) 70%
+    ),
+    rgba(27, 31, 39, 0.94);
+  border: 1px solid rgba(245, 130, 31, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.content.nutrition-active .nutrition-setup-icon svg {
+  width: 28px;
+  height: 28px;
+}
+.content.nutrition-active .nutrition-setup-desc {
+  color: rgba(236, 228, 218, 0.72);
+  line-height: 1.65;
+  margin-bottom: 18px;
+}
+.content.nutrition-active .nutrition-msg {
+  border-radius: 20px;
+  line-height: 1.65;
+}
+.content.nutrition-active .nutrition-msg-user {
+  background: linear-gradient(135deg, #ffb65e, #f5821f 62%, #d86917);
+  color: #fffdf8;
+  box-shadow: 0 18px 30px rgba(214, 105, 23, 0.24);
+}
+.content.nutrition-active .nutrition-msg-coach {
+  gap: 10px;
+}
+.content.nutrition-active .nutrition-msg-coach .nutrition-msg-body {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05),
+      rgba(255, 255, 255, 0.015)
+    ),
+    rgba(19, 23, 29, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  border-bottom-left-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.content.nutrition-active .nutrition-msg-error .nutrition-msg-body {
+  border-color: rgba(239, 68, 68, 0.28);
+}
+.content.nutrition-active .nutrition-msg-text {
+  padding: 12px 15px;
+}
+.content.nutrition-active .nutrition-msg-time {
+  color: rgba(255, 255, 255, 0.44);
+  opacity: 1;
+  padding: 2px 15px 8px;
+}
+.content.nutrition-active .nutrition-msg-user .nutrition-msg-time {
+  color: rgba(255, 255, 255, 0.68);
+}
+.content.nutrition-active .nutrition-msg-img {
+  border-radius: 16px 16px 0 0;
+}
+.content.nutrition-active .nutrition-coach-avatar {
+  width: 32px;
+  height: 32px;
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(245, 130, 31, 0.22),
+      rgba(245, 130, 31, 0.04) 62%
+    ),
+    rgba(24, 28, 35, 0.92);
+  border: 1px solid rgba(245, 130, 31, 0.16);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+}
+.content.nutrition-active .nutrition-macro-card {
+  background: rgba(255, 255, 255, 0.06);
+}
+.content.nutrition-active .nutrition-macro-item {
+  background: rgba(12, 15, 21, 0.95);
+  padding: 11px 8px;
+}
+.content.nutrition-active .nutrition-loading {
+  gap: 10px;
+  padding: 8px 2px 12px;
+}
+.content.nutrition-active .nutrition-loading-content {
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: rgba(16, 19, 26, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.content.nutrition-active .nutrition-loading-text {
+  color: rgba(236, 228, 218, 0.68);
+}
+.content.nutrition-active .nutrition-composer {
+  flex-shrink: 0;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 26px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.055),
+      rgba(255, 255, 255, 0.015)
+    ),
+    rgba(11, 13, 18, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 22px 40px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.content.nutrition-active .nutrition-composer.nc-hidden {
+  display: none;
+}
+.content.nutrition-active .nutrition-photo-preview {
+  padding: 0 0 10px;
+}
+.content.nutrition-active .nutrition-photo-preview img {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 181, 94, 0.28);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
+}
+.content.nutrition-active .nutrition-photo-clear {
+  background: rgba(6, 8, 12, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 26px;
+  height: 26px;
+}
+.content.nutrition-active .nutrition-input-bar {
+  gap: 10px;
+  padding: 0;
+  margin-top: 0;
+  border-top: none;
+  background: none;
+}
+.content.nutrition-active .nutrition-photo-btn {
+  width: 46px;
+  height: 46px;
+  color: rgba(255, 240, 219, 0.72);
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+.content.nutrition-active .nutrition-photo-btn:hover {
+  color: #fff7ec;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 181, 94, 0.2);
+}
+.content.nutrition-active .nutrition-input {
+  background: rgba(7, 9, 14, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 12px 16px;
+  color: #fff4e8;
+  min-height: 46px;
+  line-height: 1.45;
+  box-shadow: none;
+}
+.content.nutrition-active .nutrition-input:focus {
+  border-color: rgba(245, 130, 31, 0.68);
+  box-shadow: 0 0 0 3px rgba(245, 130, 31, 0.12);
+}
+.content.nutrition-active .nutrition-send-btn {
+  width: 46px;
+  height: 46px;
+  background: linear-gradient(135deg, #ffb65e, #f5821f 65%, #dd6e19);
+}
+.content.nutrition-active .nutrition-today-card {
+  align-items: flex-start;
+  padding: 14px 16px;
+}
+.content.nutrition-active .nutrition-today-card .nc-today-label {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(255, 215, 145, 0.76);
+}
+.content.nutrition-active .nutrition-today-card .nc-today-values {
+  color: rgba(255, 244, 228, 0.9);
+  line-height: 1.55;
+}
+.content.nutrition-active .nc-today-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  margin-top: 8px;
+}
+.content.nutrition-active .nc-today-bar-fill {
+  background: linear-gradient(90deg, #ffcf84, #f5821f);
+  border-radius: 999px;
+}
+
 .settings-row-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;

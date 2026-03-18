@@ -120,22 +120,34 @@ function PageHost({ name, active }) {
 }
 
 function AppShellIsland() {
-  const snapshot = useIslandSnapshot([APP_SHELL_EVENT, LANGUAGE_EVENT], getSnapshot);
-  const pageContainerMount = document.getElementById('page-container-react-root');
+  const snapshot = useIslandSnapshot(
+    [APP_SHELL_EVENT, LANGUAGE_EVENT],
+    getSnapshot
+  );
+  const pageContainerMount = document.getElementById(
+    'page-container-react-root'
+  );
   const previousPageRef = useRef(snapshot.activePage);
 
   useEffect(() => {
     if (!snapshot.confirm?.open) return;
-    window.requestAnimationFrame(() => document.getElementById('confirm-ok')?.focus());
+    window.requestAnimationFrame(() =>
+      document.getElementById('confirm-ok')?.focus()
+    );
   }, [snapshot.confirm?.open]);
 
   useEffect(() => {
     const contentScroller = document.querySelector('.content');
+    const appRoot = document.getElementById('app-root');
     if (!contentScroller) return;
 
+    const isNutritionActive = snapshot.activePage === 'nutrition';
     contentScroller.scrollTo({ top: 0, behavior: 'auto' });
     // Nutrition page manages its own scroll so the shell should not fight it.
-    contentScroller.classList.toggle('no-scroll', snapshot.activePage === 'nutrition');
+    contentScroller.classList.toggle('no-scroll', isNutritionActive);
+    contentScroller.classList.toggle('nutrition-active', isNutritionActive);
+    if (appRoot)
+      appRoot.classList.toggle('nutrition-active', isNutritionActive);
   }, [snapshot.activePage]);
 
   useEffect(() => {
@@ -157,7 +169,7 @@ function AppShellIsland() {
                 />
               ))}
             </>,
-            pageContainerMount,
+            pageContainerMount
           )
         : null}
       <div className="toast" id="toast" />
@@ -198,7 +210,10 @@ function AppShellIsland() {
               Clear
             </button>
           </div>
-          <div className="catalog-filter-groups" id="exercise-catalog-filters" />
+          <div
+            className="catalog-filter-groups"
+            id="exercise-catalog-filters"
+          />
           <div className="catalog-scroll" id="exercise-catalog-scroll">
             <div id="exercise-catalog-content" />
             <div
@@ -305,7 +320,8 @@ function AppShellIsland() {
             id="sport-check-sub"
             data-i18n="workout.sport_check.sub"
           >
-            Have you had a leg-heavy sport session yesterday, or do you have one tomorrow?
+            Have you had a leg-heavy sport session yesterday, or do you have one
+            tomorrow?
           </div>
           <div className="sport-check-grid">
             <button
@@ -427,7 +443,9 @@ function AppShellIsland() {
               type="button"
               data-page={item.id}
               aria-current={isActive ? 'page' : undefined}
-              onClick={(event) => window.showPage?.(item.id, event.currentTarget)}
+              onClick={(event) =>
+                window.showPage?.(item.id, event.currentTarget)
+              }
             >
               {NAV_ICONS[item.id]}
               <span>{item.label}</span>

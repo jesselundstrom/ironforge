@@ -24,11 +24,13 @@
   }
 
   function getNutritionReactSnapshot() {
-    var shell = document.getElementById('nutrition-shell') || document.getElementById('nutrition-legacy-shell');
+    var shell =
+      document.getElementById('nutrition-shell') ||
+      document.getElementById('nutrition-legacy-shell');
     return {
       values: {
-        html: shell ? shell.innerHTML : ''
-      }
+        html: shell ? shell.innerHTML : '',
+      },
     };
   }
 
@@ -39,7 +41,9 @@
   // ─── Storage keys ────────────────────────────────────────────────────────────
 
   function _historyKey() {
-    return currentUser ? 'ic_nutrition_history::' + currentUser.id : 'ic_nutrition_history';
+    return currentUser
+      ? 'ic_nutrition_history::' + currentUser.id
+      : 'ic_nutrition_history';
   }
 
   function _apiKeyStorageKey() {
@@ -54,16 +58,30 @@
 
   function saveNutritionApiKey(nextValue) {
     const inp = document.getElementById('nutrition-api-key-input');
-    const val = typeof nextValue === 'string' ? nextValue.trim() : (inp ? inp.value.trim() : '');
+    const val =
+      typeof nextValue === 'string'
+        ? nextValue.trim()
+        : inp
+          ? inp.value.trim()
+          : '';
     if (val) {
       localStorage.setItem(_apiKeyStorageKey(), val);
-      showToast(tr('settings.claude_api_key.saved', 'API key saved'), 'var(--green)');
+      showToast(
+        tr('settings.claude_api_key.saved', 'API key saved'),
+        'var(--green)'
+      );
     } else {
       localStorage.removeItem(_apiKeyStorageKey());
-      showToast(tr('settings.claude_api_key.cleared', 'API key removed'), 'var(--muted)');
+      showToast(
+        tr('settings.claude_api_key.cleared', 'API key removed'),
+        'var(--muted)'
+      );
     }
     if (typeof window.notifySettingsAccountIsland === 'function') {
       window.notifySettingsAccountIsland();
+    }
+    if (typeof window.initNutritionPage === 'function') {
+      window.initNutritionPage();
     }
     notifyNutritionIsland();
   }
@@ -104,7 +122,8 @@
     return new Promise(function (resolve) {
       var img = new Image();
       img.onload = function () {
-        var w = img.width, h = img.height;
+        var w = img.width,
+          h = img.height;
         if (w > maxPx || h > maxPx) {
           if (w > h) {
             h = Math.round((h * maxPx) / w);
@@ -149,9 +168,13 @@
         moderate: 'Active (moderate exercise 3-5 days/week)',
         very_active: 'Very active (hard exercise 6-7 days/week)',
       };
-      lines.push('Activity level: ' + (activityLabels[bm.activityLevel] || bm.activityLevel));
+      lines.push(
+        'Activity level: ' +
+          (activityLabels[bm.activityLevel] || bm.activityLevel)
+      );
     }
-    if (bm.targetWeight) lines.push('Target weight: ' + bm.targetWeight + ' kg');
+    if (bm.targetWeight)
+      lines.push('Target weight: ' + bm.targetWeight + ' kg');
     if (bm.bodyGoal) {
       var bodyGoalLabels = {
         lose_fat: 'Lose fat',
@@ -171,8 +194,12 @@
         general_fitness: 'General fitness',
         sport_support: 'Sport performance support',
       };
-      if (prefs.goal) lines.push('Training goal: ' + (trainingGoalLabels[prefs.goal] || prefs.goal));
-      if (prefs.trainingDaysPerWeek) lines.push('Trains: ' + prefs.trainingDaysPerWeek + ' days/week');
+      if (prefs.goal)
+        lines.push(
+          'Training goal: ' + (trainingGoalLabels[prefs.goal] || prefs.goal)
+        );
+      if (prefs.trainingDaysPerWeek)
+        lines.push('Trains: ' + prefs.trainingDaysPerWeek + ' days/week');
     }
 
     // Current program and block
@@ -185,7 +212,8 @@
           if (state.week) programLine += ', Week ' + state.week;
           if (typeof prog.getBlockInfo === 'function') {
             var blockInfo = prog.getBlockInfo(state);
-            if (blockInfo && blockInfo.name) programLine += ' (' + blockInfo.name + ' block)';
+            if (blockInfo && blockInfo.name)
+              programLine += ' (' + blockInfo.name + ' block)';
           }
           lines.push(programLine);
         }
@@ -198,7 +226,11 @@
         var fatigue = computeFatigue();
         var recovery = Math.round(100 - fatigue.overall);
         var recoveryLabel =
-          recovery >= 80 ? 'well recovered' : recovery >= 60 ? 'moderate fatigue' : 'high fatigue';
+          recovery >= 80
+            ? 'well recovered'
+            : recovery >= 60
+              ? 'moderate fatigue'
+              : 'high fatigue';
         lines.push('Recovery: ' + recovery + '% (' + recoveryLabel + ')');
       } catch (_) {}
     }
@@ -211,7 +243,11 @@
       schedule.sportDays.length
     ) {
       var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      var sportDayStr = schedule.sportDays.map(function (d) { return dayNames[d]; }).join(', ');
+      var sportDayStr = schedule.sportDays
+        .map(function (d) {
+          return dayNames[d];
+        })
+        .join(', ');
       lines.push(
         'Sport: ' +
           schedule.sportName +
@@ -228,22 +264,46 @@
     // Recent workouts (last 2 lifting sessions)
     if (typeof workouts !== 'undefined' && workouts.length) {
       var recentLifts = workouts
-        .filter(function (w) { return w.type !== 'sport' && w.type !== 'hockey'; })
-        .sort(function (a, b) { return new Date(b.date) - new Date(a.date); })
+        .filter(function (w) {
+          return w.type !== 'sport' && w.type !== 'hockey';
+        })
+        .sort(function (a, b) {
+          return new Date(b.date) - new Date(a.date);
+        })
         .slice(0, 2);
 
       recentLifts.forEach(function (w, i) {
         var label = i === 0 ? 'Last workout' : 'Previous workout';
-        var daysAgo = Math.round((Date.now() - new Date(w.date).getTime()) / 86400000);
-        var when = daysAgo === 0 ? 'today' : daysAgo === 1 ? 'yesterday' : daysAgo + ' days ago';
+        var daysAgo = Math.round(
+          (Date.now() - new Date(w.date).getTime()) / 86400000
+        );
+        var when =
+          daysAgo === 0
+            ? 'today'
+            : daysAgo === 1
+              ? 'yesterday'
+              : daysAgo + ' days ago';
 
         var exerciseSummary = (w.exercises || [])
           .map(function (ex) {
-            var workSets = (ex.sets || []).filter(function (s) { return s.done && !s.isWarmup; });
+            var workSets = (ex.sets || []).filter(function (s) {
+              return s.done && !s.isWarmup;
+            });
             if (!workSets.length) return null;
-            var weights = workSets.map(function (s) { return s.weight; }).filter(Boolean);
+            var weights = workSets
+              .map(function (s) {
+                return s.weight;
+              })
+              .filter(Boolean);
             var maxW = weights.length ? Math.max.apply(null, weights) : null;
-            return ex.name + (maxW ? ' ' + maxW + 'kg' : '') + ' ' + workSets.length + '×' + (workSets[0] && workSets[0].reps);
+            return (
+              ex.name +
+              (maxW ? ' ' + maxW + 'kg' : '') +
+              ' ' +
+              workSets.length +
+              '×' +
+              (workSets[0] && workSets[0].reps)
+            );
           })
           .filter(Boolean)
           .slice(0, 4)
@@ -278,11 +338,21 @@
     var tdee = Math.round(bmr * multiplier);
 
     // Adjust for goal
-    var goalAdjust = { lose_fat: -500, gain_muscle: 300, recomp: 0, maintain: 0 };
+    var goalAdjust = {
+      lose_fat: -500,
+      gain_muscle: 300,
+      recomp: 0,
+      maintain: 0,
+    };
     var targetCal = tdee + (goalAdjust[bm.bodyGoal] || 0);
 
     // Protein: 2g/kg for muscle gain, 2.2g/kg for fat loss (preserve muscle), 1.8g/kg maintain
-    var proteinPerKg = { lose_fat: 2.2, gain_muscle: 2.0, recomp: 2.0, maintain: 1.8 };
+    var proteinPerKg = {
+      lose_fat: 2.2,
+      gain_muscle: 2.0,
+      recomp: 2.0,
+      maintain: 1.8,
+    };
     var protein = Math.round(bm.weight * (proteinPerKg[bm.bodyGoal] || 1.8));
 
     // Fat: ~25-30% of target calories
@@ -292,7 +362,13 @@
     var carbs = Math.round((targetCal - protein * 4 - fat * 9) / 4);
     if (carbs < 0) carbs = 0;
 
-    return { tdee: tdee, calories: targetCal, protein: protein, carbs: carbs, fat: fat };
+    return {
+      tdee: tdee,
+      calories: targetCal,
+      protein: protein,
+      carbs: carbs,
+      fat: fat,
+    };
   }
 
   // ─── Today's intake summary ──────────────────────────────────────────────────
@@ -309,7 +385,13 @@
 
     for (var i = 0; i < _history.length; i++) {
       var msg = _history[i];
-      if (msg.role !== 'assistant' || msg.isError || !msg.timestamp || msg.timestamp < ts) continue;
+      if (
+        msg.role !== 'assistant' ||
+        msg.isError ||
+        !msg.timestamp ||
+        msg.timestamp < ts
+      )
+        continue;
       var macros = _extractMacros(msg.text || '');
       if (!macros) continue;
       mealCount++;
@@ -322,11 +404,17 @@
     if (!mealCount) return '';
     return (
       "Today's tracked intake so far: ~" +
-      Math.round(totals.calories) + ' kcal, ' +
-      Math.round(totals.protein) + 'g protein, ' +
-      Math.round(totals.carbs) + 'g carbs, ' +
-      Math.round(totals.fat) + 'g fat (' +
-      mealCount + (mealCount === 1 ? ' meal' : ' meals') + ' logged today)'
+      Math.round(totals.calories) +
+      ' kcal, ' +
+      Math.round(totals.protein) +
+      'g protein, ' +
+      Math.round(totals.carbs) +
+      'g carbs, ' +
+      Math.round(totals.fat) +
+      'g fat (' +
+      mealCount +
+      (mealCount === 1 ? ' meal' : ' meals') +
+      ' logged today)'
     );
   }
 
@@ -349,9 +437,18 @@
     const todayIntake = _buildTodayIntakeSummary();
     const targets = _calculateTargets();
     const targetsStr = targets
-      ? 'Daily targets: ' + targets.calories + ' kcal, ' +
-        targets.protein + 'g protein, ' + targets.carbs + 'g carbs, ' + targets.fat + 'g fat' +
-        ' (TDEE ' + targets.tdee + ' kcal)'
+      ? 'Daily targets: ' +
+        targets.calories +
+        ' kcal, ' +
+        targets.protein +
+        'g protein, ' +
+        targets.carbs +
+        'g carbs, ' +
+        targets.fat +
+        'g fat' +
+        ' (TDEE ' +
+        targets.tdee +
+        ' kcal)'
       : '';
     const systemPrompt =
       'You are a knowledgeable nutrition coach for a strength athlete who trains with weights. ' +
@@ -403,8 +500,7 @@
       if (msg.role === 'user') {
         // Include image only if it's the most recent user message with an image
         // (for history context we send text only)
-        const text =
-          msg.text || (msg.imageDataUrl ? '[food photo]' : '');
+        const text = msg.text || (msg.imageDataUrl ? '[food photo]' : '');
         return { role: 'user', content: text };
       }
       return { role: 'assistant', content: msg.text || '' };
@@ -428,7 +524,10 @@
     if (!content.length) {
       content.push({
         type: 'text',
-        text: tr('nutrition.default_prompt', 'What can you tell me about this food?'),
+        text: tr(
+          'nutrition.default_prompt',
+          'What can you tell me about this food?'
+        ),
       });
     }
 
@@ -458,7 +557,11 @@
         if (json === '[DONE]') return;
         try {
           var evt = JSON.parse(json);
-          if (evt.type === 'content_block_delta' && evt.delta && evt.delta.text) {
+          if (
+            evt.type === 'content_block_delta' &&
+            evt.delta &&
+            evt.delta.text
+          ) {
             onChunk(evt.delta.text);
           }
         } catch (_) {}
@@ -476,7 +579,10 @@
       _history.push({
         id: Date.now() + '-a',
         role: 'assistant',
-        text: tr('nutrition.error.offline', 'You are offline. Connect to the internet and try again.'),
+        text: tr(
+          'nutrition.error.offline',
+          'You are offline. Connect to the internet and try again.'
+        ),
         timestamp: Date.now(),
         isError: true,
       });
@@ -544,8 +650,10 @@
               'nutrition.error.no_key',
               'Please add your Claude API key in Settings \u2192 Account to use the Nutrition Coach.'
             )
-          : tr('nutrition.error.api', 'Something went wrong. Check your API key and try again.') +
-            (e.message && !isNoKey ? ' (' + e.message + ')' : ''),
+          : tr(
+              'nutrition.error.api',
+              'Something went wrong. Check your API key and try again.'
+            ) + (e.message && !isNoKey ? ' (' + e.message + ')' : ''),
         timestamp: Date.now(),
         isError: true,
       });
@@ -567,9 +675,10 @@
     if (loading) {
       var textEl = document.getElementById('nutrition-loading-text');
       if (textEl) {
-        var msg = context === 'photo'
-          ? tr('nutrition.loading.analyzing', 'Analyzing your meal...')
-          : tr('nutrition.loading.thinking', 'Thinking...');
+        var msg =
+          context === 'photo'
+            ? tr('nutrition.loading.analyzing', 'Analyzing your meal...')
+            : tr('nutrition.loading.thinking', 'Thinking...');
         textEl.textContent = msg;
       }
     }
@@ -578,7 +687,11 @@
 
   function _scrollToBottom(instant) {
     var el = document.getElementById('nutrition-messages');
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: instant ? 'auto' : 'smooth' });
+    if (el)
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: instant ? 'auto' : 'smooth',
+      });
   }
 
   // Lightweight markdown renderer for coach responses.
@@ -586,11 +699,18 @@
   function _formatText(text) {
     var lines = text.split('\n');
     var html = [];
-    var inUl = false, inOl = false;
+    var inUl = false,
+      inOl = false;
 
     function closeLists() {
-      if (inUl) { html.push('</ul>'); inUl = false; }
-      if (inOl) { html.push('</ol>'); inOl = false; }
+      if (inUl) {
+        html.push('</ul>');
+        inUl = false;
+      }
+      if (inOl) {
+        html.push('</ol>');
+        inOl = false;
+      }
     }
 
     for (var i = 0; i < lines.length; i++) {
@@ -600,33 +720,61 @@
       // Headings
       if (/^###\s/.test(raw)) {
         closeLists();
-        html.push('<div class="nc-h3">' + _inlineFormat(line.replace(/^###\s+/, '')) + '</div>');
+        html.push(
+          '<div class="nc-h3">' +
+            _inlineFormat(line.replace(/^###\s+/, '')) +
+            '</div>'
+        );
         continue;
       }
       if (/^##\s/.test(raw)) {
         closeLists();
-        html.push('<div class="nc-h2">' + _inlineFormat(line.replace(/^##\s+/, '')) + '</div>');
+        html.push(
+          '<div class="nc-h2">' +
+            _inlineFormat(line.replace(/^##\s+/, '')) +
+            '</div>'
+        );
         continue;
       }
       if (/^#\s/.test(raw)) {
         closeLists();
-        html.push('<div class="nc-h2">' + _inlineFormat(line.replace(/^#\s+/, '')) + '</div>');
+        html.push(
+          '<div class="nc-h2">' +
+            _inlineFormat(line.replace(/^#\s+/, '')) +
+            '</div>'
+        );
         continue;
       }
 
       // Unordered list
       if (/^[-*]\s/.test(raw)) {
-        if (inOl) { html.push('</ol>'); inOl = false; }
-        if (!inUl) { html.push('<ul class="nc-list">'); inUl = true; }
-        html.push('<li>' + _inlineFormat(line.replace(/^[-*]\s+/, '')) + '</li>');
+        if (inOl) {
+          html.push('</ol>');
+          inOl = false;
+        }
+        if (!inUl) {
+          html.push('<ul class="nc-list">');
+          inUl = true;
+        }
+        html.push(
+          '<li>' + _inlineFormat(line.replace(/^[-*]\s+/, '')) + '</li>'
+        );
         continue;
       }
 
       // Ordered list
       if (/^\d+[.)]\s/.test(raw)) {
-        if (inUl) { html.push('</ul>'); inUl = false; }
-        if (!inOl) { html.push('<ol class="nc-list">'); inOl = true; }
-        html.push('<li>' + _inlineFormat(line.replace(/^\d+[.)]\s+/, '')) + '</li>');
+        if (inUl) {
+          html.push('</ul>');
+          inUl = false;
+        }
+        if (!inOl) {
+          html.push('<ol class="nc-list">');
+          inOl = true;
+        }
+        html.push(
+          '<li>' + _inlineFormat(line.replace(/^\d+[.)]\s+/, '')) + '</li>'
+        );
         continue;
       }
 
@@ -657,8 +805,9 @@
 
   function _extractMacros(text) {
     var result = {};
-    var calMatch = text.match(/(?:calories|kcal|cal)[:\s~]*(\d[\d,.]*)/i) ||
-                   text.match(/(\d[\d,.]*)\s*(?:kcal|calories|cal)\b/i);
+    var calMatch =
+      text.match(/(?:calories|kcal|cal)[:\s~]*(\d[\d,.]*)/i) ||
+      text.match(/(\d[\d,.]*)\s*(?:kcal|calories|cal)\b/i);
     var proMatch = text.match(/protein[:\s~]*(\d[\d,.]*)\s*g/i);
     var carbMatch = text.match(/carb(?:s|ohydrate)?[:\s~]*(\d[\d,.]*)\s*g/i);
     var fatMatch = text.match(/fat[:\s~]*(\d[\d,.]*)\s*g/i);
@@ -674,26 +823,44 @@
 
   function _renderMacroCard(macros) {
     var items = [];
-    if (macros.calories) items.push(
-      '<div class="nutrition-macro-item nc-macro-cal">' +
-      '<div class="nutrition-macro-value">' + escapeHtml(macros.calories) + '</div>' +
-      '<div class="nutrition-macro-label">kcal</div></div>'
-    );
-    if (macros.protein) items.push(
-      '<div class="nutrition-macro-item nc-macro-pro">' +
-      '<div class="nutrition-macro-value">' + escapeHtml(macros.protein) + 'g</div>' +
-      '<div class="nutrition-macro-label">' + tr('nutrition.macro.protein', 'Protein') + '</div></div>'
-    );
-    if (macros.carbs) items.push(
-      '<div class="nutrition-macro-item nc-macro-carb">' +
-      '<div class="nutrition-macro-value">' + escapeHtml(macros.carbs) + 'g</div>' +
-      '<div class="nutrition-macro-label">' + tr('nutrition.macro.carbs', 'Carbs') + '</div></div>'
-    );
-    if (macros.fat) items.push(
-      '<div class="nutrition-macro-item nc-macro-fat">' +
-      '<div class="nutrition-macro-value">' + escapeHtml(macros.fat) + 'g</div>' +
-      '<div class="nutrition-macro-label">' + tr('nutrition.macro.fat', 'Fat') + '</div></div>'
-    );
+    if (macros.calories)
+      items.push(
+        '<div class="nutrition-macro-item nc-macro-cal">' +
+          '<div class="nutrition-macro-value">' +
+          escapeHtml(macros.calories) +
+          '</div>' +
+          '<div class="nutrition-macro-label">kcal</div></div>'
+      );
+    if (macros.protein)
+      items.push(
+        '<div class="nutrition-macro-item nc-macro-pro">' +
+          '<div class="nutrition-macro-value">' +
+          escapeHtml(macros.protein) +
+          'g</div>' +
+          '<div class="nutrition-macro-label">' +
+          tr('nutrition.macro.protein', 'Protein') +
+          '</div></div>'
+      );
+    if (macros.carbs)
+      items.push(
+        '<div class="nutrition-macro-item nc-macro-carb">' +
+          '<div class="nutrition-macro-value">' +
+          escapeHtml(macros.carbs) +
+          'g</div>' +
+          '<div class="nutrition-macro-label">' +
+          tr('nutrition.macro.carbs', 'Carbs') +
+          '</div></div>'
+      );
+    if (macros.fat)
+      items.push(
+        '<div class="nutrition-macro-item nc-macro-fat">' +
+          '<div class="nutrition-macro-value">' +
+          escapeHtml(macros.fat) +
+          'g</div>' +
+          '<div class="nutrition-macro-label">' +
+          tr('nutrition.macro.fat', 'Fat') +
+          '</div></div>'
+      );
     return '<div class="nutrition-macro-card">' + items.join('') + '</div>';
   }
 
@@ -703,7 +870,10 @@
     if (!ts) return '';
     var d = new Date(ts);
     var now = new Date();
-    var hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    var hm =
+      String(d.getHours()).padStart(2, '0') +
+      ':' +
+      String(d.getMinutes()).padStart(2, '0');
     var sameDay = d.toDateString() === now.toDateString();
     if (sameDay) return hm;
     var yesterday = new Date(now);
@@ -725,43 +895,80 @@
 
   // ─── Render messages ──────────────────────────────────────────────────
 
+  function _updateMetaStack() {
+    var metaStack = document.getElementById('nutrition-meta-stack');
+    if (!metaStack) return;
+    if (!getNutritionApiKey()) {
+      metaStack.innerHTML = '';
+      return;
+    }
+
+    var html = _renderContextBanner();
+    var todayHtml = _renderTodayCard();
+    if (todayHtml) html += todayHtml;
+    metaStack.innerHTML = html;
+    if (window.I18N && I18N.applyTranslations)
+      I18N.applyTranslations(metaStack);
+  }
+
   function _renderMessages() {
     var container = document.getElementById('nutrition-messages');
     if (!container) return;
     var inputBar = document.querySelector('.nutrition-input-bar');
+    var composer = document.querySelector('.nutrition-composer');
+    container.classList.remove(
+      'nutrition-messages-setup',
+      'nutrition-messages-empty',
+      'nutrition-messages-thread'
+    );
+    _updateMetaStack();
 
     // If no API key, show setup card
     if (!getNutritionApiKey()) {
       if (inputBar) inputBar.classList.add('nc-hidden');
+      if (composer) composer.classList.add('nc-hidden');
+      container.classList.add('nutrition-messages-setup');
       container.innerHTML = _renderSetupCard();
-      if (window.I18N && I18N.applyTranslations) I18N.applyTranslations(container);
+      if (window.I18N && I18N.applyTranslations)
+        I18N.applyTranslations(container);
       notifyNutritionIsland();
       return;
     }
 
     // Show input bar
     if (inputBar) inputBar.classList.remove('nc-hidden');
+    if (composer) composer.classList.remove('nc-hidden');
 
     // Empty state with quick prompts
     if (!_history.length) {
+      container.classList.add('nutrition-messages-empty');
       container.innerHTML = _renderEmptyState();
-      if (window.I18N && I18N.applyTranslations) I18N.applyTranslations(container);
+      if (window.I18N && I18N.applyTranslations)
+        I18N.applyTranslations(container);
       notifyNutritionIsland();
       return;
     }
 
     // Render conversation
+    container.classList.add('nutrition-messages-thread');
     container.innerHTML = _history
       .map(function (msg, idx) {
-        var time = '<div class="nutrition-msg-time">' + _formatTimestamp(msg.timestamp) + '</div>';
+        var time =
+          '<div class="nutrition-msg-time">' +
+          _formatTimestamp(msg.timestamp) +
+          '</div>';
         if (msg.role === 'user') {
           return (
             '<div class="nutrition-msg nutrition-msg-user">' +
             (msg.imageDataUrl
-              ? '<img class="nutrition-msg-img" src="' + escapeHtml(msg.imageDataUrl) + '" alt="">'
+              ? '<img class="nutrition-msg-img" src="' +
+                escapeHtml(msg.imageDataUrl) +
+                '" alt="">'
               : '') +
             (msg.text
-              ? '<div class="nutrition-msg-text">' + escapeHtml(msg.text) + '</div>'
+              ? '<div class="nutrition-msg-text">' +
+                escapeHtml(msg.text) +
+                '</div>'
               : '') +
             time +
             '</div>'
@@ -770,19 +977,26 @@
         // Coach message with avatar + macro card
         var isLast = idx === _history.length - 1;
         var isStreaming = isLast && _streaming;
-        var macros = !msg.isError && !isStreaming ? _extractMacros(msg.text || '') : null;
+        var macros =
+          !msg.isError && !isStreaming ? _extractMacros(msg.text || '') : null;
         var macroHtml = macros ? _renderMacroCard(macros) : '';
         var retryHtml = msg.isError
           ? '<div class="nutrition-msg-text"><button class="nutrition-retry-btn" onclick="retryLastNutritionMessage()" data-i18n="nutrition.retry">' +
-            tr('nutrition.retry', 'Try again') + '</button></div>'
+            tr('nutrition.retry', 'Try again') +
+            '</button></div>'
           : '';
         var modelTag = msg.model
-          ? ' · ' + msg.model.replace(/^claude-/, '').replace(/-\d{8}$/, '').replace(/-\d+$/, '')
+          ? ' · ' +
+            msg.model
+              .replace(/^claude-/, '')
+              .replace(/-\d{8}$/, '')
+              .replace(/-\d+$/, '')
           : '';
         var cursorHtml = isStreaming ? '<span class="nc-cursor"></span>' : '';
         return (
           '<div class="nutrition-msg nutrition-msg-coach' +
-          (msg.isError ? ' nutrition-msg-error' : '') + '">' +
+          (msg.isError ? ' nutrition-msg-error' : '') +
+          '">' +
           _avatarHtml +
           '<div class="nutrition-msg-body">' +
           macroHtml +
@@ -791,7 +1005,10 @@
           cursorHtml +
           '</div>' +
           retryHtml +
-          '<div class="nutrition-msg-time">' + _formatTimestamp(msg.timestamp) + modelTag + '</div>' +
+          '<div class="nutrition-msg-time">' +
+          _formatTimestamp(msg.timestamp) +
+          modelTag +
+          '</div>' +
           '</div></div>'
         );
       })
@@ -829,12 +1046,21 @@
   function saveNutritionSetupKey() {
     var inp = document.getElementById('nutrition-setup-key-input');
     var val = inp ? inp.value.trim() : '';
-    if (!val) { showToast(tr('nutrition.setup.empty', 'Enter an API key'), 'var(--red)'); return; }
+    if (!val) {
+      showToast(tr('nutrition.setup.empty', 'Enter an API key'), 'var(--red)');
+      return;
+    }
     localStorage.setItem(_apiKeyStorageKey(), val);
     // Also update the Settings input if it exists
     var settingsInp = document.getElementById('nutrition-api-key-input');
     if (settingsInp) settingsInp.value = val;
-    showToast(tr('settings.claude_api_key.saved', 'API key saved'), 'var(--green)');
+    if (typeof window.notifySettingsAccountIsland === 'function') {
+      window.notifySettingsAccountIsland();
+    }
+    showToast(
+      tr('settings.claude_api_key.saved', 'API key saved'),
+      'var(--green)'
+    );
     _renderMessages();
     notifyNutritionIsland();
   }
@@ -854,8 +1080,14 @@
       '<div class="nutrition-empty-sub" data-i18n="nutrition.empty.body">' +
       'Snap a meal photo, ask questions, and get personalised advice based on your training.</div>' +
       '<div class="nutrition-quick-prompts">' +
-      _renderPromptChip('nutrition.prompt.pre_workout', 'What should I eat before training?') +
-      _renderPromptChip('nutrition.prompt.protein', 'Help me hit my protein target') +
+      _renderPromptChip(
+        'nutrition.prompt.pre_workout',
+        'What should I eat before training?'
+      ) +
+      _renderPromptChip(
+        'nutrition.prompt.protein',
+        'Help me hit my protein target'
+      ) +
       _renderPromptChip('nutrition.prompt.rate', 'Rate my last meal') +
       '</div>' +
       '</div>'
@@ -864,12 +1096,20 @@
 
   function _renderPromptChip(i18nKey, fallback) {
     return (
-      '<button class="nutrition-prompt-chip" data-nc-prompt="' + escapeHtml(fallback) + '" data-nc-prompt-key="' + i18nKey + '">' +
+      '<button class="nutrition-prompt-chip" data-nc-prompt="' +
+      escapeHtml(fallback) +
+      '" data-nc-prompt-key="' +
+      i18nKey +
+      '">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
       '<line x1="5" y1="12" x2="19" y2="12"/>' +
       '<polyline points="12 5 19 12 12 19"/>' +
       '</svg>' +
-      '<span data-i18n="' + i18nKey + '">' + escapeHtml(fallback) + '</span>' +
+      '<span data-i18n="' +
+      i18nKey +
+      '">' +
+      escapeHtml(fallback) +
+      '</span>' +
       '</button>'
     );
   }
@@ -883,7 +1123,10 @@
     var text = key ? tr(key, fallback) : fallback;
     if (text) {
       var input = document.getElementById('nutrition-input');
-      if (input) { input.value = text; input.focus(); }
+      if (input) {
+        input.value = text;
+        input.focus();
+      }
       submitNutritionMessage();
     }
   });
@@ -894,8 +1137,14 @@
     var bm = (typeof profile !== 'undefined' && profile.bodyMetrics) || {};
     var parts = [];
     if (bm.weight) parts.push(bm.weight + ' kg');
-    var goalLabels = { lose_fat: 'lose fat', gain_muscle: 'gain muscle', recomp: 'recomp', maintain: 'maintain' };
-    if (bm.bodyGoal && goalLabels[bm.bodyGoal]) parts.push(goalLabels[bm.bodyGoal]);
+    var goalLabels = {
+      lose_fat: 'lose fat',
+      gain_muscle: 'gain muscle',
+      recomp: 'recomp',
+      maintain: 'maintain',
+    };
+    if (bm.bodyGoal && goalLabels[bm.bodyGoal])
+      parts.push(goalLabels[bm.bodyGoal]);
 
     var targets = _calculateTargets();
     if (targets) parts.push(targets.calories + ' kcal/day');
@@ -904,16 +1153,25 @@
       return (
         '<div class="nutrition-context-banner">' +
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
-        '<span>' + tr('nutrition.banner.personalized', 'Personalised for') + ': ' + escapeHtml(parts.join(', ')) + '</span>' +
+        '<span>' +
+        tr('nutrition.banner.personalized', 'Personalised for') +
+        ': ' +
+        escapeHtml(parts.join(', ')) +
+        '</span>' +
         '</div>'
       );
     }
     return (
       '<div class="nutrition-context-banner">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
-      '<span>' + tr('nutrition.banner.setup_body', 'Set up your body profile for personalised advice') +
-      ' <a onclick="showPage(\'settings\', document.querySelectorAll(\'.nav-btn\')[3])">' +
-      tr('nutrition.banner.settings_link', 'Settings') + ' &rarr;</a></span>' +
+      '<span>' +
+      tr(
+        'nutrition.banner.setup_body',
+        'Set up your body profile for personalised advice'
+      ) +
+      " <a onclick=\"showPage('settings', document.querySelectorAll('.nav-btn')[3])\">" +
+      tr('nutrition.banner.settings_link', 'Settings') +
+      ' &rarr;</a></span>' +
       '</div>'
     );
   }
@@ -930,7 +1188,13 @@
 
     for (var i = 0; i < _history.length; i++) {
       var msg = _history[i];
-      if (msg.role !== 'assistant' || msg.isError || !msg.timestamp || msg.timestamp < ts) continue;
+      if (
+        msg.role !== 'assistant' ||
+        msg.isError ||
+        !msg.timestamp ||
+        msg.timestamp < ts
+      )
+        continue;
       var macros = _extractMacros(msg.text || '');
       if (!macros) continue;
       mealCount++;
@@ -943,18 +1207,35 @@
     if (!mealCount) return '';
 
     var targets = _calculateTargets();
-    var calStr = Math.round(totals.calories) + (targets ? ' / ' + targets.calories : '') + ' kcal';
-    var proStr = Math.round(totals.protein) + 'g ' + tr('nutrition.macro.protein', 'protein');
-    var pct = targets ? Math.min(100, Math.round((totals.calories / targets.calories) * 100)) : 0;
+    var calStr =
+      Math.round(totals.calories) +
+      (targets ? ' / ' + targets.calories : '') +
+      ' kcal';
+    var proStr =
+      Math.round(totals.protein) +
+      'g ' +
+      tr('nutrition.macro.protein', 'protein');
+    var pct = targets
+      ? Math.min(100, Math.round((totals.calories / targets.calories) * 100))
+      : 0;
     var barHtml = targets
-      ? '<div class="nc-today-bar"><div class="nc-today-bar-fill" style="width:' + pct + '%"></div></div>'
+      ? '<div class="nc-today-bar"><div class="nc-today-bar-fill" style="width:' +
+        pct +
+        '%"></div></div>'
       : '';
 
     return (
       '<div class="nutrition-today-card">' +
-      '<div><div class="nc-today-label">' + tr('nutrition.today.label', 'Today') + '</div></div>' +
-      '<div style="flex:1"><div class="nc-today-values"><strong>' + calStr + '</strong> · ' + proStr + '</div>' +
-      barHtml + '</div></div>'
+      '<div><div class="nc-today-label">' +
+      tr('nutrition.today.label', 'Today') +
+      '</div></div>' +
+      '<div style="flex:1"><div class="nc-today-values"><strong>' +
+      calStr +
+      '</strong> · ' +
+      proStr +
+      '</div>' +
+      barHtml +
+      '</div></div>'
     );
   }
 
@@ -1056,7 +1337,7 @@
 
     if (input) {
       input.value = '';
-      input.style.height = '';  // Reset to CSS default (1 row)
+      input.style.height = ''; // Reset to CSS default (1 row)
     }
     clearNutritionPhoto();
 
@@ -1068,7 +1349,10 @@
   function clearNutritionHistory() {
     showConfirm(
       tr('nutrition.clear.title', 'Clear conversation'),
-      tr('nutrition.clear.body', 'This will delete your entire nutrition conversation history.'),
+      tr(
+        'nutrition.clear.body',
+        'This will delete your entire nutrition conversation history.'
+      ),
       function () {
         _clearHistory();
         _renderMessages();
@@ -1083,21 +1367,6 @@
     _loadHistory();
     _renderMessages();
 
-    // Remove previous banners/cards to avoid duplicates
-    var oldBanner = document.querySelector('.nutrition-context-banner');
-    if (oldBanner) oldBanner.remove();
-    var oldCard = document.querySelector('.nutrition-today-card');
-    if (oldCard) oldCard.remove();
-
-    if (getNutritionApiKey()) {
-      var bannerSlot = document.getElementById('nutrition-messages');
-      if (bannerSlot && _history.length) {
-        var todayHtml = _renderTodayCard();
-        if (todayHtml) bannerSlot.insertAdjacentHTML('beforebegin', todayHtml);
-        bannerSlot.insertAdjacentHTML('beforebegin', _renderContextBanner());
-      }
-    }
-
     // Attach enter-key and auto-resize handlers (safe to re-attach via onX)
     var input = document.getElementById('nutrition-input');
     if (input) {
@@ -1107,7 +1376,14 @@
           submitNutritionMessage();
         }
       };
-      input.oninput = function () { _autoResizeInput(this); };
+      input.oninput = function () {
+        _autoResizeInput(this);
+      };
+      input.onfocus = function () {
+        requestAnimationFrame(function () {
+          _scrollToBottom(true);
+        });
+      };
     }
 
     _scrollToBottom();
