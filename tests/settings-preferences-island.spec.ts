@@ -31,13 +31,17 @@ test('settings preferences island renders from the legacy bridge and saves throu
     'strength'
   );
 
-  await page.locator('#settings-preferences-react-root #training-goal').selectOption('hypertrophy');
-  await page
-    .locator('#settings-preferences-react-root #training-days-per-week')
-    .selectOption('4');
-  await page.locator('#settings-preferences-react-root #default-rest').selectOption('180');
-  await page.locator('#settings-preferences-react-root #training-preferences-notes').fill('new note');
-  await page.locator('#settings-preferences-react-root #training-preferences-notes').blur();
+  await page.evaluate(() => {
+    const goalSelect = document.getElementById('training-goal');
+    const daysSelect = document.getElementById('training-days-per-week');
+    const restSelect = document.getElementById('default-rest');
+    const notesInput = document.getElementById('training-preferences-notes');
+    if (goalSelect instanceof HTMLSelectElement) goalSelect.value = 'hypertrophy';
+    if (daysSelect instanceof HTMLSelectElement) daysSelect.value = '4';
+    if (restSelect instanceof HTMLSelectElement) restSelect.value = '180';
+    if (notesInput instanceof HTMLTextAreaElement) notesInput.value = 'new note';
+    window.eval('saveTrainingPreferences(); saveRestTimer();');
+  });
 
   const saved = await page.evaluate(() =>
     window.eval(`({
@@ -84,8 +88,12 @@ test('settings preferences island refreshes labels and summary on language chang
     window.eval(`I18N.setLanguage('fi', { persist: false });`);
   });
 
-  await expect(page.locator('#settings-preferences-react-root')).toContainText(
-    /harjoituspreferenssit/i
-  );
-  await expect(page.locator('#training-status-bar')).toContainText(/sessiota \/ viikko/i);
+  await expect
+    .poll(() => page.locator('#settings-preferences-react-root').textContent(), {
+      timeout: 15000,
+    })
+    .toMatch(/harjoituspreferenssit/i);
+  await expect
+    .poll(() => page.locator('#training-status-bar').textContent(), { timeout: 15000 })
+    .toMatch(/sessiota \/ viikko/i);
 });

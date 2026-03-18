@@ -66,12 +66,90 @@ function getLogActiveTimerText(){
   return `${minutes}:${seconds}`;
 }
 
+function getLogActivePlanPanelSnapshot(){
+  if(!activeWorkout)return null;
+  const summary=getRunnerPlanSummary(activeWorkout);
+  const elapsed=Math.floor(getWorkoutElapsedSeconds()/60);
+  const totalTrackedSets=(summary?.completedSets||0)+(summary?.remainingSets||0);
+  const progressPercent=totalTrackedSets?Math.round(((summary?.completedSets||0)/totalTrackedSets)*100):100;
+  const nextTargetText=summary?.nextTarget
+    ? `${summary.nextTarget.exerciseName} · ${i18nText('rpe.set','Set')} ${summary.nextTarget.setLabel}${summary.nextTarget.weight!==''&&summary.nextTarget.weight!==undefined?` · ${summary.nextTarget.weight}kg`:''}${summary.nextTarget.reps!==''&&summary.nextTarget.reps!==undefined?` × ${summary.nextTarget.reps}`:''}`
+    : i18nText('workout.runner.done','Main work is done. You can finish here or wrap up optional work.');
+  return{
+    kicker:summary?.kicker||i18nText('workout.runner.kicker','Session plan'),
+    title:summary?.title||i18nText('common.session','Session'),
+    copy:summary?.copy||'',
+    progressPercent,
+    completedSets:summary?.completedSets||0,
+    remainingSets:summary?.remainingSets||0,
+    elapsedMinutes:elapsed,
+    nextTargetText,
+    completedSetsText:i18nText('workout.runner.completed','{count} sets done',{count:summary?.completedSets||0}),
+    remainingSetsText:i18nText('workout.runner.remaining','{count} sets left',{count:summary?.remainingSets||0}),
+    elapsedText:i18nText('workout.runner.elapsed','{count} min elapsed',{count:elapsed}),
+    nextText:i18nText('workout.runner.next','Next: {target}',{target:nextTargetText}),
+    finishPoint:summary?.finishPoint||null,
+    adjustments:(summary?.adjustments||[]).slice(-3).map(item=>({
+      label:item.label||getRunnerAdjustmentLabel(item)
+    })),
+    undoAvailable:getRunnerUndoAvailable(activeWorkout)
+  };
+}
+
+function getLogActiveExerciseSnapshot(exercise,exerciseIndex){
+  const uiKey=ensureExerciseUiKey(exercise);
+  const previousSets=getPreviousSets(exercise);
+  const suggested=getSuggested(exercise);
+  const counts=getExerciseCompletionCounts(exercise);
+  const isComplete=isExerciseComplete(exercise);
+  const isCollapsed=isExerciseCardCollapsed(exercise);
+  return{
+    uiKey,
+    exerciseIndex,
+    name:exercise.name,
+    displayName:displayExerciseName(exercise.name),
+    previousText:previousSets
+      ? i18nText('workout.last_prefix','Last:')+' '+previousSets.map(set=>set.weight+'kg×'+set.reps).join(', ')
+      : i18nText('workout.no_previous_data','No previous data'),
+    suggested:suggested||'',
+    isComplete,
+    isCollapsed,
+    isAux:exercise.isAux===true,
+    isAccessory:exercise.isAccessory===true,
+    guideAvailable:!!getExerciseGuide(exercise),
+    counts,
+    setsId:getExerciseSetsId(exercise),
+    collapsedSummary:{
+      name:displayExerciseName(exercise.name),
+      meta:i18nText('workout.completed_sets','{completed}/{total} sets done',{completed:counts.completed,total:counts.total}),
+      badge:i18nText('common.done','Done')
+    },
+    sets:(exercise.sets||[]).map((set,setIndex)=>{
+      const warmupsBefore=exercise.sets.filter((row,idx)=>idx<setIndex&&row.isWarmup).length;
+      return{
+        index:setIndex,
+        label:set.isWarmup
+          ? 'W'
+          : set.isAmrap
+            ? i18nText('workout.max_short','MAX')
+            : String(setIndex+1-warmupsBefore),
+        weight:set.weight??'',
+        reps:set.isAmrap&&set.reps==='AMRAP'?'':(set.reps??''),
+        done:set.done===true,
+        isWarmup:set.isWarmup===true,
+        isAmrap:set.isAmrap===true,
+        isPr:set.isPr===true,
+        weightInputId:getSetInputId(uiKey,setIndex,'weight'),
+        repsInputId:getSetInputId(uiKey,setIndex,'reps')
+      };
+    })
+  };
+}
+
 function getLogActiveReactSnapshot(){
   const shell=document.getElementById('workout-active');
-  const titleEl=document.getElementById('active-session-title');
-  const descriptionEl=document.getElementById('active-session-description');
-  const planEl=document.getElementById('active-session-plan');
-  const exercisesEl=document.getElementById('exercises-container');
+  const title=activeWorkout?.programLabel||i18nText('common.session','Session');
+  const sessionDescription=activeWorkout?.sessionDescription||'';
   return{
     labels:{
       addExercise:i18nText('workout.add_exercise','Add Exercise'),
@@ -80,6 +158,26 @@ function getLogActiveReactSnapshot(){
       cancelSession:i18nText('workout.cancel_session','Discard Workout'),
       cancelConfirmTitle:i18nText('workout.cancel_session','Discard Workout'),
       cancelConfirmMessage:i18nText('workout.discard_session','Discard this in-progress workout? Sets won\'t be saved.'),
+      lastBest:i18nText('workout.last_best','Last best: {weight}kg'),
+      aux:i18nText('workout.aux','AUX'),
+      back:i18nText('workout.back','BACK'),
+      swap:i18nText('workout.swap','Swap'),
+      swapBack:i18nText('workout.swap_back','Swap back exercise'),
+      addSet:i18nText('workout.add_set','+ Set'),
+      removeExercise:i18nText('workout.remove_exercise','Remove exercise'),
+      collapse:i18nText('workout.collapse','Minimize'),
+      movementGuide:i18nText('guidance.title','Movement Guide'),
+      weightPlaceholder:i18nText('workout.weight_placeholder','kg'),
+      repsPlaceholder:i18nText('workout.reps_placeholder','reps'),
+      repsHit:i18nText('workout.reps_hit','reps hit'),
+      prBadge:i18nText('workout.pr_badge','NEW PR'),
+      completedSets:i18nText('workout.runner.completed','{count} sets done',{count:0}),
+      remainingSets:i18nText('workout.runner.remaining','{count} sets left',{count:0}),
+      elapsed:i18nText('workout.runner.elapsed','{count} min elapsed',{count:0}),
+      next:i18nText('workout.runner.next','Next: {target}',{target:''}),
+      shorten:i18nText('workout.runner.shorten_btn','Shorten'),
+      lighten:i18nText('workout.runner.lighten_btn','Go lighter'),
+      undoAdjustment:i18nText('workout.runner.undo_btn','Undo adjustment'),
       restOptions:[
         {value:'60',label:'1 min'},
         {value:'90',label:'90s'},
@@ -92,14 +190,18 @@ function getLogActiveReactSnapshot(){
     },
     values:{
       visible:!!shell&&shell.style.display!=='none',
-      title:titleEl?.textContent||i18nText('common.session','Session'),
-      description:descriptionEl?.textContent||'',
-      descriptionVisible:!!descriptionEl&&(descriptionEl.style.display!=='none')&&!!descriptionEl.textContent,
-      timerText:getLogActiveTimerText(),
-      timerSeed:activeWorkout?.startTime||0,
-      planHtml:planEl?.innerHTML||'',
-      restDuration:String(restDuration||profile.defaultRest||120),
-      exercisesHtml:exercisesEl?.innerHTML||''
+      title,
+      description:sessionDescription?i18nText('session.description','Session focus')+': '+sessionDescription:'',
+      descriptionVisible:!!sessionDescription,
+      timer:{
+        text:getLogActiveTimerText(),
+        seed:activeWorkout?.startTime||0
+      },
+      rest:{
+        duration:String(restDuration||profile.defaultRest||120)
+      },
+      planPanel:getLogActivePlanPanelSnapshot(),
+      exercises:(activeWorkout?.exercises||[]).map((exercise,exerciseIndex)=>getLogActiveExerciseSnapshot(exercise,exerciseIndex))
     }
   };
 }
@@ -145,7 +247,7 @@ function restoreActiveWorkoutDraft(draft,options){
   }
   startWorkoutTimer();
   if(restEndsAt)syncRestTimer();
-  if(document.getElementById('page-log')?.classList.contains('active')){
+  if(document.getElementById('workout-active')&&document.getElementById('workout-not-started')){
     resumeActiveWorkoutUI({toast:false});
   }else{
     renderWorkoutTimer();
@@ -2092,6 +2194,8 @@ function beginWorkoutStart(sportContext){
     : decisionToastColor;
   const sessionChanges=Array.isArray(startSnapshot?.changes)?startSnapshot.changes:[];
   const equipmentHint=startSnapshot?.equipmentHint||'';
+  if(isLogActiveIslandActive())notifyLogActiveIsland();
+  if(isLogStartIslandActive())notifyLogStartIsland();
   if(decisionSummary&&effectiveDecision&&(effectiveDecision.action!=='train'||effectiveDecision.restrictionFlags?.includes('avoid_heavy_legs'))){
     setTimeout(()=>showToast(startToast?.text||decisionSummary.title,decisionToastColor),700);
   }

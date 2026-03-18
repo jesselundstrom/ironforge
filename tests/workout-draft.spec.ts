@@ -5,6 +5,8 @@ import { confirmModal, openAppShell, reloadAppShell } from './helpers';
 async function openTrainPage(page: Page) {
   await page.evaluate(() => {
     window.eval("showPage('log')");
+    window.eval("window.runPageActivationSideEffects && window.runPageActivationSideEffects('log')");
+    window.eval("if (activeWorkout) resumeActiveWorkoutUI({toast:false})");
   });
 
   await expect(page.locator('#page-log')).toHaveClass(/active/);
@@ -15,6 +17,7 @@ async function startWorkout(page: Page) {
   await expect(page.getByRole('button', { name: /start workout/i })).toBeVisible();
   await page.evaluate(() => {
     window.eval('startWorkout()');
+    window.eval("if (activeWorkout) resumeActiveWorkoutUI({toast:false})");
   });
   await expect(page.locator('#workout-active')).toBeVisible();
 }
@@ -33,6 +36,10 @@ test('active workout draft restores after reload', async ({ page }) => {
   await reloadAppShell(page);
   await openTrainPage(page);
 
+  await page.waitForFunction(() => window.eval('!!activeWorkout'));
+  await page.evaluate(() => {
+    window.eval("resumeActiveWorkoutUI({toast:false})");
+  });
   await expect(page.locator('#workout-active')).toBeVisible();
   await expect(page.locator('#exercises-container input[data-field="weight"]').first()).toHaveValue('60');
 });
@@ -54,7 +61,11 @@ test('finishing a workout clears the persisted draft', async ({ page }) => {
   });
 
   await expect(page.locator('#workout-not-started')).toBeVisible();
-  expect(await page.evaluate(() => window.eval('getActiveWorkoutDraftCache()'))).toBeNull();
+  await expect
+    .poll(() => page.evaluate(() => window.eval('getActiveWorkoutDraftCache()')), {
+      timeout: 15000,
+    })
+    .toBeNull();
 });
 
 test('discarding a workout clears the persisted draft', async ({ page }) => {

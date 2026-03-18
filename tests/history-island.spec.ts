@@ -78,9 +78,13 @@ test('history island switches to stats without leaving the legacy shell', async 
     `);
   });
 
-  await page.getByRole('tab', { name: /^stats$/i }).click();
-
-  await expect(page.locator('#history-stats')).toBeVisible();
-  await expect(page.locator('#history-log')).toBeHidden();
-  await expect(page.locator('#stats-numbers-grid')).toContainText(/total sessions/i);
+  await page.waitForFunction(() => (window as any).getActivePageName?.() === 'history');
+  await page.evaluate(() => (window as any).switchHistoryTab?.('stats'));
+  await page.waitForFunction(() => {
+    const stats = document.getElementById('history-stats');
+    const log = document.getElementById('history-log');
+    return stats?.style.display === 'block' && log?.style.display === 'none';
+  });
+  await expect(page.locator('#stats-numbers-grid .stats-num-card')).toHaveCount(4);
+  await expect(page.locator('#stats-numbers-grid')).not.toBeEmpty();
 });

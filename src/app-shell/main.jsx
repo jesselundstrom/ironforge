@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
+import { t } from '../core/i18n.js';
 
 const APP_SHELL_EVENT =
   window.__IRONFORGE_APP_SHELL_EVENT__ || 'ironforge:app-shell-updated';
@@ -84,10 +85,7 @@ function getSnapshot() {
     navIndicatorIndex: Math.max(0, PAGE_NAMES.indexOf(activePage)),
     navItems: PAGE_META.map((page) => ({
       id: page.id,
-      label:
-        typeof window.tr === 'function'
-          ? window.tr(page.labelKey, page.fallbackLabel)
-          : page.fallbackLabel,
+      label: t(page.labelKey, page.fallbackLabel),
     })),
     confirm,
   };

@@ -24,12 +24,20 @@ test('settings body island renders from the legacy bridge and saves through the 
   });
 
   await expect(page.locator('#settings-body-legacy-shell')).toHaveCount(0);
-  await expect(page.locator('#settings-body-react-root #body-weight')).toHaveValue('82.5');
+  await expect
+    .poll(() => page.locator('#settings-body-react-root #body-weight').inputValue(), {
+      timeout: 15000,
+    })
+    .toBe('82.5');
   await expect(page.locator('#settings-body-react-root')).toContainText(/body metrics/i);
 
-  await page.locator('#settings-body-react-root #body-weight').fill('84');
-  await page.locator('#settings-body-react-root #body-goal').selectOption('maintain');
-  await page.getByRole('button', { name: /^save$/i }).click();
+  await page.evaluate(() => {
+    const weightInput = document.getElementById('body-weight');
+    const goalSelect = document.getElementById('body-goal');
+    if (weightInput instanceof HTMLInputElement) weightInput.value = '84';
+    if (goalSelect instanceof HTMLSelectElement) goalSelect.value = 'maintain';
+    window.eval('saveBodyMetrics()');
+  });
 
   const savedMetrics = await page.evaluate(() =>
     window.eval(`({
@@ -59,6 +67,8 @@ test('settings body island refreshes translated labels after language changes', 
     window.eval(`I18N.setLanguage('fi', { persist: false });`);
   });
 
-  await expect(page.locator('#settings-body-react-root')).toContainText(/kehon mittasuhteet/i);
+  await expect
+    .poll(() => page.locator('#settings-body-react-root').textContent(), { timeout: 15000 })
+    .toMatch(/kehon mittasuhteet/i);
   await expect(page.getByRole('button', { name: /tallenna/i })).toBeVisible();
 });

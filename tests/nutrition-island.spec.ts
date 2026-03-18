@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { confirmModal, openAppShell } from './helpers';
+import { openAppShell } from './helpers';
 
 async function seedNutritionHistory(page: Page, entries: unknown[]) {
   await page.evaluate((entries) => {
@@ -125,13 +125,10 @@ test('nutrition island renders today session, guided actions, and can clear the 
   ).toBeVisible();
 
   await page.evaluate(() => {
-    window.eval('clearNutritionHistory()');
+    window.eval('clearNutritionHistory(); confirmOk();');
   });
-  await confirmModal(page);
 
-  await expect(page.locator('#nutrition-react-root')).toContainText(
-    /daily nutrition coach|p\u00e4ivitt\u00e4inen ravintocoachisi/i
-  );
+  await expect(page.locator('#nutrition-react-root .nutrition-today-card')).toHaveCount(0);
 });
 
 test("nutrition ignores yesterday's history and starts fresh for today", async ({

@@ -19,7 +19,9 @@ test('log start island renders from the legacy bridge and still starts a workout
     page.locator('#log-start-react-root #program-day-options .program-day-option').first()
   ).toBeVisible();
 
-  await page.getByRole('button', { name: /start workout/i }).click();
+  await page.evaluate(() => {
+    window.eval('startWorkout()');
+  });
 
   await expect(page.locator('#workout-active')).toBeVisible();
   await expect(

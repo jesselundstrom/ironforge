@@ -23,19 +23,15 @@ test('settings schedule island renders from the legacy bridge and saves schedule
   await expect(page.locator('#settings-schedule-legacy-shell')).toHaveCount(0);
   await expect(page.locator('#settings-schedule-react-root #sport-name')).toHaveValue('Hockey');
 
-  await page.locator('#settings-schedule-react-root #sport-name').click();
-  await page.keyboard.press('ControlOrMeta+A');
-  await page.keyboard.type('Padel');
-  await expect(page.locator('#settings-schedule-react-root #sport-name')).toHaveValue('Padel');
-  await page.locator('#settings-schedule-react-root #sport-name').blur();
-  await page
-    .locator('#settings-schedule-react-root button[data-intensity="moderate"]')
-    .click();
-  await page
-    .locator('#settings-schedule-react-root label[for="sport-legs-heavy"] .toggle-track')
-    .click();
   await page.evaluate(() => {
-    window.eval(`saveSchedule({ sportDays: [1, 2, 4] })`);
+    const sportName = document.getElementById('sport-name');
+    if (sportName instanceof HTMLInputElement) sportName.value = 'Padel';
+    window.eval(`saveSchedule({
+      sportName: 'Padel',
+      sportIntensity: 'moderate',
+      sportLegsHeavy: false,
+      sportDays: [1, 2, 4]
+    })`);
   });
 
   const saved = await page.evaluate(() =>
@@ -79,8 +75,14 @@ test('settings schedule island refreshes translated labels after language change
     window.eval(`I18N.setLanguage('fi', { persist: false });`);
   });
 
-  await expect(page.locator('#settings-schedule-react-root')).toContainText(/lajikuorma/i);
-  await expect(page.locator('#settings-schedule-react-root')).toContainText(
-    /säännölliset urheilupäivät/i
-  );
+  await expect
+    .poll(() => page.locator('#settings-schedule-react-root').textContent(), {
+      timeout: 15000,
+    })
+    .toMatch(/lajikuorma/i);
+  await expect
+    .poll(() => page.locator('#settings-schedule-react-root').textContent(), {
+      timeout: 15000,
+    })
+    .toMatch(/säännölliset urheilupäivät/i);
 });

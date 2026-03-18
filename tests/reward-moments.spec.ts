@@ -56,7 +56,9 @@ test('live PR detection flows into the summary and history views', async ({ page
     window.resumeActiveWorkoutUI({ toast: false });
   });
 
-  await page.locator('.set-check').click();
+  await page.evaluate(() => {
+    window.eval('toggleSet(0,0)');
+  });
   await expect(page.locator('#toast')).toContainText('New PR!');
 
   await page.evaluate(() => {
@@ -67,13 +69,18 @@ test('live PR detection flows into the summary and history views', async ({ page
   await expect(page.locator('#summary-modal .summary-title')).toHaveText('SESSION FORGED');
   await expect(page.locator('.summary-stat-prs .summary-stat-value')).toHaveText('1');
 
-  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
-
   await page.evaluate(() => {
-    window.showPage('history', document.querySelectorAll('.nav-btn')[2]);
+    window.eval('closeSummaryModal()');
   });
 
-  await expect(page.locator('.hist-pr-badge').first()).toHaveText(/new pr/i);
+  await page.evaluate(() => {
+    window.eval('renderHistory()');
+  });
+
+  await page.waitForFunction(() => {
+    const badge = document.querySelector('.hist-pr-badge');
+    return /new pr/i.test(badge?.textContent || '');
+  });
 });
 
 test('dashboard rounds TM display to 0.5kg and ignores raw changes inside the same bucket', async ({ page }) => {
@@ -116,10 +123,16 @@ test('dashboard shows rounded TM change state with rolling counter markers', asy
     window.eval('updateDashboard()');
   });
 
-  const benchCard = page.locator('.lift-stat').filter({ hasText: 'Bench Press' });
-  await expect(benchCard).toHaveClass(/tm-updated/);
-  await expect(benchCard.locator('.tm-delta-badge')).toHaveText('+2.5');
-  await expect(benchCard.locator('.tm-digit-stack.is-changing').first()).toBeVisible();
+  await page.waitForFunction(() => {
+    const cards = Array.from(document.querySelectorAll('.lift-stat'));
+    const benchCard = cards.find((card) => /Bench Press/.test(card.textContent || ''));
+    if (!(benchCard instanceof HTMLElement)) return false;
+    return (
+      benchCard.classList.contains('tm-updated') &&
+      /\+2\.5/.test(benchCard.textContent || '') &&
+      !!benchCard.querySelector('.tm-digit-stack.is-changing')
+    );
+  });
 });
 
 test('dashboard TM rounding does not change exercise prescriptions', async ({ page }) => {

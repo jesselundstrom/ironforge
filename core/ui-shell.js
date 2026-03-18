@@ -77,11 +77,16 @@ function getConfirmReactSnapshot() {
 
 function showPage(name, btn) {
   const nextPage = APP_SHELL_PAGES.includes(name) ? name : 'dashboard';
+  const previousPage = activePageName;
   activePageName = nextPage;
   notifyAppShell();
-  if (isAppShellActive()) return;
-  syncLegacyShellDom(nextPage, btn);
+  const resolvedButton = syncLegacyShellDom(nextPage, btn);
+  if (isAppShellActive()) {
+    if (previousPage === nextPage) runPageActivationSideEffects(nextPage);
+    return resolvedButton;
+  }
   runPageActivationSideEffects(nextPage);
+  return resolvedButton;
 }
 
 function goToLog() {

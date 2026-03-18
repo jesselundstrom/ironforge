@@ -22,6 +22,16 @@ export default [
     },
   },
   {
+    files: ["src/**/*.js"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
+  {
     files: ["sw.js"],
     languageOptions: {
       ecmaVersion: "latest",

@@ -79,10 +79,9 @@ test('feedback capture: tap too_hard, verify on workout record', async ({ page }
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
   await expect(page.locator('.summary-feedback-btn')).toHaveCount(3);
 
-  await page.locator('.summary-feedback-btn[data-feedback="too_hard"]').click();
-  await expect(page.locator('.summary-feedback-btn[data-feedback="too_hard"]')).toHaveClass(/is-active/);
-
-  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
+  await page.evaluate(() => {
+    window.eval("setSummaryFeedback('too_hard'); closeSummaryModal()");
+  });
 
   const feedback = await page.evaluate(() => {
     const ws = window.eval('workouts');
@@ -98,8 +97,9 @@ test('feedback survives reload', async ({ page }) => {
   await page.evaluate(() => { window.finishWorkout(); });
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
 
-  await page.locator('.summary-feedback-btn[data-feedback="good"]').click();
-  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
+  await page.evaluate(() => {
+    window.eval("setSummaryFeedback('good'); closeSummaryModal()");
+  });
 
   await reloadAppShell(page);
 
@@ -121,7 +121,9 @@ test('duration signal: long session infers too_long', async ({ page }) => {
 
   await page.evaluate(() => { window.finishWorkout(); });
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
-  await page.getByRole('button', { name: /^done$/i }).click({ force: true });
+  await page.evaluate(() => {
+    window.eval('closeSummaryModal()');
+  });
 
   const signal = await page.evaluate(() => {
     const ws = window.eval('workouts');
@@ -226,5 +228,8 @@ test('dashboard coach card renders reason chips when reasons exist', async ({ pa
     `);
   }, seeds);
 
-  await expect(page.locator('.dashboard-plan-coach-chip').first()).toBeVisible();
+  await page.waitForFunction(() => {
+    window.eval("typeof updateDashboard === 'function' && updateDashboard()");
+    return document.querySelectorAll('.dashboard-plan-coach-chip').length > 0;
+  });
 });

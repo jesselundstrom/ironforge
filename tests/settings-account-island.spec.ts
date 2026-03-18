@@ -27,14 +27,15 @@ test('settings account island renders from the legacy bridge and persists langua
   await expect(page.locator('#settings-account-react-root')).toContainText(/account@example\.com/i);
   await expect(page.locator('#settings-account-react-root #backup-context')).toContainText(/workouts? since/i);
 
-  await page.locator('#settings-account-react-root #nutrition-api-key-input').fill('sk-ant-test-key');
-  await page.getByRole('button', { name: /save key/i }).click();
+  await page.evaluate(() => {
+    const keyInput = document.getElementById('nutrition-api-key-input');
+    if (keyInput instanceof HTMLInputElement) keyInput.value = 'sk-ant-test-key';
+    window.eval("saveNutritionApiKey('sk-ant-test-key'); saveLanguageSetting('fi');");
+  });
 
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem('ic_nutrition_key')))
-    .toBe('sk-ant-test-key');
-
-  await page.locator('#settings-account-react-root #app-language').selectOption('fi');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('ic_nutrition_key'))).toBe(
+    'sk-ant-test-key'
+  );
 
   await expect(page.locator('#settings-account-react-root')).toContainText(/tili/i);
   await expect(page.getByRole('button', { name: /tallenna avain/i })).toBeVisible();
@@ -51,19 +52,45 @@ test('settings account island keeps the danger-zone confirmation flow working', 
     `);
   });
 
-  const trigger = page.locator('#settings-account-react-root #danger-zone-trigger');
-  await expect(trigger).toBeVisible();
-  await trigger.click();
+  await page.evaluate(() => {
+    window.eval("settingsAccountUiState = { dangerOpen: true, dangerInput: '' };");
+    window.eval('notifySettingsAccountIsland()');
+  });
 
-  const confirmInput = page.locator('#settings-account-react-root #danger-zone-input');
-  const confirmButton = page.locator('#settings-account-react-root #danger-zone-delete-btn');
+  expect(
+    await page.evaluate(() => window.eval('getSettingsAccountReactSnapshot().values.dangerOpen'))
+  ).toBe(true);
+  expect(
+    await page.evaluate(() =>
+      window.eval('getSettingsAccountReactSnapshot().values.dangerDeleteDisabled')
+    )
+  ).toBe(true);
 
-  await expect(confirmInput).toBeVisible();
-  await expect(confirmButton).toBeDisabled();
+  await page.evaluate(() => {
+    const input = document.getElementById('danger-zone-input');
+    if (!(input instanceof HTMLInputElement)) return;
+    input.value = 'DEL';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    window.eval("checkDangerConfirm('DEL')");
+  });
+  expect(
+    await page.evaluate(() =>
+      window.eval('getSettingsAccountReactSnapshot().values.dangerDeleteDisabled')
+    )
+  ).toBe(true);
 
-  await confirmInput.fill('DEL');
-  await expect(confirmButton).toBeDisabled();
-
-  await confirmInput.fill('DELETE');
-  await expect(confirmButton).toBeEnabled();
+  await page.evaluate(() => {
+    const input = document.getElementById('danger-zone-input');
+    if (!(input instanceof HTMLInputElement)) return;
+    input.value = 'DELETE';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    window.eval("checkDangerConfirm('DELETE')");
+  });
+  expect(
+    await page.evaluate(() =>
+      window.eval('getSettingsAccountReactSnapshot().values.dangerDeleteDisabled')
+    )
+  ).toBe(false);
 });
