@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="refresh"
+      content="0; url=/ironforge/"
+    />
+    <meta name="robots" content="noindex" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ironforge</title>
+    <script>
+      const target = '/ironforge/';
+      const suffix = `${location.search || ''}${location.hash || ''}`;
+      location.replace(target + suffix);
+    </script>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #08080d;
+        color: #f3eee8;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>Redirecting to Ironforge...</noscript>
+  </body>
+</html>

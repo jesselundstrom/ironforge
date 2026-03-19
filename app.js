@@ -1400,5 +1400,5 @@ window.updateLanguageDependentUI=updateLanguageDependentUI;
 initAuth();
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/ironforge/sw.js'); });
 }
