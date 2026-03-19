@@ -38,7 +38,6 @@
 }
 :root {
   --app-vh: 100vh;
-  --vv-offset-top: 0px;
 }
 @supports (height: 100dvh) {
   :root {
@@ -8954,105 +8953,67 @@ body.login-active::before {
   border-top: none;
   background: none;
 }
-/* -- Correct analysis trigger button -- */
-.content.nutrition-active .nc-correction-trigger {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 181, 94, 0.22);
-  border-radius: 14px;
-  background: rgba(255, 181, 94, 0.07);
-  color: rgba(255, 220, 162, 0.82);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
+/* -- Inline correction row (in message list, normal flow — keyboard-safe on iOS) -- */
+.content.nutrition-active .nc-correction-row {
+  margin-top: 4px;
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(255, 181, 94, 0.2);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 181, 94, 0.06), rgba(255, 255, 255, 0.01)),
+    rgba(16, 19, 26, 0.94);
 }
-.content.nutrition-active .nc-correction-trigger:hover {
-  background: rgba(255, 181, 94, 0.13);
-  border-color: rgba(255, 181, 94, 0.38);
-}
-/* -- Correction overlay (keyboard-aware via --app-vh + --vv-offset-top) -- */
-.nc-correction-overlay {
-  position: fixed;
-  top: var(--vv-offset-top, 0px);
-  left: 0;
-  right: 0;
-  height: var(--app-vh, 100vh);
-  z-index: 900;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: flex-end;
-}
-.nc-correction-sheet {
-  width: 100%;
-  padding: 14px 14px 20px;
-  background: rgba(14, 17, 24, 0.98);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 26px 26px 0 0;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 -20px 48px rgba(0, 0, 0, 0.44);
-}
-.nc-correction-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+.content.nutrition-active .nc-correction-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 211, 139, 0.72);
-  margin-bottom: 10px;
+  color: rgba(255, 211, 139, 0.7);
+  margin-bottom: 8px;
 }
-.nc-correction-row {
+.content.nutrition-active .nc-correction-inputs {
   display: flex;
   align-items: flex-end;
   gap: 8px;
 }
-.nc-correction-input {
+.content.nutrition-active .nc-correction-input {
   flex: 1;
-  min-height: 44px;
-  max-height: 140px;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
+  min-height: 40px;
+  max-height: 120px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 244, 228, 0.95);
   font-family: inherit;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.45;
   resize: none;
   outline: none;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
-.nc-correction-input::placeholder {
-  color: rgba(255, 220, 162, 0.35);
+.content.nutrition-active .nc-correction-input::placeholder {
+  color: rgba(255, 220, 162, 0.32);
 }
-.nc-correction-input:focus {
+.content.nutrition-active .nc-correction-input:focus {
   border-color: rgba(255, 181, 94, 0.38);
   background: rgba(255, 255, 255, 0.07);
 }
-.nc-correction-send {
+.content.nutrition-active .nc-correction-send {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #ffb65e, #f5821f 65%, #dd6e19);
   border: none;
-  border-radius: 14px;
+  border-radius: 12px;
   color: #fff;
   cursor: pointer;
   transition: opacity 0.15s;
 }
-.nc-correction-send:disabled {
+.content.nutrition-active .nc-correction-send:disabled {
   opacity: 0.35;
   cursor: default;
 }

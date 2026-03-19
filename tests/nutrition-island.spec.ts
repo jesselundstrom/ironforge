@@ -417,7 +417,7 @@ test('nutrition action card submits immediately on tap without send button', asy
   expect(requestCount).toBe(1);
 });
 
-test('nutrition correction overlay appears after photo analysis and sends typed correction', async ({
+test('nutrition correction row appears inline after photo analysis and sends typed correction', async ({
   page,
 }) => {
   let capturedUserText = '';
@@ -472,12 +472,9 @@ test('nutrition correction overlay appears after photo analysis and sends typed 
   });
   await openNutrition(page);
 
-  // Correction trigger button should be visible
-  await expect(page.locator('.nc-correction-trigger')).toBeVisible();
-
-  // Open the correction overlay
-  await page.locator('.nc-correction-trigger').click();
-  await expect(page.locator('.nc-correction-sheet')).toBeVisible();
+  // Inline correction row should be visible in the message list
+  await expect(page.locator('.nc-correction-row')).toBeVisible();
+  await expect(page.locator('#nutrition-text-input')).toBeVisible();
 
   // Type the correction and send
   await page.locator('#nutrition-text-input').fill('Actually that was 2 portions');

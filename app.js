@@ -62,9 +62,7 @@ function isLegacyDefaultSportName(name){
 function syncAppViewportHeight(){
   const viewport=window.visualViewport;
   const height=Math.round((viewport&&viewport.height)||window.innerHeight||0);
-  const offsetTop=Math.round((viewport&&viewport.offsetTop)||0);
   if(height>0)document.documentElement.style.setProperty('--app-vh',height+'px');
-  document.documentElement.style.setProperty('--vv-offset-top',offsetTop+'px');
 }
 
 function scheduleAppViewportHeightSync(delay=0){
