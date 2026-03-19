@@ -667,10 +667,6 @@ function Composer({ snapshot }) {
             key={action.id}
             onClick={() => handleActionSelect(action.id)}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </svg>
             <span>{t(action.labelKey, action.fallbackLabel)}</span>
           </button>
         ))}
@@ -678,10 +674,6 @@ function Composer({ snapshot }) {
           className="nutrition-prompt-chip nutrition-action-card nutrition-photo-btn"
           htmlFor="nutrition-photo-input"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
           <span>{t('nutrition.photo.label', 'Add photo')}</span>
           <input
             type="file"
