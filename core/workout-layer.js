@@ -548,7 +548,7 @@ function resumeActiveWorkoutUI(options){
   const restSelect=document.getElementById('rest-duration');
   if(restSelect)restSelect.value=String(restDuration||profile.defaultRest||120);
   renderWorkoutTimer();
-  renderExercises();
+  if(!isLogActiveIslandActive())renderExercises();
   if(restEndsAt){
     document.getElementById('rest-timer-bar')?.classList.add('active');
     syncRestTimer();
@@ -2459,7 +2459,7 @@ function beginWorkoutStart(sportContext){
     descEl.style.display=sessionDescription?'':'none';
   }
   restDuration=parseInt(document.getElementById('rest-duration')?.value)||profile.defaultRest||120;
-  startWorkoutTimer();renderExercises();
+  startWorkoutTimer();if(!isLogActiveIslandActive())renderExercises();
   const progName=(window.I18N&&I18N.t)?I18N.t('program.'+prog.id+'.name',null,prog.name||'Training'):(prog.name||'Training');
   showToast(bi.isDeload?i18nText('workout.deload_light','Deload - keep it light'):progName,bi.isDeload?'var(--blue)':'var(--purple)');
   const commentaryState=getWorkoutCommentaryState(activeWorkout);
