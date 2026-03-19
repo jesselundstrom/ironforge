@@ -687,21 +687,28 @@ const ACTION_ICONS = {
 
 function Composer({ snapshot }) {
   const hidden = !snapshot.values.hasApiKey;
-  const hasMessages = snapshot.values.messagesState === 'thread';
 
   return (
     <div className={`nutrition-composer${hidden ? ' nc-hidden' : ''}`}>
-      {!hasMessages && (
-        <div className="nc-composer-hint">
-          {t('nutrition.composer.hint', 'Tap an action to get started')}
-        </div>
-      )}
+      <label
+        className="nc-photo-cta"
+        htmlFor="nutrition-photo-input"
+      >
+        {ACTION_ICONS.photo}
+        <span>{t('nutrition.photo.cta', 'Snap your meal')}</span>
+        <input
+          type="file"
+          id="nutrition-photo-input"
+          accept="image/*"
+          capture="environment"
+          onChange={(event) => window.handleNutritionPhoto?.(event)}
+          className="file-input-hidden"
+        />
+      </label>
       <div className="nutrition-action-grid" id="nutrition-action-grid">
         {snapshot.values.actions.map((action) => (
           <button
-            className={`nutrition-prompt-chip nutrition-action-card${
-              action.selected ? ' active' : ''
-            }`}
+            className="nutrition-prompt-chip nutrition-action-card"
             type="button"
             data-nc-action={action.id}
             key={action.id}
@@ -711,21 +718,6 @@ function Composer({ snapshot }) {
             <span>{t(action.labelKey, action.fallbackLabel)}</span>
           </button>
         ))}
-        <label
-          className="nutrition-prompt-chip nutrition-action-card nutrition-photo-btn"
-          htmlFor="nutrition-photo-input"
-        >
-          {ACTION_ICONS.photo}
-          <span>{t('nutrition.photo.label', 'Add photo')}</span>
-          <input
-            type="file"
-            id="nutrition-photo-input"
-            accept="image/*"
-            capture="environment"
-            onChange={(event) => window.handleNutritionPhoto?.(event)}
-            className="file-input-hidden"
-          />
-        </label>
       </div>
     </div>
   );

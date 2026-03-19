@@ -8704,9 +8704,8 @@ body.login-active::before {
 }
 .content.nutrition-active .nutrition-action-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 1fr;
-  gap: 8px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
   overflow-x: visible;
   padding-bottom: 0;
   -webkit-mask-image: none;
@@ -8733,49 +8732,39 @@ body.login-active::before {
   /* Reset chip defaults */
   background: rgba(255, 255, 255, 0.025);
   border: none;
-  border-left: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
+  border-radius: 6px;
   box-shadow: none;
-  padding: 12px 12px 14px;
-  gap: 0;
+  padding: 10px 8px;
+  gap: 5px;
   /* Layout */
   flex: none;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  height: 100%;
-  min-height: 84px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 0;
   /* Typography */
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.2;
-  color: rgba(255, 244, 228, 0.78);
+  color: rgba(255, 244, 228, 0.6);
   /* Entrance */
   animation: nc-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   transition:
     background 0.14s,
-    border-left-color 0.14s,
     color 0.14s,
     transform 0.1s;
 }
 /* Action card icons */
 .content.nutrition-active .nc-action-icon {
-  width: 18px;
-  height: 18px;
-  color: rgba(255, 181, 94, 0.55);
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 181, 94, 0.45);
   flex-shrink: 0;
-  margin-bottom: 6px;
   transition: color 0.14s;
-}
-/* Text label pushes to card bottom */
-.content.nutrition-active .nutrition-action-card > span {
-  margin-top: auto;
-}
-.content.nutrition-active .nutrition-action-card.active .nc-action-icon {
-  color: rgba(18, 10, 0, 0.7);
 }
 .content.nutrition-active .nutrition-action-grid > *:nth-child(1) {
   animation-delay: 0ms;
@@ -8786,25 +8775,15 @@ body.login-active::before {
 .content.nutrition-active .nutrition-action-grid > *:nth-child(3) {
   animation-delay: 110ms;
 }
-.content.nutrition-active .nutrition-action-grid > *:nth-child(4) {
-  animation-delay: 165ms;
-}
-.content.nutrition-active .nutrition-action-card:not(.active):hover {
+.content.nutrition-active .nutrition-action-card:hover {
   background: rgba(245, 130, 31, 0.07);
-  border-left-color: var(--accent);
-  color: rgba(255, 244, 228, 0.95);
+  color: rgba(255, 244, 228, 0.9);
 }
-.content.nutrition-active .nutrition-action-card:not(.active):hover .nc-action-icon {
+.content.nutrition-active .nutrition-action-card:hover .nc-action-icon {
   color: var(--accent);
 }
 .content.nutrition-active .nutrition-action-card:active {
   transform: scale(0.96);
-}
-.content.nutrition-active .nutrition-action-card.active {
-  background: var(--accent);
-  border-left-color: transparent;
-  color: rgba(18, 10, 0, 0.9);
-  box-shadow: 0 4px 18px rgba(245, 130, 31, 0.3);
 }
 .content.nutrition-active .nutrition-prompt-chip:not(.nutrition-action-card):hover {
   border-color: rgba(255, 181, 94, 0.3);
@@ -9119,21 +9098,58 @@ body.login-active::before {
   opacity: 0.35;
   cursor: default;
 }
-/* Composer hint text */
-.content.nutrition-active .nc-composer-hint {
-  text-align: center;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 220, 162, 0.4);
-  padding: 4px 0 8px;
-}
-/* Ensure the photo <label> stretches identically to the <button> cards */
-.content.nutrition-active .nutrition-action-grid .nutrition-photo-btn {
+/* Photo CTA — full-width primary action above the text action row */
+.content.nutrition-active .nc-photo-cta {
   display: flex;
-  min-height: 84px;
-  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 181, 94, 0.22);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(245, 130, 31, 0.12),
+      rgba(245, 130, 31, 0.04) 60%,
+      rgba(255, 255, 255, 0.02)
+    ),
+    rgba(18, 21, 28, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  touch-action: manipulation;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 244, 228, 0.92);
+  animation: nc-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    background 0.14s,
+    border-color 0.14s,
+    transform 0.1s;
+}
+.content.nutrition-active .nc-photo-cta .nc-action-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+.content.nutrition-active .nc-photo-cta:hover {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(245, 130, 31, 0.18),
+      rgba(245, 130, 31, 0.06) 60%,
+      rgba(255, 255, 255, 0.03)
+    ),
+    rgba(18, 21, 28, 0.98);
+  border-color: rgba(255, 181, 94, 0.35);
+}
+.content.nutrition-active .nc-photo-cta:active {
+  transform: scale(0.98);
 }
 .content.nutrition-active .nutrition-today-card {
   padding: 9px 12px;
