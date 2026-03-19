@@ -1018,8 +1018,15 @@
         targets.tdee +
         ' kcal)'
       : '';
+    const uiLocale =
+      (typeof window.I18N !== 'undefined' && window.I18N.getLanguage()) || 'en';
+    const langInstruction =
+      uiLocale === 'fi'
+        ? 'Always respond in Finnish (Suomi). '
+        : 'Always respond in English. ';
     const systemPrompt =
       'You are a concise, motivating nutrition coach for a strength athlete. ' +
+      langInstruction +
       'Return EXACTLY one JSON object and nothing else. No code fences, no backticks, and no prose outside the JSON.\n\n' +
       'Required JSON schema:\n' +
       '{"display_markdown":"string","estimated_macros":{"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0},"remaining_today":{"calories":0,"protein_g":0},"tags":["string"]}\n\n' +
