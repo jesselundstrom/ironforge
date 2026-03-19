@@ -297,22 +297,27 @@ function buildProgramSwitcherMarkup(){
     const compatibility=getProgramFrequencyCompatibility(p.id,profile);
     const pName=trProg('program.'+p.id+'.name',p.name);
     const pDesc=trProg('program.'+p.id+'.description',p.description);
+    const difficulty=typeof getProgramDifficultyMeta==='function'
+      ? getProgramDifficultyMeta(p.id)
+      : {key:'intermediate',labelKey:'program.difficulty.intermediate',fallback:'Intermediate'};
+    const difficultyLabel=trProg(difficulty.labelKey,difficulty.fallback);
     const effectiveLabel=typeof getTrainingDaysPerWeekLabel==='function'
       ? getTrainingDaysPerWeekLabel(compatibility.effective)
       : compatibility.effective+' sessions / week';
     const fitBadge=compatibility.supportsExact
       ? `<span class="program-card-fit program-card-fit-ok">${escapeHtml(trProg('program.frequency_card.fit','Fits {value}',{value:requestedLabel}))}</span>`
       : `<span class="program-card-fit program-card-fit-fallback">${escapeHtml(trProg('program.frequency_card.fallback','Uses {value}',{value:effectiveLabel}))}</span>`;
+    const difficultyBadge=`<span class="program-card-difficulty program-card-difficulty-${escapeHtml(difficulty.key)}">${escapeHtml(difficultyLabel)}</span>`;
     return`
-    <div class="program-card${p.id===active?' active':''}" onclick="switchProgram('${escapeHtml(p.id)}')">
+    <button type="button" class="program-card${p.id===active?' active':''}" onclick="switchProgram('${escapeHtml(p.id)}')" aria-pressed="${p.id===active?'true':'false'}">
       <div class="program-card-icon">${escapeHtml(p.icon||'🏋️')}</div>
       <div style="flex:1;min-width:0">
         <div class="program-card-name">${escapeHtml(pName)}</div>
         <div class="program-card-desc">${escapeHtml(pDesc)}</div>
-        <div class="program-card-meta">${fitBadge}</div>
+        <div class="program-card-meta">${difficultyBadge}${fitBadge}</div>
       </div>
       ${p.id===active?'<div class="program-card-badge">'+escapeHtml(trProg('program.active','Active'))+'</div>':''}
-    </div>`;}).join('');
+    </button>`;}).join('');
   const helper=`<div class="program-switcher-note">${escapeHtml(trProg('program.frequency_filter.showing','Showing programs that fit {value}. Your current program stays visible if it needs a fallback.',{value:requestedLabel}))}</div>`;
   return helper+cards;
 }

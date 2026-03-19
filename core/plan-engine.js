@@ -1395,6 +1395,26 @@ function buildInitialWeekTemplate(programId,frequency,sessionMinutes){
   return rows;
 }
 
+function buildOnboardingFitReasons(prefs,coaching,scheduleLike){
+  const requestedDays=parseInt(prefs.trainingDaysPerWeek,10)||3;
+  const reasons=[];
+  const goalKey=prefs.goal==='hypertrophy'
+    ? 'hypertrophy'
+    : (prefs.goal==='strength'
+      ? 'strength'
+      : (prefs.goal==='sport_support' ? 'sport_support' : 'general_fitness'));
+  reasons.push(trPlan('onboarding.fit.goal.'+goalKey,'Goal: {goal}',{goal:getTrainingGoalLabel?.(prefs.goal)||prefs.goal}));
+  reasons.push(trPlan('onboarding.fit.frequency','{count} sessions / week',{count:requestedDays}));
+  if(coaching?.sportProfile?.inSeason||prefs.goal==='sport_support'){
+    reasons.push(trPlan('onboarding.fit.in_season','In-season aware'));
+  }else if(coaching?.guidanceMode==='guided'){
+    reasons.push(trPlan('onboarding.fit.guided','Guided'));
+  }else{
+    reasons.push(trPlan('onboarding.fit.self_directed','Flexible'));
+  }
+  return [...new Set(reasons)].slice(0,3);
+}
+
 function getInitialPlanRecommendation(input){
   const next=input||{};
   const profileLike=clonePlanValue(next.profile||profile||{})||{};
@@ -1419,6 +1439,7 @@ function getInitialPlanRecommendation(input){
   else why.push(trPlan('onboarding.why.goal_match','Matches your main goal: {goal}.',{goal:goalLabel}));
   if(profileLike.coaching?.guidanceMode==='guided')why.push(trPlan('onboarding.why.guided','Keeps the decision-making load low and gives you a clearer default path.'));
   if(profileLike.coaching?.sportProfile?.inSeason)why.push(trPlan('onboarding.why.in_season','Accounts for in-season constraints and keeps weekly stress more realistic.'));
+  const fitReasons=buildOnboardingFitReasons(prefs,profileLike.coaching||{},scheduleLike);
   const weekTemplate=buildInitialWeekTemplate(programId,parseInt(prefs.trainingDaysPerWeek,10)||3,parseInt(prefs.sessionMinutes,10)||60);
   let firstSessionOption='';
   let initialAdjustments=[];
@@ -1437,6 +1458,7 @@ function getInitialPlanRecommendation(input){
   return{
     programId,
     why:[...new Set(why)],
+    fitReasons,
     weekTemplate,
     firstSessionOption,
     initialAdjustments:[...new Set(initialAdjustments)]

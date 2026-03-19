@@ -662,6 +662,7 @@ const PROGRAM_CAPABILITIES={
   forge:{
     id:'forge',
     aliases:[],
+    difficulty:'advanced',
     frequencyRange:{min:2,max:6},
     recommendationScore(days,prefs){
       let score=prefs.goal==='strength'?6:2;
@@ -672,6 +673,7 @@ const PROGRAM_CAPABILITIES={
   hypertrophysplit:{
     id:'hypertrophysplit',
     aliases:[],
+    difficulty:'intermediate',
     frequencyRange:{min:2,max:6},
     recommendationScore(days,prefs){
       let score=prefs.goal==='hypertrophy'?7:2;
@@ -682,6 +684,7 @@ const PROGRAM_CAPABILITIES={
   wendler531:{
     id:'wendler531',
     aliases:['w531'],
+    difficulty:'advanced',
     frequencyRange:{min:2,max:4},
     recommendationScore(days,prefs){
       let score=prefs.goal==='strength'?7:1;
@@ -692,6 +695,7 @@ const PROGRAM_CAPABILITIES={
   casualfullbody:{
     id:'casualfullbody',
     aliases:[],
+    difficulty:'beginner',
     frequencyRange:{min:2,max:3},
     recommendationScore(days,prefs){
       let score=prefs.goal==='general_fitness'?7:0;
@@ -703,6 +707,7 @@ const PROGRAM_CAPABILITIES={
   stronglifts5x5:{
     id:'stronglifts5x5',
     aliases:[],
+    difficulty:'beginner',
     frequencyRange:{min:3,max:3},
     recommendationScore(days,prefs){
       let score=prefs.goal==='strength'?5:1;
@@ -726,8 +731,25 @@ function getProgramCapabilities(programId){
   return PROGRAM_CAPABILITIES[canonicalId]||{
     id:canonicalId||String(programId||'').trim(),
     aliases:[],
+    difficulty:'intermediate',
     frequencyRange:{min:2,max:6},
     recommendationScore(){return 0;}
+  };
+}
+
+function getProgramDifficultyMeta(programId){
+  const difficultyKey=String(getProgramCapabilities(programId).difficulty||'intermediate');
+  const normalizedKey=['beginner','intermediate','advanced'].includes(difficultyKey)
+    ? difficultyKey
+    : 'intermediate';
+  return {
+    key:normalizedKey,
+    labelKey:'program.difficulty.'+normalizedKey,
+    fallback:normalizedKey==='beginner'
+      ? 'Beginner-friendly'
+      : normalizedKey==='intermediate'
+        ? 'Intermediate'
+        : 'Advanced'
   };
 }
 

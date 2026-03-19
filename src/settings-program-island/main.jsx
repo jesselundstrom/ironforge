@@ -106,9 +106,22 @@ function ProgramSwitcher({ switcher }) {
     <div id="program-switcher-container">
       {switcher.helper ? <div className="program-switcher-note">{switcher.helper}</div> : null}
       {switcher.cards.map((card) => (
-        <div
+        <button
+          aria-pressed={card.active}
+          aria-label={
+            window.I18N?.t
+              ? window.I18N.t(
+                  card.active ? 'program.card.active' : 'program.card.switch_to',
+                  { name: card.name },
+                  card.active ? 'Active program: {name}' : 'Switch to {name}'
+                )
+              : card.active
+                ? `Active program: ${card.name}`
+                : `Switch to ${card.name}`
+          }
           className={`program-card${card.active ? ' active' : ''}`}
           key={card.id}
+          type="button"
           onClick={() => window.switchProgram?.(card.id)}
         >
           <div className="program-card-icon">{card.icon}</div>
@@ -116,6 +129,13 @@ function ProgramSwitcher({ switcher }) {
             <div className="program-card-name">{card.name}</div>
             <div className="program-card-desc">{card.description}</div>
             <div className="program-card-meta">
+              <span
+                className={`program-card-difficulty program-card-difficulty-${
+                  card.difficultyTone || 'intermediate'
+                }`}
+              >
+                {card.difficultyLabel}
+              </span>
               <span
                 className={`program-card-fit ${
                   card.fitTone === 'ok'
@@ -130,17 +150,52 @@ function ProgramSwitcher({ switcher }) {
           {card.active ? (
             <div className="program-card-badge">{card.activeLabel}</div>
           ) : null}
-        </div>
+        </button>
       ))}
     </div>
   );
 }
 
 function SettingsProgramIsland() {
+  const [difficultyFilter, setDifficultyFilter] = React.useState('all');
   const snapshot = useIslandSnapshot(
     [SETTINGS_PROGRAM_EVENT, LANGUAGE_EVENT],
     getSnapshot
   );
+  const cards = snapshot.values.switcher.cards || [];
+  const difficultyOptions = [
+    {
+      key: 'all',
+      label: window.I18N?.t?.('program.filter.all', null, 'All') || 'All',
+      count: cards.length,
+    },
+    {
+      key: 'beginner',
+      label:
+        window.I18N?.t?.('program.filter.beginner', null, 'Beginner') || 'Beginner',
+      count: cards.filter((card) => card.difficultyTone === 'beginner').length,
+    },
+    {
+      key: 'intermediate',
+      label:
+        window.I18N?.t?.('program.filter.intermediate', null, 'Intermediate') ||
+        'Intermediate',
+      count: cards.filter((card) => card.difficultyTone === 'intermediate').length,
+    },
+    {
+      key: 'advanced',
+      label:
+        window.I18N?.t?.('program.filter.advanced', null, 'Advanced') || 'Advanced',
+      count: cards.filter((card) => card.difficultyTone === 'advanced').length,
+    },
+  ];
+  const visibleCards =
+    difficultyFilter === 'all'
+      ? cards
+      : cards.filter(
+          (card) => card.difficultyTone === difficultyFilter || card.active
+        );
+  const showDifficultyFilter = cards.length > 1;
 
   return (
     <>
@@ -186,15 +241,43 @@ function SettingsProgramIsland() {
           <div className="settings-panel-chevron">⌄</div>
         </summary>
         <div className="settings-panel-body">
-          <ProgramSwitcher switcher={snapshot.values.switcher} />
+          {showDifficultyFilter ? (
+            <div className="program-filter-header">
+              <div className="settings-panel-title" style={{ marginBottom: 0 }}>
+                {window.I18N?.t?.('program.filter.title', null, 'Filter by level') ||
+                  'Filter by level'}
+              </div>
+              <div
+                className="program-filter-row"
+                role="toolbar"
+                aria-label="Filter programs by difficulty"
+              >
+                {difficultyOptions.map((option) => (
+                  <button
+                    aria-pressed={difficultyFilter === option.key}
+                    className={`program-filter-chip${
+                      difficultyFilter === option.key ? ' active' : ''
+                    }`}
+                    key={option.key}
+                    type="button"
+                    onClick={() => setDifficultyFilter(option.key)}
+                  >
+                    <span>{option.label}</span>
+                    <span className="program-filter-chip-count">{option.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <ProgramSwitcher switcher={{ ...snapshot.values.switcher, cards: visibleCards }} />
         </div>
       </details>
 
-      <div
+      <button
         className="settings-panel settings-panel-static program-advanced-card"
         id="program-advanced-panel"
+        type="button"
         onClick={() => window.openProgramSetupSheet?.()}
-        style={{ cursor: 'pointer' }}
       >
         <div className="settings-panel-summary settings-panel-summary-static">
           <div>
@@ -203,7 +286,7 @@ function SettingsProgramIsland() {
           </div>
           <div className="program-advanced-chevron">&#8250;</div>
         </div>
-      </div>
+      </button>
     </>
   );
 }

@@ -678,6 +678,9 @@ function getProgramSwitcherSnapshotData(){
   }
   const cards=(visible.length?visible:Object.values(PROGRAMS)).map(program=>{
     const compatibility=getProgramFrequencyCompatibility(program.id,profile);
+    const difficulty=typeof getProgramDifficultyMeta==='function'
+      ? getProgramDifficultyMeta(program.id)
+      : {key:'intermediate',labelKey:'program.difficulty.intermediate',fallback:'Intermediate'};
     const effectiveLabel=typeof getTrainingDaysPerWeekLabel==='function'
       ? getTrainingDaysPerWeekLabel(compatibility.effective)
       : compatibility.effective+' sessions / week';
@@ -690,6 +693,11 @@ function getProgramSwitcherSnapshotData(){
         ? tr('program.frequency_card.fit','Fits {value}',{value:requestedLabel})
         : tr('program.frequency_card.fallback','Uses {value}',{value:effectiveLabel}),
       fitTone:compatibility.supportsExact?'ok':'fallback',
+      difficultyKey:difficulty.key,
+      difficultyTone:difficulty.key,
+      difficultyLabel:(window.I18N&&I18N.t)
+        ? I18N.t(difficulty.labelKey,null,difficulty.fallback)
+        : difficulty.fallback,
       active:program.id===active,
       activeLabel:tr('program.active','Active')
     };

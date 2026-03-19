@@ -348,6 +348,10 @@ function StepRecommendation({ draft }) {
     'program.' + programId + '.description',
     program?.description || ''
   );
+  const difficultyMeta = window.getProgramDifficultyMeta?.(programId);
+  const difficultyLabel = difficultyMeta
+    ? t(difficultyMeta.labelKey, difficultyMeta.fallback)
+    : '';
   const weekCount = (recommendation.weekTemplate || []).length;
   const firstDuration = recommendation.weekTemplate?.[0]?.durationHint || '';
   const firstSessionLabel = /^\d+$/.test(String(recommendation.firstSessionOption || ''))
@@ -358,6 +362,18 @@ function StepRecommendation({ draft }) {
         recommendation.firstSessionOption ||
           t('onboarding.first_session_default', 'Session 1')
       );
+  const firstStepText = firstDuration
+    ? t(
+        'onboarding.recommend.first_step_with_time',
+        'Start with {session} today. Keep it around {time}.',
+        { session: firstSessionLabel, time: firstDuration }
+      )
+    : t(
+        'onboarding.recommend.first_step_default',
+        'Start with {session} today. Follow the first week below as your starting map.',
+        { session: firstSessionLabel }
+      );
+  const fitReasons = (recommendation.fitReasons || []).slice(0, 3);
   const whyItems = (recommendation.why || []).slice(0, 2);
   const adjustments = (recommendation.initialAdjustments || []).slice(0, 2);
 
@@ -378,6 +394,20 @@ function StepRecommendation({ draft }) {
             )}
         </div>
         <div className="onboarding-recommendation-pills">
+          {difficultyLabel && (
+            <div className="onboarding-recommendation-pill">
+              <span>{t('onboarding.recommend.level', 'Level')}</span>
+              <strong>
+                <span
+                  className={`program-card-difficulty program-card-difficulty-${
+                    difficultyMeta?.key || 'intermediate'
+                  }`}
+                >
+                  {difficultyLabel}
+                </span>
+              </strong>
+            </div>
+          )}
           <div className="onboarding-recommendation-pill">
             <span>{t('onboarding.recommend.week1', 'Week 1')}</span>
             <strong>
@@ -396,6 +426,26 @@ function StepRecommendation({ draft }) {
               <strong>{firstDuration}</strong>
             </div>
           )}
+        </div>
+        {fitReasons.length > 0 && (
+          <div className="onboarding-fit-block">
+            <div className="onboarding-fit-title">
+              {t('onboarding.fit.title', 'Why it fits you')}
+            </div>
+            <div className="onboarding-chip-row">
+              {fitReasons.map((reason, idx) => (
+                <div key={idx} className="onboarding-chip onboarding-fit-chip">
+                  {reason}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="onboarding-next-step">
+          <div className="onboarding-next-step-kicker">
+            {t('onboarding.recommend.first_step_kicker', 'First move')}
+          </div>
+          <div className="onboarding-next-step-body">{firstStepText}</div>
         </div>
         {adjustments.length > 0 && (
           <div className="onboarding-note" style={{ marginTop: 12 }}>
