@@ -8689,7 +8689,7 @@ body.login-active::before {
 }
 .content.nutrition-active .nutrition-action-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr) auto;
+  grid-template-columns: 1fr 1fr;
   gap: 4px;
   overflow-x: visible;
   padding-bottom: 0;
@@ -8942,77 +8942,96 @@ body.login-active::before {
   border-color: rgba(255, 181, 94, 0.2);
   color: rgba(255, 211, 139, 0.85);
 }
-.content.nutrition-active .nc-correction-row {
-  margin-top: 4px;
-  padding: 12px 14px 14px;
-  border: 1px solid rgba(255, 181, 94, 0.2);
-  border-radius: 20px;
-  background:
-    linear-gradient(180deg, rgba(255, 181, 94, 0.06), rgba(255, 255, 255, 0.01)),
-    rgba(16, 19, 26, 0.94);
+/* -- Correction bottom-sheet portal (rendered on document.body, not inside .nutrition-active) -- */
+.nc-correction-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: auto;
 }
-.content.nutrition-active .nc-correction-header {
+.nc-correction-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+.nc-correction-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(14, 17, 24, 0.98);
+  border-top: 1px solid rgba(255, 181, 94, 0.2);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.5);
+  /* transition handles the visualViewport lift smoothly */
+  will-change: transform;
+}
+/* These live inside the portal on document.body — no .content.nutrition-active scope */
+.nc-correction-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
-.content.nutrition-active .nc-correction-close {
+.nc-correction-close {
   display: flex;
   align-items: center;
-  padding: 2px;
+  padding: 4px;
   background: none;
   border: none;
   color: rgba(255, 244, 228, 0.35);
   cursor: pointer;
   touch-action: manipulation;
 }
-.content.nutrition-active .nc-correction-close svg {
-  width: 15px;
-  height: 15px;
+.nc-correction-close svg {
+  width: 16px;
+  height: 16px;
 }
-.content.nutrition-active .nc-correction-close:hover {
+.nc-correction-close:hover {
   color: rgba(255, 244, 228, 0.65);
 }
-.content.nutrition-active .nc-correction-label {
+.nc-correction-label {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(255, 211, 139, 0.7);
 }
-.content.nutrition-active .nc-correction-inputs {
+.nc-correction-inputs {
   display: flex;
   align-items: flex-end;
   gap: 8px;
 }
-.content.nutrition-active .nc-correction-input {
+.nc-correction-input {
   flex: 1;
-  min-height: 40px;
-  max-height: 120px;
-  padding: 9px 12px;
+  min-height: 48px;
+  max-height: 140px;
+  padding: 11px 14px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 244, 228, 0.95);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.45;
   resize: none;
   outline: none;
   transition: border-color 0.15s, background 0.15s;
 }
-.content.nutrition-active .nc-correction-input::placeholder {
+.nc-correction-input::placeholder {
   color: rgba(255, 220, 162, 0.32);
 }
-.content.nutrition-active .nc-correction-input:focus {
+.nc-correction-input:focus {
   border-color: rgba(255, 181, 94, 0.38);
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
 }
-.content.nutrition-active .nc-correction-send {
+.nc-correction-send {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9023,14 +9042,14 @@ body.login-active::before {
   cursor: pointer;
   transition: opacity 0.15s;
 }
-.content.nutrition-active .nc-correction-send:disabled {
+.nc-correction-send:disabled {
   opacity: 0.35;
   cursor: default;
 }
 .content.nutrition-active .nutrition-photo-btn {
-  width: 44px;
-  height: auto;
-  align-self: stretch;
+  /* In the 2×2 grid the camera occupies the bottom-right cell (1fr wide). */
+  width: 100%;
+  min-height: 48px;
   border-radius: 14px;
   color: rgba(255, 240, 219, 0.72);
   background: rgba(255, 255, 255, 0.045);

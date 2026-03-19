@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from '../core/i18n.js';
 import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
 
@@ -531,91 +532,43 @@ function LoadingRow({ loading }) {
   );
 }
 
-// Inline correction row — lives in the message list and keeps itself visible
-// inside the message scroller when the iOS keyboard changes the viewport.
+// Correction trigger — renders a small button in the message list.
+// Tapping it opens a bottom sheet portal that tracks the iOS visual viewport
+// so the sheet stays above the software keyboard.
 function CorrectionRow() {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const inputRef = useRef(null);
+  const sheetRef = useRef(null);
 
-  function keepInputVisible(behavior = 'auto') {
-    const field = inputRef.current;
-    const messages = document.getElementById('nutrition-messages');
-    const shell = document.getElementById('nutrition-shell');
-    const composer = document.querySelector('#nutrition-shell .nutrition-composer');
-    const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
-    if (!(field instanceof HTMLElement) || !messages || !shell) return;
-
-    const fieldRect = field.getBoundingClientRect();
-    const messagesRect = messages.getBoundingClientRect();
-    const shellRect = shell.getBoundingClientRect();
-    const composerRect = composer?.getBoundingClientRect();
-    const topLimit = Math.max(shellRect.top + 12, messagesRect.top + 8);
-    const bottomLimit = Math.min(
-      messagesRect.bottom - 12,
-      composerRect ? composerRect.top - 12 : viewportHeight - 12,
-      viewportHeight - 12
-    );
-
-    if (fieldRect.bottom > bottomLimit) {
-      messages.scrollTo({
-        top: messages.scrollTop + (fieldRect.bottom - bottomLimit),
-        behavior,
-      });
-      return;
-    }
-
-    if (fieldRect.top < topLimit) {
-      messages.scrollTo({
-        top: Math.max(0, messages.scrollTop - (topLimit - fieldRect.top)),
-        behavior,
-      });
-    }
-  }
-
+  // Track visualViewport so the sheet lifts above the iOS keyboard.
   useEffect(() => {
     if (!open) return undefined;
-    const field = inputRef.current;
-    if (!(field instanceof HTMLElement)) return undefined;
 
-    field.focus();
-
-    let scheduled = [];
-    const syncDelays = [0, 80, 180, 320, 480];
-    const clearScheduled = () => {
-      scheduled.forEach((handle) => window.clearTimeout(handle));
-      scheduled = [];
-    };
-    const syncWhileFocused = () => {
-      if (document.activeElement !== field) return;
-      keepInputVisible('auto');
-    };
-    const scheduleSync = () => {
-      clearScheduled();
-      syncDelays.forEach((delay) => {
-        const handle = window.setTimeout(syncWhileFocused, delay);
-        scheduled.push(handle);
-      });
-    };
-    const handleFocus = () => scheduleSync();
-    const handleViewportChange = () => syncWhileFocused();
     const viewport = window.visualViewport;
-
-    field.addEventListener('focus', handleFocus);
-    window.addEventListener('resize', handleViewportChange);
-    if (viewport) {
-      viewport.addEventListener('resize', handleViewportChange);
-      viewport.addEventListener('scroll', handleViewportChange);
+    function reposition() {
+      const sheet = sheetRef.current;
+      if (!sheet || !viewport) return;
+      // Distance the keyboard has pushed the visible bottom up.
+      const keyboardOffset = window.innerHeight - viewport.height - viewport.offsetTop;
+      sheet.style.transform = `translateY(-${Math.max(0, keyboardOffset)}px)`;
     }
 
+    if (viewport) {
+      viewport.addEventListener('resize', reposition);
+      viewport.addEventListener('scroll', reposition);
+    }
+    reposition();
+
+    // Focus textarea after paint.
+    const raf = requestAnimationFrame(() => inputRef.current?.focus());
+
     return () => {
-      clearScheduled();
-      field.removeEventListener('focus', handleFocus);
-      window.removeEventListener('resize', handleViewportChange);
       if (viewport) {
-        viewport.removeEventListener('resize', handleViewportChange);
-        viewport.removeEventListener('scroll', handleViewportChange);
+        viewport.removeEventListener('resize', reposition);
+        viewport.removeEventListener('scroll', reposition);
       }
+      cancelAnimationFrame(raf);
     };
   }, [open]);
 
@@ -632,8 +585,8 @@ function CorrectionRow() {
     setText('');
   }
 
-  if (!open) {
-    return (
+  return (
+    <>
       <button className="nc-correction-trigger" type="button" onClick={() => setOpen(true)}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -641,52 +594,60 @@ function CorrectionRow() {
         </svg>
         <span>{t('nutrition.correction.label', 'Correct the food analysis')}</span>
       </button>
-    );
-  }
-
-  return (
-    <div className="nc-correction-row">
-      <div className="nc-correction-header">
-        <div className="nc-correction-label">
-          {t('nutrition.correction.label', 'Correct the food analysis')}
-        </div>
-        <button className="nc-correction-close" type="button" onClick={handleClose} aria-label="Cancel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
-      <div className="nc-correction-inputs">
-        <textarea
-          className="nc-correction-input"
-          id="nutrition-text-input"
-          ref={inputRef}
-          rows={2}
-          placeholder={t('nutrition.correction.placeholder', 'e.g. That was 2 portions, not 1...')}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-        />
-        <button
-          className="nc-correction-send"
-          type="button"
-          onClick={handleSend}
-          disabled={!text.trim()}
-          aria-label="Send correction"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
-      </div>
-    </div>
+      {open && createPortal(
+        <div className="nc-correction-overlay">
+          <div className="nc-correction-backdrop" onClick={handleClose} />
+          <div className="nc-correction-sheet" ref={sheetRef}>
+            <div className="nc-correction-header">
+              <div className="nc-correction-label">
+                {t('nutrition.correction.label', 'Correct the food analysis')}
+              </div>
+              <button
+                className="nc-correction-close"
+                type="button"
+                onClick={handleClose}
+                aria-label="Cancel"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="nc-correction-inputs">
+              <textarea
+                className="nc-correction-input"
+                id="nutrition-text-input"
+                ref={inputRef}
+                rows={2}
+                placeholder={t('nutrition.correction.placeholder', 'e.g. That was 2 portions, not 1...')}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+              <button
+                className="nc-correction-send"
+                type="button"
+                onClick={handleSend}
+                disabled={!text.trim()}
+                aria-label="Send correction"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
