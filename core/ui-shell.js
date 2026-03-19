@@ -17,9 +17,25 @@ function createDefaultConfirmState() {
 }
 
 function detectInitialActivePage() {
+  const hashPage = getPageFromHash();
+  if (hashPage) return hashPage;
   const activePage = document.querySelector('.page.active[id^="page-"]');
   const pageName = activePage?.id?.replace(/^page-/, '') || 'dashboard';
   return APP_SHELL_PAGES.includes(pageName) ? pageName : 'dashboard';
+}
+
+function getPageFromHash(hash) {
+  const normalized = String(hash || window.location.hash || '')
+    .replace(/^#\/?/, '')
+    .split(/[/?]/)[0]
+    .trim();
+  return APP_SHELL_PAGES.includes(normalized) ? normalized : null;
+}
+
+function syncHashToPage(name) {
+  const nextHash = `#/${name}`;
+  if (window.location.hash === nextHash) return;
+  window.location.hash = `/${name}`;
 }
 
 function getNavButtonForPage(name) {
@@ -79,6 +95,7 @@ function showPage(name, btn) {
   const nextPage = APP_SHELL_PAGES.includes(name) ? name : 'dashboard';
   const previousPage = activePageName;
   activePageName = nextPage;
+  syncHashToPage(nextPage);
   notifyAppShell();
   const resolvedButton = syncLegacyShellDom(nextPage, btn);
   if (isAppShellActive()) {
@@ -231,5 +248,11 @@ window.confirmCancel = confirmCancel;
 window.showNameModal = showNameModal;
 window.closeNameModal = closeNameModal;
 window.submitNameModal = submitNameModal;
+
+window.addEventListener('hashchange', () => {
+  const pageFromHash = getPageFromHash();
+  if (!pageFromHash || pageFromHash === activePageName) return;
+  showPage(pageFromHash, getNavButtonForPage(pageFromHash));
+});
 
 if (!isAppShellActive()) syncLegacyShellDom(activePageName, getNavButtonForPage(activePageName));

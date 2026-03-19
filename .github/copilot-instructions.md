@@ -9,6 +9,7 @@
 - Training program definitions live under `programs/` (5 programs: forge, wendler531, stronglifts5x5, casualfullbody, hypertrophysplit).
 - Contributor tooling now uses `npm` scripts plus `Vite`, `TypeScript`, `ESLint`, `Prettier`, and `Playwright`.
 - React islands now own every visible page and settings surface, while the existing vanilla shell/runtime still remains the source of truth for business logic, persistence, and mutation flows behind explicit bridge events and DOM-compatible handlers.
+- The shell cutover now boots through a shared React app entry in `src/app/main.tsx` with a HashRouter + Zustand runtime foundation. Existing page islands still mount through their legacy bridges for now, but the shell and onboarding no longer boot as separate island entries.
 - Prefer extending the current global-function and shared-state style instead of introducing new architectural patterns.
 
 ## Primary Product Context
@@ -28,7 +29,8 @@
 - For form-heavy settings areas, migrate bounded slices first (using the Body tab pattern) and keep the existing handlers, persistence flow, and advanced program setup sheet as the source of truth while React islands replace the main settings panels.
 - For the Log page, keep the legacy workout logic as the source of truth even when the visible start shell and active editor run through React islands. Preserve the existing DOM ids, draft restore flow, finish/discard handlers, rest-timer bar, and workout modals while React mirrors the rendered session UI through explicit snapshot events.
 - For the Nutrition page, keep the Claude request flow, day-scoped local history, setup card, clear-history flow, and photo handling in the legacy runtime even when the visible guided coaching shell is mounted through a React island.
-- The current shell-replacement step runs through a single React shell entry point in `src/app-shell/main.jsx`: visible bottom navigation, toast host, confirm modal, exercise catalog/name modal, workout overlay hosts, settings overlay hosts, and the top-level page container (rendered into the existing content root via portal). `core/ui-shell.js` remains the compatibility bridge for `showPage(...)`, `showToast(...)`, and `showConfirm(...)`, while the mounted React shell owns nav metadata, active-page rendering, content scroll-lock state, and page-activation timing after route changes.
+- The current shell-replacement step runs through the shared React app entry in `src/app/main.tsx`, which mounts the shell from `src/app/AppShell.jsx`: visible bottom navigation, toast host, confirm modal, exercise catalog/name modal, workout overlay hosts, settings overlay hosts, onboarding, and the top-level page container (rendered into the existing content root via portal). `core/ui-shell.js` remains the compatibility bridge for `showPage(...)`, `showToast(...)`, and `showConfirm(...)`, while the mounted React shell owns nav metadata, active-page rendering, content scroll-lock state, and page-activation timing after route changes.
+- Use `docs/migration-inventory.md` as the living checklist for hybrid bridge removal during the React cutover.
 - Reuse existing state objects, helpers, and DOM patterns before creating new ones.
 - Keep changes small and compatible with the current file organization.
 
