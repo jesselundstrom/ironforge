@@ -9129,7 +9129,12 @@ body.login-active::before {
   color: rgba(255, 220, 162, 0.4);
   padding: 4px 0 8px;
 }
-/* nutrition-photo-btn now shares nutrition-prompt-chip + nutrition-action-card styles */
+/* Ensure the photo <label> stretches identically to the <button> cards */
+.content.nutrition-active .nutrition-action-grid .nutrition-photo-btn {
+  display: flex;
+  min-height: 84px;
+  height: 100%;
+}
 .content.nutrition-active .nutrition-today-card {
   padding: 9px 12px;
   gap: 5px;
