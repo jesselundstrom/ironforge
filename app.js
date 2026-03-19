@@ -637,8 +637,13 @@ function serializeSettingsNode(node){
     attrs.defaultValue=el.value||'';
   }else if(el.tagName==='SELECT'){
     attrs.defaultValue=el.value||'';
-  }else if(el.tagName==='INPUT'&&attrs.value===undefined&&el.value!==''){
-    attrs.defaultValue=el.value;
+  }else if(el.tagName==='INPUT'){
+    if(attrs.value!==undefined){
+      attrs.defaultValue=attrs.value;
+      delete attrs.value;
+    }else if(el.value!==''){
+      attrs.defaultValue=el.value;
+    }
   }
   return{
     type:'element',
