@@ -8691,7 +8691,7 @@ body.login-active::before {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: 1fr;
-  gap: 4px;
+  gap: 8px;
   overflow-x: visible;
   padding-bottom: 0;
   -webkit-mask-image: none;
@@ -8716,10 +8716,23 @@ body.login-active::before {
 }
 .content.nutrition-active .nutrition-action-card {
   flex: none;
-  min-height: 36px;
+  flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  text-align: left;
+  min-height: 76px;
+  padding: 12px;
+  gap: 8px;
+  border-radius: 16px;
+  font-size: 12px;
+}
+.content.nutrition-active .nutrition-action-card svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.content.nutrition-active .nutrition-action-card span {
+  line-height: 1.35;
 }
 .content.nutrition-active .nutrition-action-card.active {
   border-color: rgba(255, 181, 94, 0.5);
@@ -8749,7 +8762,7 @@ body.login-active::before {
     rgba(18, 21, 27, 0.98);
   box-shadow: 0 14px 24px rgba(0, 0, 0, 0.18);
 }
-.content.nutrition-active .nutrition-prompt-chip svg {
+.content.nutrition-active .nutrition-prompt-chip:not(.nutrition-action-card) svg {
   width: 15px;
   height: 15px;
 }
