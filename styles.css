@@ -8683,6 +8683,16 @@ body.login-active::before {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+@keyframes nc-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .content.nutrition-active .nutrition-quick-prompts {
   display: grid;
   max-width: 340px;
@@ -8691,7 +8701,7 @@ body.login-active::before {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: 1fr;
-  gap: 8px;
+  gap: 6px;
   overflow-x: visible;
   padding-bottom: 0;
   -webkit-mask-image: none;
@@ -8715,43 +8725,63 @@ body.login-active::before {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .content.nutrition-active .nutrition-action-card {
+  /* Reset chip defaults */
+  background: rgba(255, 255, 255, 0.025);
+  border: none;
+  border-top: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 10px 12px 13px;
+  gap: 0;
+  /* Layout */
   flex: none;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: flex-start;
-  min-height: 76px;
-  padding: 12px;
-  gap: 8px;
-  border-radius: 16px;
-  font-size: 12px;
+  justify-content: flex-end;
+  min-height: 78px;
+  /* Typography */
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: rgba(255, 244, 228, 0.78);
+  /* Entrance */
+  animation: nc-card-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    background 0.14s,
+    border-top-color 0.14s,
+    color 0.14s,
+    transform 0.1s;
 }
-.content.nutrition-active .nutrition-action-card svg {
-  width: 18px;
-  height: 18px;
-  color: var(--accent);
-  flex-shrink: 0;
+.content.nutrition-active .nutrition-action-grid > *:nth-child(1) {
+  animation-delay: 0ms;
 }
-.content.nutrition-active .nutrition-action-card span {
-  line-height: 1.35;
+.content.nutrition-active .nutrition-action-grid > *:nth-child(2) {
+  animation-delay: 55ms;
+}
+.content.nutrition-active .nutrition-action-grid > *:nth-child(3) {
+  animation-delay: 110ms;
+}
+.content.nutrition-active .nutrition-action-grid > *:nth-child(4) {
+  animation-delay: 165ms;
+}
+.content.nutrition-active .nutrition-action-card:not(.active):hover {
+  background: rgba(245, 130, 31, 0.07);
+  border-top-color: var(--accent);
+  color: rgba(255, 244, 228, 0.95);
+}
+.content.nutrition-active .nutrition-action-card:active {
+  transform: scale(0.96);
 }
 .content.nutrition-active .nutrition-action-card.active {
-  border-color: rgba(255, 181, 94, 0.5);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 181, 94, 0.18),
-      rgba(255, 255, 255, 0.02)
-    ),
-    rgba(18, 21, 27, 0.98);
-  box-shadow:
-    0 0 0 1px rgba(255, 181, 94, 0.15),
-    0 12px 22px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--accent);
+  border-top-color: transparent;
+  color: rgba(18, 10, 0, 0.9);
+  box-shadow: 0 4px 18px rgba(245, 130, 31, 0.3);
 }
-.content.nutrition-active .nutrition-action-card.active svg {
-  color: #ffb65e;
-}
-.content.nutrition-active .nutrition-prompt-chip:hover {
+.content.nutrition-active .nutrition-prompt-chip:not(.nutrition-action-card):hover {
   border-color: rgba(255, 181, 94, 0.3);
   background:
     linear-gradient(

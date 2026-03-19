@@ -651,36 +651,6 @@ function CorrectionRow() {
   );
 }
 
-const ACTION_ICONS = {
-  plan_today: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  ),
-  next_meal: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  ),
-  review_today: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  ),
-};
-
-const PHOTO_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-    <circle cx="12" cy="13" r="4" />
-  </svg>
-);
-
 function Composer({ snapshot }) {
   const hidden = !snapshot.values.hasApiKey;
 
@@ -697,7 +667,6 @@ function Composer({ snapshot }) {
             key={action.id}
             onClick={() => handleActionSelect(action.id)}
           >
-            {ACTION_ICONS[action.id]}
             <span>{t(action.labelKey, action.fallbackLabel)}</span>
           </button>
         ))}
@@ -705,7 +674,6 @@ function Composer({ snapshot }) {
           className="nutrition-prompt-chip nutrition-action-card nutrition-photo-btn"
           htmlFor="nutrition-photo-input"
         >
-          {PHOTO_ICON}
           <span>{t('nutrition.photo.label', 'Add photo')}</span>
           <input
             type="file"
