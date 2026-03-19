@@ -8343,34 +8343,6 @@ body.login-active::before {
   width: 22px;
   height: 22px;
 }
-.nutrition-send-btn {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  background: var(--accent);
-  border: none;
-  border-radius: 50%;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    opacity 0.15s,
-    transform 0.12s;
-  touch-action: manipulation;
-}
-.nutrition-send-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.nutrition-send-btn:not(:disabled):active {
-  transform: scale(0.92);
-}
-.nutrition-send-btn svg {
-  width: 18px;
-  height: 18px;
-}
 
 /* ── Streaming cursor ──────────────────────────────────────────────────── */
 .nc-cursor {
@@ -9032,21 +9004,6 @@ body.login-active::before {
   color: #fff7ec;
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 181, 94, 0.2);
-}
-.content.nutrition-active .nutrition-send-btn {
-  width: auto;
-  height: 42px;
-  padding: 0 14px;
-  gap: 8px;
-  background: linear-gradient(135deg, #ffb65e, #f5821f 65%, #dd6e19);
-  border-radius: 18px;
-  box-shadow: 0 14px 24px rgba(214, 105, 23, 0.24);
-}
-.content.nutrition-active .nutrition-send-btn span {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 .content.nutrition-active .nutrition-today-card {
   padding: 10px 12px;
