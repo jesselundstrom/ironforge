@@ -7911,75 +7911,30 @@ body.login-active::before {
   letter-spacing: 0.01em;
 }
 
-/* -- Overflow menu -- */
-.nutrition-overflow-wrap {
-  position: relative;
-}
-.nutrition-overflow-btn {
-  width: 36px;
-  height: 36px;
+/* -- Clear conversation button -- */
+.nutrition-clear-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
   background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  border-radius: 50%;
-  transition:
-    background 0.15s,
-    color 0.15s;
-  touch-action: manipulation;
-}
-.nutrition-overflow-btn:hover {
-  background: var(--surface2);
-  color: var(--text);
-}
-.nutrition-overflow-menu {
-  display: none;
-  position: absolute;
-  right: 0;
-  top: 100%;
-  min-width: 190px;
-  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 6px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
-  z-index: 50;
-}
-.nutrition-overflow-menu.open {
-  display: block;
-  animation: nutritionMenuIn 0.15s ease;
-}
-@keyframes nutritionMenuIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.nutrition-overflow-menu button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  background: none;
-  border: none;
-  color: var(--red);
-  font-size: 13px;
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 12px;
   font-family: inherit;
   cursor: pointer;
-  border-radius: 10px;
-  transition: background 0.12s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
   touch-action: manipulation;
+  white-space: nowrap;
 }
-.nutrition-overflow-menu button:hover {
-  background: rgba(224, 82, 82, 0.1);
+.nutrition-clear-btn:hover {
+  background: rgba(224, 82, 82, 0.08);
+  border-color: var(--red);
+  color: var(--red);
 }
 
 /* -- Context banner (body metrics) -- */
@@ -8677,30 +8632,14 @@ body.login-active::before {
   color: #fff4dc;
   line-height: 1.1;
 }
-.content.nutrition-active .nutrition-overflow-btn {
-  width: 42px;
-  height: 42px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 240, 219, 0.72);
-  transition:
-    background 0.15s,
-    color 0.15s,
-    border-color 0.15s;
+.content.nutrition-active .nutrition-clear-btn {
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 240, 219, 0.5);
 }
-.content.nutrition-active .nutrition-overflow-btn:hover {
-  background: rgba(255, 255, 255, 0.09);
-  border-color: rgba(255, 181, 94, 0.22);
-  color: #fff2db;
-}
-.content.nutrition-active .nutrition-overflow-menu {
-  top: calc(100% + 6px);
-  background: rgba(12, 14, 19, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+.content.nutrition-active .nutrition-clear-btn:hover {
+  background: rgba(224, 82, 82, 0.12);
+  border-color: rgba(224, 82, 82, 0.5);
+  color: #e05252;
 }
 .content.nutrition-active .nutrition-meta-stack {
   display: grid;

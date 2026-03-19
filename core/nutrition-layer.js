@@ -10,7 +10,6 @@
   let _snapshotVersion = 0;
   let _activeHistoryDate = '';
   let _selectedActionId = 'plan_today';
-  let _nutritionMenuOpen = false;
 
   const NUTRITION_ISLAND_EVENT = 'ironforge:nutrition-updated';
   const NUTRITION_ACTIONS = [
@@ -68,7 +67,6 @@
     return {
       values: {
         hasApiKey: hasApiKey,
-        menuOpen: _nutritionMenuOpen,
         loading: {
           visible: _loading,
           text: loadingText,
@@ -1891,34 +1889,6 @@
     );
   }
 
-  // ─── Overflow menu ────────────────────────────────────────────────────
-
-  function toggleNutritionMenu() {
-    _nutritionMenuOpen = !_nutritionMenuOpen;
-    if (_nutritionMenuOpen) {
-      // Close on outside click
-      setTimeout(function () {
-        document.addEventListener('click', _closeMenuOnOutside, { once: true });
-      }, 10);
-    }
-    notifyNutritionIsland();
-  }
-
-  function _closeMenuOnOutside(e) {
-    var wrap =
-      e && e.target && typeof e.target.closest === 'function'
-        ? e.target.closest('.nutrition-overflow-wrap')
-        : null;
-    if (_nutritionMenuOpen && !wrap) {
-      _nutritionMenuOpen = false;
-      notifyNutritionIsland();
-    } else if (_nutritionMenuOpen) {
-      // Still open, re-listen
-      setTimeout(function () {
-        document.addEventListener('click', _closeMenuOnOutside, { once: true });
-      }, 10);
-    }
-  }
 
   // ─── Retry last message ───────────────────────────────────────────────
 
@@ -2029,6 +1999,5 @@
   window.getNutritionApiKey = getNutritionApiKey;
   window.saveNutritionApiKey = saveNutritionApiKey;
   window.saveNutritionSetupKey = saveNutritionSetupKey;
-  window.toggleNutritionMenu = toggleNutritionMenu;
   window.retryLastNutritionMessage = retryLastNutritionMessage;
 })();

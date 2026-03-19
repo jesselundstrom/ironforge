@@ -47,7 +47,6 @@ function handleSetupSave() {
 
 function handleClear() {
   window.clearNutritionHistory?.();
-  window.toggleNutritionMenu?.();
 }
 
 function handleRetry() {
@@ -174,7 +173,7 @@ function renderFormattedText(text) {
   return blocks;
 }
 
-function NutritionHeader({ menuOpen }) {
+function NutritionHeader({ messagesState }) {
   return (
     <div className="nutrition-page-header">
       <div className="nutrition-page-heading">
@@ -185,42 +184,30 @@ function NutritionHeader({ menuOpen }) {
           {t('nutrition.page.title', 'Nutrition Coach')}
         </div>
       </div>
-      <div className="nutrition-overflow-wrap">
+      {messagesState === 'thread' && (
         <button
-          className="nutrition-overflow-btn"
+          className="nutrition-clear-btn"
           type="button"
-          onClick={() => window.toggleNutritionMenu?.()}
-          aria-label="Menu"
+          onClick={handleClear}
+          aria-label={t('nutrition.clear.btn', 'Clear conversation')}
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-            <circle cx="12" cy="5" r="1.5" />
-            <circle cx="12" cy="12" r="1.5" />
-            <circle cx="12" cy="19" r="1.5" />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            width="16"
+            height="16"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14H6L5 6" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+            <path d="M9 6V4h6v2" />
           </svg>
+          <span>{t('nutrition.clear.btn', 'Clear conversation')}</span>
         </button>
-        <div
-          className={`nutrition-overflow-menu${menuOpen ? ' open' : ''}`}
-          id="nutrition-overflow-menu"
-        >
-          <button type="button" onClick={handleClear}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              width="16"
-              height="16"
-            >
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6l-1 14H6L5 6" />
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-              <path d="M9 6V4h6v2" />
-            </svg>
-            <span>{t('nutrition.clear.btn', 'Clear conversation')}</span>
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -743,7 +730,7 @@ function NutritionIsland() {
 
   return (
     <div id="nutrition-shell">
-      <NutritionHeader menuOpen={snapshot.values.menuOpen} />
+      <NutritionHeader messagesState={snapshot.values.messagesState} />
       <div className="nutrition-meta-stack" id="nutrition-meta-stack">
         <ContextBanner banner={snapshot.values.contextBanner} />
         <TodayCard card={snapshot.values.todayCard} />
