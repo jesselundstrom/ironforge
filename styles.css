@@ -8690,6 +8690,7 @@ body.login-active::before {
 .content.nutrition-active .nutrition-action-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
   gap: 4px;
   overflow-x: visible;
   padding-bottom: 0;
@@ -9047,9 +9048,9 @@ body.login-active::before {
   cursor: default;
 }
 .content.nutrition-active .nutrition-photo-btn {
-  /* In the 2×2 grid the camera occupies the bottom-right cell (1fr wide). */
+  /* Fills its 1fr grid cell — same size as the action cards. */
   width: 100%;
-  min-height: 48px;
+  height: 100%;
   border-radius: 14px;
   color: rgba(255, 240, 219, 0.72);
   background: rgba(255, 255, 255, 0.045);

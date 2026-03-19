@@ -1120,7 +1120,9 @@ const STRINGS={
     'settings.claude_api_key.help':'Get your free API key at console.anthropic.com. The key is stored only on this device and is never synced to the cloud.',
     'settings.claude_api_key.save':'Save Key',
     'settings.claude_api_key.saved':'API key saved',
-    'settings.claude_api_key.cleared':'API key removed'
+    'settings.claude_api_key.cleared':'API key removed',
+    'nutrition.correction.label':'Correct the food analysis',
+    'nutrition.correction.placeholder':'e.g. That was 2 portions, not 1...'
   },
   fi:{
     'common.undo':'Kumoa',
@@ -2207,7 +2209,9 @@ const STRINGS={
     'settings.claude_api_key.help':'Hanki ilmainen API-avain osoitteesta console.anthropic.com. Avain tallennetaan vain t\u00e4lle laitteelle eik\u00e4 synkronoidu pilveen.',
     'settings.claude_api_key.save':'Tallenna avain',
     'settings.claude_api_key.saved':'API-avain tallennettu',
-    'settings.claude_api_key.cleared':'API-avain poistettu'
+    'settings.claude_api_key.cleared':'API-avain poistettu',
+    'nutrition.correction.label':'Korjaa ruoka-analyysi',
+    'nutrition.correction.placeholder':'esim. Se oli 2 annosta, ei 1...'
   }
 };
 
