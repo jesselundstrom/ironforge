@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { t } from '../core/i18n.js';
 import { mountIsland, useIslandSnapshot } from '../island-runtime/index.jsx';
 
@@ -531,10 +531,89 @@ function LoadingRow({ loading }) {
   );
 }
 
-// Inline correction row — lives in the message list, normal document flow.
-// iOS keyboard pushes the scroll container up naturally, no fixed positioning.
+// Inline correction row — lives in the message list and keeps itself visible
+// inside the message scroller when the iOS keyboard changes the viewport.
 function CorrectionRow() {
   const [text, setText] = useState('');
+  const inputRef = useRef(null);
+
+  function keepInputVisible(behavior = 'auto') {
+    const field = inputRef.current;
+    const messages = document.getElementById('nutrition-messages');
+    const shell = document.getElementById('nutrition-shell');
+    const composer = document.querySelector('#nutrition-shell .nutrition-composer');
+    const viewportHeight = window.visualViewport?.height || window.innerHeight || 0;
+    if (!(field instanceof HTMLElement) || !messages || !shell) return;
+
+    const fieldRect = field.getBoundingClientRect();
+    const messagesRect = messages.getBoundingClientRect();
+    const shellRect = shell.getBoundingClientRect();
+    const composerRect = composer?.getBoundingClientRect();
+    const topLimit = Math.max(shellRect.top + 12, messagesRect.top + 8);
+    const bottomLimit = Math.min(
+      messagesRect.bottom - 12,
+      composerRect ? composerRect.top - 12 : viewportHeight - 12,
+      viewportHeight - 12
+    );
+
+    if (fieldRect.bottom > bottomLimit) {
+      messages.scrollTo({
+        top: messages.scrollTop + (fieldRect.bottom - bottomLimit),
+        behavior,
+      });
+      return;
+    }
+
+    if (fieldRect.top < topLimit) {
+      messages.scrollTo({
+        top: Math.max(0, messages.scrollTop - (topLimit - fieldRect.top)),
+        behavior,
+      });
+    }
+  }
+
+  useEffect(() => {
+    const field = inputRef.current;
+    if (!(field instanceof HTMLElement)) return undefined;
+
+    let scheduled = [];
+    const syncDelays = [0, 80, 180, 320, 480];
+    const clearScheduled = () => {
+      scheduled.forEach((handle) => window.clearTimeout(handle));
+      scheduled = [];
+    };
+    const syncWhileFocused = () => {
+      if (document.activeElement !== field) return;
+      keepInputVisible('auto');
+    };
+    const scheduleSync = () => {
+      clearScheduled();
+      syncDelays.forEach((delay) => {
+        const handle = window.setTimeout(syncWhileFocused, delay);
+        scheduled.push(handle);
+      });
+    };
+    const handleFocus = () => scheduleSync();
+    const handleViewportChange = () => syncWhileFocused();
+    const viewport = window.visualViewport;
+
+    field.addEventListener('focus', handleFocus);
+    window.addEventListener('resize', handleViewportChange);
+    if (viewport) {
+      viewport.addEventListener('resize', handleViewportChange);
+      viewport.addEventListener('scroll', handleViewportChange);
+    }
+
+    return () => {
+      clearScheduled();
+      field.removeEventListener('focus', handleFocus);
+      window.removeEventListener('resize', handleViewportChange);
+      if (viewport) {
+        viewport.removeEventListener('resize', handleViewportChange);
+        viewport.removeEventListener('scroll', handleViewportChange);
+      }
+    };
+  }, []);
 
   function handleSend() {
     const trimmed = text.trim();
@@ -552,6 +631,7 @@ function CorrectionRow() {
         <textarea
           className="nc-correction-input"
           id="nutrition-text-input"
+          ref={inputRef}
           rows={2}
           placeholder={t('nutrition.correction.placeholder', 'e.g. That was 2 portions, not 1...')}
           value={text}

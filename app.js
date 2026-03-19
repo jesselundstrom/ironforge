@@ -28,6 +28,7 @@ let restInterval=null, restSecondsLeft=0, restTotal=0, restDuration=120, restEnd
 let pendingRPECallback=null;
 let exerciseIndex={};
 let _appViewportSyncTimeout=null;
+let _appViewportBurstTimeouts=[];
 const IS_E2E_TEST_ENV=window.__IRONFORGE_TEST_USER_ID__==='e2e-user'||window.navigator.webdriver===true;
 
 if(IS_E2E_TEST_ENV){
@@ -70,12 +71,38 @@ function scheduleAppViewportHeightSync(delay=0){
   _appViewportSyncTimeout=setTimeout(syncAppViewportHeight,delay);
 }
 
+function clearAppViewportBurstSync(){
+  while(_appViewportBurstTimeouts.length){
+    clearTimeout(_appViewportBurstTimeouts.pop());
+  }
+}
+
+function scheduleAppViewportHeightBurstSync(delays){
+  const steps=Array.isArray(delays)&&delays.length?delays:[0,80,180,320,480];
+  clearAppViewportBurstSync();
+  steps.forEach((delay)=>{
+    const handle=setTimeout(syncAppViewportHeight,delay);
+    _appViewportBurstTimeouts.push(handle);
+  });
+}
+
+function isViewportSensitiveTarget(target){
+  if(!(target instanceof HTMLElement))return false;
+  if(target.matches('input,textarea,select,[contenteditable="true"]'))return true;
+  return !!target.closest('[contenteditable="true"]');
+}
+
 syncAppViewportHeight();
 window.addEventListener('resize',()=>scheduleAppViewportHeightSync());
 window.addEventListener('orientationchange',()=>scheduleAppViewportHeightSync(120));
 window.addEventListener('pageshow',()=>scheduleAppViewportHeightSync());
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleAppViewportHeightSync();});
-document.addEventListener('focusout',()=>scheduleAppViewportHeightSync(120));
+document.addEventListener('focusin',(event)=>{
+  if(isViewportSensitiveTarget(event.target)){
+    scheduleAppViewportHeightBurstSync();
+  }
+});
+document.addEventListener('focusout',()=>scheduleAppViewportHeightBurstSync([0,120,240,360]));
 if(window.visualViewport){
   window.visualViewport.addEventListener('resize',()=>scheduleAppViewportHeightSync());
   window.visualViewport.addEventListener('scroll',()=>scheduleAppViewportHeightSync());

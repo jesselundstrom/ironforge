@@ -81,9 +81,9 @@ async function expectNutritionCoachResponse(
   text: string | RegExp,
   timeout = 15000
 ) {
-  await expect(page.locator('#nutrition-react-root'), { timeout }).toContainText(
-    text
-  );
+  await expect(page.locator('#nutrition-react-root')).toContainText(text, {
+    timeout,
+  });
 }
 
 test('nutrition island renders the setup card when no API key is present', async ({
@@ -482,4 +482,71 @@ test('nutrition correction row appears inline after photo analysis and sends typ
 
   await expectNutritionCoachResponse(page, 'Updated — noted.');
   expect(capturedUserText).toContain('Actually that was 2 portions');
+});
+
+test('nutrition correction input stays visible when the viewport shrinks after focus', async ({
+  page,
+}) => {
+  await openAppShell(page);
+  await seedNutritionHistory(page, [
+    {
+      id: 'u1',
+      role: 'user',
+      text: 'Analyze this food photo',
+      promptText: 'Analyze this food photo',
+      actionId: 'analyze_photo',
+      imageDataUrl: 'data:image/png;base64,abc',
+      timestamp: Date.now() - 60000,
+    },
+    {
+      id: 'a1',
+      role: 'assistant',
+      text: 'Looks like 400 kcal.',
+      timestamp: Date.now() - 30000,
+      model: 'claude-sonnet-4-6',
+    },
+  ]);
+  await page.evaluate(() => {
+    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
+  });
+  await openNutrition(page);
+
+  await expect(page.locator('#nutrition-text-input')).toBeVisible();
+  await page.locator('#nutrition-text-input').focus();
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty('--app-vh', '430px');
+    window.dispatchEvent(new Event('resize'));
+  });
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const input = document.getElementById('nutrition-text-input');
+          const messages = document.getElementById('nutrition-messages');
+          const composer = document.querySelector('#nutrition-shell .nutrition-composer');
+          if (!(input instanceof HTMLElement) || !messages || !(composer instanceof HTMLElement)) {
+            return {
+              inputInsideMessages: false,
+              inputAboveComposer: false,
+            };
+          }
+
+          const inputRect = input.getBoundingClientRect();
+          const messagesRect = messages.getBoundingClientRect();
+          const composerRect = composer.getBoundingClientRect();
+
+          return {
+            inputInsideMessages:
+              inputRect.top >= messagesRect.top - 0.5 &&
+              inputRect.bottom <= messagesRect.bottom + 0.5,
+            inputAboveComposer: inputRect.bottom <= composerRect.top + 0.5,
+          };
+        }),
+      { timeout: 1500 }
+    )
+    .toEqual({
+      inputInsideMessages: true,
+      inputAboveComposer: true,
+    });
 });
