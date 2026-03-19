@@ -83,6 +83,7 @@
             ? 'empty'
             : 'thread',
         messages: hasApiKey ? _getNutritionMessagesSnapshot() : [],
+        showCorrectionInput: hasApiKey ? _shouldShowCorrectionInput() : false,
         scrollVersion: _snapshotVersion,
       },
     };
@@ -429,6 +430,22 @@
   function _getNutritionMessagesSnapshot() {
     _ensureTodayHistoryLoaded();
     return _history.map(_getNutritionMessageSnapshot);
+  }
+
+  // Show correction input after a food photo analysis response so the user
+  // can correct misidentified foods without it cluttering the normal flow.
+  function _shouldShowCorrectionInput() {
+    _ensureTodayHistoryLoaded();
+    if (!_history.length) return false;
+    // Walk backwards: find the last assistant message, check if it followed a photo entry
+    for (var i = _history.length - 1; i >= 0; i--) {
+      if (_history[i].role === 'assistant' && !_history[i].isError) {
+        // Check the user message before it
+        var prev = _history[i - 1];
+        return !!(prev && prev.role === 'user' && prev.imageDataUrl);
+      }
+    }
+    return false;
   }
 
   function _ensureTodayHistoryLoaded() {

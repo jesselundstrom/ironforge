@@ -417,7 +417,7 @@ test('nutrition action card submits immediately on tap without send button', asy
   expect(requestCount).toBe(1);
 });
 
-test('nutrition free-text input sends typed correction to Claude', async ({
+test('nutrition correction overlay appears after photo analysis and sends typed correction', async ({
   page,
 }) => {
   let capturedUserText = '';
@@ -446,15 +446,42 @@ test('nutrition free-text input sends typed correction to Claude', async ({
     });
   });
 
+  // Seed history: a photo user message followed by an assistant response
+  // so that showCorrectionInput is true on load
   await openAppShell(page);
-  await clearTodayNutrition(page);
+  await seedNutritionHistory(page, [
+    {
+      id: 'u1',
+      role: 'user',
+      text: 'Analyze this food photo',
+      promptText: 'Analyze this food photo',
+      actionId: 'analyze_photo',
+      imageDataUrl: 'data:image/png;base64,abc',
+      timestamp: Date.now() - 60000,
+    },
+    {
+      id: 'a1',
+      role: 'assistant',
+      text: 'Looks like 400 kcal.',
+      timestamp: Date.now() - 30000,
+      model: 'claude-sonnet-4-6',
+    },
+  ]);
   await page.evaluate(() => {
     localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
   });
   await openNutrition(page);
 
+  // Correction trigger button should be visible
+  await expect(page.locator('.nc-correction-trigger')).toBeVisible();
+
+  // Open the correction overlay
+  await page.locator('.nc-correction-trigger').click();
+  await expect(page.locator('.nc-correction-sheet')).toBeVisible();
+
+  // Type the correction and send
   await page.locator('#nutrition-text-input').fill('Actually that was 2 portions');
-  await page.locator('#nutrition-react-root #nutrition-send-btn').click();
+  await page.locator('.nc-correction-send').click();
 
   await expectNutritionCoachResponse(page, 'Updated — noted.');
   expect(capturedUserText).toContain('Actually that was 2 portions');
