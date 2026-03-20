@@ -265,16 +265,6 @@ function ExerciseCard({ exercise, labels }) {
                 ▾
               </button>
             ) : null}
-            <button
-              className="btn btn-icon btn-secondary exercise-action-btn exercise-remove-btn"
-              type="button"
-              data-action="remove-exercise"
-              title={labels.removeExercise}
-              aria-label={labels.removeExercise}
-              onClick={() => invokeLegacy('removeEx', exercise.exerciseIndex)}
-            >
-              ✕
-            </button>
           </div>
         </div>
         {exercise.suggested ? (
@@ -287,8 +277,8 @@ function ExerciseCard({ exercise, labels }) {
         ) : null}
       </div>
 
-      {exercise.guideAvailable ? (
-        <div className="exercise-secondary-row">
+      <div className="exercise-secondary-row">
+        {exercise.guideAvailable ? (
           <button
             className="btn btn-blue btn-sm exercise-guide-open-btn"
             type="button"
@@ -297,8 +287,18 @@ function ExerciseCard({ exercise, labels }) {
           >
             {labels.movementGuide}
           </button>
-        </div>
-      ) : null}
+        ) : null}
+        <button
+          className="btn btn-ghost btn-sm exercise-remove-btn"
+          type="button"
+          data-action="remove-exercise"
+          title={labels.removeExercise}
+          aria-label={labels.removeExercise}
+          onClick={() => invokeLegacy('removeEx', exercise.exerciseIndex)}
+        >
+          {labels.removeExercise}
+        </button>
+      </div>
 
       <div id={exercise.setsId} className="exercise-sets">
         <div className="set-grid-header">
@@ -456,11 +456,34 @@ function LogActiveIsland() {
 
       <div className="rest-timer-inline">
         <span className="rest-timer-inline-label">{snapshot.labels.restTimer}</span>
+        <div className="rest-timer-pills" role="group" aria-label={snapshot.labels.restTimer}>
+          {snapshot.labels.restOptions.map((option) => {
+            const isActive = String(snapshot.values.rest.duration) === String(option.value);
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={`rest-timer-pill${isActive ? ' is-active' : ''}`}
+                aria-pressed={isActive}
+                onClick={() => {
+                  const sel = document.getElementById('rest-duration');
+                  if (sel) sel.value = option.value;
+                  window.updateRestDuration?.();
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* Hidden select keeps the app.js updateRestDuration() DOM contract intact */}
         <select
           id="rest-duration"
-          className="rest-timer-inline-select"
+          className="rest-timer-hidden-select"
           value={String(snapshot.values.rest.duration)}
           onChange={() => window.updateRestDuration?.()}
+          aria-hidden="true"
+          tabIndex={-1}
         >
           {snapshot.labels.restOptions.map((option) => (
             <option key={option.value} value={option.value}>
