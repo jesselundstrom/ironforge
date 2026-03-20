@@ -54,7 +54,10 @@ test('offline shell boots after the service worker is installed', async ({ page 
 
   // Wait for the React shell to mount offline (proves the SW served all cached modules).
   await page.waitForFunction(
-    () => document.getElementById('app-shell-react-root')?.children.length > 0
+    () => {
+      const shellRoot = document.getElementById('app-shell-react-root');
+      return !!shellRoot && shellRoot.children.length > 0;
+    }
   );
 
   await expect(page.locator('#app-root')).toBeVisible();
