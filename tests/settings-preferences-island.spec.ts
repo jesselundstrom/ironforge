@@ -59,6 +59,50 @@ test('settings preferences island renders from the legacy bridge and saves throu
   await expect(page.locator('#training-status-bar')).toContainText(/hypertrophy|4 sessions/i);
 });
 
+test('settings preferences island saves toggle changes immediately', async ({ page }) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    window.eval(`
+      profile.preferences = normalizeTrainingPreferences({
+        preferences: {
+          goal: 'strength',
+          trainingDaysPerWeek: 3,
+          sessionMinutes: 60,
+          equipmentAccess: 'full_gym',
+          sportReadinessCheckEnabled: false,
+          warmupSetsEnabled: false,
+          notes: ''
+        }
+      });
+      initSettings();
+      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
+      showSettingsTab('preferences');
+    `);
+  });
+
+  await page
+    .locator('#settings-preferences-react-root label[for="training-warmup-sets"]')
+    .click();
+  await page
+    .locator('#settings-preferences-react-root label[for="training-sport-check"]')
+    .click();
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => ({
+          warmupSetsEnabled: profile.preferences.warmupSetsEnabled,
+          sportReadinessCheckEnabled: profile.preferences.sportReadinessCheckEnabled,
+        })),
+      { timeout: 15000 }
+    )
+    .toEqual({
+      warmupSetsEnabled: true,
+      sportReadinessCheckEnabled: true,
+    });
+});
+
 test('settings preferences island refreshes labels and summary on language changes', async ({
   page,
 }) => {

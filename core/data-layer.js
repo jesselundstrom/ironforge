@@ -513,6 +513,10 @@ function isScheduleSectionDirty() {
   return isDocKeyDirty(SCHEDULE_DOC_KEY);
 }
 
+function getDirtyDocKeys() {
+  return uniqueDocKeys(getSyncStateCache().dirtyDocKeys || []);
+}
+
 function updateServerDocStamp(docKey, updatedAt) {
   if (!docKey) return;
   const nextStamp = laterIso(
@@ -2123,6 +2127,14 @@ async function pushToCloud(options) {
   return pushLegacyProfileBlob();
 }
 
+async function flushPendingCloudSync() {
+  if (!currentUser || !isCloudSyncEnabled() || isApplyingRemoteSync)
+    return false;
+  const dirtyDocKeys = getDirtyDocKeys();
+  if (!dirtyDocKeys.length) return true;
+  return pushToCloud({ docKeys: dirtyDocKeys });
+}
+
 async function pullFromCloud() {
   if (!currentUser || !isCloudSyncEnabled()) return { usedCloud: false };
   setSyncStatus('syncing');
@@ -2383,3 +2395,10 @@ async function logout() {
     notifySettingsAccountIsland();
   updateDashboard();
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) void flushPendingCloudSync();
+});
+window.addEventListener('pagehide', () => {
+  void flushPendingCloudSync();
+});

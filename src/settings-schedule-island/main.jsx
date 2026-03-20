@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useIslandSnapshot } from '../island-runtime/index.jsx';
 
 const SETTINGS_SCHEDULE_EVENT =
@@ -58,20 +58,68 @@ function SettingsScheduleIsland() {
     getSnapshot
   );
   const [formValues, setFormValues] = useState(() => getFormValues(snapshot));
+  const sportNameSaveTimerRef = useRef(null);
+  const latestSportNameRef = useRef(formValues.sportName);
+  const lastSavedSportNameRef = useRef(formValues.sportName);
 
   useEffect(() => {
-    setFormValues(getFormValues(snapshot));
+    const nextFormValues = getFormValues(snapshot);
+    window.clearTimeout(sportNameSaveTimerRef.current);
+    latestSportNameRef.current = nextFormValues.sportName;
+    lastSavedSportNameRef.current = nextFormValues.sportName;
+    setFormValues(nextFormValues);
   }, [snapshot]);
 
   const labels = snapshot.labels;
 
   function updateField(key, value) {
+    if (key === 'sportName') latestSportNameRef.current = value;
     setFormValues((current) => ({ ...current, [key]: value }));
   }
 
   function savePartial(nextValues) {
     window.saveSchedule?.(nextValues);
   }
+
+  function flushSportName(nextValue) {
+    const resolvedValue =
+      typeof nextValue === 'string' ? nextValue : latestSportNameRef.current;
+    window.clearTimeout(sportNameSaveTimerRef.current);
+    if (resolvedValue === lastSavedSportNameRef.current) return;
+    lastSavedSportNameRef.current = resolvedValue;
+    savePartial({ sportName: resolvedValue });
+  }
+
+  useEffect(() => {
+    latestSportNameRef.current = formValues.sportName;
+    if (formValues.sportName === lastSavedSportNameRef.current) return;
+    sportNameSaveTimerRef.current = window.setTimeout(() => {
+      flushSportName(formValues.sportName);
+    }, 350);
+    return () => window.clearTimeout(sportNameSaveTimerRef.current);
+  }, [formValues.sportName]);
+
+  useEffect(
+    () => () => {
+      flushSportName();
+    },
+    []
+  );
+
+  useEffect(() => {
+    const flushOnVisibilityChange = () => {
+      if (document.hidden) flushSportName();
+    };
+    const flushOnPageHide = () => {
+      flushSportName();
+    };
+    document.addEventListener('visibilitychange', flushOnVisibilityChange);
+    window.addEventListener('pagehide', flushOnPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', flushOnVisibilityChange);
+      window.removeEventListener('pagehide', flushOnPageHide);
+    };
+  }, []);
 
   return (
     <>
@@ -92,7 +140,7 @@ function SettingsScheduleIsland() {
             placeholder={labels.activityPlaceholder}
             value={formValues.sportName}
             onChange={(event) => updateField('sportName', event.target.value)}
-            onBlur={(event) => savePartial({ sportName: event.target.value })}
+            onBlur={(event) => flushSportName(event.target.value)}
           />
         </div>
 

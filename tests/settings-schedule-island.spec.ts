@@ -52,6 +52,29 @@ test('settings schedule island renders from the legacy bridge and saves schedule
   await expect(page.locator('#sport-status-bar')).toContainText(/padel/i);
 });
 
+test('settings schedule island autosaves sport name before blur', async ({ page }) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    schedule = {
+      sportName: 'Hockey',
+      sportDays: [2, 4],
+      sportIntensity: 'hard',
+      sportLegsHeavy: true,
+    };
+    initSettings();
+    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
+    showSettingsTab('schedule');
+  });
+
+  const sportNameInput = page.locator('#settings-schedule-react-root #sport-name');
+  await sportNameInput.fill('Padel');
+
+  await expect
+    .poll(() => page.evaluate(() => schedule.sportName), { timeout: 15000 })
+    .toBe('Padel');
+});
+
 test('settings schedule island refreshes translated labels after language changes', async ({
   page,
 }) => {
