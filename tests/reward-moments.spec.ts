@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
+test.describe.configure({ mode: 'serial' });
+
 test('live PR detection flows into the summary and history views', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await openAppShell(page);
 
   await page.evaluate(() => {
@@ -62,6 +65,9 @@ test('live PR detection flows into the summary and history views', async ({ page
   await page.evaluate(() => {
     window.eval('toggleSet(0,0)');
   });
+  await page.waitForFunction(() =>
+    (document.getElementById('toast')?.textContent || '').includes('New PR!')
+  );
   await expect(page.locator('#toast')).toContainText('New PR!');
 
   await page.evaluate(() => {
@@ -70,6 +76,9 @@ test('live PR detection flows into the summary and history views', async ({ page
 
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
   await expect(page.locator('#summary-modal .summary-title')).toHaveText('SESSION FORGED');
+  await page.waitForFunction(() =>
+    (document.querySelector('.summary-stat-prs .summary-stat-value')?.textContent || '').trim() === '1'
+  );
   await expect(page.locator('.summary-stat-prs .summary-stat-value')).toHaveText('1');
 
   await page.evaluate(() => {

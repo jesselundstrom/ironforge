@@ -3,6 +3,12 @@ import { expect } from '@playwright/test';
 
 export async function openApp(page: Page) {
   await page.addInitScript(() => {
+    if (window.name !== 'ironforge-e2e-initialized') {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.name = 'ironforge-e2e-initialized';
+    }
+
     window.__IRONFORGE_TEST_USER_ID__ = 'e2e-user';
   });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -34,7 +40,11 @@ export async function bootstrapAppShell(page: Page) {
     await window.eval("loadData({ allowCloudSync: false, userId: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user' })");
   });
 
-  await page.waitForFunction(() => window.__IRONFORGE_APP_SHELL_READY__ === true);
+  await page.waitForFunction(() => {
+    if (window.__IRONFORGE_APP_SHELL_READY__ === true) return true;
+    const root = document.getElementById('app-shell-react-root');
+    return !!root && root.children.length > 0;
+  });
 }
 
 export async function openAppShell(page: Page) {

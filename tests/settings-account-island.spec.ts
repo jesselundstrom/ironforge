@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
+test.describe.configure({ mode: 'serial' });
+
 test('settings account island renders from the legacy bridge and persists language plus API key changes', async ({
   page,
 }) => {

@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
+test.describe.configure({ mode: 'serial' });
+
 test('log start island renders from the legacy bridge and still starts a workout', async ({
   page,
 }) => {

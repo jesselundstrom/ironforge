@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { confirmModal, openAppShell, reloadAppShell } from './helpers';
 
+test.describe.configure({ mode: 'serial' });
+
 async function openTrainPage(page: Page) {
   await page.evaluate(() => {
     window.eval("showPage('log')");

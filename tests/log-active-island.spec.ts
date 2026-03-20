@@ -2,6 +2,8 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
+test.describe.configure({ mode: 'serial' });
+
 async function openActiveWorkout(page: Page) {
   await page.evaluate(() => {
     window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
