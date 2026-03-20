@@ -3257,6 +3257,61 @@ function showCustomModal(title,bodyHtml){
 
 function closeCustomModal(){const m=document.getElementById('custom-swap-modal');if(m)m.remove();}
 
+function buildCoachNote(summaryData,stateBeforeSession,advancedState,workout){
+  // PR rule — name up to 2 exercises max
+  const prs=workout?.rewardState?.detectedPrs||[];
+  if(prs.length>0){
+    const names=[...new Set(prs.map(p=>p.exerciseName))].slice(0,2);
+    const label=names.join(' & ');
+    return prs.length===1
+      ? i18nText('workout.coach_note.pr_single','New PR on {exercise}! Keep going.',{exercise:label})
+      : i18nText('workout.coach_note.pr_multi','New PRs on {exercises}! Great session.',{exercises:label});
+  }
+
+  // TM increase rule — compare per-lift TMs for programs that use lifts.main
+  const beforeLifts=stateBeforeSession?.lifts?.main||[];
+  const afterLifts=advancedState?.lifts?.main||[];
+  if(beforeLifts.length>0&&afterLifts.length>0){
+    const increased=[];
+    afterLifts.forEach((lift,i)=>{
+      const before=beforeLifts[i];
+      if(before&&lift.name===before.name&&lift.tm>before.tm){
+        increased.push({name:lift.name,delta:Math.round((lift.tm-before.tm)*10)/10,tm:lift.tm});
+      }
+    });
+    if(increased.length>0){
+      const lift=increased[0];
+      return i18nText('workout.coach_note.tm_increase','Strength up: {lift} +{delta}kg → now {tm}kg',{lift:lift.name,delta:lift.delta,tm:lift.tm});
+    }
+  }
+
+  // Week advance rule
+  if(advancedState?.week!==undefined&&stateBeforeSession?.week!==undefined&&advancedState.week!==stateBeforeSession.week){
+    return i18nText('workout.coach_note.week_advance','Week {week} starts now. Build on it.',{week:advancedState.week});
+  }
+
+  // Cycle advance rule
+  if(advancedState?.cycle!==undefined&&stateBeforeSession?.cycle!==undefined&&advancedState.cycle!==stateBeforeSession.cycle){
+    return i18nText('workout.coach_note.cycle_advance','Cycle {cycle} starts — new progression block.',{cycle:advancedState.cycle});
+  }
+
+  const completionRate=summaryData.totalSets>0?summaryData.completedSets/summaryData.totalSets:1;
+  const rpe=summaryData.rpe||0;
+
+  // High RPE + incomplete sets rule
+  if(rpe>=9&&completionRate<0.9){
+    return i18nText('workout.coach_note.tough_session','Tough session — rest well and come back strong.');
+  }
+
+  // Low completion rule (< 70% sets done)
+  if(completionRate<0.7){
+    return i18nText('workout.coach_note.partial_session','Partial session logged. Any training counts — consistency wins.');
+  }
+
+  // Clean completion fallback
+  return i18nText('workout.coach_note.clean','All sets done. Solid work.');
+}
+
 function buildSessionSummaryStats(summaryData){
   return [
     {
@@ -3374,6 +3429,7 @@ function showSessionSummary(summaryData){
           <div class="summary-stats">
             ${renderSessionSummaryStatMarkup(stats)}
           </div>
+          ${summaryData.coachNote?`<div class="summary-coach-note">${escapeHtml(summaryData.coachNote)}</div>`:''}
           <div class="summary-feedback">
             <div class="summary-feedback-label">${escapeHtml(i18nText('workout.summary.feedback_label','How did it feel?'))}</div>
             <div class="summary-feedback-options">
@@ -3630,7 +3686,8 @@ async function finishWorkout(){
     completedSets,totalSets,tonnage,
     rpe:sessionRPE,
     prCount:sessionPrCount,
-    programLabel:activeWorkout.programLabel||''
+    programLabel:activeWorkout.programLabel||'',
+    coachNote:buildCoachNote({completedSets,totalSets,rpe:sessionRPE,prCount:sessionPrCount},stateBeforeSession,advancedState,activeWorkout)
   };
 
   resetActiveWorkoutUIState();

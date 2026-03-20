@@ -5194,6 +5194,20 @@ select optgroup {
   margin-top: 8px;
 }
 
+/* ── COACH NOTE ── */
+.summary-coach-note {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: rgba(255, 122, 58, 0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.4;
+  text-align: left;
+}
+
 /* ── SESSION FEEDBACK ── */
 .summary-feedback {
   margin: 16px 0 4px;

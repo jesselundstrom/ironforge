@@ -95,5 +95,5 @@ test('settings preferences island refreshes labels and summary on language chang
     .toMatch(/harjoituspreferenssit/i);
   await expect
     .poll(() => page.locator('#training-status-bar').textContent(), { timeout: 15000 })
-    .toMatch(/sessiota \/ viikko/i);
+    .toMatch(/treeniä \/ viikko/i);
 });

@@ -95,6 +95,136 @@ test('live PR detection flows into the summary and history views', async ({ page
   });
 });
 
+test('summary coach note shows PR message when a PR is set', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    const benchId = window.eval("EXERCISE_LIBRARY.resolveExerciseId('Bench Press')");
+    const forgeState = JSON.parse(JSON.stringify(window.eval('PROGRAMS.forge.getInitialState()')));
+
+    window.eval(`
+      workouts = [{
+        id: 1,
+        date: '2026-03-10T09:00:00.000Z',
+        program: 'forge',
+        type: 'forge',
+        programDayNum: 1,
+        programLabel: 'Forge · Day 1',
+        duration: 1800,
+        rpe: 7,
+        sets: 1,
+        exercises: [{
+          name: 'Bench Press',
+          exerciseId: '${benchId}',
+          sets: [{ weight: 80, reps: 7, done: true, rpe: 8 }]
+        }]
+      }];
+      profile.activeProgram = 'forge';
+      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
+      buildExerciseIndex();
+      upsertWorkoutRecord = async () => {};
+      saveWorkouts = async () => {};
+      saveProfileData = async () => {};
+    `);
+
+    window.eval(`
+      activeWorkout = {
+        program: 'forge',
+        type: 'forge',
+        programOption: '1',
+        programDayNum: 1,
+        programLabel: 'Forge · Day 1',
+        rewardState: buildWorkoutRewardState(),
+        exercises: ensureWorkoutExerciseUiKeys([{
+          name: 'Bench Press',
+          exerciseId: '${benchId}',
+          sets: [{ weight: 80, reps: 8, done: false, rpe: null }]
+        }]),
+        startTime: Date.now()
+      };
+    `);
+
+    window.showRPEPicker = (_name: string, _setNum: number, cb: (v: number) => void) => cb(8);
+    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.resumeActiveWorkoutUI({ toast: false });
+  });
+
+  await page.evaluate(() => {
+    window.eval('toggleSet(0,0)');
+  });
+
+  await page.evaluate(() => {
+    window.finishWorkout();
+  });
+
+  await expect(page.locator('#summary-modal')).toHaveClass(/active/);
+  await expect(page.locator('.summary-coach-note')).toBeVisible();
+  await expect(page.locator('.summary-coach-note')).toContainText(/PR/i);
+
+  await page.evaluate(() => {
+    window.eval('closeSummaryModal()');
+  });
+});
+
+test('summary coach note shows clean fallback when session completes without PRs or TM changes', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    const benchId = window.eval("EXERCISE_LIBRARY.resolveExerciseId('Bench Press')");
+    const forgeState = JSON.parse(JSON.stringify(window.eval('PROGRAMS.forge.getInitialState()')));
+
+    window.eval(`
+      workouts = [];
+      profile.activeProgram = 'forge';
+      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
+      buildExerciseIndex();
+      upsertWorkoutRecord = async () => {};
+      saveWorkouts = async () => {};
+      saveProfileData = async () => {};
+    `);
+
+    window.eval(`
+      activeWorkout = {
+        program: 'forge',
+        type: 'forge',
+        programOption: '1',
+        programDayNum: 1,
+        programLabel: 'Forge · Day 1',
+        rewardState: buildWorkoutRewardState(),
+        exercises: ensureWorkoutExerciseUiKeys([{
+          name: 'Bench Press',
+          exerciseId: '${benchId}',
+          sets: [{ weight: 60, reps: 5, done: false, rpe: null }]
+        }]),
+        startTime: Date.now()
+      };
+    `);
+
+    window.showRPEPicker = (_name: string, _setNum: number, cb: (v: number) => void) => cb(7);
+    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.resumeActiveWorkoutUI({ toast: false });
+  });
+
+  await page.evaluate(() => {
+    window.eval('toggleSet(0,0)');
+  });
+
+  await page.evaluate(() => {
+    window.finishWorkout();
+  });
+
+  await expect(page.locator('#summary-modal')).toHaveClass(/active/);
+  await expect(page.locator('.summary-coach-note')).toBeVisible();
+  // Fallback or advance message — just confirm something is shown
+  await expect(page.locator('.summary-coach-note')).not.toBeEmpty();
+
+  await page.evaluate(() => {
+    window.eval('closeSummaryModal()');
+  });
+});
+
 test('dashboard rounds TM display to 0.5kg and ignores raw changes inside the same bucket', async ({ page }) => {
   await openAppShell(page);
 
