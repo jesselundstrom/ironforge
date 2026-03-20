@@ -11,10 +11,18 @@ function getSnapshot() {
   }
   return {
     tab: 'log',
-    labels: { log: 'Workout Log', stats: 'Stats', sessions: 'sessions', session: 'session', delete: 'Delete', prBadge: 'NEW PR', volume: 'Volume', exercises: 'Exercises', notes: 'Notes' },
+    labels: { log: 'Workout Log', stats: 'Stats', sessions: 'sessions', session: 'session', delete: 'Delete', prBadge: 'NEW PR', volume: 'Volume', exercises: 'Exercises', notes: 'Notes', milestoneDate: 'Unlocked {date}' },
     heatmap: { isOpen: false, weeks: 14, cells: [], weekNums: [], dayLabels: [], stats: { weekStreak: 0, perWeek: '0.0', totalVolume: 0 }, sportName: 'Sport', labels: {} },
     log: { empty: true, labels: { kicker: 'Activity', title: 'No sessions yet', sub: '', cta: 'Start', currentPhase: '' }, phase: null },
-    stats: { numbers: [], volume: { title: '', weeks: [], visible: false }, strength: { title: '', lifts: [], nWeeks: 16, visible: false } },
+    stats: {
+      numbers: [],
+      range: { selected: '16w', options: [] },
+      volume: { title: '', weeks: [], visible: false },
+      strength: { title: '', lifts: [], nWeeks: 16, visible: false },
+      e1rm: { title: '', lifts: [], nWeeks: 16, visible: false },
+      tmHistory: { title: '', lifts: [], nWeeks: 16, visible: false },
+      milestones: { title: '', items: [], visible: false },
+    },
   };
 }
 
@@ -301,7 +309,7 @@ function VolumeChart({ data }) {
 
 /* ── Stats: Strength Chart ─────────────────────────────────── */
 
-function StrengthChart({ data }) {
+function LineChart({ data }) {
   const [activePt, setActivePt] = useState(null);
   if (!data.visible) return null;
   const { lifts, nWeeks, title } = data;
@@ -391,11 +399,60 @@ function StrengthChart({ data }) {
   );
 }
 
+function StatsRangeSelector({ range }) {
+  if (!range?.options?.length) return null;
+  return (
+    <div className="stats-range-row">
+      {range.options.map((option) => {
+        const active = option.id === range.selected;
+        return (
+          <button
+            key={option.id}
+            className={`stats-range-btn${active ? ' active' : ''}`}
+            type="button"
+            data-range={option.id}
+            aria-pressed={active ? 'true' : 'false'}
+            onClick={() => window.switchHistoryStatsRange?.(option.id)}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Milestones({ data, labels }) {
+  if (!data?.visible || !data.items?.length) return null;
+  return (
+    <div className="card stats-chart-card stats-milestones-card">
+      <div className="stats-chart-title">{data.title}</div>
+      <div className="stats-milestones-grid">
+        {data.items.map((item) => (
+          <div key={`${item.liftKey}-${item.milestone}-${item.date}`} className="stats-milestone-badge">
+            <div className="stats-milestone-title">{item.milestone}</div>
+            <div className="stats-milestone-weight">{item.weight}</div>
+            <div className="stats-milestone-date">
+              {labels.milestoneDate.replace('{date}', item.date)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main ──────────────────────────────────────────────────── */
 
 function HistoryIsland() {
   const snapshot = useIslandSnapshot([HISTORY_EVENT, LANGUAGE_EVENT], getSnapshot);
   const isStatsTab = snapshot.tab === 'stats';
+  const hasStatsContent =
+    snapshot.stats.volume.visible ||
+    snapshot.stats.strength.visible ||
+    snapshot.stats.e1rm.visible ||
+    snapshot.stats.tmHistory.visible ||
+    snapshot.stats.milestones.visible;
 
   return (
     <>
@@ -434,13 +491,14 @@ function HistoryIsland() {
         <div className="stats-numbers-grid" id="stats-numbers-grid">
           <StatsNumbers numbers={snapshot.stats.numbers} />
         </div>
-        {!snapshot.stats.volume.visible && !snapshot.stats.strength.visible ? (
+        {!hasStatsContent ? (
           <div className="stats-empty">
             <div className="stats-empty-title">{snapshot.labels.statsEmptyTitle}</div>
             <div className="stats-empty-sub">{snapshot.labels.statsEmptySub}</div>
           </div>
         ) : (
           <>
+            <StatsRangeSelector range={snapshot.stats.range} />
             <div
               className="card stats-chart-card"
               id="stats-volume-wrap"
@@ -453,8 +511,23 @@ function HistoryIsland() {
               id="stats-strength-wrap"
               style={{ display: snapshot.stats.strength.visible ? 'block' : 'none' }}
             >
-              <StrengthChart data={snapshot.stats.strength} />
+              <LineChart data={snapshot.stats.strength} />
             </div>
+            <div
+              className="card stats-chart-card"
+              id="stats-e1rm-wrap"
+              style={{ display: snapshot.stats.e1rm.visible ? 'block' : 'none' }}
+            >
+              <LineChart data={snapshot.stats.e1rm} />
+            </div>
+            <div
+              className="card stats-chart-card"
+              id="stats-tm-wrap"
+              style={{ display: snapshot.stats.tmHistory.visible ? 'block' : 'none' }}
+            >
+              <LineChart data={snapshot.stats.tmHistory} />
+            </div>
+            <Milestones data={snapshot.stats.milestones} labels={snapshot.labels} />
           </>
         )}
       </div>

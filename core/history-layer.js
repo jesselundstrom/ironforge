@@ -1,6 +1,18 @@
 const HISTORY_ISLAND_EVENT='ironforge:history-updated';
 let historyTabState='log';
 let historyHeatmapOpen=false;
+let historyStatsRangeState='16w';
+const HISTORY_STATS_RANGES={
+  '8w':8,
+  '16w':16,
+  'all':null
+};
+const HISTORY_MAIN_LIFTS=[
+  {key:'squat',labelKey:'history.stats.lift.squat',fallback:'Squat',color:'var(--orange)'},
+  {key:'bench',labelKey:'history.stats.lift.bench',fallback:'Bench',color:'var(--blue)'},
+  {key:'deadlift',labelKey:'history.stats.lift.deadlift',fallback:'Deadlift',color:'var(--gold)'},
+  {key:'ohp',labelKey:'history.stats.lift.ohp',fallback:'OH Press',color:'var(--purple)'}
+];
 
 function hasHistoryIslandMount(){
   return !!document.getElementById('history-react-root');
@@ -30,6 +42,20 @@ function switchHistoryTab(tab){
   if(historyTabState==='stats')updateStats();
 }
 
+function switchHistoryStatsRange(range){
+  historyStatsRangeState=HISTORY_STATS_RANGES[range]!==undefined?range:'16w';
+  if(isHistoryIslandActive()){
+    notifyHistoryIsland();
+    return;
+  }
+  document.querySelectorAll('#history-stats .stats-range-btn').forEach(btn=>{
+    const active=btn.dataset.range===historyStatsRangeState;
+    btn.classList.toggle('active',active);
+    btn.setAttribute('aria-pressed',active?'true':'false');
+  });
+  updateStats();
+}
+
 function trHist(key,fallback,params){
   if(window.I18N)return I18N.t(key,params,fallback);
   return fallback;
@@ -42,6 +68,44 @@ function histLocale(){
 function histDisplayName(input){
   if(window.EXERCISE_LIBRARY&&EXERCISE_LIBRARY.getDisplayName)return EXERCISE_LIBRARY.getDisplayName(input);
   return String(input||'');
+}
+
+function histNormalizeLiftKey(name){
+  const value=String(name||'').toLowerCase();
+  if(value.includes('bench'))return'bench';
+  if(value.includes('deadlift'))return'deadlift';
+  if(value.includes('overhead press')||value==='ohp'||value.includes('ohp'))return'ohp';
+  if(value.includes('squat'))return'squat';
+  return'';
+}
+
+function histGetStatsRangeWeeks(){
+  return HISTORY_STATS_RANGES[historyStatsRangeState]!==undefined
+    ? HISTORY_STATS_RANGES[historyStatsRangeState]
+    : HISTORY_STATS_RANGES['16w'];
+}
+
+function histGetStatsCutoff(nWeeks){
+  if(nWeeks==null)return null;
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const cutoff=new Date(today);
+  cutoff.setDate(today.getDate()-nWeeks*7);
+  return cutoff;
+}
+
+function histFilterStatsWorkoutDate(dateLike,cutoff){
+  const value=new Date(dateLike);
+  value.setHours(0,0,0,0);
+  if(!Number.isFinite(value.getTime()))return null;
+  if(cutoff&&value<cutoff)return null;
+  return value;
+}
+
+function histFormatStatsDate(dateLike){
+  const value=new Date(dateLike);
+  if(!Number.isFinite(value.getTime()))return'';
+  return value.toLocaleDateString(histLocale(),{day:'numeric',month:'short',year:'2-digit'});
 }
 
 // History helpers
@@ -560,18 +624,95 @@ function _statsWeeklyVolume(n){
 }
 
 function _statsLiftProgress(matcher,nWeeks){
-  const today=new Date();today.setHours(0,0,0,0);
-  const cutoff=new Date(today);cutoff.setDate(today.getDate()-nWeeks*7);
+  const cutoff=histGetStatsCutoff(nWeeks);
   const pts=[];
   workouts.filter(w=>!isSportWorkout(w)).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(w=>{
-    const wd=new Date(w.date);wd.setHours(0,0,0,0);
-    if(wd<cutoff)return;
+    const wd=histFilterStatsWorkoutDate(w.date,cutoff);
+    if(!wd)return;
     const ex=(w.exercises||[]).find(e=>matcher(e.name));
     if(!ex)return;
     const wts=ex.sets.filter(s=>s.done).map(s=>parseFloat(s.weight)||0).filter(x=>x>0);
-    if(wts.length)pts.push({date:wd,weight:Math.max(...wts)});
+    if(wts.length)pts.push({date:wd,weight:Math.max(...wts),label:histFormatStatsDate(wd)});
   });
   return pts;
+}
+
+function _statsLiftE1rm(liftKey,nWeeks){
+  const cutoff=histGetStatsCutoff(nWeeks);
+  const pts=[];
+  workouts.filter(w=>!isSportWorkout(w)).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(w=>{
+    const wd=histFilterStatsWorkoutDate(w.date,cutoff);
+    if(!wd)return;
+    const matches=(w.exercises||[]).filter(ex=>histNormalizeLiftKey(ex.name)===liftKey);
+    if(!matches.length)return;
+    let best=0;
+    matches.forEach(ex=>{
+      (ex.sets||[]).filter(s=>s.done).forEach(set=>{
+        const weight=parseFloat(set.weight)||0;
+        const reps=parseInt(set.reps,10)||0;
+        if(weight<=0||reps<=0)return;
+        const e1rm=weight*(1+reps/30);
+        if(e1rm>best)best=e1rm;
+      });
+    });
+    if(best>0){
+      pts.push({
+        date:wd,
+        weight:Math.round(best*10)/10,
+        label:histFormatStatsDate(wd)
+      });
+    }
+  });
+  return pts;
+}
+
+function _statsTrainingMaxHistory(nWeeks){
+  const cutoff=histGetStatsCutoff(nWeeks);
+  const historyMap={squat:[],bench:[],deadlift:[],ohp:[]};
+  workouts
+    .filter(w=>!isSportWorkout(w))
+    .sort((a,b)=>new Date(a.date)-new Date(b.date))
+    .forEach(w=>{
+      const wd=histFilterStatsWorkoutDate(w.date,cutoff);
+      if(!wd)return;
+      const mainLifts=w?.programStateBefore?.lifts?.main;
+      if(!Array.isArray(mainLifts))return;
+      mainLifts.forEach(lift=>{
+        const liftKey=histNormalizeLiftKey(lift?.name);
+        const tm=parseFloat(lift?.tm)||0;
+        if(!liftKey||tm<=0||!historyMap[liftKey])return;
+        historyMap[liftKey].push({
+          date:wd,
+          weight:Math.round(tm*10)/10,
+          label:histFormatStatsDate(wd)
+        });
+      });
+    });
+  return historyMap;
+}
+
+function _statsMilestones(){
+  const bodyWeight=parseFloat(profile?.bodyMetrics?.weight)||0;
+  if(bodyWeight<=0)return[];
+  const thresholds=[
+    {liftKey:'bench',ratio:1,labelKey:'history.milestone.bench_bw',fallback:'Bodyweight Bench'},
+    {liftKey:'squat',ratio:1.5,labelKey:'history.milestone.squat_1_5x',fallback:'1.5x BW Squat'},
+    {liftKey:'deadlift',ratio:2,labelKey:'history.milestone.deadlift_2x',fallback:'2x BW Deadlift'}
+  ];
+  const milestones=[];
+  thresholds.forEach(item=>{
+    const target=bodyWeight*item.ratio;
+    const pts=_statsLiftE1rm(item.liftKey,null);
+    const hit=pts.find(point=>point.weight>=target);
+    if(!hit)return;
+    milestones.push({
+      liftKey:item.liftKey,
+      milestone:trHist(item.labelKey,item.fallback),
+      date:hit.label||histFormatStatsDate(hit.date),
+      weight:`${Math.round(hit.weight*10)/10} kg`
+    });
+  });
+  return milestones;
 }
 
 function _svgVolumeBars(weeks){
@@ -870,15 +1011,38 @@ function _buildStructuredStats(){
   const allRPE=workouts.filter(w=>w.rpe).map(w=>w.rpe);
   const avgRPE=allRPE.length?(allRPE.reduce((a,b)=>a+b,0)/allRPE.length).toFixed(1):null;
 
-  const NWEEKS=16;
-  const lifts=[
-    {label:trHist('history.stats.lift.squat','Squat'),color:'var(--orange)',pts:_statsLiftProgress(n=>n==='Squat',NWEEKS)},
-    {label:trHist('history.stats.lift.bench','Bench'),color:'var(--blue)',pts:_statsLiftProgress(n=>n==='Bench Press',NWEEKS)},
-    {label:trHist('history.stats.lift.deadlift','Deadlift'),color:'var(--gold)',pts:_statsLiftProgress(n=>n==='Deadlift',NWEEKS)},
-    {label:trHist('history.stats.lift.ohp','OH Press'),color:'var(--purple)',pts:_statsLiftProgress(n=>n==='OHP'||n==='Overhead Press (OHP)',NWEEKS)},
-  ];
+  const selectedRange=historyStatsRangeState;
+  const nWeeks=histGetStatsRangeWeeks();
+  const lifts=HISTORY_MAIN_LIFTS.map(lift=>({
+    key:lift.key,
+    label:trHist(lift.labelKey,lift.fallback),
+    color:lift.color,
+    pts:_statsLiftProgress(name=>histNormalizeLiftKey(name)===lift.key,nWeeks)
+  }));
+  const e1rmLifts=HISTORY_MAIN_LIFTS.map(lift=>({
+    key:lift.key,
+    label:trHist(lift.labelKey,lift.fallback),
+    color:lift.color,
+    pts:_statsLiftE1rm(lift.key,nWeeks)
+  }));
+  const tmSeries=_statsTrainingMaxHistory(nWeeks);
+  const tmLifts=HISTORY_MAIN_LIFTS.map(lift=>({
+    key:lift.key,
+    label:trHist(lift.labelKey,lift.fallback),
+    color:lift.color,
+    pts:tmSeries[lift.key]||[]
+  }));
+  const milestones=_statsMilestones();
 
   return{
+    range:{
+      selected:selectedRange,
+      options:[
+        {id:'8w',label:trHist('history.stats.range.8w','8W')},
+        {id:'16w',label:trHist('history.stats.range.16w','16W')},
+        {id:'all',label:trHist('history.stats.range.all','All')}
+      ]
+    },
     numbers:[
       {label:trHist('history.total_sessions','Total Sessions'),value:liftWks.length,color:'var(--gold)'},
       {label:trHist('history.sport_sessions','Sport Sessions'),value:sportWks.length,color:'var(--blue)'},
@@ -892,8 +1056,25 @@ function _buildStructuredStats(){
     },
     strength:{
       title:trHist('history.stats.strength','Strength Progress'),
-      lifts,nWeeks:NWEEKS,
+      lifts,nWeeks:nWeeks||16,
       visible:lifts.some(l=>l.pts.length>=1)
+    },
+    e1rm:{
+      title:trHist('history.stats.e1rm','Estimated 1RM'),
+      lifts:e1rmLifts,
+      nWeeks:nWeeks||16,
+      visible:e1rmLifts.some(l=>l.pts.length>=1)
+    },
+    tmHistory:{
+      title:trHist('history.stats.tm_history','Training Max Trend'),
+      lifts:tmLifts,
+      nWeeks:nWeeks||16,
+      visible:tmLifts.some(l=>l.pts.length>=1)
+    },
+    milestones:{
+      title:trHist('history.stats.milestones','Milestones'),
+      items:milestones,
+      visible:milestones.length>0
     }
   };
 }
@@ -912,7 +1093,8 @@ function getHistoryReactSnapshot(){
       exercises:trHist('history.card.exercises','Exercises'),
       notes:trHist('history.card.notes','Notes'),
       statsEmptyTitle:trHist('history.stats_empty_title','No stats yet'),
-      statsEmptySub:trHist('history.stats_empty_sub','Complete a few workouts to see your training trends.')
+      statsEmptySub:trHist('history.stats_empty_sub','Complete a few workouts to see your training trends.'),
+      milestoneDate:trHist('history.milestone.date','Unlocked {date}')
     },
     heatmap:_buildStructuredHeatmap(),
     log:_buildStructuredLog(),
@@ -922,3 +1104,4 @@ function getHistoryReactSnapshot(){
 
 window.__IRONFORGE_HISTORY_ISLAND_EVENT__=HISTORY_ISLAND_EVENT;
 window.getHistoryReactSnapshot=getHistoryReactSnapshot;
+window.switchHistoryStatsRange=switchHistoryStatsRange;

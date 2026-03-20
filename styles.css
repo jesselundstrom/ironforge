@@ -8168,6 +8168,29 @@ body.login-active::before {
   padding: 16px;
   margin-bottom: 12px;
 }
+.stats-range-row {
+  display: flex;
+  gap: 8px;
+  margin: 2px 0 12px;
+}
+.stats-range-btn {
+  min-width: 54px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.stats-range-btn.active {
+  background: rgba(245, 130, 31, 0.14);
+  border-color: rgba(245, 130, 31, 0.34);
+  color: var(--orange);
+}
 .stats-empty {
   text-align: center;
   padding: 32px 16px;
@@ -8249,6 +8272,39 @@ body.login-active::before {
   stroke-width: 3px;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+.stats-milestones-card {
+  background:
+    radial-gradient(circle at top right, rgba(245, 130, 31, 0.08), transparent 42%),
+    var(--surface);
+}
+.stats-milestones-grid {
+  display: grid;
+  gap: 10px;
+}
+.stats-milestone-badge {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.stats-milestone-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.stats-milestone-weight {
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--orange);
+  font-family: 'Barlow Condensed', sans-serif;
+  margin-bottom: 6px;
+}
+.stats-milestone-date {
+  font-size: 11px;
+  color: var(--muted);
 }
 @keyframes stats-bar-in {
   from {
