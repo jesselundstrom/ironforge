@@ -7,23 +7,22 @@ test('settings schedule island renders from the legacy bridge and saves schedule
   await openAppShell(page);
 
   await page.evaluate(() => {
-    window.eval(`
-      schedule = {
-        sportName: 'Hockey',
-        sportDays: [2, 4],
-        sportIntensity: 'hard',
-        sportLegsHeavy: true
-      };
-      initSettings();
-      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-      showSettingsTab('schedule');
-    `);
+    schedule = {
+      sportName: 'Hockey',
+      sportDays: [2, 4],
+      sportIntensity: 'hard',
+      sportLegsHeavy: true,
+    };
+    initSettings();
+    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
+    showSettingsTab('schedule');
   });
 
   await expect(page.locator('#settings-schedule-legacy-shell')).toHaveCount(0);
   await expect
     .poll(
-      () => page.locator('#settings-schedule-react-root #sport-name').inputValue(),
+      () =>
+        page.locator('#settings-schedule-react-root #sport-name').inputValue(),
       { timeout: 15000 }
     )
     .toBe('Hockey');
@@ -31,21 +30,21 @@ test('settings schedule island renders from the legacy bridge and saves schedule
   await page.evaluate(() => {
     const sportName = document.getElementById('sport-name');
     if (sportName instanceof HTMLInputElement) sportName.value = 'Padel';
-    window.eval(`saveSchedule({
+    saveSchedule({
       sportName: 'Padel',
       sportIntensity: 'moderate',
       sportLegsHeavy: false,
       sportDays: [1, 2, 4]
-    })`);
+    });
   });
 
   const saved = await page.evaluate(() =>
-    window.eval(`({
+    ({
       sportName: schedule.sportName,
       sportIntensity: schedule.sportIntensity,
       sportLegsHeavy: schedule.sportLegsHeavy,
       sportDays: [...schedule.sportDays].sort((a, b) => a - b)
-    })`)
+    })
   );
 
   expect(saved?.sportName).toBe('Padel');
@@ -61,23 +60,23 @@ test('settings schedule island refreshes translated labels after language change
   await openAppShell(page);
 
   await page.evaluate(() => {
-    window.eval(`
-      schedule = {
-        sportName: 'Cardio',
-        sportDays: [1, 3],
-        sportIntensity: 'easy',
-        sportLegsHeavy: true
-      };
-      initSettings();
-      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-      showSettingsTab('schedule');
-    `);
+    schedule = {
+      sportName: 'Cardio',
+      sportDays: [1, 3],
+      sportIntensity: 'easy',
+      sportLegsHeavy: true,
+    };
+    initSettings();
+    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
+    showSettingsTab('schedule');
   });
 
-  await expect(page.locator('#settings-schedule-react-root')).toContainText(/sport load/i);
+  await expect(page.locator('#settings-schedule-react-root')).toContainText(
+    /sport load/i
+  );
 
   await page.evaluate(() => {
-    window.eval(`I18N.setLanguage('fi', { persist: false });`);
+    I18N.setLanguage('fi', { persist: false });
   });
 
   await expect
@@ -90,4 +89,30 @@ test('settings schedule island refreshes translated labels after language change
       timeout: 15000,
     })
     .toMatch(/säännölliset urheilupäivät/i);
+});
+
+test('settings schedule status bar renders sport names as text, not HTML', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    window.__sportNameXssTriggered = false;
+    window.saveSchedule({
+      sportName: '<img src=x onerror="window.__sportNameXssTriggered=true">',
+      sportIntensity: 'moderate',
+      sportLegsHeavy: false,
+      sportDays: [1, 3],
+    });
+  });
+
+  await expect(page.locator('#sport-status-bar img')).toHaveCount(0);
+  await expect(page.locator('#sport-status-bar')).toContainText(
+    '<img src=x onerror="window.__sportNameXssTriggered=true">'
+  );
+
+  const triggered = await page.evaluate(
+    () => window.__sportNameXssTriggered === true
+  );
+  expect(triggered).toBe(false);
 });

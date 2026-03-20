@@ -19,7 +19,8 @@ function getSnapshot() {
       finishSession: 'Finish Session',
       cancelSession: 'Discard Workout',
       cancelConfirmTitle: 'Discard Workout',
-      cancelConfirmMessage: "Discard this in-progress workout? Sets won't be saved.",
+      cancelConfirmMessage:
+        "Discard this in-progress workout? Sets won't be saved.",
       lastBest: 'Last best: {weight}kg',
       aux: 'AUX',
       back: 'BACK',
@@ -62,10 +63,6 @@ function getSnapshot() {
 function invokeLegacy(name, ...args) {
   const fn = window[name];
   if (typeof fn === 'function') return fn(...args);
-  if (typeof window.eval === 'function') {
-    const serializedArgs = args.map((arg) => JSON.stringify(arg)).join(',');
-    return window.eval(`${name}(${serializedArgs})`);
-  }
   return undefined;
 }
 
@@ -123,9 +120,15 @@ function PlanBanner({ labels, planPanel }) {
           />
         </div>
         <div className="active-session-plan-meta">
-          <div className="active-session-plan-pill">{planPanel.completedSetsText}</div>
-          <div className="active-session-plan-pill">{planPanel.remainingSetsText}</div>
-          <div className="active-session-plan-pill">{planPanel.elapsedText}</div>
+          <div className="active-session-plan-pill">
+            {planPanel.completedSetsText}
+          </div>
+          <div className="active-session-plan-pill">
+            {planPanel.remainingSetsText}
+          </div>
+          <div className="active-session-plan-pill">
+            {planPanel.elapsedText}
+          </div>
         </div>
         <div className="active-session-progress">
           <div className="active-session-next">{planPanel.nextText}</div>
@@ -142,7 +145,10 @@ function PlanBanner({ labels, planPanel }) {
           {planPanel.adjustments?.length ? (
             <div className="active-session-adjustments">
               {planPanel.adjustments.map((item, index) => (
-                <div key={`${item.label}-${index}`} className="active-session-adjustment">
+                <div
+                  key={`${item.label}-${index}`}
+                  className="active-session-adjustment"
+                >
                   {'• '}
                   {item.label}
                 </div>
@@ -154,14 +160,18 @@ function PlanBanner({ labels, planPanel }) {
           <button
             className="btn btn-secondary btn-sm"
             type="button"
-            onClick={() => invokeLegacy('applyQuickWorkoutAdjustment', 'shorten')}
+            onClick={() =>
+              invokeLegacy('applyQuickWorkoutAdjustment', 'shorten')
+            }
           >
             {labels.shorten}
           </button>
           <button
             className="btn btn-secondary btn-sm"
             type="button"
-            onClick={() => invokeLegacy('applyQuickWorkoutAdjustment', 'lighten')}
+            onClick={() =>
+              invokeLegacy('applyQuickWorkoutAdjustment', 'lighten')
+            }
           >
             {labels.lighten}
           </button>
@@ -192,11 +202,17 @@ function ExerciseCard({ exercise, labels }) {
           className="exercise-collapse-summary"
           type="button"
           data-action="expand-exercise"
-          onClick={() => invokeLegacy('expandCompletedExercise', exercise.uiKey)}
+          onClick={() =>
+            invokeLegacy('expandCompletedExercise', exercise.uiKey)
+          }
         >
           <div className="exercise-collapse-main">
-            <div className="exercise-collapse-name">{exercise.collapsedSummary.name}</div>
-            <div className="exercise-collapse-meta">{exercise.collapsedSummary.meta}</div>
+            <div className="exercise-collapse-name">
+              {exercise.collapsedSummary.name}
+            </div>
+            <div className="exercise-collapse-meta">
+              {exercise.collapsedSummary.meta}
+            </div>
           </div>
           <div className="exercise-collapse-status">
             <span className="exercise-collapse-badge">
@@ -223,7 +239,9 @@ function ExerciseCard({ exercise, labels }) {
                 <span className="exercise-chip">{labels.aux}</span>
               ) : null}
               {exercise.isAccessory ? (
-                <span className="exercise-chip exercise-chip-blue">{labels.back}</span>
+                <span className="exercise-chip exercise-chip-blue">
+                  {labels.back}
+                </span>
               ) : null}
             </div>
             <div className="last-session">{exercise.previousText}</div>
@@ -236,7 +254,9 @@ function ExerciseCard({ exercise, labels }) {
                 data-action="swap-aux"
                 title={labels.swap}
                 aria-label={labels.swap}
-                onClick={() => invokeLegacy('swapAuxExercise', exercise.exerciseIndex)}
+                onClick={() =>
+                  invokeLegacy('swapAuxExercise', exercise.exerciseIndex)
+                }
               >
                 {labels.swap}
               </button>
@@ -248,7 +268,9 @@ function ExerciseCard({ exercise, labels }) {
                 data-action="swap-back"
                 title={labels.swapBack}
                 aria-label={labels.swapBack}
-                onClick={() => invokeLegacy('swapBackExercise', exercise.exerciseIndex)}
+                onClick={() =>
+                  invokeLegacy('swapBackExercise', exercise.exerciseIndex)
+                }
               >
                 {labels.swap}
               </button>
@@ -260,7 +282,9 @@ function ExerciseCard({ exercise, labels }) {
                 data-action="collapse-exercise"
                 title={labels.collapse}
                 aria-label={labels.collapse}
-                onClick={() => invokeLegacy('collapseCompletedExercise', exercise.uiKey)}
+                onClick={() =>
+                  invokeLegacy('collapseCompletedExercise', exercise.uiKey)
+                }
               >
                 ▾
               </button>
@@ -317,7 +341,11 @@ function ExerciseCard({ exercise, labels }) {
           >
             <span
               className="set-num"
-              style={set.isAmrap ? { color: 'var(--purple)', fontWeight: 800 } : undefined}
+              style={
+                set.isAmrap
+                  ? { color: 'var(--purple)', fontWeight: 800 }
+                  : undefined
+              }
             >
               {set.label}
             </span>
@@ -362,7 +390,9 @@ function ExerciseCard({ exercise, labels }) {
               data-field="reps"
               data-set-index={set.index}
               data-exercise-index={exercise.exerciseIndex}
-              placeholder={set.isAmrap ? labels.repsHit : labels.repsPlaceholder}
+              placeholder={
+                set.isAmrap ? labels.repsHit : labels.repsPlaceholder
+              }
               value={String(set.reps ?? '')}
               style={set.isAmrap ? { borderColor: 'var(--purple)' } : undefined}
               onChange={(event) =>
@@ -390,12 +420,16 @@ function ExerciseCard({ exercise, labels }) {
                 data-action="toggle-set"
                 data-set-index={set.index}
                 data-exercise-index={exercise.exerciseIndex}
-                onClick={() => invokeLegacy('toggleSet', exercise.exerciseIndex, set.index)}
+                onClick={() =>
+                  invokeLegacy('toggleSet', exercise.exerciseIndex, set.index)
+                }
               >
                 ✓
               </button>
               {set.isPr ? (
-                <span className="set-pr-badge is-visible">{labels.prBadge}</span>
+                <span className="set-pr-badge is-visible">
+                  {labels.prBadge}
+                </span>
               ) : null}
             </div>
           </div>
@@ -416,7 +450,10 @@ function ExerciseCard({ exercise, labels }) {
 }
 
 function LogActiveIsland() {
-  const snapshot = useIslandSnapshot([LOG_ACTIVE_EVENT, LANGUAGE_EVENT], getSnapshot);
+  const snapshot = useIslandSnapshot(
+    [LOG_ACTIVE_EVENT, LANGUAGE_EVENT],
+    getSnapshot
+  );
 
   return (
     <div
@@ -431,7 +468,9 @@ function LogActiveIsland() {
           <div
             className="active-session-description"
             id="active-session-description"
-            style={{ display: snapshot.values.descriptionVisible ? '' : 'none' }}
+            style={{
+              display: snapshot.values.descriptionVisible ? '' : 'none',
+            }}
           >
             {snapshot.values.description}
           </div>
@@ -452,13 +491,23 @@ function LogActiveIsland() {
         </button>
       </div>
 
-      <PlanBanner labels={snapshot.labels} planPanel={snapshot.values.planPanel} />
+      <PlanBanner
+        labels={snapshot.labels}
+        planPanel={snapshot.values.planPanel}
+      />
 
       <div className="rest-timer-inline">
-        <span className="rest-timer-inline-label">{snapshot.labels.restTimer}</span>
-        <div className="rest-timer-pills" role="group" aria-label={snapshot.labels.restTimer}>
+        <span className="rest-timer-inline-label">
+          {snapshot.labels.restTimer}
+        </span>
+        <div
+          className="rest-timer-pills"
+          role="group"
+          aria-label={snapshot.labels.restTimer}
+        >
           {snapshot.labels.restOptions.map((option) => {
-            const isActive = String(snapshot.values.rest.duration) === String(option.value);
+            const isActive =
+              String(snapshot.values.rest.duration) === String(option.value);
             return (
               <button
                 key={option.value}
@@ -495,7 +544,11 @@ function LogActiveIsland() {
 
       <div id="exercises-container">
         {snapshot.values.exercises.map((exercise) => (
-          <ExerciseCard key={exercise.uiKey} exercise={exercise} labels={snapshot.labels} />
+          <ExerciseCard
+            key={exercise.uiKey}
+            exercise={exercise}
+            labels={snapshot.labels}
+          />
         ))}
       </div>
 

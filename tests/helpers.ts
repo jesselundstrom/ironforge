@@ -17,8 +17,10 @@ export async function openApp(page: Page) {
 export async function bootstrapAppShell(page: Page) {
   await page.waitForFunction(() => typeof window.showPage === 'function');
   await page.waitForFunction(() => typeof window.loadData === 'function');
-  await page.waitForFunction(() => window.eval('Object.keys(PROGRAMS || {}).length > 0'));
-  await page.waitForFunction(() => window.eval("typeof window.initNutritionPage === 'function'"));
+  await page.waitForFunction(
+    () => typeof window.getCanonicalProgramId === 'function'
+  );
+  await page.waitForFunction(() => typeof window.initNutritionPage === 'function');
 
   await page.evaluate(() => {
     const suppressLoginUi = () => {
@@ -30,14 +32,20 @@ export async function bootstrapAppShell(page: Page) {
     window.showLoginScreen = suppressLoginUi;
     window.hideLoginScreen = suppressLoginUi;
     window.maybeOpenOnboarding = () => {};
-    window.eval("currentUser = { id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user', email: 'e2e@example.com' };");
+    currentUser = {
+      id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
+      email: 'e2e@example.com',
+    };
 
     suppressLoginUi();
     document.getElementById('onboarding-modal')?.classList.remove('active');
   });
 
   await page.evaluate(async () => {
-    await window.eval("loadData({ allowCloudSync: false, userId: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user' })");
+    await window.loadData({
+      allowCloudSync: false,
+      userId: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
+    });
   });
 
   await page.waitForFunction(() => {

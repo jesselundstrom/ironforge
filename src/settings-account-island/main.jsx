@@ -24,10 +24,13 @@ function getSnapshot() {
       backupHelp: 'Export saves all data as a JSON file. Import replaces all current data.',
       apiTitle: 'AI Nutrition Coach',
       apiHelp:
-        'Get your free API key at console.anthropic.com. The key is stored only on this device and is never synced to the cloud.',
+        'Get your API key at console.anthropic.com. It stays on this device, and nutrition requests are sent directly from this browser to Anthropic. Use a personal key and avoid shared devices.',
       apiLabel: 'Claude API Key',
       apiPlaceholder: 'sk-ant-...',
       apiSave: 'Save Key',
+      apiSavedHint:
+        'A key is already saved on this device. Enter a new one only if you want to replace it.',
+      apiClear: 'Remove Key',
       danger: 'Danger Zone',
       dangerDesc:
         'This permanently deletes all your workouts, programs, and settings. This cannot be undone.',
@@ -42,6 +45,7 @@ function getSnapshot() {
       language: 'en',
       backupContext: '',
       apiKey: '',
+      hasApiKey: false,
       appVersion: 'Ironforge v1.0.0',
       dangerOpen: false,
       dangerInput: '',
@@ -149,13 +153,27 @@ function SettingsAccountIsland() {
             onChange={(event) => updateField('apiKey', event.target.value)}
           />
         </div>
-        <button
-          className="btn btn-secondary"
-          type="button"
-          onClick={() => window.saveNutritionApiKey?.(formValues.apiKey)}
-        >
-          {labels.apiSave}
-        </button>
+        {values.hasApiKey ? (
+          <div className="settings-note settings-note-tight">{labels.apiSavedHint}</div>
+        ) : null}
+        <div className="settings-button-row">
+          <button
+            className="btn btn-secondary settings-row-button"
+            type="button"
+            onClick={() => window.saveNutritionApiKey?.(formValues.apiKey)}
+          >
+            {labels.apiSave}
+          </button>
+          {values.hasApiKey ? (
+            <button
+              className="btn btn-ghost settings-row-button"
+              type="button"
+              onClick={() => window.saveNutritionApiKey?.('', { clear: true })}
+            >
+              {labels.apiClear}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="card danger-zone-card">

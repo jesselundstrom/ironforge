@@ -316,7 +316,7 @@ function SetupCard() {
       <div className="nutrition-setup-desc">
         {t(
           'nutrition.setup.body',
-          'Add your Claude API key to use the Nutrition Coach. Your key is stored only on this device.'
+          'Add your Claude API key to use the Nutrition Coach. The key stays on this device, and nutrition requests are sent directly from this browser to Anthropic.'
         )}
       </div>
       <div className="account-field">
@@ -333,7 +333,10 @@ function SetupCard() {
         {t('nutrition.setup.save', 'Save & Start')}
       </button>
       <div className="nutrition-setup-desc" style={{ marginTop: 12, fontSize: 12 }}>
-        {t('nutrition.setup.help', 'Get your API key at console.anthropic.com')}
+        {t(
+          'nutrition.setup.help',
+          'Get your API key at console.anthropic.com. Use a personal key and avoid shared devices.'
+        )}
       </div>
     </div>
   );

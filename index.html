@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://api.anthropic.com https://koreqcjrpzcbfgkptvfx.supabase.co https://*.supabase.co wss://*.supabase.co; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    />
+    <meta
       name="viewport"
       id="app-viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
@@ -17,21 +21,6 @@
     <link rel="apple-touch-icon" href="icon-180.png" />
     <title>Ironforge</title>
     <link rel="manifest" href="manifest.json" />
-    <script>
-      (() => {
-        const isStandalone =
-          window.matchMedia('(display-mode: standalone)').matches ||
-          window.navigator.standalone === true;
-        if (!isStandalone) return;
-        const viewport = document.getElementById('app-viewport');
-        if (viewport) {
-          viewport.setAttribute(
-            'content',
-            'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover'
-          );
-        }
-      })();
-    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -78,7 +67,7 @@
         </div>
         <button
           class="rest-skip-btn"
-          onclick="skipRest()"
+          data-shell-action="skip-rest"
           data-i18n="common.skip"
         >
           Skip
@@ -100,7 +89,7 @@
             Rate overall effort (6 = easy, 10 = max)
           </div>
           <div class="rpe-grid" id="rpe-grid"></div>
-          <div class="rpe-skip" onclick="skipRPE()" data-i18n="common.skip">
+          <div class="rpe-skip" data-shell-action="skip-rpe" data-i18n="common.skip">
             Skip
           </div>
         </div>
@@ -123,7 +112,7 @@
             <button
               type="button"
               class="btn btn-secondary btn-sm"
-              onclick="confirmCancel()"
+              data-shell-action="confirm-cancel"
               data-i18n="modal.confirm.cancel"
             >
               Cancel
@@ -132,7 +121,7 @@
               type="button"
               class="btn btn-primary btn-sm"
               id="confirm-ok"
-              onclick="confirmOk()"
+              data-shell-action="confirm-ok"
               data-i18n="modal.confirm.ok"
             >
               Confirm
@@ -180,7 +169,7 @@
             <button
               class="btn btn-ghost btn-sm catalog-clear-btn"
               id="catalog-clear-btn"
-              onclick="clearExerciseCatalogFilters()"
+              data-shell-action="clear-exercise-catalog-filters"
               data-i18n="catalog.clear_filters"
             >
               Clear
@@ -204,7 +193,7 @@
           <div class="catalog-footer">
             <button
               class="btn btn-secondary"
-              onclick="closeNameModal()"
+              data-shell-action="close-name-modal"
               data-i18n="common.cancel"
             >
               Cancel
@@ -234,28 +223,32 @@
           <div class="sport-check-grid">
             <button
               class="btn btn-secondary sport-check-btn"
-              onclick="selectSportReadiness('none')"
+              data-shell-action="sport-readiness"
+              data-sport-readiness="none"
               data-i18n="workout.sport_check.none"
             >
               No
             </button>
             <button
               class="btn btn-secondary sport-check-btn"
-              onclick="selectSportReadiness('yesterday')"
+              data-shell-action="sport-readiness"
+              data-sport-readiness="yesterday"
               data-i18n="workout.sport_check.yesterday"
             >
               Yes, yesterday
             </button>
             <button
               class="btn btn-secondary sport-check-btn"
-              onclick="selectSportReadiness('tomorrow')"
+              data-shell-action="sport-readiness"
+              data-sport-readiness="tomorrow"
               data-i18n="workout.sport_check.tomorrow"
             >
               Yes, tomorrow
             </button>
             <button
               class="btn btn-secondary sport-check-btn"
-              onclick="selectSportReadiness('both')"
+              data-shell-action="sport-readiness"
+              data-sport-readiness="both"
               data-i18n="workout.sport_check.both"
             >
               Yes, both
@@ -264,7 +257,7 @@
           <button
             class="btn btn-ghost session-secondary-action"
             type="button"
-            onclick="cancelSportReadinessCheck()"
+            data-shell-action="cancel-sport-readiness"
             data-i18n="common.cancel"
           >
             Cancel
@@ -284,7 +277,7 @@
       <div
         class="modal-overlay"
         id="exercise-guide-modal"
-        onclick="closeExerciseGuide(event)"
+        data-shell-action="close-exercise-guide"
       >
         <div class="modal-sheet exercise-guide-sheet">
           <div class="modal-handle"></div>
@@ -303,7 +296,7 @@
           <button
             class="btn btn-ghost exercise-guide-sheet-close"
             type="button"
-            onclick="closeExerciseGuide()"
+            data-shell-action="close-exercise-guide"
             data-i18n="common.done"
           >
             Done
@@ -397,8 +390,8 @@
               type="button"
               role="tab"
               aria-selected="true"
+              data-shell-action="show-settings-tab"
               data-settings-tab="schedule"
-              onclick="showSettingsTab('schedule', this)"
               data-i18n="settings.tabs.my_sport"
             >
               My Sport
@@ -408,8 +401,8 @@
               type="button"
               role="tab"
               aria-selected="false"
+              data-shell-action="show-settings-tab"
               data-settings-tab="preferences"
-              onclick="showSettingsTab('preferences', this)"
               data-i18n="settings.tabs.training"
             >
               Training
@@ -419,8 +412,8 @@
               type="button"
               role="tab"
               aria-selected="false"
+              data-shell-action="show-settings-tab"
               data-settings-tab="program"
-              onclick="showSettingsTab('program', this)"
               data-i18n="settings.tabs.program"
             >
               Program
@@ -430,8 +423,8 @@
               type="button"
               role="tab"
               aria-selected="false"
+              data-shell-action="show-settings-tab"
               data-settings-tab="account"
-              onclick="showSettingsTab('account', this)"
               data-i18n="settings.tabs.app"
             >
               App
@@ -441,8 +434,8 @@
               type="button"
               role="tab"
               aria-selected="false"
+              data-shell-action="show-settings-tab"
               data-settings-tab="body"
-              onclick="showSettingsTab('body', this)"
               data-i18n="settings.tabs.body"
             >
               Body
@@ -487,8 +480,8 @@
         <button
           class="nav-btn active"
           type="button"
+          data-shell-action="show-page"
           data-page="dashboard"
-          onclick="showPage('dashboard', this)"
         >
           <svg
             viewBox="0 0 24 24"
@@ -506,8 +499,8 @@
         <button
           class="nav-btn"
           type="button"
+          data-shell-action="show-page"
           data-page="log"
-          onclick="showPage('log', this)"
         >
           <svg
             viewBox="0 0 24 24"
@@ -528,8 +521,8 @@
         <button
           class="nav-btn"
           type="button"
+          data-shell-action="show-page"
           data-page="history"
-          onclick="showPage('history', this)"
         >
           <svg
             viewBox="0 0 24 24"
@@ -544,8 +537,8 @@
         <button
           class="nav-btn"
           type="button"
+          data-shell-action="show-page"
           data-page="settings"
-          onclick="showPage('settings', this)"
         >
           <svg
             viewBox="0 0 24 24"
@@ -563,8 +556,8 @@
         <button
           class="nav-btn"
           type="button"
+          data-shell-action="show-page"
           data-page="nutrition"
-          onclick="showPage('nutrition', this)"
         >
           <svg
             viewBox="0 0 24 24"
@@ -607,14 +600,14 @@
           <div id="login-error"></div>
           <button
             class="btn-primary"
-            onclick="loginWithEmail()"
+            data-shell-action="login-with-email"
             data-i18n="login.sign_in"
           >
             Sign In
           </button>
           <button
             class="btn-secondary"
-            onclick="signUpWithEmail()"
+            data-shell-action="signup-with-email"
             data-i18n="login.create_account"
           >
             Create Account

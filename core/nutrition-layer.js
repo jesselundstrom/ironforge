@@ -657,7 +657,12 @@
     return localStorage.getItem(_apiKeyStorageKey()) || '';
   }
 
-  function saveNutritionApiKey(nextValue) {
+  function _looksLikeAnthropicApiKey(value) {
+    return /^sk-ant-[A-Za-z0-9_-]+$/i.test(String(value || '').trim());
+  }
+
+  function saveNutritionApiKey(nextValue, options) {
+    const opts = options || {};
     const inp = document.getElementById('nutrition-api-key-input');
     const val =
       typeof nextValue === 'string'
@@ -666,24 +671,42 @@
           ? inp.value.trim()
           : '';
     if (val) {
+      if (!_looksLikeAnthropicApiKey(val)) {
+        showToast(
+          tr(
+            'settings.claude_api_key.invalid',
+            'Enter a valid Claude API key'
+          ),
+          'var(--orange)'
+        );
+        return false;
+      }
       localStorage.setItem(_apiKeyStorageKey(), val);
       showToast(
         tr('settings.claude_api_key.saved', 'API key saved'),
         'var(--green)'
       );
-    } else {
+    } else if (opts.clear === true) {
       localStorage.removeItem(_apiKeyStorageKey());
       showToast(
         tr('settings.claude_api_key.cleared', 'API key removed'),
         'var(--muted)'
       );
+    } else {
+      showToast(
+        tr('nutrition.setup.empty', 'Enter an API key'),
+        'var(--orange)'
+      );
+      return false;
     }
+    if (inp) inp.value = '';
     if (typeof window.notifySettingsAccountIsland === 'function') {
       window.notifySettingsAccountIsland();
     }
     if (typeof window.initNutritionPage === 'function') {
       window.initNutritionPage();
     }
+    return true;
   }
 
   // ─── History management ───────────────────────────────────────────────────────
@@ -2016,7 +2039,7 @@
       '<path d="M7 11V7a5 5 0 0 1 10 0v4"/>' +
       '</svg></div>' +
       '<div class="nutrition-setup-desc" data-i18n="nutrition.setup.body">' +
-      'Add your Claude API key to use the Nutrition Coach. Your key is stored only on this device.' +
+      'Add your Claude API key to use the Nutrition Coach. The key stays on this device, and nutrition requests are sent directly from this browser to Anthropic.' +
       '</div>' +
       '<div class="account-field">' +
       '<label data-i18n="settings.claude_api_key.label">Claude API Key</label>' +
@@ -2025,7 +2048,7 @@
       '<button class="btn btn-primary" type="button" onclick="saveNutritionSetupKey()" data-i18n="nutrition.setup.save">' +
       'Save &amp; Start</button>' +
       '<div class="nutrition-setup-desc" style="margin-top:12px;font-size:12px;" data-i18n="nutrition.setup.help">' +
-      'Get your API key at console.anthropic.com</div>' +
+      'Get your API key at console.anthropic.com. Use a personal key and avoid shared devices.</div>' +
       '</div>'
     );
   }
@@ -2038,17 +2061,8 @@
       showToast(tr('nutrition.setup.empty', 'Enter an API key'), 'var(--red)');
       return;
     }
-    localStorage.setItem(_apiKeyStorageKey(), val);
-    // Also update the Settings input if it exists
-    var settingsInp = document.getElementById('nutrition-api-key-input');
-    if (settingsInp) settingsInp.value = val;
-    if (typeof window.notifySettingsAccountIsland === 'function') {
-      window.notifySettingsAccountIsland();
-    }
-    showToast(
-      tr('settings.claude_api_key.saved', 'API key saved'),
-      'var(--green)'
-    );
+    if (!saveNutritionApiKey(val)) return;
+    if (inp) inp.value = '';
     _renderMessages();
   }
 

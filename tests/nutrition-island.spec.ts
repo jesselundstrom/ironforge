@@ -165,7 +165,8 @@ test('nutrition island renders today session, guided actions, and can clear the 
   ).toBeVisible();
 
   await page.evaluate(() => {
-    window.eval('clearNutritionHistory(); confirmOk();');
+    clearNutritionHistory();
+    confirmOk();
   });
 
   await expect(page.locator('#nutrition-react-root .nutrition-today-card')).toHaveCount(0);
@@ -283,42 +284,40 @@ test('nutrition sends coaching context, renders structured JSON responses, and p
   await clearTodayNutrition(page);
   await page.evaluate(() => {
     localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-    window.eval(`
-      profile.bodyMetrics = {
-        weight: 82,
-        height: 180,
-        age: 30,
-        sex: 'male',
-        activityLevel: 'moderate',
-        bodyGoal: 'maintain'
-      };
-      profile.preferences = normalizeTrainingPreferences({
-        ...profile,
-        preferences: {
-          ...profile.preferences,
-          goal: 'sport_support',
-          trainingDaysPerWeek: 4,
-          sessionMinutes: 60,
-          equipmentAccess: 'full_gym',
-          notes: 'Avoid huge dinners before evening sport.'
-        }
-      });
-      profile.coaching = normalizeCoachingProfile({
-        ...profile,
-        coaching: {
-          ...profile.coaching,
-          guidanceMode: 'guided',
-          experienceLevel: 'returning',
-          sportProfile: {
-            ...profile.coaching.sportProfile,
-            inSeason: true
-          }
-        }
-      });
-      schedule.sportName = 'Hockey';
-      schedule.sportDays = [new Date().getDay()];
-      workouts = [];
-    `);
+    profile.bodyMetrics = {
+      weight: 82,
+      height: 180,
+      age: 30,
+      sex: 'male',
+      activityLevel: 'moderate',
+      bodyGoal: 'maintain',
+    };
+    profile.preferences = normalizeTrainingPreferences({
+      ...profile,
+      preferences: {
+        ...profile.preferences,
+        goal: 'sport_support',
+        trainingDaysPerWeek: 4,
+        sessionMinutes: 60,
+        equipmentAccess: 'full_gym',
+        notes: 'Avoid huge dinners before evening sport.',
+      },
+    });
+    profile.coaching = normalizeCoachingProfile({
+      ...profile,
+      coaching: {
+        ...profile.coaching,
+        guidanceMode: 'guided',
+        experienceLevel: 'returning',
+        sportProfile: {
+          ...profile.coaching.sportProfile,
+          inSeason: true,
+        },
+      },
+    });
+    schedule.sportName = 'Hockey';
+    schedule.sportDays = [new Date().getDay()];
+    workouts = [];
   });
 
   await openNutrition(page);

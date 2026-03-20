@@ -20,12 +20,12 @@ test('settings page stays usable after synced UI refresh', async ({ page }) => {
   await openAppShell(page);
 
   await page.evaluate(() => {
-    window.eval("showPage('settings')");
-    window.eval("showSettingsTab('account')");
+    window.showPage('settings');
+    showSettingsTab('account');
   });
 
   await page.evaluate(() => {
-    window.eval('refreshSyncedUI({ toast: false })');
+    refreshSyncedUI({ toast: false });
   });
 
   await expect(page.locator('#page-settings')).toHaveClass(/active/);
@@ -36,24 +36,20 @@ test('program advanced setup sheet stays scrollable', async ({ page }) => {
   await openAppShell(page);
 
   const result = await page.evaluate(() => {
-    return window.eval(`
-      (() => {
-        showPage('settings');
-        showSettingsTab('program');
-        profile.activeProgram = 'forge';
-        initSettings();
-        openProgramSetupSheet();
-        const sheet = document.querySelector('#program-setup-sheet .modal-sheet');
-        if(!sheet)return null;
-        const style = window.getComputedStyle(sheet);
-        return {
-          overflowY: style.overflowY,
-          touchAction: style.touchAction,
-          scrollHeight: sheet.scrollHeight,
-          clientHeight: sheet.clientHeight
-        };
-      })()
-    `);
+    window.showPage('settings');
+    showSettingsTab('program');
+    profile.activeProgram = 'forge';
+    initSettings();
+    openProgramSetupSheet();
+    const sheet = document.querySelector('#program-setup-sheet .modal-sheet');
+    if (!sheet) return null;
+    const style = window.getComputedStyle(sheet);
+    return {
+      overflowY: style.overflowY,
+      touchAction: style.touchAction,
+      scrollHeight: sheet.scrollHeight,
+      clientHeight: sheet.clientHeight,
+    };
   });
 
   expect(result).not.toBeNull();
@@ -66,22 +62,19 @@ test('forge advanced setup keeps only advanced controls', async ({ page }) => {
   await openAppShell(page);
 
   const result = await page.evaluate(() => {
-    return window.eval(`
-      (() => {
-        showPage('settings');
-        showSettingsTab('program');
-        profile.activeProgram = 'forge';
-        initSettings();
-        openProgramSetupSheet();
-        return {
-          hasMainLiftInput: !!document.getElementById('forge-advanced-main-tm-0'),
-          hasBackWeightInput: !!document.getElementById('forge-advanced-back-weight'),
-          hasAuxInput: !!document.getElementById('forge-advanced-aux-tm-0'),
-          hasModeSelect: !!document.getElementById('prog-mode'),
-          sheetText: document.getElementById('program-settings-container')?.textContent || ''
-        };
-      })()
-    `);
+    window.showPage('settings');
+    showSettingsTab('program');
+    profile.activeProgram = 'forge';
+    initSettings();
+    openProgramSetupSheet();
+    return {
+      hasMainLiftInput: !!document.getElementById('forge-advanced-main-tm-0'),
+      hasBackWeightInput: !!document.getElementById('forge-advanced-back-weight'),
+      hasAuxInput: !!document.getElementById('forge-advanced-aux-tm-0'),
+      hasModeSelect: !!document.getElementById('prog-mode'),
+      sheetText:
+        document.getElementById('program-settings-container')?.textContent || '',
+    };
   });
 
   expect(result?.hasMainLiftInput).toBe(false);
@@ -96,26 +89,24 @@ test('mobile forge program setup keeps the save action above the bottom nav', as
   await openAppShell(page);
 
   const result = await page.evaluate(() => {
-    return window.eval(`
-      (() => {
-        showPage('settings');
-        showSettingsTab('program');
-        profile.activeProgram = 'forge';
-        initSettings();
-        openProgramSetupSheet();
-        const sheet = document.querySelector('#program-setup-sheet .modal-sheet');
-        const button = document.querySelector('#program-setup-sheet .program-setup-save-btn');
-        const nav = document.querySelector('.bottom-nav');
-        if(!sheet || !button || !nav)return null;
-        sheet.scrollTop = sheet.scrollHeight;
-        const buttonRect = button.getBoundingClientRect();
-        const navRect = nav.getBoundingClientRect();
-        return {
-          buttonBottom: buttonRect.bottom,
-          navTop: navRect.top
-        };
-      })()
-    `);
+    window.showPage('settings');
+    showSettingsTab('program');
+    profile.activeProgram = 'forge';
+    initSettings();
+    openProgramSetupSheet();
+    const sheet = document.querySelector('#program-setup-sheet .modal-sheet');
+    const button = document.querySelector(
+      '#program-setup-sheet .program-setup-save-btn'
+    );
+    const nav = document.querySelector('.bottom-nav');
+    if (!sheet || !button || !nav) return null;
+    sheet.scrollTop = sheet.scrollHeight;
+    const buttonRect = button.getBoundingClientRect();
+    const navRect = nav.getBoundingClientRect();
+    return {
+      buttonBottom: buttonRect.bottom,
+      navTop: navRect.top,
+    };
   });
 
   expect(result).not.toBeNull();
