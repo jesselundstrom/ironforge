@@ -145,6 +145,13 @@ test('2-of-3 too_hard biases decision toward train_light', async ({ page }) => {
     const forgeState = JSON.parse(JSON.stringify(window.eval('PROGRAMS.forge.getInitialState()')));
     window.eval(`
       workouts = ${JSON.stringify(workoutSeeds)};
+      profile.preferences = normalizeTrainingPreferences({
+        ...profile,
+        preferences: {
+          ...profile.preferences,
+          trainingDaysPerWeek: 6
+        }
+      });
       profile.activeProgram = 'forge';
       profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
     `);
@@ -187,10 +194,10 @@ test('duration friction biases decision toward shorten', async ({ page }) => {
   await openAppShell(page);
 
   const seeds = [
-    makeWorkout(1, 6, { durationSignal: 'on_target' }),
-    makeWorkout(2, 4, { durationSignal: 'too_long' }),
-    makeWorkout(3, 2, { durationSignal: 'too_long' }),
-    makeWorkout(4, 1, { durationSignal: 'on_target' })
+    makeWorkout(1, 14, { durationSignal: 'on_target' }),
+    makeWorkout(2, 12, { durationSignal: 'too_long' }),
+    makeWorkout(3, 10, { durationSignal: 'too_long' }),
+    makeWorkout(4, 8, { durationSignal: 'on_target' })
   ];
 
   await page.evaluate((workoutSeeds) => {

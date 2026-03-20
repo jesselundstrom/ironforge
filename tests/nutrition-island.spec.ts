@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { openAppShell, reloadAppShell } from './helpers';
 
+test.describe.configure({ mode: 'serial' });
+
 function buildAnthropicSseResponse(text: string) {
   return [
     `data: ${JSON.stringify({

@@ -34,9 +34,7 @@ export async function bootstrapAppShell(page: Page) {
     await window.eval("loadData({ allowCloudSync: false, userId: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user' })");
   });
 
-  await page.waitForFunction(
-    () => typeof window.syncRuntimeStoreFromLegacy === 'function'
-  );
+  await page.waitForFunction(() => window.__IRONFORGE_APP_SHELL_READY__ === true);
 }
 
 export async function openAppShell(page: Page) {
