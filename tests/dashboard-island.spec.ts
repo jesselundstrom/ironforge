@@ -35,6 +35,92 @@ test('dashboard island renders from the legacy bridge and removes the fallback s
   await expect(page.locator('#dashboard-react-root .dashboard-section')).toHaveCount(4);
   await expect(page.locator('#dashboard-react-root .lift-stat').first()).toBeVisible();
   await expect(page.locator('#today-status')).toContainText(/treeni kirjattu|workout/i);
+  await expect(page.locator('.dashboard-plan-summary-title')).toBeVisible();
+  await expect(page.locator('.dashboard-plan-primary-metric-value')).toBeVisible();
+});
+
+test('dashboard rhythm card shows summary, featured metric, and supporting signals', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    const forgeState = JSON.parse(JSON.stringify(window.eval('PROGRAMS.forge.getInitialState()')));
+    const today = new Date();
+    const seeds = Array.from({ length: 5 }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - index * 2);
+      return {
+        id: 520 + index,
+        date: date.toISOString(),
+        program: 'forge',
+        type: 'forge',
+        programDayNum: (index % 3) + 1,
+        programMeta: { week: 2 },
+        programLabel: `Forge Day ${(index % 3) + 1}`,
+        duration: 1800,
+        rpe: 7,
+        exercises: [
+          {
+            name: 'Bench Press',
+            sets: [{ weight: 80 + index * 2.5, reps: 5, done: true }],
+          },
+        ],
+      };
+    });
+
+    window.eval(`
+      workouts = ${JSON.stringify(seeds)};
+      profile.activeProgram = 'forge';
+      profile.preferences = { ...(profile.preferences || {}), trainingDaysPerWeek: 4 };
+      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
+      updateDashboard();
+      showPage('dashboard', document.querySelectorAll('.nav-btn')[0]);
+    `);
+  });
+
+  await expect(page.locator('.dashboard-plan-summary-title')).not.toBeEmpty();
+  await expect(page.locator('.dashboard-plan-summary-body')).not.toBeEmpty();
+  await expect(page.locator('.dashboard-plan-primary-metric-value')).toContainText('%');
+  await expect(page.locator('.dashboard-plan-support-chip')).toHaveCount(2);
+  await expect(page.locator('.dashboard-plan-insight-row')).toHaveCount(2);
+});
+
+test('dashboard rhythm card keeps sparse states compact', async ({ page }) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    const forgeState = JSON.parse(JSON.stringify(window.eval('PROGRAMS.forge.getInitialState()')));
+    const date = new Date();
+    date.setDate(date.getDate() - 20);
+
+    window.eval(`
+      workouts = [{
+        id: 610,
+        date: '${date.toISOString()}',
+        program: 'forge',
+        type: 'forge',
+        programDayNum: 1,
+        programMeta: { week: 1 },
+        programLabel: 'Forge Day 1',
+        duration: 1800,
+        rpe: 7,
+        exercises: [{
+          name: 'Bench Press',
+          sets: [{ weight: 60, reps: 5, done: true }]
+        }]
+      }];
+      profile.activeProgram = 'forge';
+      profile.preferences = { ...(profile.preferences || {}), trainingDaysPerWeek: 3 };
+      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
+      updateDashboard();
+      showPage('dashboard', document.querySelectorAll('.nav-btn')[0]);
+    `);
+  });
+
+  await expect(page.locator('.dashboard-plan-primary-metric-value')).toContainText('%');
+  await expect(page.locator('.dashboard-plan-support-chip')).toHaveCount(1);
+  await expect(page.locator('.dashboard-plan-insight-row')).toHaveCount(1);
 });
 
 test('dashboard island keeps week strip detail toggling working', async ({ page }) => {

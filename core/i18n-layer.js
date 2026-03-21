@@ -314,7 +314,7 @@ function daysSince(dateStr) {
       'dashboard.insights.keep_going': 'Keep going',
       'dashboard.insights.adherence': '30d adherence',
       'dashboard.insights.best_days': 'Best days',
-      'dashboard.insights.best_days_line': 'You train most often on {days}.',
+      'dashboard.insights.best_days_line': 'You naturally land most sessions on {days}.',
       'dashboard.insights.sessions_90': '90d sessions',
       'dashboard.insights.friction': 'Friction flags',
       'dashboard.insights.state.continue': 'On track',
@@ -1063,10 +1063,29 @@ function daysSince(dateStr) {
       'dashboard.pref.equipment.minimal':
         'Equipment is limited, so treat today as a minimum effective dose and swap freely when needed.',
       'workout.today.coach_note': 'Coach note',
-      'workout.today.block_stats': 'Trends',
-      'workout.today.last_30_days': 'Last 30 days',
+      'workout.today.block_stats': 'Training rhythm',
+      'workout.today.last_30_days': 'How the last 30 days have looked',
       'workout.today.recovery_status': 'Recovery status',
       'workout.today.stats.progress': 'PR growth',
+      'dashboard.trends.primary.label': 'On-plan days',
+      'dashboard.trends.primary.sublabel_fallback':
+        'Keep stacking ordinary weeks and the picture will sharpen.',
+      'dashboard.trends.progress_up': 'Strength moving',
+      'dashboard.trends.progress_down': 'Strength dipped',
+      'dashboard.trends.progress_flat': 'Strength steady',
+      'dashboard.trends.sessions': 'Recent sessions',
+      'dashboard.trends.best_days': 'Most natural days',
+      'dashboard.trends.friction': 'Friction points',
+      'dashboard.trends.summary.building.title': 'Your routine is still taking shape',
+      'dashboard.trends.summary.building.body':
+        'There is enough here to start reading your pattern, but a few steadier weeks will tell a much clearer story.',
+      'dashboard.trends.summary.stable.title': 'Your training rhythm is working',
+      'dashboard.trends.summary.stable.body':
+        'You are showing up often enough to build momentum, and the recent signals point in the right direction.',
+      'dashboard.trends.summary.fragile.title':
+        'There is good work here, but the rhythm is fragile',
+      'dashboard.trends.summary.fragile.body':
+        'The base is there, but the recent pattern still looks uneven enough that consistency matters more than pushing harder.',
       'dashboard.muscle_load.recent': 'Recent muscle load',
       'dashboard.muscle_load.light': 'Light',
       'dashboard.muscle_load.moderate': 'Moderate',
@@ -1897,7 +1916,7 @@ function daysSince(dateStr) {
       'dashboard.insights.keep_going': 'Jatka samalla linjalla',
       'dashboard.insights.adherence': '30 pv toteuma',
       'dashboard.insights.best_days': 'Parhaat päivät',
-      'dashboard.insights.best_days_line': 'Treenaat useimmiten {days}.',
+      'dashboard.insights.best_days_line': 'Treenit osuvat luontevimmin {days}.',
       'dashboard.insights.sessions_90': '90 pv treenit',
       'dashboard.insights.friction': 'Kitkasignaalit',
       'dashboard.insights.state.continue': 'Raiteilla',
@@ -2659,10 +2678,29 @@ function daysSince(dateStr) {
       'dashboard.pref.equipment.minimal':
         'Välineitä on vähän, joten pidä treeni minimitehokkaana annoksena ja vaihda liikkeitä vapaasti tarvittaessa.',
       'workout.today.coach_note': 'Valmentajan huomio',
-      'workout.today.block_stats': 'Trendit',
-      'workout.today.last_30_days': 'Viimeiset 30 päivää',
+      'workout.today.block_stats': 'Treenirytmi',
+      'workout.today.last_30_days': 'Miltä viimeiset 30 päivää näyttävät',
       'workout.today.recovery_status': 'Palautumistilanne',
       'workout.today.stats.progress': 'PR-kasvu',
+      'dashboard.trends.primary.label': 'Suunnitelmassa pysyminen',
+      'dashboard.trends.primary.sublabel_fallback':
+        'Kun saat alle vielä pari tasaista viikkoa, suunta alkaa näkyä kunnolla.',
+      'dashboard.trends.progress_up': 'Voima menossa eteenpäin',
+      'dashboard.trends.progress_down': 'Voima sakkasi vähän',
+      'dashboard.trends.progress_flat': 'Voima pysynyt tasaisena',
+      'dashboard.trends.sessions': 'Treenejä viime aikoina',
+      'dashboard.trends.best_days': 'Luontevimmat treenipäivät',
+      'dashboard.trends.friction': 'Kitkakohtia',
+      'dashboard.trends.summary.building.title': 'Rutiini on vielä rakenteilla',
+      'dashboard.trends.summary.building.body':
+        'Data alkaa jo kertoa jotain, mutta muutama tasaisempi viikko tekee rytmistä paljon selkeämmän.',
+      'dashboard.trends.summary.stable.title': 'Treenirytmi näyttää toimivan',
+      'dashboard.trends.summary.stable.body':
+        'Saat treenejä kasaan tarpeeksi usein, ja viime aikojen merkit tukevat hyvää suuntaa.',
+      'dashboard.trends.summary.fragile.title':
+        'Hyvää tekemistä näkyy, mutta rytmi horjuu vielä',
+      'dashboard.trends.summary.fragile.body':
+        'Pohja on olemassa, mutta viime viikkojen kuvio on vielä sen verran epätasainen, että tasaisuus ratkaisee enemmän kuin lisäpaino.',
       'dashboard.muscle_load.recent': 'Viimeaikainen lihaskuorma',
       'dashboard.muscle_load.light': 'Kevyt',
       'dashboard.muscle_load.moderate': 'Kohtalainen',
