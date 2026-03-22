@@ -3,34 +3,23 @@ import type { Page } from '@playwright/test';
 import { openAppShell, reloadAppShell } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
+const NUTRITION_FUNCTION_URL =
+  'https://koreqcjrpzcbfgkptvfx.supabase.co/functions/v1/nutrition-coach';
 
 const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WnS6jQAAAAASUVORK5CYII=',
   'base64'
 );
 
-function buildAnthropicSseResponse(
-  text: string,
+function buildNutritionFunctionResponse(
+  body: Record<string, unknown>,
   usage?: { input_tokens: number; output_tokens: number }
 ) {
-  const events = [
-    `data: ${JSON.stringify({
-      type: 'content_block_delta',
-      delta: { text },
-    })}`,
-  ];
-
-  if (usage) {
-    events.push(
-      `data: ${JSON.stringify({
-        type: 'message_delta',
-        usage,
-      })}`
-    );
-  }
-
-  events.push('data: [DONE]', '');
-  return events.join('\n');
+  return JSON.stringify({
+    model: 'claude-haiku-4-5',
+    usage: usage || null,
+    ...body,
+  });
 }
 
 async function seedNutritionHistory(page: Page, entries: unknown[]) {
@@ -46,7 +35,6 @@ async function clearTodayNutrition(page: Page) {
   await page.evaluate(() => {
     const stamp = new Date().toISOString().slice(0, 10);
     const key = `ic_nutrition_day::e2e-user::${stamp}`;
-    localStorage.removeItem('ic_nutrition_key');
     localStorage.removeItem('ic_nutrition_history::e2e-user');
     localStorage.removeItem(key);
   });
@@ -61,7 +49,6 @@ async function seedYesterdayOnly(page: Page) {
     const todayKey = `ic_nutrition_day::e2e-user::${todayStamp}`;
     const yesterdayKey = `ic_nutrition_day::e2e-user::${yesterdayStamp}`;
 
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
     localStorage.removeItem(todayKey);
     localStorage.removeItem('ic_nutrition_history::e2e-user');
     localStorage.setItem(
@@ -111,12 +98,28 @@ async function openMealEntryPicker(page: Page) {
   await expect(page.locator('.nc-photo-picker-sheet')).toBeVisible();
 }
 
-test('nutrition island renders the setup card when no API key is present', async ({
+test('nutrition island renders the setup card when the user is signed out', async ({
   page,
 }) => {
   await openAppShell(page);
 
   await clearTodayNutrition(page);
+  await page.evaluate(() => {
+    const runtimeWindow = window as Window & {
+      __IRONFORGE_SUPABASE__?: {
+        auth?: {
+          getSession?: () => Promise<unknown>;
+        };
+      };
+    };
+    currentUser = null;
+    if (runtimeWindow.__IRONFORGE_SUPABASE__?.auth) {
+      runtimeWindow.__IRONFORGE_SUPABASE__.auth.getSession = async () => ({
+        data: { session: null },
+        error: null,
+      });
+    }
+  });
   await openNutrition(page);
 
   await expect(page.locator('#nutrition-legacy-shell')).toHaveCount(0);
@@ -124,7 +127,7 @@ test('nutrition island renders the setup card when no API key is present', async
     page.locator('#nutrition-react-root .nutrition-setup-card')
   ).toBeVisible();
   await expect(
-    page.locator('#nutrition-react-root #nutrition-setup-key-input')
+    page.getByRole('button', { name: /sign in to continue/i })
   ).toBeVisible();
   await expect(page.locator('.header')).toBeHidden();
   await expect(
@@ -137,9 +140,6 @@ test('nutrition island renders today session, guided actions, and can clear the 
 }) => {
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await seedNutritionHistory(page, [
     {
       role: 'user',
@@ -200,14 +200,105 @@ test("nutrition ignores yesterday's history and starts fresh for today", async (
   );
 });
 
+test('nutrition logout clears local nutrition data and leaves the signed-out setup state', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await seedNutritionHistory(page, [
+    {
+      role: 'assistant',
+      text: 'Protein: 40g',
+      timestamp: Date.now() - 30_000,
+    },
+  ]);
+  await page.evaluate(async () => {
+    const runtimeWindow = window as Window & {
+      logout?: () => Promise<void>;
+      __IRONFORGE_SUPABASE__?: {
+        auth?: {
+          getSession?: () => Promise<unknown>;
+          signOut?: () => Promise<unknown>;
+        };
+      };
+    };
+    localStorage.setItem('ic_nutrition_trace', '1');
+    if (runtimeWindow.__IRONFORGE_SUPABASE__?.auth) {
+      runtimeWindow.__IRONFORGE_SUPABASE__.auth.getSession = async () => ({
+        data: { session: null },
+        error: null,
+      });
+      runtimeWindow.__IRONFORGE_SUPABASE__.auth.signOut = async () => ({
+        error: null,
+      });
+    }
+    await runtimeWindow.logout?.();
+  });
+
+  const storageState = await page.evaluate(() => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    return {
+      trace: localStorage.getItem('ic_nutrition_trace'),
+      history: localStorage.getItem('ic_nutrition_history::e2e-user'),
+      dayHistory: localStorage.getItem(`ic_nutrition_day::e2e-user::${stamp}`),
+      currentUserId: currentUser?.id ?? null,
+    };
+  });
+
+  expect(storageState).toEqual({
+    trace: null,
+    history: null,
+    dayHistory: null,
+    currentUserId: null,
+  });
+
+  await openNutrition(page);
+  await expect(
+    page.locator('#nutrition-react-root .nutrition-setup-card')
+  ).toBeVisible();
+});
+
+test('nutrition clear all data removes nutrition local keys too', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await seedNutritionHistory(page, [
+    {
+      role: 'assistant',
+      text: 'Protein: 40g',
+      timestamp: Date.now() - 30_000,
+    },
+  ]);
+  await page.evaluate(async () => {
+    const runtimeWindow = window as Window & {
+      clearAllData?: () => Promise<void>;
+    };
+    localStorage.setItem('ic_nutrition_trace', '1');
+    await runtimeWindow.clearAllData?.();
+  });
+
+  const storageState = await page.evaluate(() => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    return {
+      trace: localStorage.getItem('ic_nutrition_trace'),
+      history: localStorage.getItem('ic_nutrition_history::e2e-user'),
+      dayHistory: localStorage.getItem(`ic_nutrition_day::e2e-user::${stamp}`),
+    };
+  });
+
+  expect(storageState).toEqual({
+    trace: null,
+    history: null,
+    dayHistory: null,
+  });
+});
+
 test('nutrition layout keeps the action tray inside the shell when app viewport height shrinks', async ({
   page,
 }) => {
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await seedNutritionHistory(page, [
     {
       role: 'user',
@@ -264,38 +355,35 @@ test('nutrition layout keeps the action tray inside the shell when app viewport 
 test('nutrition sends coaching context, renders structured JSON responses, and persists them after reload', async ({
   page,
 }) => {
-  let capturedSystem = '';
+  let capturedTrainingContext = '';
 
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     const body = route.request().postDataJSON();
-    capturedSystem = String(body?.system || '');
+    capturedTrainingContext = String(body?.trainingContext || '');
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
-          display_markdown:
-            '## Next move\n- **Protein** is on pace.\n- Add fruit and oats around training.',
-          estimated_macros: {
-            calories: 640,
-            protein_g: 42,
-            carbs_g: 68,
-            fat_g: 18,
-          },
-          remaining_today: {
-            calories: 1800,
-            protein_g: 118,
-          },
-          tags: ['sport_day', 'training_fuel'],
-        })
-      ),
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse({
+        display_markdown:
+          '## Next move\n- **Protein** is on pace.\n- Add fruit and oats around training.',
+        estimated_macros: {
+          calories: 640,
+          protein_g: 42,
+          carbs_g: 68,
+          fat_g: 18,
+        },
+        remaining_today: {
+          calories: 1800,
+          protein_g: 118,
+        },
+        tags: ['sport_day', 'training_fuel'],
+      }),
     });
   });
 
   await openAppShell(page);
   await clearTodayNutrition(page);
   await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
     profile.bodyMetrics = {
       weight: 82,
       height: 180,
@@ -350,13 +438,13 @@ test('nutrition sends coaching context, renders structured JSON responses, and p
   await expect(
     page.locator('#nutrition-react-root .nutrition-today-card')
   ).toContainText('42g');
-  expect(capturedSystem).toContain('Daily coaching snapshot:');
-  expect(capturedSystem).toContain('"guidance_mode":"guided"');
-  expect(capturedSystem).toContain('"in_season":true');
-  expect(capturedSystem).toContain(
+  expect(capturedTrainingContext).toContain('Daily coaching snapshot:');
+  expect(capturedTrainingContext).toContain('"guidance_mode":"guided"');
+  expect(capturedTrainingContext).toContain('"in_season":true');
+  expect(capturedTrainingContext).toContain(
     '"user_notes":"Avoid huge dinners before evening sport."'
   );
-  expect(capturedSystem).toContain('Scheduled sport today: yes');
+  expect(capturedTrainingContext).toContain('Scheduled sport today: yes');
 
   await reloadAppShell(page);
   await page.evaluate(() => {
@@ -382,37 +470,34 @@ test('nutrition sends coaching context, renders structured JSON responses, and p
 test('nutrition consumes post-workout session context on the first send only', async ({
   page,
 }) => {
-  const capturedSystems: string[] = [];
+  const capturedTrainingContexts: string[] = [];
 
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     const body = route.request().postDataJSON();
-    capturedSystems.push(String(body?.system || ''));
+    capturedTrainingContexts.push(String(body?.trainingContext || ''));
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
-          display_markdown: '## Next move\n- Protein first.',
-          estimated_macros: {
-            calories: 420,
-            protein_g: 35,
-            carbs_g: 38,
-            fat_g: 14,
-          },
-          remaining_today: {
-            calories: 1600,
-            protein_g: 100,
-          },
-          tags: ['post_workout'],
-        })
-      ),
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse({
+        display_markdown: '## Next move\n- Protein first.',
+        estimated_macros: {
+          calories: 420,
+          protein_g: 35,
+          carbs_g: 38,
+          fat_g: 14,
+        },
+        remaining_today: {
+          calories: 1600,
+          protein_g: 100,
+        },
+        tags: ['post_workout'],
+      }),
     });
   });
 
   await openAppShell(page);
   await clearTodayNutrition(page);
   await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
     window.setNutritionSessionContext?.({
       duration: 3600,
       exerciseCount: 4,
@@ -438,10 +523,10 @@ test('nutrition consumes post-workout session context on the first send only', a
     page.locator('#nutrition-react-root .nutrition-msg-coach')
   ).toHaveCount(2);
 
-  expect(capturedSystems[0]).toContain(
+  expect(capturedTrainingContexts[0]).toContain(
     'The user just finished a training session (duration: 60 min, 4 exercises, 12500 kg total volume, RPE: 8).'
   );
-  expect(capturedSystems[1]).not.toContain(
+  expect(capturedTrainingContexts[1]).not.toContain(
     'The user just finished a training session'
   );
 });
@@ -449,12 +534,12 @@ test('nutrition consumes post-workout session context on the first send only', a
 test('nutrition records request trace metrics and token usage without changing the rendered response', async ({
   page,
 }) => {
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse(
+        {
           display_markdown:
             '## Next move\n- **Protein** is on pace.\n- Add fruit and oats around training.',
           estimated_macros: {
@@ -468,7 +553,7 @@ test('nutrition records request trace metrics and token usage without changing t
             protein_g: 118,
           },
           tags: ['sport_day', 'training_fuel'],
-        }),
+        },
         {
           input_tokens: 812,
           output_tokens: 96,
@@ -479,9 +564,6 @@ test('nutrition records request trace metrics and token usage without changing t
 
   await openAppShell(page);
   await clearTodayNutrition(page);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
   await page
     .locator(
@@ -512,8 +594,8 @@ test('nutrition records request trace metrics and token usage without changing t
   expect(trace).toMatchObject({
     actionId: 'plan_today',
     hasImage: false,
-    model: 'claude-haiku-4-5-20251001',
-    parseSource: 'direct-json',
+    model: 'claude-haiku-4-5',
+    parseSource: 'structured',
     success: true,
     usage: {
       input_tokens: 812,
@@ -522,31 +604,101 @@ test('nutrition records request trace metrics and token usage without changing t
   });
   expect(trace?.stages?.preflightMs).toBeGreaterThanOrEqual(0);
   expect(trace?.stages?.requestMs).toBeGreaterThanOrEqual(0);
-  expect(trace?.stages?.streamMs).toBeGreaterThanOrEqual(0);
   expect(trace?.stages?.modelMs).toBeGreaterThanOrEqual(0);
   expect(trace?.stages?.parseMs).toBeGreaterThanOrEqual(0);
   expect(trace?.stages?.renderMs).toBeGreaterThanOrEqual(0);
   expect(trace?.requestPayloadChars).toBeGreaterThan(0);
 });
 
-test('nutrition falls back to plain text when Claude returns malformed JSON and still extracts macros', async ({
+test('nutrition shows a stable error when the daily backend rate limit is reached', async ({
   page,
 }) => {
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        'Protein: 31g\nCarbs: 47g\nFat: 12g\nCalories: 410\n\nGood quick meal. Add vegetables later.'
-      ),
+      status: 429,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: {
+          code: 'rate_limit',
+          message: 'Rate limit reached - wait a moment and try again.',
+        },
+      }),
     });
   });
 
   await openAppShell(page);
   await clearTodayNutrition(page);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
+  await openNutrition(page);
+  await page
+    .locator(
+      '#nutrition-react-root .nutrition-action-card[data-nc-action="plan_today"]'
+    )
+    .click();
+
+  await expectNutritionCoachResponse(
+    page,
+    /rate limit reached|pyyntöraja saavutettu/i
+  );
+  await expect(
+    page.locator('#nutrition-react-root .nutrition-retry-btn')
+  ).toBeVisible();
+});
+
+test('nutrition shows the oversized photo error when the backend rejects a photo upload', async ({
+  page,
+}) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
+    await route.fulfill({
+      status: 413,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        error: {
+          code: 'request_too_large',
+          message:
+            'That photo is too large. Choose a smaller image and try again.',
+        },
+      }),
+    });
   });
+
+  await openAppShell(page);
+  await clearTodayNutrition(page);
+  await openNutrition(page);
+
+  await openMealEntryPicker(page);
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Picture food' }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles({
+    name: 'camera-meal.png',
+    mimeType: 'image/png',
+    buffer: TINY_PNG,
+  });
+
+  await expectNutritionCoachResponse(
+    page,
+    /photo is too large|kuva on liian suuri/i
+  );
+});
+
+test('nutrition falls back to plain text when Claude returns malformed JSON and still extracts macros', async ({
+  page,
+}) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        usage: null,
+        raw_text:
+          'Protein: 31g\nCarbs: 47g\nFat: 12g\nCalories: 410\n\nGood quick meal. Add vegetables later.',
+      }),
+    });
+  });
+
+  await openAppShell(page);
+  await clearTodayNutrition(page);
   await openNutrition(page);
   await page
     .locator(
@@ -570,27 +722,22 @@ test('nutrition action card submits immediately on tap without send button', asy
 }) => {
   let requestCount = 0;
 
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     requestCount++;
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
-          display_markdown: 'Here is your meal plan.',
-          estimated_macros: null,
-          remaining_today: null,
-          tags: [],
-        })
-      ),
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse({
+        display_markdown: 'Here is your meal plan.',
+        estimated_macros: null,
+        remaining_today: null,
+        tags: [],
+      }),
     });
   });
 
   await openAppShell(page);
   await clearTodayNutrition(page);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
 
   // Tap action card directly — no send button click needed
@@ -608,9 +755,6 @@ test('nutrition meal entry picker opens from the composer CTA and shows all opti
 }) => {
   await openAppShell(page);
   await clearTodayNutrition(page);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
 
   await openMealEntryPicker(page);
@@ -632,38 +776,33 @@ test('nutrition meal entry camera option opens the camera input and sends the ph
   let capturedInputId = '';
   let hasImagePart = false;
 
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     const body = route.request().postDataJSON();
     const lastMsg = body?.messages?.[body.messages.length - 1];
     const content = Array.isArray(lastMsg?.content) ? lastMsg.content : [];
     hasImagePart = content.some((part: { type?: string }) => part?.type === 'image');
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
-          display_markdown: 'Photo logged from camera.',
-          estimated_macros: {
-            calories: 420,
-            protein_g: 28,
-            carbs_g: 31,
-            fat_g: 15,
-          },
-          remaining_today: {
-            calories: 1580,
-            protein_g: 132,
-          },
-          tags: [],
-        })
-      ),
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse({
+        display_markdown: 'Photo logged from camera.',
+        estimated_macros: {
+          calories: 420,
+          protein_g: 28,
+          carbs_g: 31,
+          fat_g: 15,
+        },
+        remaining_today: {
+          calories: 1580,
+          protein_g: 132,
+        },
+        tags: [],
+      }),
     });
   });
 
   await openAppShell(page);
   await clearTodayNutrition(page);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
 
   await openMealEntryPicker(page);
@@ -690,38 +829,33 @@ test('nutrition meal entry library option opens the library input and sends the 
   let capturedInputId = '';
   let hasImagePart = false;
 
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     const body = route.request().postDataJSON();
     const lastMsg = body?.messages?.[body.messages.length - 1];
     const content = Array.isArray(lastMsg?.content) ? lastMsg.content : [];
     hasImagePart = content.some((part: { type?: string }) => part?.type === 'image');
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
-          display_markdown: 'Photo logged from library.',
-          estimated_macros: {
-            calories: 390,
-            protein_g: 24,
-            carbs_g: 42,
-            fat_g: 10,
-          },
-          remaining_today: {
-            calories: 1610,
-            protein_g: 136,
-          },
-          tags: [],
-        })
-      ),
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse({
+        display_markdown: 'Photo logged from library.',
+        estimated_macros: {
+          calories: 390,
+          protein_g: 24,
+          carbs_g: 42,
+          fat_g: 10,
+        },
+        remaining_today: {
+          calories: 1610,
+          protein_g: 136,
+        },
+        tags: [],
+      }),
     });
   });
 
   await openAppShell(page);
   await clearTodayNutrition(page);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
 
   await openMealEntryPicker(page);
@@ -747,7 +881,7 @@ test('nutrition meal entry text option opens the shared sheet and sends typed fo
 }) => {
   let capturedUserText = '';
 
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     const body = route.request().postDataJSON();
     const lastMsg = body?.messages?.[body.messages.length - 1];
     const content = lastMsg?.content;
@@ -760,31 +894,26 @@ test('nutrition meal entry text option opens the shared sheet and sends typed fo
           : '';
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
-          display_markdown: 'Typed meal logged.',
-          estimated_macros: {
-            calories: 510,
-            protein_g: 36,
-            carbs_g: 48,
-            fat_g: 18,
-          },
-          remaining_today: {
-            calories: 1490,
-            protein_g: 124,
-          },
-          tags: [],
-        })
-      ),
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse({
+        display_markdown: 'Typed meal logged.',
+        estimated_macros: {
+          calories: 510,
+          protein_g: 36,
+          carbs_g: 48,
+          fat_g: 18,
+        },
+        remaining_today: {
+          calories: 1490,
+          protein_g: 124,
+        },
+        tags: [],
+      }),
     });
   });
 
   await openAppShell(page);
   await clearTodayNutrition(page);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
 
   await openMealEntryPicker(page);
@@ -804,7 +933,7 @@ test('nutrition correction row appears inline after photo analysis and sends typ
 }) => {
   let capturedUserText = '';
 
-  await page.route('https://api.anthropic.com/v1/messages', async (route) => {
+  await page.route(NUTRITION_FUNCTION_URL, async (route) => {
     const body = route.request().postDataJSON();
     const lastMsg = body?.messages?.[body.messages.length - 1];
     const content = lastMsg?.content;
@@ -817,15 +946,13 @@ test('nutrition correction row appears inline after photo analysis and sends typ
           : '';
     await route.fulfill({
       status: 200,
-      contentType: 'text/event-stream',
-      body: buildAnthropicSseResponse(
-        JSON.stringify({
+      contentType: 'application/json',
+      body: buildNutritionFunctionResponse({
           display_markdown: 'Updated — noted.',
           estimated_macros: null,
           remaining_today: null,
           tags: [],
-        })
-      ),
+        }),
     });
   });
 
@@ -850,9 +977,6 @@ test('nutrition correction row appears inline after photo analysis and sends typ
       model: 'claude-sonnet-4-6',
     },
   ]);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
 
   // Open the correction sheet from the trigger in the message list.
@@ -892,9 +1016,6 @@ test('nutrition correction input stays visible when the viewport shrinks after f
       model: 'claude-sonnet-4-6',
     },
   ]);
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
   await openNutrition(page);
 
   await expect(page.locator('.nc-correction-trigger')).toBeVisible();

@@ -107,10 +107,6 @@ declare global {
 
   function initSettings(): void;
   function showSettingsTab(name: string, el?: Element | null): void;
-  function saveNutritionApiKey(
-    nextValue?: string,
-    options?: { clear?: boolean }
-  ): boolean | void;
   function saveLanguageSetting(language?: string): void;
   function notifySettingsAccountIsland(): void;
   function getSettingsAccountReactSnapshot(): IronforgeSettingsAccountReactSnapshot;
@@ -120,6 +116,12 @@ declare global {
   function openProgramSetupSheet(): void;
   function saveSchedule(nextValues?: Partial<IronforgeSchedule>): void;
   function clearNutritionHistory(): void;
+  function clearNutritionLocalData(options?: {
+    includeScoped?: boolean;
+    includeLegacy?: boolean;
+  }): void;
+  function isNutritionCoachAvailable(): boolean;
+  function openNutritionLogin(): void;
   function confirmOk(): void;
   function normalizeTrainingPreferences(
     profileLike?: Partial<IronforgeProfile> | Record<string, unknown>
@@ -151,10 +153,12 @@ declare global {
       rpe?: number;
       [key: string]: unknown;
     } | null) => void;
-    saveNutritionApiKey: (
-      nextValue?: string,
-      options?: { clear?: boolean }
-    ) => boolean | void;
+    clearNutritionLocalData: (options?: {
+      includeScoped?: boolean;
+      includeLegacy?: boolean;
+    }) => void;
+    isNutritionCoachAvailable: () => boolean;
+    openNutritionLogin: () => void;
     retryLastNutritionMessage: () => void;
     saveLanguageSetting: (language?: string) => void;
     initSettings: () => void;

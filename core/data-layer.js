@@ -111,6 +111,9 @@ function clearLocalDataCache(options) {
   const opts = options || {};
   if (opts.includeScoped !== false) clearScopedLocalCache(opts.userId);
   if (opts.includeLegacy !== false) clearLegacyLocalCache();
+  if (typeof clearNutritionLocalData === 'function') {
+    clearNutritionLocalData(opts);
+  }
 }
 
 function resetRuntimeState() {
@@ -2388,6 +2391,9 @@ async function signUpWithEmail() {
 async function logout() {
   teardownRealtimeSync();
   await _SB.auth.signOut();
+  if (typeof clearNutritionLocalData === 'function') {
+    clearNutritionLocalData({ includeScoped: true, includeLegacy: true });
+  }
   currentUser = null;
   resetRuntimeState();
   renderSyncStatus();

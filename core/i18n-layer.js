@@ -1539,23 +1539,26 @@ function daysSince(dateStr) {
       'nutrition.composer.hint': 'Tap an action to get started',
       'nutrition.setup.title': 'Setup Required',
       'nutrition.setup.body':
-        'Add your Claude API key to use the Nutrition Coach. The key stays on this device, and nutrition requests are sent directly from this browser to Anthropic.',
-      'nutrition.setup.save': 'Save & Start',
+        'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.',
+      'nutrition.setup.sign_in': 'Sign in to continue',
       'nutrition.setup.help':
-        'Get your API key at console.anthropic.com. Use a personal key and avoid shared devices.',
-      'nutrition.setup.empty': 'Enter an API key',
+        'Nutrition Coach is available to signed-in users only. Your daily history stays on this device.',
       'nutrition.loading.thinking': 'Thinking...',
       'nutrition.loading.analyzing': 'Analyzing your meal...',
-      'nutrition.error.no_key':
-        'Please add your Claude API key in Settings \u2192 Account to use the Nutrition Coach.',
-      'nutrition.error.auth': 'API key is invalid or expired.',
+      'nutrition.error.auth_required': 'Sign in to use Nutrition Coach.',
+      'nutrition.error.auth': 'Your session expired. Sign in again to continue.',
       'nutrition.error.rate_limit':
         'Rate limit reached \u2014 wait a moment and try again.',
-      'nutrition.error.server': 'Claude API is temporarily unavailable.',
-      'nutrition.error.api':
-        'Something went wrong. Check your API key and try again.',
+      'nutrition.error.server': 'Nutrition Coach is temporarily unavailable.',
+      'nutrition.error.api': 'Something went wrong. Try again in a moment.',
       'nutrition.error.offline':
         'You are offline. Connect to the internet and try again.',
+      'nutrition.error.timeout':
+        'Nutrition Coach took too long to respond. Try again.',
+      'nutrition.error.photo_too_large':
+        'That photo is too large. Choose a smaller image and try again.',
+      'nutrition.error.invalid_photo':
+        'Please choose an image file for meal analysis.',
       'nutrition.retry': 'Try again',
       'nutrition.time.yesterday': 'Yesterday',
       'nutrition.macro.protein': 'Protein',
@@ -1570,6 +1573,11 @@ function daysSince(dateStr) {
       'nutrition.goal.gain_muscle': 'muscle gain',
       'nutrition.goal.recomp': 'recomp',
       'nutrition.goal.maintain': 'maintain',
+      'settings.nutrition_coach.title': 'AI Nutrition Coach',
+      'settings.nutrition_coach.help_ready':
+        'Nutrition Coach is ready on this account. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.',
+      'settings.nutrition_coach.help_signed_out':
+        'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.',
       'settings.claude_api_key.title': 'AI Nutrition Coach',
       'settings.claude_api_key.label': 'Claude API Key',
       'settings.claude_api_key.placeholder': 'sk-ant-...',
@@ -1594,6 +1602,26 @@ function daysSince(dateStr) {
       'nutrition.food_entry.placeholder':
         'e.g. Chicken rice bowl with a yogurt on the side',
       'nutrition.food_entry.send_aria': 'Send meal',
+      'nutrition.setup.body':
+        'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.',
+      'nutrition.setup.sign_in': 'Sign in to continue',
+      'nutrition.setup.help':
+        'Nutrition Coach is available to signed-in users only. Your daily history stays on this device.',
+      'nutrition.error.auth_required': 'Sign in to use Nutrition Coach.',
+      'nutrition.error.auth': 'Your session expired. Sign in again to continue.',
+      'nutrition.error.server': 'Nutrition Coach is temporarily unavailable.',
+      'nutrition.error.api': 'Something went wrong. Try again in a moment.',
+      'nutrition.error.timeout':
+        'Nutrition Coach took too long to respond. Try again.',
+      'nutrition.error.photo_too_large':
+        'That photo is too large. Choose a smaller image and try again.',
+      'nutrition.error.invalid_photo':
+        'Please choose an image file for meal analysis.',
+      'settings.nutrition_coach.title': 'AI Nutrition Coach',
+      'settings.nutrition_coach.help_ready':
+        'Nutrition Coach is ready on this account. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.',
+      'settings.nutrition_coach.help_signed_out':
+        'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.',
 
       /* ── Session character badge & pre-session note ───────────────── */
       'program.forge.character.deload':

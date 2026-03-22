@@ -9,7 +9,7 @@ const LANGUAGE_EVENT = 'ironforge:language-changed';
 
 const initialSnapshot = {
   values: {
-    hasApiKey: false,
+    canUseNutrition: false,
     menuOpen: false,
     loading: {
       visible: false,
@@ -37,10 +37,6 @@ function openNutritionSettings() {
     document.querySelector('.nav-btn[data-page="settings"]') ||
     document.querySelectorAll('.nav-btn')[3];
   window.showPage?.('settings', navButton);
-}
-
-function handleSetupSave() {
-  window.saveNutritionSetupKey?.();
 }
 
 function handleClear() {
@@ -329,25 +325,15 @@ function SetupCard() {
       <div className="nutrition-setup-desc">
         {t(
           'nutrition.setup.body',
-          'Add your Claude API key to use the Nutrition Coach. The key stays on this device, and nutrition requests are sent directly from this browser to Anthropic.'
+          'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.'
         )}
-      </div>
-      <div className="account-field">
-        <label>{t('settings.claude_api_key.label', 'Claude API Key')}</label>
-        <input
-          type="password"
-          id="nutrition-setup-key-input"
-          placeholder="sk-ant-..."
-          autoComplete="off"
-          spellCheck="false"
-        />
       </div>
       <button
         className="btn btn-primary"
         type="button"
-        onClick={handleSetupSave}
+        onClick={() => window.openNutritionLogin?.()}
       >
-        {t('nutrition.setup.save', 'Save & Start')}
+        {t('nutrition.setup.sign_in', 'Sign in to continue')}
       </button>
       <div
         className="nutrition-setup-desc"
@@ -355,7 +341,7 @@ function SetupCard() {
       >
         {t(
           'nutrition.setup.help',
-          'Get your API key at console.anthropic.com. Use a personal key and avoid shared devices.'
+          'Nutrition Coach is available to signed-in users only. Your daily history stays on this device.'
         )}
       </div>
     </div>
@@ -813,7 +799,7 @@ const ACTION_ICONS = {
 };
 
 function Composer({ snapshot }) {
-  const hidden = !snapshot.values.hasApiKey;
+  const hidden = !snapshot.values.canUseNutrition;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [textEntryOpen, setTextEntryOpen] = useState(false);
   const cameraInputRef = useRef(null);

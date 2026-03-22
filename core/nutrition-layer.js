@@ -1,5 +1,5 @@
 // Nutrition Coach — Claude-powered food analysis and coaching
-// API key is stored only on the user's device (never synced to cloud).
+// Claude requests are routed through a Supabase Edge Function.
 (function () {
   'use strict';
 
@@ -16,6 +16,11 @@
   let _sessionContext = null;
   let _sessionContextTimeoutId = 0;
   let _sessionContextExpiresAt = 0;
+  const NUTRITION_REQUEST_TIMEOUT_MS = 20000;
+  const NUTRITION_MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+  const NUTRITION_MAX_COMPRESSED_BYTES = 5 * 1024 * 1024;
+  const NUTRITION_MAX_TRAINING_CONTEXT_CHARS = 6000;
+  const NUTRITION_MAX_TODAY_SUMMARY_CHARS = 400;
 
   function _nowMs() {
     return typeof performance !== 'undefined' && performance.now
@@ -212,11 +217,15 @@
     window.dispatchEvent(new CustomEvent(NUTRITION_ISLAND_EVENT));
   }
 
+  function isNutritionCoachAvailable() {
+    return !!(currentUser && currentUser.id);
+  }
+
   function getNutritionReactSnapshot() {
     _ensureTodayHistoryLoaded();
-    var hasApiKey = !!getNutritionApiKey();
-    var tracked = hasApiKey ? _getTodayTrackedMacroTotals() : null;
-    var targets = hasApiKey ? _calculateTargets() : null;
+    var canUseNutrition = isNutritionCoachAvailable();
+    var tracked = canUseNutrition ? _getTodayTrackedMacroTotals() : null;
+    var targets = canUseNutrition ? _calculateTargets() : null;
     var loadingText = _loading
       ? _loadingContext === 'photo'
         ? tr('nutrition.loading.analyzing', 'Analyzing your meal...')
@@ -224,34 +233,33 @@
       : '';
     return {
       values: {
-        hasApiKey: hasApiKey,
+        canUseNutrition: canUseNutrition,
         loading: {
           visible: _loading,
           text: loadingText,
         },
         selectedActionId: _selectedActionId,
         actions: NUTRITION_ACTIONS.map(_getNutritionActionSnapshot),
-        contextBanner: hasApiKey
+        contextBanner: canUseNutrition
           ? _getNutritionContextBannerSnapshot(targets)
           : null,
-        todayCard: hasApiKey
+        todayCard: canUseNutrition
           ? _getNutritionTodayCardSnapshot(tracked, targets)
           : null,
-        messagesState: !hasApiKey
+        messagesState: !canUseNutrition
           ? 'setup'
           : !_history.length
             ? 'empty'
             : 'thread',
-        messages: hasApiKey ? _getNutritionMessagesSnapshot() : [],
-        showCorrectionInput: hasApiKey ? _shouldShowCorrectionInput() : false,
+        messages: canUseNutrition ? _getNutritionMessagesSnapshot() : [],
+        showCorrectionInput: canUseNutrition ? _shouldShowCorrectionInput() : false,
         scrollVersion: _snapshotVersion,
       },
     };
   }
 
   function getDashboardNutritionSnapshot() {
-    var apiKey = getNutritionApiKey();
-    if (!apiKey) return null;
+    if (!isNutritionCoachAvailable()) return null;
     var targets = _calculateTargets();
     if (!targets) return null;
     _ensureTodayHistoryLoaded();
@@ -313,8 +321,31 @@
       : 'ic_nutrition_day::' + stamp;
   }
 
-  function _apiKeyStorageKey() {
-    return 'ic_nutrition_key';
+  function clearNutritionLocalData() {
+    try {
+      var keysToRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (
+          key &&
+          (key === 'ic_nutrition_key' ||
+            key === 'ic_nutrition_trace' ||
+            key === 'ic_nutrition_history' ||
+            key.indexOf('ic_nutrition_history::') === 0 ||
+            key.indexOf('ic_nutrition_day::') === 0)
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(function (key) {
+        localStorage.removeItem(key);
+      });
+    } catch (_) {}
+    if (_history.length) {
+      _history = [];
+      _markHistoryMutated();
+    }
+    notifyNutritionIsland();
   }
 
   function _getActionById(actionId) {
@@ -695,57 +726,60 @@
 
   // ─── API key management ───────────────────────────────────────────────────────
 
-  function getNutritionApiKey() {
-    return localStorage.getItem(_apiKeyStorageKey()) || '';
+  function openNutritionLogin() {
+    if (typeof window.showLoginScreen === 'function') {
+      window.showLoginScreen();
+    }
   }
 
-  function _looksLikeAnthropicApiKey(value) {
-    return /^sk-ant-[A-Za-z0-9_-]+$/i.test(String(value || '').trim());
+  function _getNutritionFunctionUrl() {
+    var baseUrl = String(window.__IRONFORGE_SUPABASE_URL__ || '').trim();
+    if (!baseUrl) return '';
+    return baseUrl.replace(/\/+$/, '') + '/functions/v1/nutrition-coach';
   }
 
-  function saveNutritionApiKey(nextValue, options) {
-    const opts = options || {};
-    const inp = document.getElementById('nutrition-api-key-input');
-    const val =
-      typeof nextValue === 'string'
-        ? nextValue.trim()
-        : inp
-          ? inp.value.trim()
-          : '';
-    if (val) {
-      if (!_looksLikeAnthropicApiKey(val)) {
-        showToast(
-          tr('settings.claude_api_key.invalid', 'Enter a valid Claude API key'),
-          'var(--orange)'
-        );
-        return false;
-      }
-      localStorage.setItem(_apiKeyStorageKey(), val);
-      showToast(
-        tr('settings.claude_api_key.saved', 'API key saved'),
-        'var(--green)'
-      );
-    } else if (opts.clear === true) {
-      localStorage.removeItem(_apiKeyStorageKey());
-      showToast(
-        tr('settings.claude_api_key.cleared', 'API key removed'),
-        'var(--muted)'
-      );
-    } else {
-      showToast(
-        tr('nutrition.setup.empty', 'Enter an API key'),
-        'var(--orange)'
-      );
-      return false;
-    }
-    if (inp) inp.value = '';
-    if (typeof window.notifySettingsAccountIsland === 'function') {
-      window.notifySettingsAccountIsland();
-    }
-    if (typeof window.initNutritionPage === 'function') {
-      window.initNutritionPage();
-    }
-    return true;
+  function _estimateDataUrlBytes(dataUrl) {
+    var value = String(dataUrl || '');
+    var commaIndex = value.indexOf(',');
+    var base64 = commaIndex === -1 ? value : value.slice(commaIndex + 1);
+    if (!base64) return 0;
+    var padding = 0;
+    if (base64.endsWith('==')) padding = 2;
+    else if (base64.endsWith('=')) padding = 1;
+    return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+  }
+
+  function _sanitizeTrainingContext(context) {
+    return String(context || '')
+      .trim()
+      .slice(0, NUTRITION_MAX_TRAINING_CONTEXT_CHARS);
+  }
+
+  function _sanitizeTodayIntakeSummary(summary) {
+    return String(summary || '')
+      .trim()
+      .slice(0, NUTRITION_MAX_TODAY_SUMMARY_CHARS);
+  }
+
+  function _buildTargetsPayload(targets) {
+    if (!targets || typeof targets !== 'object') return null;
+    return {
+      calories: Number.isFinite(Number(targets.calories))
+        ? Math.max(0, Math.round(Number(targets.calories)))
+        : null,
+      protein: Number.isFinite(Number(targets.protein))
+        ? Math.max(0, Math.round(Number(targets.protein)))
+        : null,
+      carbs: Number.isFinite(Number(targets.carbs))
+        ? Math.max(0, Math.round(Number(targets.carbs)))
+        : null,
+      fat: Number.isFinite(Number(targets.fat))
+        ? Math.max(0, Math.round(Number(targets.fat)))
+        : null,
+      tdee: Number.isFinite(Number(targets.tdee))
+        ? Math.max(0, Math.round(Number(targets.tdee)))
+        : null,
+    };
   }
 
   // ─── History management ───────────────────────────────────────────────────────
@@ -1296,66 +1330,46 @@
   // ─── Claude API call ──────────────────────────────────────────────────────────
 
   // Auto-select model: Sonnet for photos (good vision), Haiku for text (fast + cheap)
-  function _pickModel(hasImage) {
-    return hasImage ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
-  }
-
-  async function _callClaude(apiMessages, hasImage, trace) {
-    const apiKey = getNutritionApiKey();
-    if (!apiKey) {
-      const err = new Error('no_key');
-      throw err;
+  async function _callNutritionCoach(apiMessages, hasImage, trace) {
+    if (!isNutritionCoachAvailable()) {
+      throw new Error(
+        tr(
+          'nutrition.error.auth_required',
+          'Sign in to use Nutrition Coach.'
+        )
+      );
     }
 
-    const model = _pickModel(hasImage);
-    if (trace) {
-      trace.model = model;
-      trace.hasImage = !!hasImage;
+    const functionUrl = _getNutritionFunctionUrl();
+    if (!functionUrl) {
+      throw new Error(
+        tr(
+          'nutrition.error.server',
+          'Nutrition Coach is temporarily unavailable.'
+        )
+      );
+    }
+
+    const sessionResult = await _SB.auth.getSession();
+    const session =
+      sessionResult && sessionResult.data ? sessionResult.data.session : null;
+    const accessToken =
+      session && session.access_token ? session.access_token : '';
+    if (!accessToken) {
+      throw new Error(
+        tr(
+          'nutrition.error.auth_required',
+          'Sign in to use Nutrition Coach.'
+        )
+      );
     }
     const context = _buildTrainingContext();
     const todayIntake = _buildTodayIntakeSummary(trace && trace.todayTracked);
     const targets = _calculateTargets();
-    const targetsStr = targets
-      ? 'Daily targets: ' +
-        targets.calories +
-        ' kcal, ' +
-        targets.protein +
-        'g protein, ' +
-        targets.carbs +
-        'g carbs, ' +
-        targets.fat +
-        'g fat' +
-        ' (TDEE ' +
-        targets.tdee +
-        ' kcal)'
-      : '';
     const uiLocale =
       (typeof window.I18N !== 'undefined' && window.I18N.getLanguage()) || 'en';
-    const langInstruction =
-      uiLocale === 'fi'
-        ? 'Always respond in Finnish (Suomi). '
-        : 'Always respond in English. ';
-    const systemPrompt =
-      'You are a concise, motivating nutrition coach for a strength athlete. ' +
-      langInstruction +
-      'Return EXACTLY one JSON object and nothing else. No code fences, no backticks, and no prose outside the JSON.\n\n' +
-      'Required JSON schema:\n' +
-      '{"display_markdown":"string","estimated_macros":{"calories":0,"protein_g":0,"carbs_g":0,"fat_g":0},"remaining_today":{"calories":0,"protein_g":0},"tags":["string"]}\n\n' +
-      'RULES:\n' +
-      '- Put the full user-facing answer only in display_markdown.\n' +
-      '- display_markdown must stay short and polished, and only use simple markdown that our UI supports: short paragraphs, bullets, ##/### headings, and **bold**.\n' +
-      '- Do not use tables, HTML, or code fences inside display_markdown.\n' +
-      '- Apply any response-format instruction from the user prompt to display_markdown.\n' +
-      '- When the user logs food or shares a photo, fill estimated_macros whenever you can.\n' +
-      '- When daily targets are available, fill remaining_today with calories and protein left vs target.\n' +
-      '- Use metric units (g, kg, kcal). Keep meal suggestions practical - real foods, not exotic ingredients.\n' +
-      '- Be direct and encouraging. Celebrate hitting targets, and flag shortfalls matter-of-factly.' +
-      (context ? '\n\nUser context:\n' + context : '') +
-      (targetsStr ? '\n\n' + targetsStr : '') +
-      (todayIntake ? '\n' + todayIntake : '');
 
     if (trace) {
-      trace.systemPromptChars = systemPrompt.length;
       trace.contextChars = context.length;
       trace.todayIntakeChars = todayIntake.length;
       trace.targets = targets
@@ -1370,11 +1384,13 @@
     }
 
     const requestBody = JSON.stringify({
-      model: model,
-      max_tokens: 1024,
-      system: systemPrompt,
       messages: apiMessages,
-      stream: true,
+      locale: uiLocale === 'fi' ? 'fi' : 'en',
+      requestKind: hasImage ? 'photo' : 'text',
+      trainingContext: _sanitizeTrainingContext(context),
+      todayIntakeSummary: _sanitizeTodayIntakeSummary(todayIntake),
+      targets: _buildTargetsPayload(targets),
+      actionId: trace && trace.actionId ? trace.actionId : null,
     });
 
     if (trace) {
@@ -1385,45 +1401,82 @@
       );
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json',
-      },
-      body: requestBody,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(function () {
+      controller.abort();
+    }, NUTRITION_REQUEST_TIMEOUT_MS);
 
-    if (!resp.ok) {
-      if (resp.status === 401) {
+    try {
+      const resp = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          apikey: String(window.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ || ''),
+          authorization: 'Bearer ' + accessToken,
+          'content-type': 'application/json',
+        },
+        body: requestBody,
+        signal: controller.signal,
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(function () {
+          return {};
+        });
+        if (resp.status === 401 || resp.status === 403) {
+          throw new Error(
+            tr(
+              'nutrition.error.auth_required',
+              'Sign in to use Nutrition Coach.'
+            )
+          );
+        }
+        if (resp.status === 413) {
+          throw new Error(
+            tr(
+              'nutrition.error.photo_too_large',
+              'That photo is too large. Choose a smaller image and try again.'
+            )
+          );
+        }
+        if (resp.status === 429) {
+          throw new Error(
+            tr(
+              'nutrition.error.rate_limit',
+              'Rate limit reached - wait a moment and try again.'
+            )
+          );
+        }
+        if (resp.status >= 500) {
+          throw new Error(
+            tr(
+              'nutrition.error.server',
+              'Nutrition Coach is temporarily unavailable.'
+            )
+          );
+        }
         throw new Error(
-          tr('nutrition.error.auth', 'API key is invalid or expired.')
+          (errData.error && errData.error.message) ||
+            tr(
+              'nutrition.error.api',
+              'Something went wrong. Try again in a moment.'
+            )
         );
       }
-      if (resp.status === 429) {
+
+      return await resp.json();
+    } catch (error) {
+      if (error && error.name === 'AbortError') {
         throw new Error(
           tr(
-            'nutrition.error.rate_limit',
-            'Rate limit reached — wait a moment and try again.'
+            'nutrition.error.timeout',
+            'Nutrition Coach took too long to respond. Try again.'
           )
         );
       }
-      if (resp.status >= 500) {
-        throw new Error(
-          tr('nutrition.error.server', 'Claude API is temporarily unavailable.')
-        );
-      }
-      const errData = await resp.json().catch(function () {
-        return {};
-      });
-      throw new Error(
-        (errData.error && errData.error.message) || 'API error ' + resp.status
-      );
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return { response: resp, model: model };
   }
 
   // ─── Build API messages from history ─────────────────────────────────────────
@@ -1483,48 +1536,6 @@
   }
 
   // ─── SSE stream parser ───────────────────────────────────────────────────────
-
-  async function _readStream(resp, onChunk, onEvent) {
-    var reader = resp.body.getReader();
-    var decoder = new TextDecoder();
-    var buffer = '';
-    var usage = null;
-
-    while (true) {
-      var result = await reader.read();
-      if (result.done) break;
-      buffer += decoder.decode(result.value, { stream: true });
-
-      var lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // keep incomplete line in buffer
-
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim();
-        if (!line.startsWith('data: ')) continue;
-        var json = line.slice(6);
-        if (json === '[DONE]') return { usage: usage };
-        try {
-          var evt = JSON.parse(json);
-          if (typeof onEvent === 'function') {
-            try {
-              onEvent(evt);
-            } catch (_) {}
-          }
-          if (
-            evt.type === 'content_block_delta' &&
-            evt.delta &&
-            evt.delta.text
-          ) {
-            onChunk(evt.delta.text);
-          } else if (evt.type === 'message_delta' && evt.usage) {
-            usage = evt.usage;
-          }
-        } catch (_) {}
-      }
-    }
-
-    return { usage: usage };
-  }
 
   // ─── Send a message ───────────────────────────────────────────────────────────
 
@@ -1608,63 +1619,43 @@
 
     try {
       var requestStartedAt = _nowMs();
-      var result = await _callClaude(apiMessages, hasImage, trace);
+      var result = await _callNutritionCoach(apiMessages, hasImage, trace);
       trace.stages.requestMs = Math.max(
         0,
         Math.round(_nowMs() - requestStartedAt)
       );
-      var rawText = '';
-      var streamStartedAt = _nowMs();
-      var streamResult = await _readStream(
-        result.response,
-        function (chunk) {
-          rawText += chunk;
-        },
-        function (evt) {
-          if (evt && evt.type === 'message_delta' && evt.usage) {
-            trace.usage = evt.usage;
-          }
-        }
-      );
-      trace.stages.streamMs = Math.max(
-        0,
-        Math.round(_nowMs() - streamStartedAt)
-      );
-      trace.stages.modelMs =
-        Math.max(0, trace.stages.requestMs || 0) +
-        Math.max(0, trace.stages.streamMs || 0);
-      if (streamResult && streamResult.usage) {
-        trace.usage = streamResult.usage;
-      }
-
       _streaming = false;
       var parseStartedAt = _nowMs();
-      var structured = _parseStructuredNutritionResponse(rawText, trace);
+      var structured = _normalizeStructuredNutritionResponse(result);
+      var fallbackText = '';
+      if (!structured && result && typeof result.raw_text === 'string') {
+        fallbackText = String(result.raw_text || '').trim();
+        structured = _parseStructuredNutritionResponse(result.raw_text, trace);
+      }
       trace.stages.parseMs = Math.max(0, Math.round(_nowMs() - parseStartedAt));
+      trace.stages.modelMs = Math.max(0, trace.stages.requestMs || 0);
+      trace.usage = result && result.usage ? result.usage : trace.usage;
+      trace.model = result && result.model ? String(result.model) : null;
       var assistantEntry = {
         id: Date.now() + '-a',
         role: 'assistant',
-        text: structured
-          ? structured.display_markdown
-          : String(rawText || '').trim(),
+        text: structured ? structured.display_markdown : fallbackText,
         timestamp: Date.now(),
-        model: result.model,
+        model: trace.model,
         actionId: userEntry.actionId || null,
       };
       if (structured) {
         assistantEntry.structured = structured;
-        assistantEntry.rawText = String(rawText || '');
         trace.parseSource =
           trace.parseSource === 'none' ? 'structured' : trace.parseSource;
-      } else if (rawText) {
-        assistantEntry.rawText = String(rawText);
+      } else if (fallbackText) {
         trace.parseSource =
           trace.parseSource === 'none' ? 'plain_text' : trace.parseSource;
       }
       if (!assistantEntry.text) {
         assistantEntry.text = tr(
           'nutrition.error.api',
-          'Something went wrong. Check your API key and try again.'
+          'Something went wrong. Try again in a moment.'
         );
         assistantEntry.isError = true;
         trace.parseSource = 'empty';
@@ -1681,22 +1672,12 @@
       trace.success = false;
       var errorMessage = e && e.message ? e.message : 'unknown';
       trace.error = errorMessage;
-      var isNoKey = errorMessage === 'no_key';
-      var errorText;
-      if (isNoKey) {
-        errorText = tr(
-          'nutrition.error.no_key',
-          'Please add your Claude API key in Settings \u2192 Account to use the Nutrition Coach.'
+      var errorText =
+        errorMessage ||
+        tr(
+          'nutrition.error.api',
+          'Something went wrong. Try again in a moment.'
         );
-      } else {
-        // Specific errors (auth, rate limit, server) already have translated messages
-        errorText =
-          errorMessage ||
-          tr(
-            'nutrition.error.api',
-            'Something went wrong. Check your API key and try again.'
-          );
-      }
       _history.push({
         id: Date.now() + '-a',
         role: 'assistant',
@@ -1959,7 +1940,7 @@
     _ensureTodayHistoryLoaded();
     var metaStack = document.getElementById('nutrition-meta-stack');
     if (!metaStack) return;
-    if (!getNutritionApiKey()) {
+    if (!isNutritionCoachAvailable()) {
       metaStack.innerHTML = '';
       return;
     }
@@ -1991,8 +1972,8 @@
     );
     _updateMetaStack();
 
-    // If no API key, show setup card
-    if (!getNutritionApiKey()) {
+    // If signed out, show the setup card.
+    if (!isNutritionCoachAvailable()) {
       if (inputBar) inputBar.classList.add('nc-hidden');
       if (composer) composer.classList.add('nc-hidden');
       container.classList.add('nutrition-messages-setup');
@@ -2101,31 +2082,14 @@
       '<path d="M7 11V7a5 5 0 0 1 10 0v4"/>' +
       '</svg></div>' +
       '<div class="nutrition-setup-desc" data-i18n="nutrition.setup.body">' +
-      'Add your Claude API key to use the Nutrition Coach. The key stays on this device, and nutrition requests are sent directly from this browser to Anthropic.' +
+      'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.' +
       '</div>' +
-      '<div class="account-field">' +
-      '<label data-i18n="settings.claude_api_key.label">Claude API Key</label>' +
-      '<input type="password" id="nutrition-setup-key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">' +
-      '</div>' +
-      '<button class="btn btn-primary" type="button" onclick="saveNutritionSetupKey()" data-i18n="nutrition.setup.save">' +
-      'Save &amp; Start</button>' +
+      '<button class="btn btn-primary" type="button" onclick="openNutritionLogin()" data-i18n="nutrition.setup.sign_in">' +
+      'Sign in to continue</button>' +
       '<div class="nutrition-setup-desc" style="margin-top:12px;font-size:12px;" data-i18n="nutrition.setup.help">' +
-      'Get your API key at console.anthropic.com. Use a personal key and avoid shared devices.</div>' +
+      'Nutrition Coach is available to signed-in users only. Your daily history stays on this device.</div>' +
       '</div>'
     );
-  }
-
-  // Save API key from the in-page setup card
-  function saveNutritionSetupKey() {
-    var inp = document.getElementById('nutrition-setup-key-input');
-    var val = inp ? inp.value.trim() : '';
-    if (!val) {
-      showToast(tr('nutrition.setup.empty', 'Enter an API key'), 'var(--red)');
-      return;
-    }
-    if (!saveNutritionApiKey(val)) return;
-    if (inp) inp.value = '';
-    _renderMessages();
   }
 
   // ─── Premium empty state ──────────────────────────────────────────────
@@ -2362,6 +2326,36 @@
   function handleNutritionPhoto(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
+    event.target.value = '';
+
+    if (!isNutritionCoachAvailable()) {
+      showToast(
+        tr('nutrition.error.auth_required', 'Sign in to use Nutrition Coach.'),
+        'var(--orange)'
+      );
+      openNutritionLogin();
+      return;
+    }
+    if (!String(file.type || '').toLowerCase().startsWith('image/')) {
+      showToast(
+        tr(
+          'nutrition.error.invalid_photo',
+          'Please choose an image file for meal analysis.'
+        ),
+        'var(--orange)'
+      );
+      return;
+    }
+    if (file.size > NUTRITION_MAX_PHOTO_BYTES) {
+      showToast(
+        tr(
+          'nutrition.error.photo_too_large',
+          'That photo is too large. Choose a smaller image and try again.'
+        ),
+        'var(--orange)'
+      );
+      return;
+    }
 
     const trace = _createNutritionTrace({
       actionId: 'analyze_photo',
@@ -2373,9 +2367,34 @@
     trace.kind = 'photo';
 
     const reader = new FileReader();
+    reader.onerror = function () {
+      trace.error = 'file_read_error';
+      _finalizeNutritionTrace(trace);
+      showToast(
+        tr(
+          'nutrition.error.invalid_photo',
+          'Please choose an image file for meal analysis.'
+        ),
+        'var(--orange)'
+      );
+    };
     reader.onload = function (e) {
       _compressImage(e.target.result, 1024, 0.82, trace).then(
         function (compressed) {
+          if (
+            _estimateDataUrlBytes(compressed) > NUTRITION_MAX_COMPRESSED_BYTES
+          ) {
+            trace.error = 'photo_too_large';
+            _finalizeNutritionTrace(trace);
+            showToast(
+              tr(
+                'nutrition.error.photo_too_large',
+                'That photo is too large. Choose a smaller image and try again.'
+              ),
+              'var(--orange)'
+            );
+            return;
+          }
           // Auto-send photo analysis — no extra tap needed
           sendNutritionMessage({
             actionId: 'analyze_photo',
@@ -2393,11 +2412,21 @@
             imageFileSize: file.size,
             trace: trace,
           });
+        },
+        function () {
+          trace.error = 'image_compress_error';
+          _finalizeNutritionTrace(trace);
+          showToast(
+            tr(
+              'nutrition.error.invalid_photo',
+              'Please choose an image file for meal analysis.'
+            ),
+            'var(--orange)'
+          );
         }
       );
     };
     reader.readAsDataURL(file);
-    event.target.value = ''; // allow re-selecting same file
   }
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
@@ -2456,9 +2485,9 @@
   window.submitNutritionMessage = submitNutritionMessage;
   window.submitNutritionTextMessage = submitNutritionTextMessage;
   window.clearNutritionHistory = clearNutritionHistory;
-  window.getNutritionApiKey = getNutritionApiKey;
+  window.clearNutritionLocalData = clearNutritionLocalData;
+  window.isNutritionCoachAvailable = isNutritionCoachAvailable;
+  window.openNutritionLogin = openNutritionLogin;
   window.setNutritionSessionContext = setNutritionSessionContext;
-  window.saveNutritionApiKey = saveNutritionApiKey;
-  window.saveNutritionSetupKey = saveNutritionSetupKey;
   window.retryLastNutritionMessage = retryLastNutritionMessage;
 })();

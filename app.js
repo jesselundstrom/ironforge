@@ -13,10 +13,13 @@ function refreshDayNames() {
 }
 
 // SUPABASE
-const _SB = supabase.createClient(
-  'https://koreqcjrpzcbfgkptvfx.supabase.co',
-  'sb_publishable_Ccuq9Bwyxmyy4JfrWqXlhg_qiWmCYpn'
-);
+const SUPABASE_URL = 'https://koreqcjrpzcbfgkptvfx.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY =
+  'sb_publishable_Ccuq9Bwyxmyy4JfrWqXlhg_qiWmCYpn';
+const _SB = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+window.__IRONFORGE_SUPABASE_URL__ = SUPABASE_URL;
+window.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ = SUPABASE_PUBLISHABLE_KEY;
+window.__IRONFORGE_SUPABASE__ = _SB;
 let currentUser = null;
 
 // STATE (persisted via localStorage)
@@ -793,9 +796,10 @@ function getSettingsAccountReactSnapshot() {
           label: tr('settings.sync.synced', 'Synced to cloud'),
           className: 'sync-status synced',
         };
-  const apiKey =
-    typeof getNutritionApiKey === 'function' ? getNutritionApiKey() : '';
-  const hasApiKey = !!apiKey;
+  const nutritionReady =
+    typeof isNutritionCoachAvailable === 'function'
+      ? isNutritionCoachAvailable()
+      : !!currentUser;
   return {
     labels: {
       accountSection: tr('settings.account_section', 'Account'),
@@ -810,19 +814,16 @@ function getSettingsAccountReactSnapshot() {
         'settings.backup_help',
         'Export saves all data as a JSON file. Import replaces all current data.'
       ),
-      apiTitle: tr('settings.claude_api_key.title', 'AI Nutrition Coach'),
-      apiHelp: tr(
-        'settings.claude_api_key.help',
-        'Get your API key at console.anthropic.com. It stays on this device, and nutrition requests are sent directly from this browser to Anthropic. Use a personal key and avoid shared devices.'
-      ),
-      apiLabel: tr('settings.claude_api_key.label', 'Claude API Key'),
-      apiPlaceholder: tr('settings.claude_api_key.placeholder', 'sk-ant-...'),
-      apiSave: tr('settings.claude_api_key.save', 'Save Key'),
-      apiSavedHint: tr(
-        'settings.claude_api_key.saved_hint',
-        'A key is already saved on this device. Enter a new one only if you want to replace it.'
-      ),
-      apiClear: tr('settings.claude_api_key.clear', 'Remove Key'),
+      nutritionTitle: tr('settings.nutrition_coach.title', 'AI Nutrition Coach'),
+      nutritionHelp: nutritionReady
+        ? tr(
+            'settings.nutrition_coach.help_ready',
+            'Nutrition Coach is ready on this account. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.'
+          )
+        : tr(
+            'settings.nutrition_coach.help_signed_out',
+            'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.'
+          ),
       danger: tr('settings.danger', 'Danger Zone'),
       dangerDesc: tr(
         'settings.danger_desc',
@@ -846,8 +847,7 @@ function getSettingsAccountReactSnapshot() {
         profile.language ||
         (window.I18N && I18N.getLanguage ? I18N.getLanguage() : 'en'),
       backupContext: getAccountBackupContextText(),
-      apiKey: '',
-      hasApiKey,
+      nutritionReady,
       appVersion: 'Ironforge v' + APP_VERSION,
       dangerOpen: settingsAccountUiState.dangerOpen === true,
       dangerInput: settingsAccountUiState.dangerInput || '',

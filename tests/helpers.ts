@@ -25,6 +25,13 @@ export async function bootstrapAppShell(page: Page) {
   );
 
   await page.evaluate(() => {
+    const runtimeWindow = window as Window & {
+      __IRONFORGE_SUPABASE__?: {
+        auth?: {
+          getSession?: () => Promise<unknown>;
+        };
+      };
+    };
     const suppressLoginUi = () => {
       document.body.classList.remove('login-active');
       const loginScreen = document.getElementById('login-screen');
@@ -38,6 +45,17 @@ export async function bootstrapAppShell(page: Page) {
       id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
       email: 'e2e@example.com',
     };
+    if (runtimeWindow.__IRONFORGE_SUPABASE__?.auth) {
+      runtimeWindow.__IRONFORGE_SUPABASE__.auth.getSession = async () => ({
+        data: {
+          session: {
+            access_token: 'test-access-token',
+            user: currentUser,
+          },
+        },
+        error: null,
+      });
+    }
 
     suppressLoginUi();
     document.getElementById('onboarding-modal')?.classList.remove('active');

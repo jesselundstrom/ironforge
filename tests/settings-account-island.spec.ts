@@ -3,13 +3,12 @@ import { confirmModal, openAppShell, reloadAppShell } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
-test('settings account island renders from the legacy bridge and persists language plus API key changes', async ({
+test('settings account island renders the signed-in nutrition coach state without key controls', async ({
   page,
 }) => {
   await openAppShell(page);
 
   await page.evaluate(() => {
-    localStorage.removeItem('ic_nutrition_key');
     currentUser = { id: 'e2e-user', email: 'account@example.com' };
     profile.language = 'en';
     workouts = [
@@ -34,36 +33,41 @@ test('settings account island renders from the legacy bridge and persists langua
   ).toContainText(/workouts? since/i);
 
   await page.evaluate(() => {
-    const keyInput = document.getElementById('nutrition-api-key-input');
-    if (keyInput instanceof HTMLInputElement)
-      keyInput.value = 'sk-ant-test-key';
-    saveNutritionApiKey('sk-ant-test-key');
     saveLanguageSetting('fi');
   });
 
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem('ic_nutrition_key')))
-    .toBe('sk-ant-test-key');
-
-  await expect(page.locator('#nutrition-api-key-input')).toHaveValue('');
   await expect(page.locator('#settings-account-react-root')).toContainText(
-    /avain on jo tallennettu tälle laitteelle|a key is already saved on this device/i
+    /ravintocoach on valmis|nutrition coach is ready/i
   );
-
   await expect(page.locator('#settings-account-react-root')).toContainText(
     /tili/i
   );
   await expect(
-    page.getByRole('button', { name: /tallenna avain/i })
-  ).toBeVisible();
+    page.locator('#settings-account-react-root #nutrition-api-key-input')
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: /save key|tallenna avain/i })
+  ).toHaveCount(0);
+});
 
-  await page
-    .getByRole('button', { name: /poista avain|remove key/i })
-    .dispatchEvent('click');
+test('settings account island shows signed-out nutrition coach copy without key controls', async ({
+  page,
+}) => {
+  await openAppShell(page);
 
-  await expect
-    .poll(() => page.evaluate(() => localStorage.getItem('ic_nutrition_key')))
-    .toBeNull();
+  await page.evaluate(() => {
+    currentUser = null;
+    initSettings();
+    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
+    showSettingsTab('account');
+  });
+
+  await expect(page.locator('#settings-account-react-root')).toContainText(
+    /kirjaudu sisään|sign in to use nutrition coach/i
+  );
+  await expect(
+    page.locator('#settings-account-react-root #nutrition-api-key-input')
+  ).toHaveCount(0);
 });
 
 test('settings account island keeps the danger-zone confirmation flow working', async ({

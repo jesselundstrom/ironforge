@@ -28,7 +28,7 @@
 - When React islands exist, load them into the current `index.html` shell and bridge them through explicit global adapters/events instead of importing the legacy runtime directly.
 - For form-heavy settings areas, migrate bounded slices first (using the Body tab pattern) and keep the existing handlers, persistence flow, and advanced program setup sheet as the source of truth while React islands replace the main settings panels.
 - For the Log page, keep the legacy workout logic as the source of truth even when the visible start shell and active editor run through React islands. Preserve the existing DOM ids, draft restore flow, finish/discard handlers, rest-timer bar, and workout modals while React mirrors the rendered session UI through explicit snapshot events.
-- For the Nutrition page, keep the Claude request flow, day-scoped local history, setup card, clear-history flow, and photo handling in the legacy runtime even when the visible guided coaching shell is mounted through a React island.
+- For the Nutrition page, keep the day-scoped local history, signed-in setup card, clear-history flow, and photo handling in the legacy runtime even when the visible guided coaching shell is mounted through a React island. Claude requests now proxy through the Supabase `nutrition-coach` edge function instead of calling Anthropic directly from the browser.
 - The current shell-replacement step runs through the shared React app entry in `src/app/main.tsx`, which mounts the shell from `src/app/AppShell.jsx`: visible bottom navigation, toast host, confirm modal, exercise catalog/name modal, workout overlay hosts, settings overlay hosts, onboarding, and the top-level page container (rendered into the existing content root via portal). `core/ui-shell.js` remains the compatibility bridge for `showPage(...)`, `showToast(...)`, and `showConfirm(...)`, while the mounted React shell owns nav metadata, active-page rendering, content scroll-lock state, and page-activation timing after route changes.
 - Use `docs/migration-inventory.md` as the living checklist for hybrid bridge removal during the React cutover.
 - Reuse existing state objects, helpers, and DOM patterns before creating new ones.
@@ -84,16 +84,17 @@
 
 ## Nutrition And AI Coaching
 - `core/nutrition-layer.js` is a self-contained Claude-powered nutrition coach.
-- The user's Anthropic API key is stored in localStorage only (never synced to cloud).
-- Two models are used: Sonnet for food photo analysis, Haiku for text coaching.
+- Anthropic requests are routed through the Supabase `nutrition-coach` edge function with an Ironforge-managed server-side API key.
+- Nutrition Coach requires a signed-in user and enforces daily per-user request caps in `public.nutrition_usage_daily`.
+- The browser must never store an Anthropic API key or send requests directly to `api.anthropic.com`.
+- Text coaching and food photo analysis use separate Claude models selected server-side.
 - The system prompt dynamically includes training context, body metrics, TDEE/macro targets, and today's intake via `_buildTrainingContext()`.
 - Nutrition uses guided daily actions with an optional short note instead of an open-ended free chat input.
 - Day-scoped nutrition history is limited to 60 messages in localStorage (`ic_nutrition_day::<userId>::YYYY-MM-DD`).
 - AI responses include structured macro data (kcal, protein, carbs, fat) extracted for daily intake tracking.
 - Food photos are compressed client-side before sending to the API.
-- This is a browser-side direct API call using the `anthropic-dangerous-direct-browser-access` header.
 - When modifying nutrition features, preserve the `_buildTrainingContext()` bridge that connects training and nutrition data.
-- Do not sync the API key or nutrition session history to Supabase.
+- Do not sync nutrition session history to Supabase; only server-side request accounting and model access live in Supabase.
 
 ## Recovery And Readiness
 - The fatigue engine is a core coaching pillar, not just a training helper.

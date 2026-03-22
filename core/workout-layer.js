@@ -4946,8 +4946,9 @@ function showSessionSummary(summaryData) {
     const content = document.getElementById('summary-modal-content');
     const modal = document.getElementById('summary-modal');
     const canLogNutrition =
-      typeof window.getNutritionApiKey === 'function' &&
-      !!window.getNutritionApiKey();
+      typeof window.isNutritionCoachAvailable === 'function'
+        ? window.isNutritionCoachAvailable()
+        : !!currentUser;
     if (!content || !modal) {
       resolve({ feedback: null, notes: '', goToNutrition: false });
       return;

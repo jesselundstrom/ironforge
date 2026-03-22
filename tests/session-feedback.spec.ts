@@ -139,13 +139,9 @@ test('summary notes persist onto the workout record and history card', async ({ 
   );
 });
 
-test('post-workout nutrition nudge appears with API key and routes into nutrition', async ({ page }) => {
+test('post-workout nutrition nudge appears for a signed-in user and routes into nutrition', async ({ page }) => {
   await openAppShell(page);
   await setupWorkoutState(page);
-
-  await page.evaluate(() => {
-    localStorage.setItem('ic_nutrition_key', 'sk-ant-test-key');
-  });
 
   await page.evaluate(() => { window.finishWorkout(); });
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
@@ -163,12 +159,12 @@ test('post-workout nutrition nudge appears with API key and routes into nutritio
   expect(saved).toBe('Quick post-workout note.');
 });
 
-test('post-workout nutrition nudge stays hidden without API key', async ({ page }) => {
+test('post-workout nutrition nudge stays hidden when signed out', async ({ page }) => {
   await openAppShell(page);
   await setupWorkoutState(page);
 
   await page.evaluate(() => {
-    localStorage.removeItem('ic_nutrition_key');
+    currentUser = null;
   });
 
   await page.evaluate(() => { window.finishWorkout(); });

@@ -23,15 +23,9 @@ function getSnapshot() {
       import: 'Import',
       backupHelp:
         'Export saves all data as a JSON file. Import replaces all current data.',
-      apiTitle: 'AI Nutrition Coach',
-      apiHelp:
-        'Get your API key at console.anthropic.com. It stays on this device, and nutrition requests are sent directly from this browser to Anthropic. Use a personal key and avoid shared devices.',
-      apiLabel: 'Claude API Key',
-      apiPlaceholder: 'sk-ant-...',
-      apiSave: 'Save Key',
-      apiSavedHint:
-        'A key is already saved on this device. Enter a new one only if you want to replace it.',
-      apiClear: 'Remove Key',
+      nutritionTitle: 'AI Nutrition Coach',
+      nutritionHelp:
+        'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.',
       danger: 'Danger Zone',
       dangerDesc:
         'This permanently deletes all your workouts, programs, and settings. This cannot be undone.',
@@ -45,8 +39,7 @@ function getSnapshot() {
       syncClassName: 'sync-status synced',
       language: 'en',
       backupContext: '',
-      apiKey: '',
-      hasApiKey: false,
+      nutritionReady: false,
       appVersion: 'Ironforge v1.0.0',
       dangerOpen: false,
       dangerInput: '',
@@ -58,7 +51,6 @@ function getSnapshot() {
 function getFormValues(snapshot) {
   return {
     language: snapshot.values.language ?? 'en',
-    apiKey: snapshot.values.apiKey ?? '',
     dangerInput: snapshot.values.dangerInput ?? '',
   };
 }
@@ -146,42 +138,9 @@ function SettingsAccountIsland() {
       </div>
 
       <div className="card">
-        <div className="card-title">{labels.apiTitle}</div>
-        <div className="settings-note settings-note-top">{labels.apiHelp}</div>
-        <div className="account-field">
-          <label htmlFor="nutrition-api-key-input">{labels.apiLabel}</label>
-          <input
-            type="password"
-            id="nutrition-api-key-input"
-            placeholder={labels.apiPlaceholder}
-            autoComplete="off"
-            spellCheck="false"
-            value={formValues.apiKey}
-            onChange={(event) => updateField('apiKey', event.target.value)}
-          />
-        </div>
-        {values.hasApiKey ? (
-          <div className="settings-note settings-note-tight">
-            {labels.apiSavedHint}
-          </div>
-        ) : null}
-        <div className="settings-button-row">
-          <button
-            className="btn btn-secondary settings-row-button"
-            type="button"
-            onClick={() => window.saveNutritionApiKey?.(formValues.apiKey)}
-          >
-            {labels.apiSave}
-          </button>
-          {values.hasApiKey ? (
-            <button
-              className="btn btn-ghost settings-row-button"
-              type="button"
-              onClick={() => window.saveNutritionApiKey?.('', { clear: true })}
-            >
-              {labels.apiClear}
-            </button>
-          ) : null}
+        <div className="card-title">{labels.nutritionTitle}</div>
+        <div className="settings-note settings-note-top">
+          {labels.nutritionHelp}
         </div>
       </div>
 
