@@ -172,6 +172,67 @@ function histLiftIcon(name) {
   return trHist('history.legend.lift', 'Lift');
 }
 
+function histNormalizeSessionNotes(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const cleaned = text
+    .replace(
+      /Kirjaa j\u00e4ljell\u00e4 olevat toistot viimeisest\u00e4 sarjasta\.?/gi,
+      ''
+    )
+    .replace(/Note reps left in tank on (the )?last set\.?/gi, '')
+    .replace(/^[\s.,;:!?\-]+|[\s.,;:!?\-]+$/g, '')
+    .trim();
+  return cleaned || null;
+}
+
+function histBuildExerciseSummary(exercise) {
+  const workSets = (exercise.sets || []).filter((set) => set.done && !set.isWarmup);
+  const allDoneSets = (exercise.sets || []).filter((set) => set.done);
+  const doneSets = workSets.length > 0 ? workSets : allDoneSets;
+  if (!doneSets.length) return null;
+
+  const maxKg = Math.max(...doneSets.map((set) => parseFloat(set.weight) || 0));
+  const heaviestSets = doneSets.filter(
+    (set) => (parseFloat(set.weight) || 0) === maxKg
+  );
+  const repCounts = new Map();
+
+  heaviestSets.forEach((set) => {
+    const reps =
+      typeof parseLoggedRepCount === 'function'
+        ? parseLoggedRepCount(set.reps)
+        : parseInt(set.reps, 10);
+    if (!Number.isFinite(reps) || reps <= 0) return;
+    repCounts.set(reps, (repCounts.get(reps) || 0) + 1);
+  });
+
+  let topReps = 0;
+  let setCount = 0;
+  repCounts.forEach((count, reps) => {
+    if (count > setCount || (count === setCount && reps > topReps)) {
+      setCount = count;
+      topReps = reps;
+    }
+  });
+
+  const lastHeavy = (exercise.sets || []).find(
+    (set) => set.isLastHeavySet && set.done
+  );
+  const lastHeavyReps =
+    typeof parseLoggedRepCount === 'function'
+      ? parseLoggedRepCount(lastHeavy?.reps)
+      : parseInt(lastHeavy?.reps, 10);
+
+  return {
+    name: histDisplayName(exercise.name),
+    maxKg,
+    setCount,
+    topReps,
+    amrapReps: Number.isFinite(lastHeavyReps) && lastHeavyReps > 0 ? lastHeavyReps : null,
+  };
+}
+
 // Build a Set of workout IDs that contain a rep PR on an AMRAP/last-heavy set
 function histComputePRs() {
   const sorted = workouts
@@ -240,148 +301,28 @@ function histGroupWorkouts() {
   const sorted = workouts
     .slice()
     .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  function addToGroup(
-    key,
-    groupLabel,
-    groupIcon,
-    programId,
-    weekKey,
-    weekLabel,
-    w
-  ) {
-    if (!groups.has(key))
-      groups.set(key, {
-        key,
-        groupLabel,
-        groupIcon,
-        programId,
-        weeks: new Map(),
-      });
-    const g = groups.get(key);
-    if (!g.weeks.has(weekKey))
-      g.weeks.set(weekKey, { weekKey, weekLabel, workouts: [] });
-    g.weeks.get(weekKey).workouts.push(w);
-  }
+  const locale = histLocale();
 
   for (const w of sorted) {
-    if (isSportWorkout(w)) {
-      const sportLabel =
-        w.type === 'hockey'
-          ? 'Hockey'
-          : schedule.sportName || trHist('common.sport', 'Sport');
-      const mo = new Date(w.date).toLocaleDateString(histLocale(), {
-        month: 'long',
-        year: 'numeric',
-      });
-      addToGroup(
-        'sport-' + mo,
-        sportLabel + ' - ' + mo,
-        trHist('history.sport', 'Sport'),
-        'sport',
-        'all',
-        '',
-        w
-      );
-      continue;
-    }
-    const prog = w.program || w.type || 'other';
-    const meta = w.programMeta || {};
-    const cycle = meta.cycle;
-    const week = meta.week;
+    const d = new Date(w.date);
+    const ws = getWeekStart(d);
+    const key = ws.toISOString().slice(0, 10);
 
-    if (prog === 'wendler531') {
-      const seasonMap = {
-        off: trHist('program.season.off', 'Off-Season'),
-        in: trHist('program.season.in', 'In-Season'),
-      };
-      const seasonLabel = seasonMap[meta.season] || '';
-      const gKey = 'w531-c' + (cycle || 'x');
-      const gLabel =
-        '5/3/1 - Cycle ' +
-        (cycle || '?') +
-        (seasonLabel ? ' - ' + seasonLabel : '');
-      const gIcon = meta.season === 'in' ? 'IN' : 'OFF';
-      const weekMap = {
-        1: trHist('program.w531.wave5', '5s Wave'),
-        2: trHist('program.w531.wave3', '3s Wave'),
-        3: trHist('program.w531.week531', '5/3/1 Week'),
-        4: meta.testWeekPending
-          ? trHist('program.w531.tm_test', 'TM Test')
-          : trHist('program.w531.deload', 'Deload'),
-      };
-      const wKey = week ? 'w' + week : 'wx';
-      const wLabel = week
-        ? trHist('history.week_label', 'WEEK {week}', { week }) +
-          ' - ' +
-          (weekMap[week] || '')
-        : 'Ungrouped';
-      addToGroup(gKey, gLabel, gIcon, 'wendler531', wKey, wLabel, w);
-    } else if (prog === 'forge') {
-      const blockNum = week <= 7 ? 1 : week <= 14 ? 2 : 3;
-      const blockKeys = {
-        1: 'program.forge.block.hypertrophy',
-        2: 'program.forge.block.strength',
-        3: 'program.forge.block.peaking',
-      };
-      const blockFallbacks = { 1: 'Hypertrophy', 2: 'Strength', 3: 'Peaking' };
-      const blockRanges = {
-        1: { start: 1, end: 7 },
-        2: { start: 8, end: 14 },
-        3: { start: 15, end: 21 },
-      };
-      const blockName = trHist(blockKeys[blockNum], blockFallbacks[blockNum]);
-      const range = blockRanges[blockNum];
-      const gKey = 'forge-b' + blockNum;
-      const gLabel = trHist(
-        'history.block_label',
-        '{program} – {block} (Wk {start}-{end})',
-        {
-          program: 'Forge',
-          block: blockName,
-          start: range.start,
-          end: range.end,
-        }
-      );
-      const wLabel = week
-        ? trHist('history.week_label', 'WEEK {week}', { week })
-        : trHist('dashboard.sessions_left', 'Sessions');
-      addToGroup(
-        gKey,
-        gLabel,
-        'FG',
-        'forge',
-        week ? 'w' + week : 'wx',
-        wLabel,
-        w
-      );
-    } else if (prog === 'stronglifts5x5') {
-      addToGroup(
-        'sl5x5',
-        'StrongLifts 5x5',
-        'SL',
-        'stronglifts5x5',
-        'all',
-        '',
-        w
-      );
-    } else {
-      addToGroup(
-        'other',
-        trHist('history.other_sessions', 'Other Sessions'),
-        trHist('history.legend.lift', 'Lift'),
-        'other',
-        'all',
-        '',
-        w
-      );
+    if (!groups.has(key)) {
+      const wEnd = new Date(ws);
+      wEnd.setDate(wEnd.getDate() + 6);
+      const startStr = ws.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+      const endStr = wEnd.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+      groups.set(key, {
+        key,
+        groupLabel: startStr + ' – ' + endStr,
+        workouts: [],
+      });
     }
+    groups.get(key).workouts.push(w);
   }
 
-  return [...groups.values()].map((g) => ({
-    ...g,
-    weeks: [...g.weeks.values()],
-  }));
+  return [...groups.values()];
 }
 
 function histRecoveryStyle(pct) {
@@ -492,19 +433,11 @@ function histRenderCard(w, isPR, recovery, options) {
   const meta = w.programMeta || {};
   let cardTitle;
   if (w.program === 'forge' && meta.week) {
-    const blockNum = meta.week <= 7 ? 1 : meta.week <= 14 ? 2 : 3;
-    const blockKeys = {
-      1: 'program.forge.block.hypertrophy',
-      2: 'program.forge.block.strength',
-      3: 'program.forge.block.peaking',
-    };
-    const blockFallbacks = { 1: 'Hypertrophy', 2: 'Strength', 3: 'Peaking' };
-    const blockName = trHist(blockKeys[blockNum], blockFallbacks[blockNum]);
     const weekDay = trHist('history.card.week_day', 'Week {week} · Day {day}', {
       week: meta.week,
       day: w.programDayNum || 1,
     });
-    cardTitle = weekDay + ' \u2014 ' + blockName;
+    cardTitle = weekDay;
   } else {
     // Fallback: strip emoji from programLabel
     const rawLabel = w.programLabel || '';
@@ -518,10 +451,7 @@ function histRenderCard(w, isPR, recovery, options) {
   }
 
   // Subtitle: date + session description
-  const descPart = w.sessionDescription
-    ? ' \u00B7 ' + w.sessionDescription
-    : '';
-  const cardSub = dateStr + descPart;
+  const cardSub = dateStr;
 
   // Tonnage
   let tonnage = 0;
@@ -546,6 +476,10 @@ function histRenderCard(w, isPR, recovery, options) {
   const bonusBadge = w.isBonus
     ? ` <span class="hist-bonus-badge">${escapeHtml(trHist('history.bonus_badge', 'Bonus'))}</span>`
     : '';
+  const programBadge = _programBadge(w);
+  const programBadgeHtml = programBadge
+    ? `<span class="hist-program-badge">${escapeHtml(programBadge)}</span>`
+    : '';
 
   // Exercise rows
   const completedExercises = (w.exercises || []).filter((ex) =>
@@ -553,18 +487,21 @@ function histRenderCard(w, isPR, recovery, options) {
   );
   const exRows = completedExercises
     .map((ex) => {
-      const done = ex.sets.filter((s) => s.done);
-      const maxKg = Math.max(...done.map((s) => parseFloat(s.weight) || 0));
-      const lastHeavy = ex.sets.find((s) => s.isLastHeavySet && s.done);
-      const amrapStr =
-        lastHeavy && parseInt(lastHeavy.reps) > 0
-          ? ` - <span class="hist-amrap-reps">${lastHeavy.reps}+ reps</span>`
+      const summary = histBuildExerciseSummary(ex);
+      if (!summary) return '';
+      const schemeHtml =
+        summary.topReps > 0
+          ? `<span class="hist-exercise-scheme"> · ${summary.setCount}\u00d7${summary.topReps}</span>`
           : '';
+      const amrapStr = summary.amrapReps
+        ? ` <span class="hist-amrap-reps">${summary.amrapReps}+</span>`
+        : '';
       return `<div class="hist-exercise-row">
-      <span>${escapeHtml(histDisplayName(ex.name))}</span>
-      <span class="hist-exercise-vol">${done.length}\u00D7${maxKg > 0 ? maxKg + 'kg' : 'bw'}${amrapStr}</span>
+      <span>${escapeHtml(summary.name)}</span>
+      <span class="hist-exercise-vol">${summary.maxKg > 0 ? summary.maxKg + 'kg' : 'bw'}${schemeHtml}${amrapStr}</span>
     </div>`;
     })
+    .filter(Boolean)
     .join('');
 
   // Footer: volume, exercises, RPE
@@ -582,7 +519,7 @@ function histRenderCard(w, isPR, recovery, options) {
         <span class="hist-lift-icon">${liftIcon}</span>
         <div class="hist-card-copy">
           <div class="hist-card-title">${escapeHtml(cardTitle)}${bonusBadge}${prBadge}${recovBadge}${durationBadge}</div>
-          <div class="hist-card-date">${escapeHtml(cardSub)}</div>
+          <div class="hist-card-date">${escapeHtml(cardSub)}${programBadgeHtml}</div>
         </div>
       </div>
       ${histDeleteAction(w, options)}
@@ -592,48 +529,25 @@ function histRenderCard(w, isPR, recovery, options) {
   </div>`;
 }
 
-function histRenderWeekGroup(wk, isOpen, prSet, recovMap, options) {
-  if (!wk.weekLabel) {
-    // No week sub-grouping - render cards flat
-    return wk.workouts
-      .map((w) =>
-        histRenderCard(w, prSet.has(w.id), recovMap[w.id] ?? null, options)
-      )
-      .join('');
-  }
-  const count = wk.workouts.length;
-  const cards = wk.workouts
+function histRenderGroup(g, isFirst, prSet, recovMap, options) {
+  const count = g.workouts.length;
+  const cards = g.workouts
     .map((w) =>
       histRenderCard(w, prSet.has(w.id), recovMap[w.id] ?? null, options)
     )
     .join('');
-  return `<details class="hist-week-details"${isOpen ? ' open' : ''}>
+  return `<details class="hist-week-details"${isFirst ? ' open' : ''}>
     <summary class="hist-week-toggle">
       <div class="hist-week-toggle-left">
-        <span class="hist-week-chevron">v</span>
-        <span class="hist-week-label">${escapeHtml(wk.weekLabel)}</span>
+        <span class="hist-week-chevron" aria-hidden="true">
+          <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="hist-week-label">${escapeHtml(g.groupLabel)}</span>
       </div>
       <span class="hist-week-count">${count} ${count !== 1 ? trHist('dashboard.sessions_left', 'sessions') : trHist('dashboard.session_left', 'session', { count: 1 })}</span>
     </summary>
     <div class="hist-week-body">${cards}</div>
   </details>`;
-}
-
-function histRenderGroup(g, prSet, recovMap, options) {
-  const total = g.weeks.reduce((n, wk) => n + wk.workouts.length, 0);
-  const weeks = g.weeks
-    .map((wk, i) => histRenderWeekGroup(wk, i === 0, prSet, recovMap, options))
-    .join('');
-  return `<div class="hist-cycle-group">
-    <div class="hist-cycle-header">
-      <span class="hist-cycle-icon">${escapeHtml(g.groupIcon)}</span>
-      <div>
-        <div class="hist-cycle-label">${escapeHtml(g.groupLabel)}</div>
-        <div class="hist-cycle-sub">${total} ${total !== 1 ? trHist('dashboard.sessions_left', 'sessions') : trHist('dashboard.session_left', 'session', { count: 1 })}</div>
-      </div>
-    </div>
-    ${weeks}
-  </div>`;
 }
 
 function histEmptyState() {
@@ -845,7 +759,7 @@ function buildHistoryLogMarkup(options) {
   const recovMap = histComputeRecovery();
   const groups = histGroupWorkouts();
   return groups
-    .map((g) => histRenderGroup(g, prSet, recovMap, options))
+    .map((g, i) => histRenderGroup(g, i === 0, prSet, recovMap, options))
     .join('');
 }
 
@@ -1366,6 +1280,20 @@ function _buildStructuredHeatmap() {
   };
 }
 
+function _programBadge(w) {
+  if (isSportWorkout(w))
+    return w.type === 'hockey' ? 'Hockey' : schedule.sportName || trHist('common.sport', 'Sport');
+  const BADGES = {
+    forge: 'Forge',
+    wendler531: '5/3/1',
+    stronglifts5x5: 'SL 5\u00D75',
+    casualfullbody: trHist('program.casualfullbody.shortName', 'Casual'),
+    hypertrophysplit: trHist('program.hypertrophysplit.shortName', 'Hyper'),
+  };
+  const pid = w.program || w.type || '';
+  return BADGES[pid] || w.programLabel || '';
+}
+
 function _buildStructuredCard(w, isPR, recovery) {
   const d = new Date(w.date);
   const dateStr = d.toLocaleDateString(histLocale(), {
@@ -1395,6 +1323,7 @@ function _buildStructuredCard(w, isPR, recovery) {
       date: dateStr,
       duration: mins,
       iconLabel: trHist('history.sport', 'Sport'),
+      programBadge: w.type === 'hockey' ? 'Hockey' : schedule.sportName || trHist('common.sport', 'Sport'),
     };
   }
 
@@ -1409,21 +1338,10 @@ function _buildStructuredCard(w, isPR, recovery) {
   const meta = w.programMeta || {};
   let cardTitle;
   if (w.program === 'forge' && meta.week) {
-    const blockNum = meta.week <= 7 ? 1 : meta.week <= 14 ? 2 : 3;
-    const blockKeys = {
-      1: 'program.forge.block.hypertrophy',
-      2: 'program.forge.block.strength',
-      3: 'program.forge.block.peaking',
-    };
-    const blockFallbacks = { 1: 'Hypertrophy', 2: 'Strength', 3: 'Peaking' };
-    const blockName = trHist(blockKeys[blockNum], blockFallbacks[blockNum]);
-    cardTitle =
-      trHist('history.card.week_day', 'Week {week} · Day {day}', {
-        week: meta.week,
-        day: w.programDayNum || 1,
-      }) +
-      ' \u2014 ' +
-      blockName;
+    cardTitle = trHist('history.card.week_day', 'Week {week} · Day {day}', {
+      week: meta.week,
+      day: w.programDayNum || 1,
+    });
   } else {
     const rawLabel = w.programLabel || '';
     cardTitle =
@@ -1435,10 +1353,7 @@ function _buildStructuredCard(w, isPR, recovery) {
       });
   }
 
-  const descPart = w.sessionDescription
-    ? ' \u00B7 ' + w.sessionDescription
-    : '';
-  const cardSub = dateStr + descPart;
+  const cardSub = dateStr;
 
   let tonnage = 0;
   (w.exercises || []).forEach((ex) => {
@@ -1452,21 +1367,9 @@ function _buildStructuredCard(w, isPR, recovery) {
   const completedExercises = (w.exercises || []).filter((ex) =>
     ex.sets.some((s) => s.done)
   );
-  const exercises = completedExercises.map((ex) => {
-    const done = ex.sets.filter((s) => s.done);
-    const maxKg = Math.max(...done.map((s) => parseFloat(s.weight) || 0));
-    const lastHeavy = ex.sets.find((s) => s.isLastHeavySet && s.done);
-    const amrapReps =
-      lastHeavy && parseInt(lastHeavy.reps) > 0
-        ? parseInt(lastHeavy.reps)
-        : null;
-    return {
-      name: histDisplayName(ex.name),
-      setCount: done.length,
-      maxKg,
-      amrapReps,
-    };
-  });
+  const exercises = completedExercises
+    .map((ex) => histBuildExerciseSummary(ex))
+    .filter(Boolean);
 
   const rs = histRecoveryStyle(recovery);
 
@@ -1485,9 +1388,10 @@ function _buildStructuredCard(w, isPR, recovery) {
     exerciseCount: completedExercises.length,
     rpe: w.rpe || null,
     exercises,
-    sessionNotes: w.sessionNotes || null,
+    sessionNotes: histNormalizeSessionNotes(w.sessionNotes),
     tmAdjustments: w.tmAdjustments || null,
     deleteTitle: histDeleteTitle(w),
+    programBadge: _programBadge(w),
   };
 }
 
@@ -1525,16 +1429,10 @@ function _buildStructuredLog() {
     groups: groups.map((g) => ({
       key: g.key,
       groupLabel: g.groupLabel,
-      groupIcon: g.groupIcon,
-      total: g.weeks.reduce((n, wk) => n + wk.workouts.length, 0),
-      weeks: g.weeks.map((wk) => ({
-        weekKey: wk.weekKey,
-        weekLabel: wk.weekLabel,
-        count: wk.workouts.length,
-        cards: wk.workouts.map((w) =>
-          _buildStructuredCard(w, prSet.has(w.id), recovMap[w.id] ?? null)
-        ),
-      })),
+      count: g.workouts.length,
+      cards: g.workouts.map((w) =>
+        _buildStructuredCard(w, prSet.has(w.id), recovMap[w.id] ?? null)
+      ),
     })),
   };
 }

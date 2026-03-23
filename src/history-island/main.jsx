@@ -99,7 +99,7 @@ function WorkoutCard({ card, labels, style }) {
             <span className="hist-lift-icon hist-icon-sport">{card.iconLabel}</span>
             <div>
               <div className="hist-card-title">{card.title}</div>
-              <div className="hist-card-date">{card.date}</div>
+              <div className="hist-card-date">{card.date}{card.programBadge && <span className="hist-program-badge">{card.programBadge}</span>}</div>
               {card.duration > 0 && <div className="hist-sport-duration">{card.duration} min</div>}
             </div>
           </div>
@@ -135,7 +135,7 @@ function WorkoutCard({ card, labels, style }) {
               )}
               {card.duration > 0 && <span className="hist-meta-tag">{card.duration}min</span>}
             </div>
-            <div className="hist-card-date">{card.sub}</div>
+            <div className="hist-card-date">{card.sub}{card.programBadge && <span className="hist-program-badge">{card.programBadge}</span>}</div>
           </div>
         </div>
         <button
@@ -152,8 +152,9 @@ function WorkoutCard({ card, labels, style }) {
             <div key={i} className="hist-exercise-row">
               <span>{ex.name}</span>
               <span className="hist-exercise-vol">
-                {ex.setCount}{'\u00D7'}{ex.maxKg > 0 ? ex.maxKg + 'kg' : 'bw'}
-                {ex.amrapReps && <span className="hist-amrap-reps"> - {ex.amrapReps}+ reps</span>}
+                {ex.maxKg > 0 ? ex.maxKg + 'kg' : 'bw'}
+                {ex.topReps > 0 && <span className="hist-exercise-scheme">{' · '}{ex.setCount}{'\u00D7'}{ex.topReps}</span>}
+                {ex.amrapReps && <span className="hist-amrap-reps">{' '}{ex.amrapReps}+</span>}
               </span>
             </div>
           ))}
@@ -186,16 +187,10 @@ function WorkoutCard({ card, labels, style }) {
   );
 }
 
-/* ── Week Group ────────────────────────────────────────────── */
+/* ── Calendar Week Group ───────────────────────────────────── */
 
-function WeekGroup({ week, labels, isFirst }) {
-  if (!week.weekLabel) {
-    return week.cards.map((card, i) => (
-      <WorkoutCard key={card.id} card={card} labels={labels} style={{ '--i': Math.min(i, 10) }} />
-    ));
-  }
-
-  const countLabel = week.count !== 1 ? labels.sessions : labels.session;
+function CalendarWeekGroup({ group, labels, isFirst }) {
+  const countLabel = group.count !== 1 ? labels.sessions : labels.session;
 
   return (
     <details className="hist-week-details" open={isFirst || undefined}>
@@ -204,37 +199,16 @@ function WeekGroup({ week, labels, isFirst }) {
           <span className="hist-week-chevron" aria-hidden="true">
             <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </span>
-          <span className="hist-week-label">{week.weekLabel}</span>
+          <span className="hist-week-label">{group.groupLabel}</span>
         </div>
-        <span className="hist-week-count">{week.count} {countLabel}</span>
+        <span className="hist-week-count">{group.count} {countLabel}</span>
       </summary>
       <div className="hist-week-body">
-        {week.cards.map((card, i) => (
+        {group.cards.map((card, i) => (
           <WorkoutCard key={card.id} card={card} labels={labels} style={{ '--i': Math.min(i, 10) }} />
         ))}
       </div>
     </details>
-  );
-}
-
-/* ── Cycle Group ───────────────────────────────────────────── */
-
-function CycleGroup({ group, labels }) {
-  const countLabel = group.total !== 1 ? labels.sessions : labels.session;
-
-  return (
-    <div className="hist-cycle-group">
-      <div className="hist-cycle-header">
-        <span className="hist-cycle-icon">{group.groupIcon}</span>
-        <div>
-          <div className="hist-cycle-label">{group.groupLabel}</div>
-          <div className="hist-cycle-sub">{group.total} {countLabel}</div>
-        </div>
-      </div>
-      {group.weeks.map((wk, i) => (
-        <WeekGroup key={wk.weekKey} week={wk} labels={labels} isFirst={i === 0} />
-      ))}
-    </div>
   );
 }
 
@@ -496,7 +470,7 @@ function HistoryIsland() {
         <div id="history-list">
           {snapshot.log.empty
             ? <EmptyState log={snapshot.log} />
-            : snapshot.log.groups.map(g => <CycleGroup key={g.key} group={g} labels={snapshot.labels} />)
+            : snapshot.log.groups.map((g, i) => <CalendarWeekGroup key={g.key} group={g} labels={snapshot.labels} isFirst={i === 0} />)
           }
         </div>
       </div>
