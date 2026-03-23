@@ -463,8 +463,9 @@
       .slice(0, 6);
   }
 
-  function _normalizeStructuredNutritionResponse(rawResponse) {
+  function _normalizeStructuredNutritionResponse(rawResponse, depth) {
     if (!rawResponse || typeof rawResponse !== 'object') return null;
+    depth = depth || 0;
     var displayMarkdown = String(rawResponse.display_markdown || '').trim();
     var estimatedMacros = _normalizeStructuredMacroGroup(
       rawResponse.estimated_macros
@@ -474,6 +475,21 @@
     );
     var tags = _normalizeNutritionTags(rawResponse.tags);
     if (!displayMarkdown) return null;
+    if (depth < 2) {
+      var nested = _parseStructuredNutritionResponse(
+        displayMarkdown,
+        null,
+        depth + 1
+      );
+      if (nested && nested.display_markdown !== displayMarkdown) {
+        return {
+          display_markdown: nested.display_markdown,
+          estimated_macros: nested.estimated_macros || estimatedMacros,
+          remaining_today: nested.remaining_today || remainingToday,
+          tags: nested.tags && nested.tags.length ? nested.tags : tags,
+        };
+      }
+    }
     return {
       display_markdown: displayMarkdown,
       estimated_macros: estimatedMacros,
@@ -482,7 +498,7 @@
     };
   }
 
-  function _parseStructuredNutritionResponse(rawText, trace) {
+  function _parseStructuredNutritionResponse(rawText, trace, depth) {
     var text = String(rawText || '').trim();
     if (!text) return null;
 
@@ -522,7 +538,7 @@
     if (!parsed && trace && trace.parseSource === 'none') {
       trace.parseSource = 'none';
     }
-    return _normalizeStructuredNutritionResponse(parsed);
+    return _normalizeStructuredNutritionResponse(parsed, depth);
   }
 
   function _normalizeHistoryEntry(entry) {
