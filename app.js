@@ -1881,6 +1881,7 @@ function saveBodyMetrics() {
     targetWeight: toNum('body-target-weight', parseFloat),
     bodyGoal: document.getElementById('body-goal')?.value || null,
   };
+  if (typeof normalizeBodyMetrics === 'function') normalizeBodyMetrics(profile);
   saveProfileData({ docKeys: ['profile_core'] });
   notifySettingsBodyIsland();
   showToast(tr('settings.body.saved', 'Saved'), 'var(--green)');
@@ -2007,7 +2008,6 @@ function saveSchedule(nextValues) {
   }
   if (!activeWorkout) resetNotStartedView();
   saveScheduleData();
-  saveProfileData({ docKeys: ['profile_core'] });
   if (isSettingsScheduleIslandActive()) notifySettingsScheduleIsland();
   updateProgramDisplay();
   updateDashboard();
@@ -2128,6 +2128,8 @@ function importData(event) {
             normalizeScheduleState(schedule);
           }
           cleanupLegacyProfileFields(profile);
+          if (typeof normalizeBodyMetrics === 'function')
+            normalizeBodyMetrics(profile);
           normalizeTrainingPreferences(profile);
           normalizeCoachingProfile(profile);
           await replaceWorkoutTableSnapshot(workouts);

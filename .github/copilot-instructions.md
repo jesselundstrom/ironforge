@@ -62,6 +62,7 @@
 - Treat `profiles.data` as a compatibility mirror/fallback for profile and schedule only; do not reintroduce `profiles.data.workouts`.
 - Keep workout-table changes compatible with the additive migration flow under `supabase/migrations/`.
 - Keep profile-document sync compatible with the additive migration flow under `supabase/migrations/`.
+- Profile-document writes now go through the guarded Supabase RPC `upsert_profile_documents_if_newer(jsonb)` and resolve document freshness by `client_updated_at`, not by server `updated_at`.
 - Preserve soft-delete behavior for synced workouts unless the task explicitly requires a different deletion model.
 - Avoid changes that could silently invalidate existing user data on devices.
 - `profile.bodyMetrics` stores body composition data (weight, height, age, sex, activity level, body goal, target weight).

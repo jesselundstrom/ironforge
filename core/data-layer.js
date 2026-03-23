@@ -386,6 +386,7 @@ function filterCoreSyncMeta(syncMetaLike) {
 
 function getProfileCorePayload(profileLike) {
   const next = cloneJson(profileLike || {}) || {};
+  normalizeBodyMetrics(next);
   delete next.programs;
   if (next.syncMeta) {
     const filteredSyncMeta = filterCoreSyncMeta(next.syncMeta);
@@ -708,6 +709,70 @@ function normalizeTrainingPreferences(profileLike) {
     .trim()
     .slice(0, 500);
   profileLike.preferences = next;
+  return next;
+}
+
+function getDefaultBodyMetrics() {
+  return {
+    sex: null,
+    activityLevel: null,
+    weight: null,
+    height: null,
+    age: null,
+    targetWeight: null,
+    bodyGoal: null,
+  };
+}
+
+function normalizeBodyMetricNumber(value, min, max, options) {
+  const opts = options || {};
+  if (value === undefined || value === null || value === '') return null;
+  const cleaned = String(value)
+    .replace(',', '.')
+    .replace(/[^0-9.-]/g, '');
+  if (!/[0-9]/.test(cleaned)) return null;
+  const parsed = Number(cleaned);
+  if (!Number.isFinite(parsed)) return null;
+  const clamped = Math.max(min, Math.min(max, parsed));
+  return opts.integer === true ? Math.round(clamped) : clamped;
+}
+
+function normalizeBodyMetrics(profileLike) {
+  if (!profileLike || typeof profileLike !== 'object')
+    return getDefaultBodyMetrics();
+  const defaults = getDefaultBodyMetrics();
+  const incoming =
+    profileLike.bodyMetrics && typeof profileLike.bodyMetrics === 'object'
+      ? profileLike.bodyMetrics
+      : {};
+  const next = { ...defaults, ...incoming };
+  const allowedSex = new Set(['male', 'female']);
+  const allowedActivityLevels = new Set([
+    'sedentary',
+    'light',
+    'moderate',
+    'very_active',
+  ]);
+  const allowedGoals = new Set([
+    'lose_fat',
+    'gain_muscle',
+    'recomp',
+    'maintain',
+  ]);
+  next.sex = allowedSex.has(String(next.sex || '')) ? String(next.sex) : null;
+  next.activityLevel = allowedActivityLevels.has(
+    String(next.activityLevel || '')
+  )
+    ? String(next.activityLevel)
+    : null;
+  next.weight = normalizeBodyMetricNumber(next.weight, 30, 300);
+  next.height = normalizeBodyMetricNumber(next.height, 100, 250);
+  next.age = normalizeBodyMetricNumber(next.age, 10, 100, { integer: true });
+  next.targetWeight = normalizeBodyMetricNumber(next.targetWeight, 30, 300);
+  next.bodyGoal = allowedGoals.has(String(next.bodyGoal || ''))
+    ? String(next.bodyGoal)
+    : null;
+  profileLike.bodyMetrics = next;
   return next;
 }
 
@@ -1388,7 +1453,7 @@ function laterIso(a, b) {
 
 function getDocumentUpdatedAt(row) {
   if (!row || typeof row !== 'object') return undefined;
-  return row.updated_at || row.client_updated_at || undefined;
+  return row.client_updated_at || row.updated_at || undefined;
 }
 
 function mergeSyncMeta(localMeta, remoteMeta) {
@@ -1561,6 +1626,7 @@ async function loadData(options) {
     profile.activeProgram = 'forge';
   }
   cleanupLegacyProfileFields(profile);
+  normalizeBodyMetrics(profile);
   normalizeTrainingPreferences(profile);
   normalizeCoachingProfile(profile);
   normalizeProfileProgramStateMap(profile);
@@ -1612,8 +1678,12 @@ async function loadData(options) {
     if (currentUser && isCloudSyncEnabled())
       await upsertWorkoutRecords(workouts);
   }
-  await saveScheduleData({ touchSync: scheduleChangedDuringLoad, push: false });
-  await saveProfileData({ touchSync: profileChangedDuringLoad });
+  if (scheduleChangedDuringLoad) {
+    await saveScheduleData({ touchSync: true, push: false });
+  }
+  if (profileChangedDuringLoad) {
+    await saveProfileData({ touchSync: true, push: false });
+  }
   restDuration = profile.defaultRest || 120;
   buildExerciseIndex();
   if (window.I18N && I18N.applyTranslations) I18N.applyTranslations(document);
@@ -1669,7 +1739,6 @@ function toProfileDocumentRows(docKeys, profileLike, scheduleLike) {
           clientUpdatedAt;
       }
       return {
-        user_id: currentUser.id,
         doc_key: docKey,
         payload,
         client_updated_at: clientUpdatedAt,
@@ -1684,26 +1753,44 @@ async function upsertProfileDocuments(
   scheduleLike,
   options
 ) {
-  if (!currentUser || !isCloudSyncEnabled()) return false;
+  if (!currentUser || !isCloudSyncEnabled()) {
+    return { ok: false, appliedDocKeys: [], staleDocKeys: [], rows: [] };
+  }
   const rows = toProfileDocumentRows(docKeys, profileLike, scheduleLike);
-  if (!rows.length) return true;
+  if (!rows.length) {
+    return { ok: true, appliedDocKeys: [], staleDocKeys: [], rows: [] };
+  }
   const opts = options || {};
   const result = await runSupabaseWrite(
-    _SB
-      .from('profile_documents')
-      .upsert(rows, { onConflict: 'user_id,doc_key' })
-      .select('doc_key,updated_at,client_updated_at'),
+    _SB.rpc('upsert_profile_documents_if_newer', {
+      _docs: rows,
+    }),
     'Failed to upsert profile documents',
     opts
   );
-  if (result.ok && Array.isArray(result.data)) {
-    result.data.forEach((row) =>
-      updateServerDocStamp(row.doc_key, row.updated_at || undefined)
-    );
-    clearDocKeysDirty(rows.map((row) => row.doc_key));
-  }
   profileDocumentsSupported = result.ok;
-  return result.ok;
+  if (!result.ok) {
+    return { ok: false, appliedDocKeys: [], staleDocKeys: [], rows: [] };
+  }
+  const returnedRows = Array.isArray(result.data) ? result.data : [];
+  const rowsByKey = new Map(
+    returnedRows.map((row) => [String(row?.doc_key || ''), row])
+  );
+  const appliedDocKeys = [];
+  const staleDocKeys = [];
+  rows.forEach((row) => {
+    const serverRow = rowsByKey.get(String(row.doc_key || ''));
+    if (serverRow) {
+      updateServerDocStamp(serverRow.doc_key, serverRow.updated_at || undefined);
+    }
+    if (!serverRow || serverRow.applied === false) {
+      staleDocKeys.push(row.doc_key);
+      return;
+    }
+    appliedDocKeys.push(row.doc_key);
+  });
+  clearDocKeysDirty(appliedDocKeys);
+  return { ok: true, appliedDocKeys, staleDocKeys, rows: returnedRows };
 }
 
 function buildStateFromProfileDocuments(
@@ -1793,6 +1880,7 @@ function buildStateFromProfileDocuments(
     }
   });
   cleanupLegacyProfileFields(nextProfile);
+  normalizeBodyMetrics(nextProfile);
   normalizeCoachingProfile(nextProfile);
   return { profile: nextProfile, schedule: resolvedSchedule, rowsByKey };
 }
@@ -2120,11 +2208,17 @@ async function pushToCloud(options) {
   const opts = options || {};
   const docKeys = opts.docKeys || getAllProfileDocumentKeys(profile);
   setSyncStatus('syncing');
-  const docsSaved = await upsertProfileDocuments(docKeys, profile, schedule, {
+  const writeResult = await upsertProfileDocuments(docKeys, profile, schedule, {
     notifyUser: false,
   });
-  if (docsSaved) {
-    setSyncStatus('synced');
+  if (writeResult.ok) {
+    let resolvedStaleRejects = true;
+    if (writeResult.staleDocKeys.length) {
+      resolvedStaleRejects = await resolveStaleProfileDocumentRejects(
+        writeResult.staleDocKeys
+      );
+    }
+    setSyncStatus(resolvedStaleRejects ? 'synced' : 'error');
     return true;
   }
   return pushLegacyProfileBlob();
@@ -2168,6 +2262,31 @@ async function pullFromCloud() {
   }
   setSyncStatus(navigator.onLine ? 'synced' : 'offline');
   return { usedCloud: false, usedDocs: false };
+}
+
+async function resolveStaleProfileDocumentRejects(staleDocKeys) {
+  const nextStaleDocKeys = uniqueDocKeys(staleDocKeys);
+  if (
+    !nextStaleDocKeys.length ||
+    !currentUser ||
+    !isCloudSyncEnabled() ||
+    isApplyingRemoteSync
+  ) {
+    return false;
+  }
+  clearDocKeysDirty(nextStaleDocKeys);
+  const beforeProfile = JSON.stringify(profile || {});
+  const beforeSchedule = JSON.stringify(schedule || {});
+  const pullResult = await pullFromCloud();
+  const changed =
+    beforeProfile !== JSON.stringify(profile || {}) ||
+    beforeSchedule !== JSON.stringify(schedule || {});
+  if (pullResult.usedCloud && changed) {
+    persistLocalProfileCache();
+    persistLocalScheduleCache();
+    refreshSyncedUI({ toast: false });
+  }
+  return pullResult.usedCloud === true;
 }
 
 function refreshSyncedUI(options) {

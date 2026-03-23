@@ -212,3 +212,119 @@ test('settings account import keeps hostile workout labels inert after reload', 
   );
   expect(triggered).toBe(false);
 });
+
+test('settings account import normalizes malformed body metrics before persisting them', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    window.__importReloadBlocked = false;
+    window.__originalSetTimeoutForImportTest__ = window.setTimeout.bind(window);
+    window.setTimeout = (handler, timeout, ...args) => {
+      if (
+        timeout === 1000 &&
+        typeof handler === 'function' &&
+        String(handler).includes('location.reload')
+      ) {
+        window.__importReloadBlocked = true;
+        return 0;
+      }
+      return window.__originalSetTimeoutForImportTest__(handler, timeout, ...args);
+    };
+    initSettings();
+    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
+    showSettingsTab('account');
+  });
+
+  const backup = JSON.stringify({
+    version: 1,
+    exported: '2026-03-20T10:00:00.000Z',
+    workouts: [],
+    schedule: {
+      sportName: 'Padel',
+      sportDays: [1, 3],
+      sportIntensity: 'moderate',
+      sportLegsHeavy: true,
+    },
+    profile: {
+      language: 'en',
+      defaultRest: 120,
+      activeProgram: 'forge',
+      preferences: {
+        goal: 'strength',
+        trainingDaysPerWeek: 3,
+        sessionMinutes: 60,
+        equipmentAccess: 'full_gym',
+        sportReadinessCheckEnabled: false,
+        warmupSetsEnabled: false,
+        notes: '',
+      },
+      coaching: {
+        experienceLevel: 'returning',
+        guidanceMode: 'balanced',
+        sportProfile: {
+          name: '',
+          inSeason: false,
+          sessionsPerWeek: 0,
+        },
+        limitations: {
+          jointFlags: [],
+          avoidMovementTags: [],
+          avoidExerciseIds: [],
+        },
+        exercisePreferences: {
+          preferredExerciseIds: [],
+          excludedExerciseIds: [],
+        },
+        behaviorSignals: {
+          avoidedExerciseIds: [],
+          skippedAccessoryExerciseIds: [],
+          preferredSwapExerciseIds: [],
+        },
+        onboardingCompleted: true,
+      },
+      bodyMetrics: {
+        sex: 'robot',
+        activityLevel: 'sprint',
+        weight: 999,
+        height: 20,
+        age: 3,
+        targetWeight: 'nope',
+        bodyGoal: 'forever_bulk',
+      },
+    },
+  });
+
+  await page
+    .locator('#settings-account-react-root input[type="file"]')
+    .setInputFiles({
+      name: 'ironforge-backup.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(backup, 'utf8'),
+    });
+
+  await confirmModal(page);
+
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => ({
+          bodyMetrics: profile.bodyMetrics,
+          reloadBlocked: window.__importReloadBlocked === true,
+        })),
+      { timeout: 15000 }
+    )
+    .toEqual({
+      bodyMetrics: {
+        sex: null,
+        activityLevel: null,
+        weight: 300,
+        height: 100,
+        age: 10,
+        targetWeight: null,
+        bodyGoal: null,
+      },
+      reloadBlocked: true,
+    });
+});
