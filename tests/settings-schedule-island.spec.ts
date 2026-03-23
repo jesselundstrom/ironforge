@@ -103,6 +103,36 @@ test('settings schedule island keeps sport name empty when the field is cleared'
   await expect(page.locator('#sport-status-bar')).toContainText(/sport \/ cardio/i);
 });
 
+test('settings schedule island updates sport name even when active program state is missing', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    profile.activeProgram = 'forge';
+    profile.programs = {};
+    schedule = {
+      sportName: 'Kestävyys',
+      sportDays: [1, 3],
+      sportIntensity: 'moderate',
+      sportLegsHeavy: true,
+    };
+    initSettings();
+    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
+    showSettingsTab('schedule');
+  });
+
+  const sportNameInput = page.locator('#settings-schedule-react-root #sport-name');
+  await sportNameInput.fill('Padel');
+  await sportNameInput.blur();
+
+  await expect
+    .poll(() => page.evaluate(() => schedule.sportName), { timeout: 15000 })
+    .toBe('Padel');
+  await expect(sportNameInput).toHaveValue('Padel');
+  await expect(page.locator('#sport-status-bar')).toContainText(/padel/i);
+});
+
 test('settings schedule island refreshes translated labels after language changes', async ({
   page,
 }) => {

@@ -394,7 +394,17 @@ function getActiveProgram() {
   );
 }
 function getActiveProgramState() {
-  return profile.programs?.[getActiveProgramId()] || {};
+  const activeProgramId = getActiveProgramId();
+  const currentState = profile.programs?.[activeProgramId];
+  if (currentState && typeof currentState === 'object') return currentState;
+  const prog =
+    PROGRAMS[activeProgramId] ||
+    PROGRAMS.forge ||
+    Object.values(PROGRAMS)[0] ||
+    null;
+  if (prog && typeof prog.getInitialState === 'function')
+    return cloneJson(prog.getInitialState()) || {};
+  return {};
 }
 function setProgramState(id, state) {
   const canonicalId = getCanonicalProgramRef(id);
