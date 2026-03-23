@@ -2,6 +2,7 @@
 !.claude/commands/
 .claude/commands/*
 !.claude/commands/builder-agent.md
+!.claude/commands/ironforge-business-advisor.md
 !.claude/commands/self-auditor.md
 node_modules/
 dist/

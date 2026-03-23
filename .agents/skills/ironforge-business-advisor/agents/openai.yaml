@@ -1,0 +1,7 @@
+interface:
+  display_name: "Ironforge Business Advisor"
+  short_description: "Guide app strategy and product decisions"
+  default_prompt: "Use $ironforge-business-advisor to evaluate this Ironforge product decision with business, UX, coaching, safety, and implementation lenses."
+
+policy:
+  allow_implicit_invocation: true
