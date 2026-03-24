@@ -1156,11 +1156,18 @@ function getProgramSwitcherSnapshotData() {
   if (
     active &&
     !visible.some((program) => program.id === active) &&
-    PROGRAMS[active]
+    typeof getProgramById === 'function' &&
+    getProgramById(active)
   ) {
-    visible.push(PROGRAMS[active]);
+    visible.push(getProgramById(active));
   }
-  const cards = (visible.length ? visible : Object.values(PROGRAMS)).map(
+  const cards = (
+    visible.length
+      ? visible
+      : typeof getRegisteredPrograms === 'function'
+        ? getRegisteredPrograms()
+        : Object.values(PROGRAMS)
+  ).map(
     (program) => {
       const compatibility = getProgramFrequencyCompatibility(
         program.id,
@@ -1810,12 +1817,17 @@ async function completeOnboarding(draft) {
     },
   });
   const nextPrograms = { ...(profile.programs || {}) };
+  const recommendedProgramInitialState =
+    typeof getProgramInitialState === 'function'
+      ? getProgramInitialState(recommendation.programId)
+      : PROGRAMS?.[recommendation.programId]?.getInitialState
+        ? PROGRAMS[recommendation.programId].getInitialState()
+        : null;
   if (
     !nextPrograms[recommendation.programId] &&
-    PROGRAMS?.[recommendation.programId]?.getInitialState
+    recommendedProgramInitialState
   ) {
-    nextPrograms[recommendation.programId] =
-      PROGRAMS[recommendation.programId].getInitialState();
+    nextPrograms[recommendation.programId] = recommendedProgramInitialState;
   }
   profile = {
     ...profile,
@@ -1853,7 +1865,11 @@ function maybeOpenOnboarding(options) {
   if (activeWorkout) return;
   const coaching = normalizeCoachingProfile(profile);
   if (!opts.force && coaching.onboardingCompleted === true) return;
-  if (!window.PROGRAMS || !Object.keys(PROGRAMS).length) {
+  if (
+    typeof hasRegisteredPrograms === 'function'
+      ? !hasRegisteredPrograms()
+      : !window.PROGRAMS || !Object.keys(PROGRAMS).length
+  ) {
     _onboardingRetryTimer = setTimeout(() => maybeOpenOnboarding(opts), 120);
     return;
   }
@@ -2358,7 +2374,11 @@ async function clearAllData() {
     coaching: getDefaultCoachingProfile(),
   };
   settingsAccountUiState = { dangerOpen: false, dangerInput: '' };
-  Object.values(PROGRAMS).forEach((prog) => {
+  (
+    typeof getRegisteredPrograms === 'function'
+      ? getRegisteredPrograms()
+      : Object.values(PROGRAMS)
+  ).forEach((prog) => {
     profile.programs[prog.id] = prog.getInitialState();
   });
   await replaceWorkoutTableSnapshot([]);

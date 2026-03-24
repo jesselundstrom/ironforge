@@ -37,6 +37,7 @@
 - The Settings route no longer reads `getSettings*ReactSnapshot()` from React components. Legacy settings code now pushes store-backed Settings tab view models into the shared runtime store, while tab switching, persistence, and advanced setup flows remain legacy-backed.
 - The Nutrition route no longer reads `getNutritionReactSnapshot()` from React components. Legacy nutrition code now pushes a store-backed Nutrition view model into the shared runtime store, while init/render lifecycle, day history, and request handling remain legacy-backed.
 - The old page snapshot getter exports, page `*-updated` bridge events, and page-specific mounted-flag ownership checks for Log, History, Dashboard, Settings, and Nutrition are removed; remaining hybrid coordination now centers on store sync helpers and runtime-bridge capability checks.
+- Module-side React code should use explicit accessors such as `src/core/program-registry.js` instead of reading `window.PROGRAMS` directly when touching the program registry during the migration.
 - Use `docs/migration-inventory.md` as the living checklist for hybrid bridge removal during the React cutover.
 - Reuse existing state objects, helpers, and DOM patterns before creating new ones.
 - Keep changes small and compatible with the current file organization.

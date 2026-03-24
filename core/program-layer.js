@@ -377,19 +377,37 @@ const PROGRAMS = {};
 function registerProgram(p) {
   PROGRAMS[p.id] = p;
 }
+function getProgramRegistry() {
+  return PROGRAMS;
+}
+function getRegisteredPrograms() {
+  return Object.values(PROGRAMS);
+}
 function getCanonicalProgramRef(programId) {
   return typeof getCanonicalProgramId === 'function'
     ? getCanonicalProgramId(programId)
     : programId;
+}
+function getProgramById(programId) {
+  const canonicalId = getCanonicalProgramRef(programId);
+  return PROGRAMS[canonicalId] || null;
+}
+function hasRegisteredPrograms() {
+  return getRegisteredPrograms().length > 0;
+}
+function getProgramInitialState(programId) {
+  const prog = getProgramById(programId);
+  if (!prog || typeof prog.getInitialState !== 'function') return null;
+  return cloneJson(prog.getInitialState()) || {};
 }
 function getActiveProgramId() {
   return getCanonicalProgramRef(profile.activeProgram || 'forge') || 'forge';
 }
 function getActiveProgram() {
   return (
-    PROGRAMS[getActiveProgramId()] ||
-    PROGRAMS.forge ||
-    Object.values(PROGRAMS)[0] ||
+    getProgramById(getActiveProgramId()) ||
+    getProgramById('forge') ||
+    getRegisteredPrograms()[0] ||
     {}
   );
 }
@@ -397,13 +415,9 @@ function getActiveProgramState() {
   const activeProgramId = getActiveProgramId();
   const currentState = profile.programs?.[activeProgramId];
   if (currentState && typeof currentState === 'object') return currentState;
-  const prog =
-    PROGRAMS[activeProgramId] ||
-    PROGRAMS.forge ||
-    Object.values(PROGRAMS)[0] ||
-    null;
-  if (prog && typeof prog.getInitialState === 'function')
-    return cloneJson(prog.getInitialState()) || {};
+  const initialState =
+    getProgramInitialState(activeProgramId) || getProgramInitialState('forge');
+  if (initialState) return initialState;
   return {};
 }
 function setProgramState(id, state) {
@@ -419,7 +433,7 @@ function getWorkoutProgramId(w) {
 }
 function recomputeProgramStateFromWorkouts(programId) {
   const canonicalId = getCanonicalProgramRef(programId);
-  const prog = PROGRAMS[canonicalId];
+  const prog = getProgramById(canonicalId);
   if (!prog) return null;
   if (!profile.programs) profile.programs = {};
 
@@ -491,11 +505,11 @@ function buildProgramSwitcherMarkup() {
   if (
     active &&
     !visible.some((program) => program.id === active) &&
-    PROGRAMS[active]
+    getProgramById(active)
   ) {
-    visible.push(PROGRAMS[active]);
+    visible.push(getProgramById(active));
   }
-  const cards = (visible.length ? visible : Object.values(PROGRAMS))
+  const cards = (visible.length ? visible : getRegisteredPrograms())
     .map((p) => {
       const compatibility = getProgramFrequencyCompatibility(p.id, profile);
       const pName = trProg('program.' + p.id + '.name', p.name);
@@ -570,7 +584,7 @@ function getProgramFrequencyCompatibility(programId, profileLike) {
 }
 
 function getProgramsSupportingTrainingDays(days) {
-  return Object.values(PROGRAMS).filter((prog) => {
+  return getRegisteredPrograms().filter((prog) => {
     if (typeof getProgramTrainingDaysRange !== 'function') return false;
     const { min, max } = getProgramTrainingDaysRange(prog.id);
     return days >= min && days <= max;
@@ -602,7 +616,7 @@ function getActiveProgramFrequencyMismatch(profileLike) {
   const activeId = getCanonicalProgramRef(
     profileLike?.activeProgram || profile.activeProgram || 'forge'
   );
-  const prog = PROGRAMS[activeId];
+  const prog = getProgramById(activeId);
   if (!prog) return null;
   const compatibility = getProgramFrequencyCompatibility(activeId, profileLike);
   if (compatibility.supportsExact) return null;

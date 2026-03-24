@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { getProgramById } from '../core/program-registry.js';
 
 const ONBOARDING_EVENT = 'ironforge:onboarding-updated';
 const LANGUAGE_EVENT = 'ironforge:language-changed';
@@ -341,7 +342,7 @@ function StepRecommendation({ draft }) {
     );
   }
 
-  const program = window.PROGRAMS?.[recommendation.programId];
+  const program = getProgramById(recommendation.programId);
   const programId = recommendation.programId || '';
   const programName = t('program.' + programId + '.name', program?.name || programId);
   const programDescription = t(

@@ -53,6 +53,11 @@ declare global {
     syncDashboardBridge?: () => void;
     syncSettingsBridge?: () => void;
     syncNutritionBridge?: () => void;
+    getProgramRegistry?: () => Record<string, unknown>;
+    getRegisteredPrograms?: () => Array<Record<string, unknown>>;
+    hasRegisteredPrograms?: () => boolean;
+    getProgramById?: (programId: string) => Record<string, unknown> | null;
+    getProgramInitialState?: (programId: string) => Record<string, unknown> | null;
     setRestBarActiveState?: (active: boolean) => void;
     loadData?: (options?: {
       allowCloudSync?: boolean;
