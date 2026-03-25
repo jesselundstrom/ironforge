@@ -6,6 +6,7 @@ import {
   normalizeWorkoutStartSnapshot,
 } from '../domain/workout-helpers';
 import { dataStore } from './data-store';
+import { useRuntimeStore } from '../app/store/runtime-store';
 
 type LegacyWorkoutStoreState = {
   activeWorkout: ActiveWorkout | null;
@@ -68,7 +69,6 @@ type LegacyWorkoutSnapshot = Omit<
 >;
 
 type LegacyWorkoutWindow = Window & {
-  eval?: (code: string) => unknown;
   activeWorkout?: Record<string, unknown> | null;
   getWorkoutStartSnapshot?: (
     input?: Record<string, unknown>
@@ -139,38 +139,18 @@ type LegacyWorkoutAction = (...args: unknown[]) => unknown;
 let bridgeInstalled = false;
 let workoutStoreRef: StoreApi<LegacyWorkoutStoreState> | null = null;
 let unsubscribeDataStore: (() => void) | null = null;
+let unsubscribeRuntimeStore: (() => void) | null = null;
 const legacyWorkoutActions: Partial<
   Record<DelegatedWorkoutActionName, LegacyWorkoutAction>
 > = {};
-
-type MutableLegacyActiveWorkout = {
-  exercises?: Array<{
-    sets?: Array<Record<string, unknown>>;
-  }>;
-};
 
 function getLegacyWindow(): LegacyWorkoutWindow | null {
   if (typeof window === 'undefined') return null;
   return window as LegacyWorkoutWindow;
 }
 
-function readLegacyEvalValue<T>(expression: string): T | null {
-  const runtimeWindow = getLegacyWindow();
-  if (!runtimeWindow || typeof runtimeWindow.eval !== 'function') return null;
-  try {
-    return runtimeWindow.eval(expression) as T;
-  } catch {
-    return null;
-  }
-}
-
-function readLegacyActiveWorkout() {
-  return (
-    (getLegacyWindow()?.activeWorkout as Record<string, unknown> | null) ||
-    readLegacyEvalValue<Record<string, unknown> | null>(
-      'typeof activeWorkout !== "undefined" ? activeWorkout : null'
-    )
-  );
+function readRuntimeWorkoutSession() {
+  return useRuntimeStore.getState().workoutSession.session;
 }
 
 function getCapturedLegacyAction(
@@ -192,13 +172,9 @@ function captureLegacyAction(
   return legacyWorkoutActions[name] || null;
 }
 
-function readLegacyNumber(windowValue: unknown, expression: string) {
-  if (typeof windowValue === 'number' && Number.isFinite(windowValue)) {
-    return windowValue;
-  }
-  const evalValue = readLegacyEvalValue<unknown>(expression);
-  const parsed = Number(evalValue);
-  return Number.isFinite(parsed) ? parsed : 0;
+function readSessionNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function isPromiseLike(value: unknown): value is Promise<unknown> {
@@ -207,9 +183,12 @@ function isPromiseLike(value: unknown): value is Promise<unknown> {
 
 function readLegacyWorkoutSnapshot(): LegacyWorkoutSnapshot {
   const runtimeWindow = getLegacyWindow();
+  const runtimeSession = readRuntimeWorkoutSession();
+  const fallbackActiveWorkout =
+    runtimeWindow?.activeWorkout || dataStore.getState().activeWorkout;
   const activeWorkout =
-    normalizeActiveWorkout(readLegacyActiveWorkout()) ||
-    normalizeActiveWorkout(dataStore.getState().activeWorkout);
+    normalizeActiveWorkout(runtimeSession.activeWorkout) ||
+    normalizeActiveWorkout(fallbackActiveWorkout);
   const startSnapshot = normalizeWorkoutStartSnapshot(
     runtimeWindow?.getCachedWorkoutStartSnapshot?.() || null
   );
@@ -217,17 +196,17 @@ function readLegacyWorkoutSnapshot(): LegacyWorkoutSnapshot {
     activeWorkout,
     startSnapshot,
     hasActiveWorkout: !!activeWorkout,
-    restDuration: readLegacyNumber(
-      runtimeWindow?.restDuration,
-      'typeof restDuration !== "undefined" ? restDuration : 0'
+    restDuration: readSessionNumber(
+      runtimeSession.restDuration,
+      Number(runtimeWindow?.restDuration || 0)
     ),
-    restEndsAt: readLegacyNumber(
-      runtimeWindow?.restEndsAt,
-      'typeof restEndsAt !== "undefined" ? restEndsAt : 0'
+    restEndsAt: readSessionNumber(
+      runtimeSession.restEndsAt,
+      Number(runtimeWindow?.restEndsAt || 0)
     ),
-    restSecondsLeft: readLegacyNumber(
-      runtimeWindow?.restSecondsLeft,
-      'typeof restSecondsLeft !== "undefined" ? restSecondsLeft : 0'
+    restSecondsLeft: readSessionNumber(
+      runtimeSession.restSecondsLeft,
+      Number(runtimeWindow?.restSecondsLeft || 0)
     ),
   };
 }
@@ -339,19 +318,7 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
       syncStoreFromLegacy();
     },
     applySetRIR: (exerciseIndex, setIndex, rirValue) => {
-      const runtimeWindow = getLegacyWindow();
-      const activeWorkout = readLegacyActiveWorkout() as
-        | MutableLegacyActiveWorkout
-        | null;
-      const set = activeWorkout?.exercises?.[exerciseIndex]?.sets?.[setIndex];
-      if (!set) return;
-      set.rir = rirValue;
-      runtimeWindow?.closeCustomModal?.();
-      const message =
-        runtimeWindow?.I18N?.t?.('workout.rir_saved', null, 'RIR saved') ||
-        runtimeWindow?.tr?.('workout.rir_saved', 'RIR saved') ||
-        'RIR saved';
-      runtimeWindow?.showToast?.(message, 'var(--blue)');
+      getCapturedLegacyAction('applySetRIR')?.(exerciseIndex, setIndex, rirValue);
       syncStoreFromLegacy();
     },
     toggleSet: (exerciseIndex, setIndex) => {
@@ -404,12 +371,16 @@ export function installLegacyWorkoutStoreBridge() {
   unsubscribeDataStore = dataStore.subscribe(() => {
     syncStoreFromLegacy();
   });
+  unsubscribeRuntimeStore = useRuntimeStore.subscribe((state, previousState) => {
+    if (state.workoutSession.session !== previousState.workoutSession.session) {
+      syncStoreFromLegacy();
+    }
+  });
 
   [
     'persistActiveWorkoutDraft',
     'clearActiveWorkoutDraft',
     'clearWorkoutStartSnapshot',
-    'syncWorkoutSessionBridge',
   ].forEach((name) => wrapLegacyMethod(name as keyof LegacyWorkoutWindow));
 
   installStoreDelegator('startWorkout', () =>
@@ -473,6 +444,8 @@ export function installLegacyWorkoutStoreBridge() {
 export function disposeLegacyWorkoutStoreBridge() {
   unsubscribeDataStore?.();
   unsubscribeDataStore = null;
+  unsubscribeRuntimeStore?.();
+  unsubscribeRuntimeStore = null;
   if (typeof window !== 'undefined') {
     window.removeEventListener('visibilitychange', syncStoreFromLegacy);
     window.removeEventListener('focus', syncStoreFromLegacy);
