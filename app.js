@@ -1782,6 +1782,10 @@ function closeOnboardingModal() {
   document.getElementById('onboarding-modal')?.classList.remove('active');
 }
 
+function dismissOnboardingModal() {
+  closeOnboardingModal();
+}
+
 async function completeOnboarding(draft) {
   const d = draft || getOnboardingDefaultDraft();
   const recommendation = buildOnboardingRecommendation(d);
@@ -1815,6 +1819,7 @@ async function completeOnboarding(draft) {
         excludedExerciseIds: parseOnboardingExerciseIds(d.avoidExercisesText),
       },
       onboardingCompleted: true,
+      onboardingSeen: true,
     },
   });
   const nextPrograms = { ...(profile.programs || {}) };
@@ -1863,12 +1868,32 @@ function maybeOpenOnboarding(options) {
   if (document.body.classList.contains('login-active')) return;
   if (activeWorkout) return;
   const coaching = normalizeCoachingProfile(profile);
-  if (!opts.force && coaching.onboardingCompleted === true) return;
+  if (
+    !opts.force &&
+    (coaching.onboardingCompleted === true ||
+      coaching.onboardingSeen === true)
+  ) {
+    closeOnboardingModal();
+    return;
+  }
   if (
     typeof hasRegisteredPrograms === 'function' && !hasRegisteredPrograms()
   ) {
     _onboardingRetryTimer = setTimeout(() => maybeOpenOnboarding(opts), 120);
     return;
+  }
+  if (!opts.force && coaching.onboardingSeen !== true) {
+    profile = {
+      ...profile,
+      coaching: normalizeCoachingProfile({
+        ...profile,
+        coaching: {
+          ...coaching,
+          onboardingSeen: true,
+        },
+      }),
+    };
+    saveProfileData({ docKeys: ['profile_core'] });
   }
   document.getElementById('onboarding-modal')?.classList.add('active');
   notifyOnboardingIsland();

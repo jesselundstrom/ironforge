@@ -805,6 +805,7 @@ function getDefaultCoachingProfile() {
       preferredSwapExerciseIds: [],
     },
     onboardingCompleted: false,
+    onboardingSeen: false,
   };
 }
 
@@ -912,6 +913,9 @@ function normalizeCoachingProfile(profileLike) {
     ),
   ];
   next.onboardingCompleted = next.onboardingCompleted === true;
+  next.onboardingSeen =
+    next.onboardingSeen === true || incoming.onboardingDismissed === true;
+  if ('onboardingDismissed' in next) delete next.onboardingDismissed;
   profileLike.coaching = next;
   return next;
 }

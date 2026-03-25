@@ -204,6 +204,7 @@ export type CoachingProfile = {
     [key: string]: unknown;
   };
   onboardingCompleted?: boolean;
+  onboardingSeen?: boolean;
   [key: string]: unknown;
 };
 

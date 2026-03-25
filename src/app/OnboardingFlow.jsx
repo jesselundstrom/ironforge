@@ -547,7 +547,7 @@ export default function OnboardingFlow() {
 
   const handleSecondary = () => {
     if (step === 0) {
-      window.closeOnboardingModal?.();
+      window.dismissOnboardingModal?.();
       return;
     }
     goToStep(step - 1);

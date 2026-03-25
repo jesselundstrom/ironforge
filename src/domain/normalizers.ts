@@ -219,6 +219,7 @@ export function getDefaultCoachingProfile(): CoachingProfile {
       preferredSwapExerciseIds: [],
     },
     onboardingCompleted: false,
+    onboardingSeen: false,
   };
 }
 
@@ -335,6 +336,10 @@ export function normalizeCoachingProfile(profileLike?: MutableRecord | null) {
     ),
   ];
   next.onboardingCompleted = next.onboardingCompleted === true;
+  next.onboardingSeen =
+    next.onboardingSeen === true ||
+    (incoming.onboardingDismissed as unknown) === true;
+  if ('onboardingDismissed' in next) delete next.onboardingDismissed;
 
   profileLike.coaching = next;
   return next;
