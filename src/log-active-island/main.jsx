@@ -210,27 +210,38 @@ function ExerciseCard({ exercise, labels, setSignal, collapseSignal }) {
     );
   }
 
+  const totalSets = exercise.sets.length;
+  const completedSets = exercise.sets.filter((s) => s.done).length;
+  const progress = totalSets > 0 ? (completedSets / totalSets) * 100 : 0;
+
   return (
     <div
       className={`exercise-block${exercise.isComplete ? ' exercise-block-complete' : ''}`}
       data-ui-key={exercise.uiKey}
       data-exercise-index={exercise.exerciseIndex}
     >
+      {/* Header */}
       <div className="exercise-top">
         <div className="exercise-header">
           <div className="exercise-title-stack">
-            <div className="exercise-title-row">
-              <div className="exercise-name">{exercise.displayName}</div>
-              {exercise.isAux ? (
-                <span className="exercise-chip">{labels.aux}</span>
-              ) : null}
-              {exercise.isAccessory ? (
-                <span className="exercise-chip exercise-chip-blue">
-                  {labels.back}
-                </span>
-              ) : null}
-            </div>
-            <div className="last-session">{exercise.previousText}</div>
+            {/* Chip row: AUX/BACK label + divider + previous data */}
+            {(exercise.isAux || exercise.isAccessory) && (
+              <div className="exercise-meta-row">
+                {exercise.isAux ? (
+                  <span className="exercise-chip">{labels.aux}</span>
+                ) : (
+                  <span className="exercise-chip exercise-chip-blue">
+                    {labels.back}
+                  </span>
+                )}
+                <span className="exercise-meta-divider" aria-hidden="true" />
+                <span className="last-session">{exercise.previousText}</span>
+              </div>
+            )}
+            <div className="exercise-name">{exercise.displayName}</div>
+            {!exercise.isAux && !exercise.isAccessory && (
+              <div className="last-session">{exercise.previousText}</div>
+            )}
           </div>
           <div className="exercise-action-row">
             {exercise.isAux ? (
@@ -261,6 +272,18 @@ function ExerciseCard({ exercise, labels, setSignal, collapseSignal }) {
                 {labels.swap}
               </button>
             ) : null}
+            <button
+              className="btn btn-ghost btn-sm exercise-remove-btn"
+              type="button"
+              data-action="remove-exercise"
+              title={labels.removeExercise}
+              aria-label={labels.removeExercise}
+              onClick={() =>
+                invokeWorkoutAction('removeExercise', exercise.exerciseIndex)
+              }
+            >
+              {labels.removeExercise}
+            </button>
             {exercise.isComplete ? (
               <button
                 className="btn btn-icon btn-secondary exercise-action-btn exercise-collapse-btn"
@@ -287,30 +310,29 @@ function ExerciseCard({ exercise, labels, setSignal, collapseSignal }) {
         ) : null}
       </div>
 
-      <div className="exercise-secondary-row">
-        {exercise.guideAvailable ? (
-          <button
-            className="btn btn-blue btn-sm exercise-guide-open-btn"
-            type="button"
-            data-action="open-guide"
-            onClick={() => invokeLegacy('openExerciseGuide', exercise.uiKey)}
-          >
-            {labels.movementGuide}
-          </button>
-        ) : null}
-        <button
-          className="btn btn-ghost btn-sm exercise-remove-btn"
-          type="button"
-          data-action="remove-exercise"
-          title={labels.removeExercise}
-          aria-label={labels.removeExercise}
-          onClick={() =>
-            invokeWorkoutAction('removeExercise', exercise.exerciseIndex)
-          }
-        >
-          {labels.removeExercise}
-        </button>
+      {/* Progress bar */}
+      <div className="exercise-progress-bar-track">
+        <div
+          className="exercise-progress-bar-fill"
+          style={{ width: `${progress}%` }}
+        />
       </div>
+      <div className="exercise-progress-label">
+        <span>{completedSets}/{totalSets} sets</span>
+        <span>{Math.round(progress)}%</span>
+      </div>
+
+      {/* Movement guide — full-width accent button */}
+      {exercise.guideAvailable ? (
+        <button
+          className="btn exercise-guide-open-btn"
+          type="button"
+          data-action="open-guide"
+          onClick={() => invokeLegacy('openExerciseGuide', exercise.uiKey)}
+        >
+          ▶ {labels.movementGuide}
+        </button>
+      ) : null}
 
       <div id={exercise.setsId} className="exercise-sets">
         <div className="set-grid-header">
@@ -341,70 +363,73 @@ function ExerciseCard({ exercise, labels, setSignal, collapseSignal }) {
             >
               {set.label}
             </span>
-            <input
-              id={set.weightInputId}
-              className="set-input"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              max="999"
-              step="any"
-              data-field="weight"
-              data-set-index={set.index}
-              data-exercise-index={exercise.exerciseIndex}
-              placeholder={labels.weightPlaceholder}
-              value={String(set.weight ?? '')}
-              onChange={(event) =>
-                invokeWorkoutAction(
-                  'updateSet',
-                  exercise.exerciseIndex,
-                  set.index,
-                  'weight',
-                  event.target.value
-                )
-              }
-              onKeyDown={(event) =>
-                window.handleSetInputKey?.(
-                  event.nativeEvent,
-                  exercise.uiKey,
-                  set.index,
-                  'weight'
-                )
-              }
-            />
-            <input
-              id={set.repsInputId}
-              className="set-input"
-              type="number"
-              inputMode="numeric"
-              min="0"
-              max="999"
-              data-field="reps"
-              data-set-index={set.index}
-              data-exercise-index={exercise.exerciseIndex}
-              placeholder={
-                set.isAmrap ? labels.repsHit : labels.repsPlaceholder
-              }
-              value={String(set.reps ?? '')}
-              style={set.isAmrap ? { borderColor: 'var(--purple)' } : undefined}
-              onChange={(event) =>
-                invokeWorkoutAction(
-                  'updateSet',
-                  exercise.exerciseIndex,
-                  set.index,
-                  'reps',
-                  event.target.value
-                )
-              }
-              onKeyDown={(event) =>
-                window.handleSetInputKey?.(
-                  event.nativeEvent,
-                  exercise.uiKey,
-                  set.index,
-                  'reps'
-                )
-              }
-            />
+            <div className={`set-input-cell${set.done ? ' is-done' : ''}${set.isAmrap ? ' is-amrap' : ''}`}>
+              <input
+                id={set.weightInputId}
+                className="set-input"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max="999"
+                step="any"
+                data-field="weight"
+                data-set-index={set.index}
+                data-exercise-index={exercise.exerciseIndex}
+                placeholder={labels.weightPlaceholder}
+                value={String(set.weight ?? '')}
+                onChange={(event) =>
+                  invokeWorkoutAction(
+                    'updateSet',
+                    exercise.exerciseIndex,
+                    set.index,
+                    'weight',
+                    event.target.value
+                  )
+                }
+                onKeyDown={(event) =>
+                  window.handleSetInputKey?.(
+                    event.nativeEvent,
+                    exercise.uiKey,
+                    set.index,
+                    'weight'
+                  )
+                }
+              />
+            </div>
+            <div className={`set-input-cell${set.done ? ' is-done' : ''}${set.isAmrap ? ' is-amrap' : ''}`}>
+              <input
+                id={set.repsInputId}
+                className="set-input"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="999"
+                data-field="reps"
+                data-set-index={set.index}
+                data-exercise-index={exercise.exerciseIndex}
+                placeholder={
+                  set.isAmrap ? labels.repsHit : labels.repsPlaceholder
+                }
+                value={String(set.reps ?? '')}
+                onChange={(event) =>
+                  invokeWorkoutAction(
+                    'updateSet',
+                    exercise.exerciseIndex,
+                    set.index,
+                    'reps',
+                    event.target.value
+                  )
+                }
+                onKeyDown={(event) =>
+                  window.handleSetInputKey?.(
+                    event.nativeEvent,
+                    exercise.uiKey,
+                    set.index,
+                    'reps'
+                  )
+                }
+              />
+            </div>
             <div className={`set-action-cell${set.isPr ? ' has-pr' : ''}`}>
               <button
                 className={`set-check ${set.done ? 'done' : ''}${
@@ -426,7 +451,19 @@ function ExerciseCard({ exercise, labels, setSignal, collapseSignal }) {
                   )
                 }
               >
-                ✓
+                {set.done ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M3 8L6.5 11.5L13 5"
+                      stroke="white"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <span className="set-check-inner-box" />
+                )}
               </button>
               {set.isPr ? (
                 <span className="set-pr-badge is-visible">
@@ -439,8 +476,7 @@ function ExerciseCard({ exercise, labels, setSignal, collapseSignal }) {
       </div>
 
       <button
-        className="btn btn-sm btn-secondary"
-        style={{ marginTop: 8 }}
+        className="btn exercise-add-set-btn"
         type="button"
         data-action="add-set"
         onClick={() => invokeWorkoutAction('addSet', exercise.exerciseIndex)}

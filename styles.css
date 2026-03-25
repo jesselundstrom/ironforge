@@ -1928,8 +1928,17 @@ select optgroup {
   text-align: center;
 }
 .set-row {
-  margin-bottom: 0;
+  margin-bottom: 4px;
   min-height: 46px;
+  padding: 5px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid transparent;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+.set-row.is-done {
+  background: rgba(245, 130, 31, 0.06);
+  border-left-color: rgba(245, 130, 31, 0.4);
 }
 .set-row.has-pr {
   background: linear-gradient(
@@ -1937,8 +1946,6 @@ select optgroup {
     rgba(245, 200, 66, 0.08),
     rgba(245, 200, 66, 0)
   );
-  border-radius: 12px;
-  padding: 6px 8px;
 }
 .set-row.set-warmup {
   opacity: 0.7;
@@ -1947,26 +1954,24 @@ select optgroup {
   color: var(--orange);
   font-size: 10px;
 }
-.set-row.is-done .set-input {
-  opacity: 0.82;
-}
+/* opacity override removed — input color handled by .set-input-cell.is-done */
 .set-row.set-amrap {
   background: rgba(167, 139, 250, 0.12);
-  border-radius: 10px;
-  padding: 6px 8px;
 }
 .set-num {
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.2);
   min-width: 0;
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   text-align: center;
+  transition: color 0.25s;
+}
+.set-row.is-done .set-num {
+  color: rgba(245, 130, 31, 0.6);
 }
 .set-row input {
   text-align: center;
-  font-size: 16px;
-  min-height: 42px;
 }
 .set-action-cell {
   display: inline-flex;
@@ -1976,40 +1981,47 @@ select optgroup {
   min-width: 44px;
 }
 .set-check {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  border: 2px solid var(--border);
-  background: transparent;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
   font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.2s;
-  color: transparent;
+  transition: background 0.25s, box-shadow 0.25s, border-color 0.25s;
+  color: white;
   position: relative;
   overflow: visible;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+.set-check-inner-box {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+}
 .set-check:active:not(.done) {
-  border-color: rgba(255, 122, 58, 0.45);
+  border-color: rgba(245, 130, 31, 0.45);
   box-shadow:
-    0 0 0 3px rgba(255, 122, 58, 0.08),
-    0 0 12px rgba(255, 122, 58, 0.12);
+    0 0 0 3px rgba(245, 130, 31, 0.08),
+    0 0 12px rgba(245, 130, 31, 0.12);
 }
 .set-check.done {
-  background: var(--green);
-  border-color: var(--green);
+  background: linear-gradient(135deg, #f5821f, #e06010);
+  border-color: transparent;
   color: white;
-  box-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
+  box-shadow: 0 4px 16px rgba(245, 130, 31, 0.35);
 }
 .set-check.set-check-pr {
   box-shadow:
     0 0 0 1px rgba(245, 200, 66, 0.36),
-    0 2px 10px rgba(52, 211, 153, 0.3);
+    0 4px 16px rgba(245, 130, 31, 0.35);
 }
 .set-check.set-pr-highlight {
   border-color: rgba(245, 200, 66, 0.96);
@@ -2020,10 +2032,14 @@ select optgroup {
 }
 @media (hover: hover) and (pointer: fine) {
   .set-check:hover:not(.done) {
-    border-color: rgba(255, 122, 58, 0.45);
+    border-color: rgba(245, 130, 31, 0.45);
     box-shadow:
-      0 0 0 3px rgba(255, 122, 58, 0.08),
-      0 0 12px rgba(255, 122, 58, 0.12);
+      0 0 0 3px rgba(245, 130, 31, 0.08),
+      0 0 12px rgba(245, 130, 31, 0.12);
+    transform: scale(1.08);
+  }
+  .set-check:active:not(.done) {
+    transform: scale(0.93);
   }
 }
 /* ── Forge Strike: set completion animation ── */
@@ -2050,7 +2066,7 @@ select optgroup {
   }
 }
 
-/* Phase 2: Hot flash — white-orange → green cooldown on the button */
+/* Phase 2: Hot flash — white → orange cooldown on the button */
 @keyframes forgeCooldown {
   0% {
     background: #fff8f0;
@@ -2066,17 +2082,10 @@ select optgroup {
       0 0 14px 3px rgba(255, 140, 50, 0.5),
       0 0 28px 6px rgba(255, 100, 30, 0.2);
   }
-  65% {
-    background: #6dd49a;
-    border-color: #4caf79;
-    box-shadow:
-      0 0 12px 2px rgba(76, 175, 121, 0.45),
-      0 0 24px 4px rgba(76, 175, 121, 0.15);
-  }
   100% {
-    background: var(--green);
-    border-color: var(--green);
-    box-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
+    background: linear-gradient(135deg, #f5821f, #e06010);
+    border-color: transparent;
+    box-shadow: 0 4px 16px rgba(245, 130, 31, 0.35);
   }
 }
 
@@ -2305,10 +2314,55 @@ select optgroup {
 }
 .exercise-name {
   font-weight: 800;
-  font-size: 17px;
-  letter-spacing: -0.02em;
+  font-size: 20px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   color: var(--text);
   word-break: break-word;
+  line-height: 1.15;
+  margin-top: 4px;
+}
+
+/* Meta row: chip + divider + previous text */
+.exercise-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.exercise-meta-divider {
+  display: inline-block;
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+/* Progress bar */
+.exercise-progress-bar-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  margin: 10px 0 4px;
+  overflow: hidden;
+}
+.exercise-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f5821f, #ffaa4d);
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.exercise-progress-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-size: 11px;
+}
+.exercise-progress-label span:first-child {
+  color: rgba(255, 255, 255, 0.25);
+}
+.exercise-progress-label span:last-child {
+  color: rgba(245, 130, 31, 0.7);
 }
 .exercise-chip {
   display: inline-flex;
@@ -2358,12 +2412,21 @@ select optgroup {
   font-size: 18px;
 }
 .exercise-remove-btn {
-  color: rgba(255, 90, 90, 0.72);
-  margin-left: auto;
+  color: rgba(220, 80, 80, 0.8);
   font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid rgba(220, 60, 60, 0.3);
+  border-radius: 10px;
+  padding: 7px 14px;
+  height: auto;
+  min-height: 0;
 }
 .exercise-remove-btn:active {
-  color: rgba(255, 90, 90, 1);
+  color: rgba(220, 80, 80, 1);
+  border-color: rgba(220, 60, 60, 0.6);
 }
 .last-session {
   font-size: 11px;
@@ -2406,12 +2469,23 @@ select optgroup {
   margin: 2px 0 12px;
 }
 .exercise-guide-open-btn {
-  width: auto;
+  width: 100%;
   min-height: 44px;
-  padding: 10px 12px;
+  padding: 12px;
   border-radius: 12px;
-  font-size: 11px;
-  line-height: 1.1;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: rgba(245, 130, 31, 0.07);
+  border: 1px solid rgba(245, 130, 31, 0.15);
+  color: #f5821f;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.exercise-guide-open-btn:active {
+  background: rgba(245, 130, 31, 0.12);
 }
 .exercise-guide-grid {
   display: grid;
@@ -2523,9 +2597,44 @@ select optgroup {
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
+/* Input cell wrapper — gives the rounded bordered box */
+.set-input-cell {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+  transition: background 0.25s, border-color 0.25s;
+}
+.set-input-cell.is-done {
+  background: rgba(245, 130, 31, 0.08);
+  border-color: rgba(245, 130, 31, 0.2);
+}
+.set-input-cell.is-amrap {
+  border-color: var(--purple);
+}
+
 .set-input {
   width: 100%;
   min-width: 0;
+  background: transparent;
+  border: none !important;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  min-height: unset;
+  transition: color 0.25s;
+}
+.set-input-cell.is-done .set-input {
+  color: #f5821f;
+  opacity: 1;
+}
+.set-input:focus {
+  outline: none;
+  color: #f5821f;
 }
 .set-rir {
   width: 60px;
@@ -2537,6 +2646,33 @@ select optgroup {
   color: var(--blue);
   font-weight: 700;
   text-align: center;
+}
+
+/* Add Set — dashed ghost button */
+.exercise-add-set-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.exercise-add-set-btn:active {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.6);
+}
+@media (hover: hover) and (pointer: fine) {
+  .exercise-add-set-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.6);
+  }
 }
 
 /* ── REST TIMER ── */
