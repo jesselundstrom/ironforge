@@ -6,21 +6,16 @@ test('settings body island renders from the legacy bridge and saves through the 
 }) => {
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    window.eval(`
-      profile.bodyMetrics = {
-        sex: 'male',
-        activityLevel: 'moderate',
-        weight: 82.5,
-        height: 178,
-        age: 28,
-        targetWeight: 85,
-        bodyGoal: 'gain_muscle'
-      };
-      initSettings();
-      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-      showSettingsTab('body');
-    `);
+  await page.evaluate(async () => {
+    await window.__IRONFORGE_E2E__?.settings?.openBodyTab?.({
+      sex: 'male',
+      activityLevel: 'moderate',
+      weight: 82.5,
+      height: 178,
+      age: 28,
+      targetWeight: 85,
+      bodyGoal: 'gain_muscle',
+    });
   });
 
   await expect(page.locator('#settings-body-legacy-shell')).toHaveCount(0);
@@ -36,15 +31,13 @@ test('settings body island renders from the legacy bridge and saves through the 
     const goalSelect = document.getElementById('body-goal');
     if (weightInput instanceof HTMLInputElement) weightInput.value = '84';
     if (goalSelect instanceof HTMLSelectElement) goalSelect.value = 'maintain';
-    window.eval('saveBodyMetrics()');
+    window.saveBodyMetrics?.();
   });
 
-  const savedMetrics = await page.evaluate(() =>
-    window.eval(`({
+  const savedMetrics = await page.evaluate(() => ({
       weight: profile.bodyMetrics.weight,
       bodyGoal: profile.bodyMetrics.bodyGoal
-    })`)
-  );
+    }));
 
   expect(savedMetrics?.weight).toBe(84);
   expect(savedMetrics?.bodyGoal).toBe('maintain');
@@ -53,18 +46,14 @@ test('settings body island renders from the legacy bridge and saves through the 
 test('settings body island refreshes translated labels after language changes', async ({ page }) => {
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    window.eval(`
-      initSettings();
-      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-      showSettingsTab('body');
-    `);
+  await page.evaluate(async () => {
+    await window.__IRONFORGE_E2E__?.settings?.openBodyTab?.();
   });
 
   await expect(page.locator('#settings-body-react-root')).toContainText(/body metrics/i);
 
   await page.evaluate(() => {
-    window.eval(`I18N.setLanguage('fi', { persist: false });`);
+    window.__IRONFORGE_E2E__?.i18n?.setLanguage?.('fi', { persist: false });
   });
 
   await expect

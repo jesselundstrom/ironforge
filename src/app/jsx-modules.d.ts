@@ -126,6 +126,9 @@ declare global {
     saveWorkouts?: (...args: unknown[]) => Promise<unknown> | unknown;
     saveScheduleData?: (...args: unknown[]) => Promise<unknown> | unknown;
     saveProfileData?: (...args: unknown[]) => Promise<unknown> | unknown;
+    saveTrainingPreferences?: (options?: Record<string, unknown>) => void;
+    saveRestTimer?: () => void;
+    saveBodyMetrics?: () => void;
     persistActiveWorkoutDraft?: (...args: unknown[]) => unknown;
     clearActiveWorkoutDraft?: (...args: unknown[]) => unknown;
     currentUser?: Record<string, unknown> | null;
@@ -236,6 +239,13 @@ declare global {
           programId?: string,
           programState?: Record<string, unknown> | null
         ) => void;
+        openBodyTab?: (
+          bodyMetrics?: Record<string, unknown> | null
+        ) => Promise<void>;
+        openPreferencesTab?: (options?: {
+          preferences?: Record<string, unknown> | null;
+          defaultRest?: number | string | null;
+        }) => Promise<void>;
       };
       program?: {
         getById?: (programId: string) => Record<string, unknown> | null;

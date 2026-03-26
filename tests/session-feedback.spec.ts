@@ -2,9 +2,35 @@ import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { openAppShell, reloadAppShell } from './helpers';
 
+declare let workouts: Array<Record<string, any>>;
+declare let profile: Record<string, any>;
+declare let activeWorkout: Record<string, any> | null;
+declare let currentUser: Record<string, unknown> | null;
+declare let upsertWorkoutRecord: (...args: any[]) => Promise<unknown>;
+declare let saveProfileData: (...args: any[]) => Promise<unknown>;
+
+declare function buildExerciseIndex(): void;
+declare function buildWorkoutRewardState(...args: any[]): Record<string, unknown>;
+declare function ensureWorkoutExerciseUiKeys(
+  exercises: Array<Record<string, any>>
+): Array<Record<string, any>>;
+declare function setSummaryFeedback(value: string): void;
+declare function closeSummaryModal(goToNutrition?: boolean): void;
+declare function renderHistory(): void;
+declare function showPage(page: string, trigger?: Element | null): void;
+declare function normalizeTrainingPreferences(
+  profileLike?: Record<string, any> | null
+): Record<string, any>;
+declare function buildPlanningContext(
+  input?: Record<string, unknown>
+): Record<string, any>;
+declare function getTodayTrainingDecision(
+  context?: Record<string, unknown> | null
+): { action: string; reasonCodes: string[] };
+declare function updateDashboard(): void;
+
 /**
  * Sets up a ready-to-finish workout state with seeded history and mocked saves.
- * Returns the benchId used for exercises.
  */
 async function setupWorkoutState(page: Page, seedWorkouts: object[] = []) {
   await page.evaluate((seeds) => {
@@ -13,40 +39,49 @@ async function setupWorkoutState(page: Page, seedWorkouts: object[] = []) {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
 
-    window.eval(`
-      workouts = ${JSON.stringify(seeds)};
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-      buildExerciseIndex();
-      upsertWorkoutRecord = async () => {};
-      saveProfileData = async () => {};
-    `);
+    workouts = structuredClone(seeds);
+    profile.activeProgram = 'forge';
+    profile.programs = {
+      ...(profile.programs || {}),
+      forge: structuredClone(forgeState),
+    };
+    buildExerciseIndex();
+    upsertWorkoutRecord = async () => {};
+    saveProfileData = async () => {};
 
-    window.eval(`
-      activeWorkout = {
-        program: 'forge',
-        type: 'forge',
-        programOption: '1',
-        programDayNum: 1,
-        programLabel: 'Forge · Day 1',
-        sessionDescription: 'Bench focus',
-        rewardState: typeof buildWorkoutRewardState === 'function' ? buildWorkoutRewardState() : {},
-        exercises: typeof ensureWorkoutExerciseUiKeys === 'function'
-          ? ensureWorkoutExerciseUiKeys([{
-              name: 'Bench Press',
-              exerciseId: '${benchId}',
-              sets: [{ weight: 80, reps: 5, done: true, rpe: 7 }]
-            }])
-          : [{
-              name: 'Bench Press',
-              exerciseId: '${benchId}',
-              sets: [{ weight: 80, reps: 5, done: true, rpe: 7 }]
-            }],
-        startTime: Date.now() - 3600000
-      };
-    `);
+    activeWorkout = {
+      program: 'forge',
+      type: 'forge',
+      programOption: '1',
+      programDayNum: 1,
+      programLabel: 'Forge · Day 1',
+      sessionDescription: 'Bench focus',
+      rewardState:
+        typeof buildWorkoutRewardState === 'function' ? buildWorkoutRewardState() : {},
+      exercises:
+        typeof ensureWorkoutExerciseUiKeys === 'function'
+          ? ensureWorkoutExerciseUiKeys([
+              {
+                name: 'Bench Press',
+                exerciseId: benchId,
+                sets: [{ weight: 80, reps: 5, done: true, rpe: 7 }],
+              },
+            ])
+          : [
+              {
+                name: 'Bench Press',
+                exerciseId: benchId,
+                sets: [{ weight: 80, reps: 5, done: true, rpe: 7 }],
+              },
+            ],
+      startTime: Date.now() - 3600000,
+    };
 
-    window.showRPEPicker = (_name: string, _setNum: number, cb: (v: number) => void) => cb(7);
+    window.showRPEPicker = (
+      _name: string,
+      _setNum: number,
+      cb: (v: number) => void
+    ) => cb(7);
     window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
     window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
       toast: false,
@@ -66,11 +101,13 @@ function makeWorkout(id: number, daysAgo: number, overrides: Record<string, unkn
     duration: 3600,
     rpe: 7,
     sets: 1,
-    exercises: [{
-      name: 'Bench Press',
-      sets: [{ weight: 80, reps: 5, done: true }]
-    }],
-    ...overrides
+    exercises: [
+      {
+        name: 'Bench Press',
+        sets: [{ weight: 80, reps: 5, done: true }],
+      },
+    ],
+    ...overrides,
   };
 }
 
@@ -86,13 +123,11 @@ test('feedback capture: tap too_hard, verify on workout record', async ({ page }
   await expect(page.locator('.summary-feedback-btn')).toHaveCount(3);
 
   await page.evaluate(() => {
-    window.eval("setSummaryFeedback('too_hard'); closeSummaryModal()");
+    setSummaryFeedback('too_hard');
+    closeSummaryModal();
   });
 
-  const feedback = await page.evaluate(() => {
-    const ws = window.eval('workouts');
-    return ws[ws.length - 1]?.sessionFeedback;
-  });
+  const feedback = await page.evaluate(() => workouts[workouts.length - 1]?.sessionFeedback);
   expect(feedback).toBe('too_hard');
 });
 
@@ -106,15 +141,13 @@ test('feedback survives reload', async ({ page }) => {
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
 
   await page.evaluate(() => {
-    window.eval("setSummaryFeedback('good'); closeSummaryModal()");
+    setSummaryFeedback('good');
+    closeSummaryModal();
   });
 
   await reloadAppShell(page);
 
-  const feedback = await page.evaluate(() => {
-    const ws = window.eval('workouts');
-    return ws[ws.length - 1]?.sessionFeedback;
-  });
+  const feedback = await page.evaluate(() => workouts[workouts.length - 1]?.sessionFeedback);
   expect(feedback).toBe('good');
 });
 
@@ -129,27 +162,24 @@ test('summary notes persist onto the workout record and history card', async ({ 
 
   await page.locator('#summary-notes-textarea').fill('Left shoulder felt tight on the descent.');
   await page.evaluate(() => {
-    window.eval('closeSummaryModal()');
+    closeSummaryModal();
   });
 
-  const saved = await page.evaluate(() => {
-    const ws = window.eval('workouts');
-    return ws[ws.length - 1]?.sessionNotes || null;
-  });
+  const saved = await page.evaluate(() => workouts[workouts.length - 1]?.sessionNotes || null);
   expect(saved).toBe('Left shoulder felt tight on the descent.');
 
   await page.evaluate(() => {
-    window.eval(`
-      renderHistory();
-      showPage('history', document.querySelectorAll('.nav-btn')[2]);
-    `);
+    renderHistory();
+    showPage('history', document.querySelectorAll('.nav-btn')[2]);
   });
   await expect(page.locator('.hist-session-notes')).toContainText(
     'Left shoulder felt tight on the descent'
   );
 });
 
-test('post-workout nutrition nudge appears for a signed-in user and routes into nutrition', async ({ page }) => {
+test('post-workout nutrition nudge appears for a signed-in user and routes into nutrition', async ({
+  page,
+}) => {
   await openAppShell(page);
   await setupWorkoutState(page);
 
@@ -164,10 +194,7 @@ test('post-workout nutrition nudge appears for a signed-in user and routes into 
 
   await expect(page.locator('#page-nutrition')).toHaveClass(/active/);
 
-  const saved = await page.evaluate(() => {
-    const ws = window.eval('workouts');
-    return ws[ws.length - 1]?.sessionNotes || null;
-  });
+  const saved = await page.evaluate(() => workouts[workouts.length - 1]?.sessionNotes || null);
   expect(saved).toBe('Quick post-workout note.');
 });
 
@@ -190,9 +217,8 @@ test('duration signal: long session infers too_long', async ({ page }) => {
   await openAppShell(page);
   await setupWorkoutState(page);
 
-  // Override startTime to simulate an 80-minute session (target is 60 min)
   await page.evaluate(() => {
-    window.eval('activeWorkout.startTime = Date.now() - 80 * 60 * 1000');
+    if (activeWorkout) activeWorkout.startTime = Date.now() - 80 * 60 * 1000;
   });
 
   await page.evaluate(() => {
@@ -200,13 +226,10 @@ test('duration signal: long session infers too_long', async ({ page }) => {
   });
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
   await page.evaluate(() => {
-    window.eval('closeSummaryModal()');
+    closeSummaryModal();
   });
 
-  const signal = await page.evaluate(() => {
-    const ws = window.eval('workouts');
-    return ws[ws.length - 1]?.durationSignal;
-  });
+  const signal = await page.evaluate(() => workouts[workouts.length - 1]?.durationSignal);
   expect(signal).toBe('too_long');
 });
 
@@ -216,28 +239,30 @@ test('2-of-3 too_hard biases decision toward train_light', async ({ page }) => {
   const seeds = [
     makeWorkout(1, 5, { sessionFeedback: 'good' }),
     makeWorkout(2, 3, { sessionFeedback: 'too_hard' }),
-    makeWorkout(3, 1, { sessionFeedback: 'too_hard' })
+    makeWorkout(3, 1, { sessionFeedback: 'too_hard' }),
   ];
 
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    window.eval(`
-      workouts = ${JSON.stringify(workoutSeeds)};
-      profile.preferences = normalizeTrainingPreferences({
-        ...profile,
-        preferences: {
-          ...profile.preferences,
-          trainingDaysPerWeek: 6
-        }
-      });
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-    `);
+    workouts = structuredClone(workoutSeeds);
+    profile.preferences = normalizeTrainingPreferences({
+      ...profile,
+      preferences: {
+        ...profile.preferences,
+        trainingDaysPerWeek: 6,
+      },
+    });
+    profile.activeProgram = 'forge';
+    profile.programs = {
+      ...(profile.programs || {}),
+      forge: structuredClone(forgeState),
+    };
   }, seeds);
 
   const result = await page.evaluate(() => {
-    return window.eval('(function(){ var d = getTodayTrainingDecision(buildPlanningContext({})); return { action: d.action, reasonCodes: d.reasonCodes }; })()')
+    const decision = getTodayTrainingDecision(buildPlanningContext({}));
+    return { action: decision.action, reasonCodes: decision.reasonCodes };
   });
 
   expect(result.reasonCodes).toContain('session_feedback_hard');
@@ -250,21 +275,23 @@ test('one good session after too_hard streak clears the bias', async ({ page }) 
   const seeds = [
     makeWorkout(1, 7, { sessionFeedback: 'too_hard' }),
     makeWorkout(2, 5, { sessionFeedback: 'too_hard' }),
-    makeWorkout(3, 1, { sessionFeedback: 'good' })
+    makeWorkout(3, 1, { sessionFeedback: 'good' }),
   ];
 
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    window.eval(`
-      workouts = ${JSON.stringify(workoutSeeds)};
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-    `);
+    workouts = structuredClone(workoutSeeds);
+    profile.activeProgram = 'forge';
+    profile.programs = {
+      ...(profile.programs || {}),
+      forge: structuredClone(forgeState),
+    };
   }, seeds);
 
   const result = await page.evaluate(() => {
-    return window.eval('(function(){ var d = getTodayTrainingDecision(buildPlanningContext({})); return { action: d.action, reasonCodes: d.reasonCodes }; })()')
+    const decision = getTodayTrainingDecision(buildPlanningContext({}));
+    return { action: decision.action, reasonCodes: decision.reasonCodes };
   });
 
   expect(result.reasonCodes).not.toContain('session_feedback_hard');
@@ -277,21 +304,23 @@ test('duration friction biases decision toward shorten', async ({ page }) => {
     makeWorkout(1, 14, { durationSignal: 'on_target' }),
     makeWorkout(2, 12, { durationSignal: 'too_long' }),
     makeWorkout(3, 10, { durationSignal: 'too_long' }),
-    makeWorkout(4, 8, { durationSignal: 'on_target' })
+    makeWorkout(4, 8, { durationSignal: 'on_target' }),
   ];
 
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    window.eval(`
-      workouts = ${JSON.stringify(workoutSeeds)};
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-    `);
+    workouts = structuredClone(workoutSeeds);
+    profile.activeProgram = 'forge';
+    profile.programs = {
+      ...(profile.programs || {}),
+      forge: structuredClone(forgeState),
+    };
   }, seeds);
 
   const result = await page.evaluate(() => {
-    return window.eval('(function(){ var d = getTodayTrainingDecision(buildPlanningContext({})); return { action: d.action, reasonCodes: d.reasonCodes }; })()')
+    const decision = getTodayTrainingDecision(buildPlanningContext({}));
+    return { action: decision.action, reasonCodes: decision.reasonCodes };
   });
 
   expect(result.reasonCodes).toContain('duration_friction');
@@ -300,25 +329,25 @@ test('duration friction biases decision toward shorten', async ({ page }) => {
 test('dashboard coach card renders reason chips when reasons exist', async ({ page }) => {
   await openAppShell(page);
 
-  // Seed workouts with too_hard feedback to trigger reason chips on dashboard
   const seeds = [
     makeWorkout(1, 3, { sessionFeedback: 'too_hard' }),
-    makeWorkout(2, 1, { sessionFeedback: 'too_hard' })
+    makeWorkout(2, 1, { sessionFeedback: 'too_hard' }),
   ];
 
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    window.eval(`
-      workouts = ${JSON.stringify(workoutSeeds)};
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-      updateDashboard();
-    `);
+    workouts = structuredClone(workoutSeeds);
+    profile.activeProgram = 'forge';
+    profile.programs = {
+      ...(profile.programs || {}),
+      forge: structuredClone(forgeState),
+    };
+    updateDashboard();
   }, seeds);
 
   await page.waitForFunction(() => {
-    window.eval("typeof updateDashboard === 'function' && updateDashboard()");
+    if (typeof updateDashboard === 'function') updateDashboard();
     return document.querySelectorAll('.dashboard-plan-coach-chip').length > 0;
   });
 });

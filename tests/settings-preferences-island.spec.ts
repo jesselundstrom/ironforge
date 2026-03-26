@@ -6,24 +6,19 @@ test('settings preferences island renders from the legacy bridge and saves throu
 }) => {
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    window.eval(`
-      profile.preferences = normalizeTrainingPreferences({
-        preferences: {
-          goal: 'strength',
-          trainingDaysPerWeek: 3,
-          sessionMinutes: 60,
-          equipmentAccess: 'full_gym',
-          sportReadinessCheckEnabled: false,
-          warmupSetsEnabled: true,
-          notes: 'initial note'
-        }
-      });
-      profile.defaultRest = 120;
-      initSettings();
-      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-      showSettingsTab('preferences');
-    `);
+  await page.evaluate(async () => {
+    await window.__IRONFORGE_E2E__?.settings?.openPreferencesTab?.({
+      preferences: {
+        goal: 'strength',
+        trainingDaysPerWeek: 3,
+        sessionMinutes: 60,
+        equipmentAccess: 'full_gym',
+        sportReadinessCheckEnabled: false,
+        warmupSetsEnabled: true,
+        notes: 'initial note',
+      },
+      defaultRest: 120,
+    });
   });
 
   await expect(page.locator('#settings-preferences-legacy-shell')).toHaveCount(0);
@@ -40,17 +35,16 @@ test('settings preferences island renders from the legacy bridge and saves throu
     if (daysSelect instanceof HTMLSelectElement) daysSelect.value = '4';
     if (restSelect instanceof HTMLSelectElement) restSelect.value = '180';
     if (notesInput instanceof HTMLTextAreaElement) notesInput.value = 'new note';
-    window.eval('saveTrainingPreferences(); saveRestTimer();');
+    window.saveTrainingPreferences?.();
+    window.saveRestTimer?.();
   });
 
-  const saved = await page.evaluate(() =>
-    window.eval(`({
+  const saved = await page.evaluate(() => ({
       goal: profile.preferences.goal,
       trainingDaysPerWeek: profile.preferences.trainingDaysPerWeek,
       defaultRest: profile.defaultRest,
       notes: profile.preferences.notes
-    })`)
-  );
+    }));
 
   expect(saved?.goal).toBe('hypertrophy');
   expect(saved?.trainingDaysPerWeek).toBe(4);
@@ -62,23 +56,18 @@ test('settings preferences island renders from the legacy bridge and saves throu
 test('settings preferences island saves toggle changes immediately', async ({ page }) => {
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    window.eval(`
-      profile.preferences = normalizeTrainingPreferences({
-        preferences: {
-          goal: 'strength',
-          trainingDaysPerWeek: 3,
-          sessionMinutes: 60,
-          equipmentAccess: 'full_gym',
-          sportReadinessCheckEnabled: false,
-          warmupSetsEnabled: false,
-          notes: ''
-        }
-      });
-      initSettings();
-      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-      showSettingsTab('preferences');
-    `);
+  await page.evaluate(async () => {
+    await window.__IRONFORGE_E2E__?.settings?.openPreferencesTab?.({
+      preferences: {
+        goal: 'strength',
+        trainingDaysPerWeek: 3,
+        sessionMinutes: 60,
+        equipmentAccess: 'full_gym',
+        sportReadinessCheckEnabled: false,
+        warmupSetsEnabled: false,
+        notes: '',
+      },
+    });
   });
 
   await page
@@ -108,20 +97,15 @@ test('settings preferences island refreshes labels and summary on language chang
 }) => {
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    window.eval(`
-      profile.preferences = normalizeTrainingPreferences({
-        preferences: {
-          goal: 'strength',
-          trainingDaysPerWeek: 3,
-          sessionMinutes: 60,
-          equipmentAccess: 'full_gym'
-        }
-      });
-      initSettings();
-      showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-      showSettingsTab('preferences');
-    `);
+  await page.evaluate(async () => {
+    await window.__IRONFORGE_E2E__?.settings?.openPreferencesTab?.({
+      preferences: {
+        goal: 'strength',
+        trainingDaysPerWeek: 3,
+        sessionMinutes: 60,
+        equipmentAccess: 'full_gym',
+      },
+    });
   });
 
   await expect(page.locator('#settings-preferences-react-root')).toContainText(
@@ -129,7 +113,7 @@ test('settings preferences island refreshes labels and summary on language chang
   );
 
   await page.evaluate(() => {
-    window.eval(`I18N.setLanguage('fi', { persist: false });`);
+    window.__IRONFORGE_E2E__?.i18n?.setLanguage?.('fi', { persist: false });
   });
 
   await expect

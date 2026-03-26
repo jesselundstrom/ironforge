@@ -4,6 +4,10 @@ import { i18nStore } from '../../stores/i18n-store';
 import { programStore } from '../../stores/program-store';
 import { profileStore } from '../../stores/profile-store';
 import { workoutStore } from '../../stores/workout-store';
+import {
+  normalizeBodyMetrics,
+  normalizeTrainingPreferences,
+} from '../../domain/normalizers';
 import { useRuntimeStore } from '../store/runtime-store';
 import { navigateToPage } from './navigation-actions';
 import { callLegacyWindowFunction } from './legacy-call';
@@ -67,6 +71,11 @@ type E2EHarness = {
       programId?: string,
       programState?: Record<string, unknown> | null
     ) => void;
+    openBodyTab: (bodyMetrics?: Record<string, unknown> | null) => Promise<void>;
+    openPreferencesTab: (options?: {
+      preferences?: Record<string, unknown> | null;
+      defaultRest?: number | string | null;
+    }) => Promise<void>;
   };
   program: {
     getById: (programId: string) => Record<string, unknown> | null;
@@ -98,6 +107,12 @@ type E2EHarness = {
 function cloneJson<T>(value: T): T {
   if (value === undefined || value === null) return value;
   return JSON.parse(JSON.stringify(value));
+}
+
+function openSettingsTab(tab: string) {
+  callLegacyWindowFunction('initSettings');
+  callLegacyWindowFunction('showPage', 'settings');
+  callLegacyWindowFunction('showSettingsTab', tab);
 }
 
 export function installTestStoresBridge() {
@@ -212,9 +227,49 @@ export function installTestStoresBridge() {
             [programId]: seededState,
           },
         });
-        callLegacyWindowFunction('initSettings');
-        callLegacyWindowFunction('showPage', 'settings');
-        callLegacyWindowFunction('showSettingsTab', 'program');
+        openSettingsTab('program');
+      },
+      openBodyTab: async (bodyMetrics) => {
+        const currentProfile =
+          (cloneJson(dataStore.getState().profile) as Record<string, unknown> | null) || {};
+        const currentBodyMetrics =
+          currentProfile.bodyMetrics && typeof currentProfile.bodyMetrics === 'object'
+            ? (currentProfile.bodyMetrics as Record<string, unknown>)
+            : {};
+        const nextProfile = {
+          ...currentProfile,
+          bodyMetrics: {
+            ...currentBodyMetrics,
+            ...(cloneJson(bodyMetrics) || {}),
+          },
+        };
+        normalizeBodyMetrics(nextProfile);
+        await testWindow.__IRONFORGE_E2E__?.app?.seedData?.({ profile: nextProfile });
+        openSettingsTab('body');
+      },
+      openPreferencesTab: async (options) => {
+        const currentProfile =
+          (cloneJson(dataStore.getState().profile) as Record<string, unknown> | null) || {};
+        const currentPreferences =
+          currentProfile.preferences && typeof currentProfile.preferences === 'object'
+            ? (currentProfile.preferences as Record<string, unknown>)
+            : {};
+        const nextPreferences = normalizeTrainingPreferences({
+          ...currentProfile,
+          preferences: {
+            ...currentPreferences,
+            ...((cloneJson(options?.preferences) as Record<string, unknown> | null) || {}),
+          },
+        });
+        const nextProfile: Record<string, unknown> = {
+          ...currentProfile,
+          preferences: nextPreferences,
+        };
+        if (options?.defaultRest !== undefined) {
+          nextProfile.defaultRest = options.defaultRest;
+        }
+        await testWindow.__IRONFORGE_E2E__?.app?.seedData?.({ profile: nextProfile });
+        openSettingsTab('preferences');
       },
     },
     program: {
