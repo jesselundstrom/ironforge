@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
+declare let activeWorkout: Record<string, any> | null;
+
+declare function buildWorkoutRewardState(...args: any[]): Record<string, unknown>;
+declare function ensureWorkoutExerciseUiKeys(
+  exercises: Array<Record<string, any>>
+): Array<Record<string, any>>;
+declare function showPage(page: string, trigger?: Element | null): void;
+
 test('exercise guide modal shows specific bench guidance from the active workout', async ({
   page,
 }) => {
@@ -10,33 +18,37 @@ test('exercise guide modal shows specific bench guidance from the active workout
     const benchId =
       window.resolveRegisteredExerciseId?.('Bench Press') || 'bench-press';
 
-    window.eval(`
-      activeWorkout = {
-        program: 'forge',
-        type: 'forge',
-        programOption: '1',
-        programDayNum: 1,
-        programLabel: 'Forge · Day 1',
-        sessionDescription: 'Bench focus',
-        rewardState: typeof buildWorkoutRewardState === 'function' ? buildWorkoutRewardState() : {},
-        exercises: typeof ensureWorkoutExerciseUiKeys === 'function'
-          ? ensureWorkoutExerciseUiKeys([{
-              name: 'Bench Press',
-              exerciseId: '${benchId}',
-              sets: [{ weight: 80, reps: 5, done: false, rpe: null }]
-            }])
-          : [{
-              name: 'Bench Press',
-              exerciseId: '${benchId}',
-              sets: [{ weight: 80, reps: 5, done: false, rpe: null }]
-            }],
-        startTime: Date.now() - 120000
-      };
-      showPage('log', document.querySelectorAll('.nav-btn')[1]);
-      window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
-        toast: false,
-      });
-    `);
+    activeWorkout = {
+      program: 'forge',
+      type: 'forge',
+      programOption: '1',
+      programDayNum: 1,
+      programLabel: 'Forge · Day 1',
+      sessionDescription: 'Bench focus',
+      rewardState:
+        typeof buildWorkoutRewardState === 'function' ? buildWorkoutRewardState() : {},
+      exercises:
+        typeof ensureWorkoutExerciseUiKeys === 'function'
+          ? ensureWorkoutExerciseUiKeys([
+              {
+                name: 'Bench Press',
+                exerciseId: benchId,
+                sets: [{ weight: 80, reps: 5, done: false, rpe: null }],
+              },
+            ])
+          : [
+              {
+                name: 'Bench Press',
+                exerciseId: benchId,
+                sets: [{ weight: 80, reps: 5, done: false, rpe: null }],
+              },
+            ],
+      startTime: Date.now() - 120000,
+    };
+    showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
+      toast: false,
+    });
   });
 
   await expect(page.locator('.exercise-guide-open-btn')).toBeVisible();

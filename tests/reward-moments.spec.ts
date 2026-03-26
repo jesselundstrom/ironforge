@@ -1,67 +1,113 @@
+import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
+declare let workouts: Array<Record<string, any>>;
+declare let profile: Record<string, any>;
+declare let activeWorkout: Record<string, any> | null;
+declare let upsertWorkoutRecord: (...args: any[]) => Promise<unknown>;
+declare let saveWorkouts: (...args: any[]) => Promise<unknown>;
+declare let saveProfileData: (...args: any[]) => Promise<unknown>;
+declare let _lastTmSignature: string;
+declare let _lastTmValues: Record<string, unknown>;
+
+declare function buildExerciseIndex(): void;
+declare function buildWorkoutRewardState(...args: any[]): Record<string, unknown>;
+declare function ensureWorkoutExerciseUiKeys(
+  exercises: Array<Record<string, any>>
+): Array<Record<string, any>>;
+declare function closeSummaryModal(goToNutrition?: boolean): void;
+declare function renderHistory(): void;
+declare function showPage(page: string, trigger?: Element | null): void;
+declare function updateDashboard(): void;
+
 test.describe.configure({ mode: 'serial' });
+
+async function setupRewardSession(
+  page: Page,
+  options?: {
+  priorWorkouts?: Array<Record<string, unknown>>;
+  completedReps?: number;
+  activeReps?: number;
+  activeRpe?: number | null;
+}
+) {
+  const next = options || {};
+  await page.evaluate((seed) => {
+    const priorWorkouts = Array.isArray(seed.priorWorkouts) ? seed.priorWorkouts : [];
+    const completedReps = Number(seed.completedReps ?? 7);
+    const activeReps = Number(seed.activeReps ?? 8);
+    const activeRpe = seed.activeRpe ?? 8;
+
+    const benchId = window.resolveRegisteredExerciseId?.('Bench Press') || 'bench-press';
+    const forgeState = window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
+
+    workouts = structuredClone(priorWorkouts);
+    profile.activeProgram = 'forge';
+    profile.programs = {
+      ...(profile.programs || {}),
+      forge: structuredClone(forgeState),
+    };
+    buildExerciseIndex();
+    upsertWorkoutRecord = async () => {};
+    saveWorkouts = async () => {};
+    saveProfileData = async () => {};
+
+    activeWorkout = {
+      program: 'forge',
+      type: 'forge',
+      programOption: '1',
+      programDayNum: 1,
+      programLabel: 'Forge · Day 1',
+      sessionDescription: 'Bench focus',
+      rewardState: buildWorkoutRewardState(),
+      exercises: ensureWorkoutExerciseUiKeys([
+        {
+          name: 'Bench Press',
+          exerciseId: benchId,
+          sets: [{ weight: 80, reps: activeReps, done: false, rpe: activeRpe }],
+        },
+      ]),
+      startTime: Date.now(),
+    };
+
+    if (!priorWorkouts.length && completedReps > 0) {
+      workouts = [
+        {
+          id: 1,
+          date: '2026-03-10T09:00:00.000Z',
+          program: 'forge',
+          type: 'forge',
+          programDayNum: 1,
+          programLabel: 'Forge · Day 1',
+          duration: 1800,
+          rpe: 7,
+          sets: 1,
+          exercises: [
+            {
+              name: 'Bench Press',
+              exerciseId: benchId,
+              sets: [{ weight: 80, reps: completedReps, done: true, rpe: 8 }],
+            },
+          ],
+        },
+      ];
+    }
+
+    window.showRPEPicker = (_name, _setNum, cb) =>
+      cb(typeof activeRpe === 'number' ? activeRpe : 8);
+    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
+      toast: false,
+    });
+  }, next);
+}
 
 test('live PR detection flows into the summary and history views', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    const benchId =
-      window.resolveRegisteredExerciseId?.('Bench Press') || 'bench-press';
-    const forgeState =
-      window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-
-    window.eval(`
-      workouts = [{
-        id: 1,
-        date: '2026-03-10T09:00:00.000Z',
-        program: 'forge',
-        type: 'forge',
-        programDayNum: 1,
-        programLabel: 'Forge · Day 1',
-        duration: 1800,
-        rpe: 7,
-        sets: 1,
-        exercises: [{
-          name: 'Bench Press',
-          exerciseId: '${benchId}',
-          sets: [{ weight: 80, reps: 7, done: true, rpe: 8 }]
-        }]
-      }];
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-      buildExerciseIndex();
-      upsertWorkoutRecord = async () => {};
-      saveWorkouts = async () => {};
-      saveProfileData = async () => {};
-    `);
-
-    window.eval(`
-      activeWorkout = {
-        program: 'forge',
-        type: 'forge',
-        programOption: '1',
-        programDayNum: 1,
-        programLabel: 'Forge · Day 1',
-        sessionDescription: 'Bench focus',
-        rewardState: buildWorkoutRewardState(),
-        exercises: ensureWorkoutExerciseUiKeys([{
-          name: 'Bench Press',
-          exerciseId: '${benchId}',
-          sets: [{ weight: 80, reps: 8, done: false, rpe: null }]
-        }]),
-        startTime: Date.now()
-      };
-    `);
-
-    window.showRPEPicker = (_name, _setNum, cb) => cb(8);
-    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
-    window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
-      toast: false,
-    });
-  });
+  await setupRewardSession(page);
 
   await expect(page.locator('#log-active-react-root #workout-active')).toBeVisible();
   await expect(page.locator('#log-active-react-root .exercise-block')).toHaveCount(1);
@@ -80,17 +126,19 @@ test('live PR detection flows into the summary and history views', async ({ page
 
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
   await expect(page.locator('#summary-modal .summary-title')).toHaveText('SESSION FORGED');
-  await page.waitForFunction(() =>
-    (document.querySelector('.summary-stat-prs .summary-stat-value')?.textContent || '').trim() === '1'
+  await page.waitForFunction(
+    () =>
+      (document.querySelector('.summary-stat-prs .summary-stat-value')?.textContent || '').trim() ===
+      '1'
   );
   await expect(page.locator('.summary-stat-prs .summary-stat-value')).toHaveText('1');
 
   await page.evaluate(() => {
-    window.eval('closeSummaryModal()');
+    closeSummaryModal();
   });
 
   await page.evaluate(() => {
-    window.eval('renderHistory()');
+    renderHistory();
   });
 
   await page.waitForFunction(() => {
@@ -103,60 +151,7 @@ test('summary coach note shows PR message when a PR is set', async ({ page }) =>
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    const benchId =
-      window.resolveRegisteredExerciseId?.('Bench Press') || 'bench-press';
-    const forgeState =
-      window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-
-    window.eval(`
-      workouts = [{
-        id: 1,
-        date: '2026-03-10T09:00:00.000Z',
-        program: 'forge',
-        type: 'forge',
-        programDayNum: 1,
-        programLabel: 'Forge · Day 1',
-        duration: 1800,
-        rpe: 7,
-        sets: 1,
-        exercises: [{
-          name: 'Bench Press',
-          exerciseId: '${benchId}',
-          sets: [{ weight: 80, reps: 7, done: true, rpe: 8 }]
-        }]
-      }];
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-      buildExerciseIndex();
-      upsertWorkoutRecord = async () => {};
-      saveWorkouts = async () => {};
-      saveProfileData = async () => {};
-    `);
-
-    window.eval(`
-      activeWorkout = {
-        program: 'forge',
-        type: 'forge',
-        programOption: '1',
-        programDayNum: 1,
-        programLabel: 'Forge · Day 1',
-        rewardState: buildWorkoutRewardState(),
-        exercises: ensureWorkoutExerciseUiKeys([{
-          name: 'Bench Press',
-          exerciseId: '${benchId}',
-          sets: [{ weight: 80, reps: 8, done: false, rpe: null }]
-        }]),
-        startTime: Date.now()
-      };
-    `);
-
-    window.showRPEPicker = (_name: string, _setNum: number, cb: (v: number) => void) => cb(8);
-    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
-    window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
-      toast: false,
-    });
-  });
+  await setupRewardSession(page);
 
   await page.evaluate(() => {
     window.__IRONFORGE_STORES__?.workout?.toggleSet?.(0, 0);
@@ -171,52 +166,21 @@ test('summary coach note shows PR message when a PR is set', async ({ page }) =>
   await expect(page.locator('.summary-coach-note')).toContainText(/PR/i);
 
   await page.evaluate(() => {
-    window.eval('closeSummaryModal()');
+    closeSummaryModal();
   });
 });
 
-test('summary coach note shows clean fallback when session completes without PRs or TM changes', async ({ page }) => {
+test('summary coach note shows clean fallback when session completes without PRs or TM changes', async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await openAppShell(page);
 
-  await page.evaluate(() => {
-    const benchId =
-      window.resolveRegisteredExerciseId?.('Bench Press') || 'bench-press';
-    const forgeState =
-      window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-
-    window.eval(`
-      workouts = [];
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(forgeState)} };
-      buildExerciseIndex();
-      upsertWorkoutRecord = async () => {};
-      saveWorkouts = async () => {};
-      saveProfileData = async () => {};
-    `);
-
-    window.eval(`
-      activeWorkout = {
-        program: 'forge',
-        type: 'forge',
-        programOption: '1',
-        programDayNum: 1,
-        programLabel: 'Forge · Day 1',
-        rewardState: buildWorkoutRewardState(),
-        exercises: ensureWorkoutExerciseUiKeys([{
-          name: 'Bench Press',
-          exerciseId: '${benchId}',
-          sets: [{ weight: 60, reps: 5, done: false, rpe: null }]
-        }]),
-        startTime: Date.now()
-      };
-    `);
-
-    window.showRPEPicker = (_name: string, _setNum: number, cb: (v: number) => void) => cb(7);
-    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
-    window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
-      toast: false,
-    });
+  await setupRewardSession(page, {
+    priorWorkouts: [],
+    completedReps: 0,
+    activeReps: 5,
+    activeRpe: 7,
   });
 
   await page.evaluate(() => {
@@ -229,15 +193,16 @@ test('summary coach note shows clean fallback when session completes without PRs
 
   await expect(page.locator('#summary-modal')).toHaveClass(/active/);
   await expect(page.locator('.summary-coach-note')).toBeVisible();
-  // Fallback or advance message — just confirm something is shown
   await expect(page.locator('.summary-coach-note')).not.toBeEmpty();
 
   await page.evaluate(() => {
-    window.eval('closeSummaryModal()');
+    closeSummaryModal();
   });
 });
 
-test('dashboard rounds TM display to 0.5kg and ignores raw changes inside the same bucket', async ({ page }) => {
+test('dashboard rounds TM display to 0.5kg and ignores raw changes inside the same bucket', async ({
+  page,
+}) => {
   await openAppShell(page);
 
   await page.evaluate(() => {
@@ -247,15 +212,13 @@ test('dashboard rounds TM display to 0.5kg and ignores raw changes inside the sa
       lifts: { main: Array<{ tm: number }> };
     };
     state.lifts.main[1].tm = 82.43;
-    window.eval(`
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(state)} };
-    `);
-    window.eval("_lastTmSignature = ''");
-    window.eval("_lastTmValues = {}");
-    window.eval('updateDashboard()');
-    window.eval('profile.programs.forge.lifts.main[1].tm = 82.49');
-    window.eval('updateDashboard()');
+    profile.activeProgram = 'forge';
+    profile.programs = { ...(profile.programs || {}), forge: structuredClone(state) };
+    _lastTmSignature = '';
+    _lastTmValues = {};
+    updateDashboard();
+    profile.programs.forge.lifts.main[1].tm = 82.49;
+    updateDashboard();
   });
 
   const benchCard = page.locator('.lift-stat').filter({ hasText: 'Bench Press' });
@@ -274,15 +237,13 @@ test('dashboard shows rounded TM change state with rolling counter markers', asy
     }) as Record<string, unknown> & {
       lifts: { main: Array<{ tm: number }> };
     };
-    window.eval(`
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(state)} };
-    `);
-    window.eval("_lastTmSignature = ''");
-    window.eval("_lastTmValues = {}");
-    window.eval('updateDashboard()');
-    window.eval('profile.programs.forge.lifts.main[1].tm = 82.74');
-    window.eval('updateDashboard()');
+    profile.activeProgram = 'forge';
+    profile.programs = { ...(profile.programs || {}), forge: structuredClone(state) };
+    _lastTmSignature = '';
+    _lastTmValues = {};
+    updateDashboard();
+    profile.programs.forge.lifts.main[1].tm = 82.74;
+    updateDashboard();
   });
 
   await page.waitForFunction(() => {
@@ -309,32 +270,34 @@ test('dashboard TM rounding does not change exercise prescriptions', async ({ pa
     const forgeProgram = (window.__IRONFORGE_E2E__?.program?.getById?.('forge') || {
       buildSession: () => [],
     }) as {
-      buildSession: (option: string, programState: Record<string, unknown>, context: Record<string, unknown>) => Array<any>;
+      buildSession: (
+        option: string,
+        programState: Record<string, unknown>,
+        context: Record<string, unknown>
+      ) => Array<any>;
     };
     state.lifts.main[1].tm = 82.43;
     const snapshotSession = (exercises: Array<any>) =>
-      exercises.map(exercise => ({
+      exercises.map((exercise) => ({
         name: exercise.name,
         prescribedWeight: exercise.prescribedWeight ?? null,
         firstSetWeight: exercise.sets?.[0]?.weight ?? null,
-        firstSetReps: exercise.sets?.[0]?.reps ?? null
+        firstSetReps: exercise.sets?.[0]?.reps ?? null,
       }));
     const before = snapshotSession(forgeProgram.buildSession('1', state, {}));
 
-    window.eval(`
-      profile.activeProgram = 'forge';
-      profile.programs = { ...(profile.programs || {}), forge: ${JSON.stringify(state)} };
-    `);
-    window.eval("_lastTmSignature = ''");
-    window.eval("_lastTmValues = {}");
-    window.eval('updateDashboard()');
+    profile.activeProgram = 'forge';
+    profile.programs = { ...(profile.programs || {}), forge: structuredClone(state) };
+    _lastTmSignature = '';
+    _lastTmValues = {};
+    updateDashboard();
 
     const after = snapshotSession(forgeProgram.buildSession('1', state, {}));
 
     return {
       before,
       after,
-      storedBenchTm: window.eval('profile.programs.forge.lifts.main[1].tm')
+      storedBenchTm: profile.programs.forge.lifts.main[1].tm,
     };
   });
 
