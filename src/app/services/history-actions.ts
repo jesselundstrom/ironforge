@@ -1,7 +1,8 @@
+import { useHistoryStore } from '../../stores/history-store';
 import { callLegacyWindowFunction } from './legacy-call';
 
 export function toggleHeatmap() {
-  callLegacyWindowFunction('toggleHeatmap');
+  useHistoryStore.getState().toggleHeatmap();
 }
 
 export function deleteWorkout(workoutId: string) {
@@ -9,9 +10,9 @@ export function deleteWorkout(workoutId: string) {
 }
 
 export function switchHistoryStatsRange(rangeId: string) {
-  callLegacyWindowFunction('switchHistoryStatsRange', rangeId);
+  useHistoryStore.getState().setStatsRange(rangeId);
 }
 
 export function switchHistoryTab(tabId: string) {
-  callLegacyWindowFunction('switchHistoryTab', tabId);
+  useHistoryStore.getState().setTab(tabId);
 }

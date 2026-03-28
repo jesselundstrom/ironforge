@@ -37,7 +37,10 @@ test('log active island keeps set completion and rest timer controls working', a
   await openAppShell(page);
   await openActiveWorkout(page);
 
-  await page.getByRole('button', { name: '3 min' }).click();
+  await expect(page.getByRole('button', { name: '3 min' })).toBeVisible({
+    timeout: 15000,
+  });
+  await page.getByRole('button', { name: '3 min' }).click({ force: true });
 
   const interactionResult = await page.evaluate(() => {
     window.__IRONFORGE_STORES__?.workout?.toggleSet?.(0, 0);

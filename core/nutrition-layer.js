@@ -16,6 +16,7 @@
   let _sessionContext = null;
   let _sessionContextTimeoutId = 0;
   let _sessionContextExpiresAt = 0;
+  const NUTRITION_STATE_EVENT = 'ironforge:nutrition-state-changed';
   const NUTRITION_REQUEST_TIMEOUT_MS = 20000;
   const NUTRITION_MAX_PHOTO_BYTES = 8 * 1024 * 1024;
   const NUTRITION_MAX_COMPRESSED_BYTES = 5 * 1024 * 1024;
@@ -24,6 +25,10 @@
 
   function getRuntimeBridge() {
     return window.__IRONFORGE_RUNTIME_BRIDGE__ || null;
+  }
+
+  function _notifyNutritionSubscribers() {
+    window.dispatchEvent(new Event(NUTRITION_STATE_EVENT));
   }
 
   function _nowMs() {
@@ -208,11 +213,16 @@
 
   function isNutritionIslandActive() {
     var bridge = getRuntimeBridge();
-    return !!bridge && typeof bridge.setNutritionView === 'function';
+    return (
+      (!!bridge && typeof bridge.setNutritionView === 'function') ||
+      (window.__IRONFORGE_APP_SHELL_READY__ === true &&
+        !!document.getElementById('nutrition-react-root'))
+    );
   }
 
   function notifyNutritionIsland() {
     _snapshotVersion++;
+    _notifyNutritionSubscribers();
     var bridge = getRuntimeBridge();
     if (bridge && typeof bridge.setNutritionView === 'function') {
       bridge.setNutritionView(buildNutritionView());
@@ -884,6 +894,7 @@
     try {
       localStorage.setItem(_historyKey(), JSON.stringify(_history));
     } catch (_) {}
+    _notifyNutritionSubscribers();
   }
 
   function _clearHistory() {
@@ -893,6 +904,7 @@
     try {
       localStorage.removeItem(_historyKey());
     } catch (_) {}
+    _notifyNutritionSubscribers();
   }
 
   // ─── Image compression ────────────────────────────────────────────────────────
@@ -2534,4 +2546,22 @@
   window.openNutritionLogin = openNutritionLogin;
   window.setNutritionSessionContext = setNutritionSessionContext;
   window.retryLastNutritionMessage = retryLastNutritionMessage;
+  window.getNutritionRuntimeState = function getNutritionRuntimeState() {
+    return {
+      selectedActionId: _selectedActionId,
+      loading: _loading,
+      loadingContext: _loadingContext,
+      streaming: _streaming,
+      snapshotVersion: _snapshotVersion,
+    };
+  };
+  window.getNutritionActionDefinitions = function getNutritionActionDefinitions() {
+    return NUTRITION_ACTIONS.map(function (action) {
+      return {
+        id: action.id,
+        labelKey: action.labelKey,
+        fallbackLabel: action.fallbackLabel,
+      };
+    });
+  };
 })();

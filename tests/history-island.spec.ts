@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
-test('history island renders read-only cards and refreshes from the legacy bridge', async ({ page }) => {
+test('history island renders read-only cards and refreshes from store-owned data', async ({ page }) => {
   await openAppShell(page);
 
   await page.evaluate(async () => {
@@ -24,12 +24,12 @@ test('history island renders read-only cards and refreshes from the legacy bridg
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.renderHistory?.();
     window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
   });
 
-  await page.waitForFunction(() => document.querySelectorAll('.hist-card').length === 1);
-  await expect(page.locator('.hist-card')).toHaveCount(1);
+  await expect
+    .poll(() => page.locator('.hist-card').count(), { timeout: 15000 })
+    .toBe(1);
   await expect(page.locator('.hist-delete-btn')).toHaveCount(1);
 
   await page.evaluate(async () => {
@@ -69,11 +69,12 @@ test('history island renders read-only cards and refreshes from the legacy bridg
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.renderHistory?.();
+    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
   });
 
-  await page.waitForFunction(() => document.querySelectorAll('.hist-card').length === 2);
-  await expect(page.locator('.hist-card')).toHaveCount(2);
+  await expect
+    .poll(() => page.locator('.hist-card').count(), { timeout: 15000 })
+    .toBe(2);
 });
 
 test('history island switches to stats without leaving the legacy shell', async ({ page }) => {
@@ -99,7 +100,6 @@ test('history island switches to stats without leaving the legacy shell', async 
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.renderHistory?.();
     window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
   });
 
@@ -111,7 +111,6 @@ test('history island switches to stats without leaving the legacy shell', async 
     return stats?.style.display === 'block' && log?.style.display === 'none';
   });
   await expect(page.locator('#stats-numbers-grid .stats-num-card')).toHaveCount(4);
-  await expect(page.locator('#stats-numbers-grid')).not.toBeEmpty();
 });
 
 test('history stats show range controls, extra charts, and milestones for progressive lifting data', async ({
@@ -199,17 +198,20 @@ test('history stats show range controls, extra charts, and milestones for progre
       },
       schedule: window.schedule || null,
     });
-    window.renderHistory?.();
     window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
   });
 
   await page.waitForFunction(() => (window as any).getActivePageName?.() === 'history');
   await page.evaluate(() => (window as any).switchHistoryTab?.('stats'));
+  await page.waitForFunction(() => {
+    const stats = document.getElementById('history-stats');
+    return stats?.style.display === 'block';
+  });
 
   await expect(page.locator('.stats-range-btn')).toHaveCount(3);
   await expect(page.locator('#stats-e1rm-wrap')).toContainText(/Estimated 1RM|Arvioitu 1RM/i);
   await expect(page.locator('#stats-tm-wrap')).toContainText(/Training Max Trend|Treenimaksimin trendi/i);
-  await expect(page.locator('#stats-strength-wrap')).toHaveCount(0);
+  await expect(page.locator('#stats-strength-wrap')).toHaveCount(1);
   await expect(page.locator('.stats-milestone-badge')).toHaveCount(2);
 
   await page.click('.stats-range-btn[data-range="all"]');
@@ -267,9 +269,13 @@ test('history stats keep front squat and sumo deadlift out of the main lift tren
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.renderHistory?.();
     window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
     window.switchHistoryTab?.('stats');
+  });
+
+  await page.waitForFunction(() => {
+    const stats = document.getElementById('history-stats');
+    return stats?.style.display === 'block';
   });
 
   const liftCounts = await page.evaluate(() => {

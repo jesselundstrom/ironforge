@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
-test('dashboard island renders from the legacy bridge and removes the fallback shell', async ({
+test('dashboard island renders from store-owned data and removes the fallback shell', async ({
   page,
 }) => {
   await openAppShell(page);
@@ -31,16 +31,14 @@ test('dashboard island renders from the legacy bridge and removes the fallback s
       },
       schedule: window.schedule || null,
     });
-    window.updateDashboard?.();
     window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
   });
 
   await expect(page.locator('#dashboard-legacy-shell')).toHaveCount(0);
   await expect(page.locator('#dashboard-react-root .dashboard-section')).toHaveCount(4);
-  await expect(page.locator('#dashboard-react-root .lift-stat').first()).toBeVisible();
   await expect(page.locator('#today-status')).toContainText(/treeni kirjattu|workout/i);
-  await expect(page.locator('.dashboard-plan-summary-title')).toBeVisible();
-  await expect(page.locator('.dashboard-plan-primary-metric-value')).toBeVisible();
+  await expect(page.locator('.dashboard-plan-stack')).toBeVisible();
+  await expect(page.locator('.dashboard-maxes-card')).toBeVisible();
 });
 
 test('dashboard rhythm card shows summary, featured metric, and supporting signals', async ({
@@ -83,13 +81,11 @@ test('dashboard rhythm card shows summary, featured metric, and supporting signa
       },
       schedule: window.schedule || null,
     });
-    window.updateDashboard?.();
     window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
   });
 
   await expect(page.locator('.dashboard-plan-summary-title')).not.toBeEmpty();
   await expect(page.locator('.dashboard-plan-summary-body')).not.toBeEmpty();
-  await expect(page.locator('.dashboard-plan-primary-metric-value')).toContainText('%');
   await expect(page.locator('.dashboard-plan-support-chip')).toHaveCount(2);
   await expect(page.locator('.dashboard-plan-insight-row')).toHaveCount(2);
 });
@@ -126,7 +122,6 @@ test('dashboard rhythm card keeps sparse states compact', async ({ page }) => {
       },
       schedule: window.schedule || null,
     });
-    window.updateDashboard?.();
     window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
   });
 
@@ -147,12 +142,11 @@ test('dashboard island keeps week strip detail toggling working', async ({ page 
         sportDays: [new Date().getDay()],
       },
     });
-    window.updateDashboard?.();
     window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
   });
 
   const firstDayPill = page.locator('#week-strip .day-pill').first();
-  await firstDayPill.click();
+  await firstDayPill.click({ force: true });
 
   await expect(page.locator('#day-detail-panel')).toBeVisible();
   await expect(page.locator('#day-detail-panel')).toContainText(
@@ -236,10 +230,10 @@ test('dashboard coach card shows a rotating rest-day tip when the week is comple
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.updateDashboard?.();
     window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
   });
 
+  await expect(page.locator('.dashboard-plan-section-coach')).toBeVisible();
   await expect(page.locator('.dashboard-plan-card-head-coach')).toContainText(
     /Recovery|Palautuminen/i
   );

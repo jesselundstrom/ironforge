@@ -169,6 +169,9 @@ export function installTestStoresBridge() {
       },
       setCurrentUser: (user) => {
         window.currentUser = user as typeof window.currentUser;
+        if (typeof window.eval === 'function') {
+          window.eval(`currentUser = ${JSON.stringify(user || null)};`);
+        }
         dataStore.getState().syncFromLegacy();
       },
       seedData: async (snapshot) => {

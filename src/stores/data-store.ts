@@ -95,6 +95,59 @@ function getFallbackLocalCacheKey(baseKey: string, userId?: string) {
   return scopedUserId ? `${baseKey}::${scopedUserId}` : baseKey;
 }
 
+function readLegacyRuntimeValue<T>(name: string): T | undefined {
+  if (typeof window === 'undefined' || typeof window.eval !== 'function') {
+    return undefined;
+  }
+  try {
+    return window.eval(
+      `typeof ${name} !== 'undefined' ? ${name} : undefined`
+    ) as T | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function hasWindowProperty(
+  target: Record<string, unknown> | null | undefined,
+  key: string
+) {
+  return !!target && Object.prototype.hasOwnProperty.call(target, key);
+}
+
+function readLocalCacheJson<T>(key: string): T | undefined {
+  if (typeof localStorage === 'undefined') return undefined;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return undefined;
+    return JSON.parse(raw) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function readPersistedScopedSnapshot(userId?: string) {
+  const runtimeWindow = getLegacyWindow();
+  const getCacheKey = (baseKey: string) =>
+    runtimeWindow?.getLocalCacheKey?.(baseKey, userId) ||
+    getFallbackLocalCacheKey(baseKey, userId);
+
+  return {
+    workouts:
+      readLocalCacheJson<Array<Record<string, unknown>>>(
+        getCacheKey(LOCAL_CACHE_KEYS.workouts)
+      ) || [],
+    profile:
+      readLocalCacheJson<Record<string, unknown> | null>(
+        getCacheKey(LOCAL_CACHE_KEYS.profile)
+      ) || null,
+    schedule:
+      readLocalCacheJson<Record<string, unknown> | null>(
+        getCacheKey(LOCAL_CACHE_KEYS.schedule)
+      ) || null,
+  };
+}
+
 function readLegacySyncStatus(): SyncStatus {
   if (typeof document !== 'undefined') {
     const statusEl = document.getElementById('sync-status');
@@ -121,14 +174,65 @@ function readLegacySyncStatus(): SyncStatus {
   };
 }
 
-function readLegacySnapshot(cloudSyncEnabled = true): LegacyDataSnapshot {
+function readLegacySnapshot(
+  cloudSyncEnabled = true,
+  explicitUserId?: string
+): LegacyDataSnapshot {
   const runtimeWindow = getLegacyWindow();
+  const persisted = readPersistedScopedSnapshot(explicitUserId);
+  const legacyCurrentUser =
+    readLegacyRuntimeValue<Record<string, unknown> | null>('currentUser');
+  const legacyWorkouts =
+    readLegacyRuntimeValue<Array<Record<string, unknown>>>('workouts');
+  const legacySchedule =
+    readLegacyRuntimeValue<Record<string, unknown> | null>('schedule');
+  const legacyProfile =
+    readLegacyRuntimeValue<Record<string, unknown> | null>('profile');
+  const legacyActiveWorkout =
+    readLegacyRuntimeValue<Record<string, unknown> | null>('activeWorkout');
   return {
-    currentUser: cloneJson(runtimeWindow?.currentUser || null),
-    workouts: cloneJson(runtimeWindow?.workouts || []),
-    schedule: cloneJson(runtimeWindow?.schedule || null),
-    profile: cloneJson(runtimeWindow?.profile || null),
-    activeWorkout: cloneJson(runtimeWindow?.activeWorkout || null),
+    currentUser: cloneJson(
+      legacyCurrentUser !== undefined
+        ? legacyCurrentUser
+        : hasWindowProperty(
+              runtimeWindow as unknown as Record<string, unknown> | null,
+              'currentUser'
+            )
+          ? runtimeWindow?.currentUser || null
+          : null
+    ),
+    workouts: cloneJson(
+      Array.isArray(legacyWorkouts)
+        ? legacyWorkouts
+        : Array.isArray(runtimeWindow?.workouts)
+          ? runtimeWindow.workouts
+          : persisted.workouts
+    ),
+    schedule: cloneJson(
+      legacySchedule !== undefined
+        ? legacySchedule
+        : hasWindowProperty(
+              runtimeWindow as unknown as Record<string, unknown> | null,
+              'schedule'
+            )
+          ? runtimeWindow?.schedule || null
+          : persisted.schedule
+    ),
+    profile: cloneJson(
+      legacyProfile !== undefined
+        ? legacyProfile
+        : hasWindowProperty(
+              runtimeWindow as unknown as Record<string, unknown> | null,
+              'profile'
+            )
+          ? runtimeWindow?.profile || null
+          : persisted.profile
+    ),
+    activeWorkout: cloneJson(
+      legacyActiveWorkout !== undefined
+        ? legacyActiveWorkout
+        : runtimeWindow?.activeWorkout || null
+    ),
     restDuration: Number(runtimeWindow?.restDuration || 0),
     restEndsAt: Number(runtimeWindow?.restEndsAt || 0),
     restSecondsLeft: Number(runtimeWindow?.restSecondsLeft || 0),
@@ -140,9 +244,9 @@ function readLegacySnapshot(cloudSyncEnabled = true): LegacyDataSnapshot {
   };
 }
 
-function syncStoreFromLegacy() {
+function syncStoreFromLegacy(explicitUserId?: string) {
   const cloudSyncEnabled = dataStoreRef?.getState().cloudSyncEnabled ?? true;
-  const snapshot = readLegacySnapshot(cloudSyncEnabled);
+  const snapshot = readLegacySnapshot(cloudSyncEnabled, explicitUserId);
   dataStoreRef?.setState((state: LegacyDataStoreState) => ({
     ...state,
     ...snapshot,
@@ -187,7 +291,7 @@ export const dataStore: StoreApi<LegacyDataStoreState> =
       cloudSyncEnabled: allowCloudSync,
     }));
     await runtimeWindow?.loadData?.(options);
-    syncStoreFromLegacy();
+    syncStoreFromLegacy(options?.userId);
   },
   clearLocalDataCache: (options) => {
     getLegacyWindow()?.clearLocalDataCache?.(options);
@@ -240,9 +344,15 @@ export function installLegacyDataStoreBridge() {
     'logout',
   ].forEach((name) => wrapLegacyMethod(name as keyof LegacyDataWindow));
 
-  window.addEventListener('online', syncStoreFromLegacy);
-  window.addEventListener('offline', syncStoreFromLegacy);
-  window.addEventListener('visibilitychange', syncStoreFromLegacy);
+  window.addEventListener('online', () => {
+    syncStoreFromLegacy();
+  });
+  window.addEventListener('offline', () => {
+    syncStoreFromLegacy();
+  });
+  window.addEventListener('visibilitychange', () => {
+    syncStoreFromLegacy();
+  });
 }
 
 export function getDataStateSnapshot() {

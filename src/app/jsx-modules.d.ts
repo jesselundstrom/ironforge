@@ -59,9 +59,6 @@ declare global {
       setWorkoutSessionState?: (partial: Record<string, unknown>) => void;
       setLogStartView?: (view: Record<string, unknown> | null) => void;
       setLogActiveView?: (view: Record<string, unknown> | null) => void;
-      setHistoryView?: (view: Record<string, unknown> | null) => void;
-      setDashboardView?: (view: Record<string, unknown> | null) => void;
-      setNutritionView?: (view: Record<string, unknown> | null) => void;
       setSettingsAccountView?: (view: Record<string, unknown> | null) => void;
       setSettingsBodyView?: (view: Record<string, unknown> | null) => void;
       setSettingsPreferencesView?: (view: Record<string, unknown> | null) => void;
@@ -71,10 +68,7 @@ declare global {
     };
     syncRuntimeStoreFromLegacy?: () => void;
     syncWorkoutSessionBridge?: () => void;
-    syncHistoryBridge?: () => void;
-    syncDashboardBridge?: () => void;
     syncSettingsBridge?: () => void;
-    syncNutritionBridge?: () => void;
     getOnboardingDefaultDraft?: () => Record<string, unknown> | null;
     getProgramRegistry?: () => Record<string, unknown>;
     getRegisteredPrograms?: () => Array<Record<string, unknown>>;
@@ -168,6 +162,21 @@ declare global {
     showSettingsTab?: (tab: string, trigger?: Element | null) => void;
     updateDashboard?: () => void;
     renderHistory?: () => void;
+    getDashboardLabels?: () => Record<string, string>;
+    getDashboardWeekLegendItems?: () => Array<Record<string, unknown>>;
+    getDashboardDayDetailData?: (index: number) => Array<Record<string, unknown>>;
+    getDashboardRecoverySnapshot?: (
+      fatigue: Record<string, unknown>
+    ) => Record<string, unknown>;
+    getDashboardTrainingMaxData?: (
+      prog: Record<string, unknown>,
+      ps: Record<string, unknown>
+    ) => Record<string, unknown>;
+    buildDashboardPlanStructuredSnapshot?: (
+      prog: Record<string, unknown>,
+      ps: Record<string, unknown>,
+      fatigue: Record<string, unknown>
+    ) => Record<string, unknown>;
     getTodayTrainingDecision?: (
       context?: Record<string, unknown> | null
     ) => Record<string, unknown> | null;
@@ -183,6 +192,8 @@ declare global {
     loginWithEmail?: () => Promise<unknown> | unknown;
     signUpWithEmail?: () => Promise<unknown> | unknown;
     logout?: () => Promise<unknown> | unknown;
+    getNutritionRuntimeState?: () => Record<string, unknown>;
+    getNutritionActionDefinitions?: () => Array<Record<string, unknown>>;
     setSelectedNutritionAction?: (actionId: string) => void;
     submitNutritionTextMessage?: (text: string, isCorrection?: boolean) => void;
     handleNutritionPhoto?: (event: Event) => void;

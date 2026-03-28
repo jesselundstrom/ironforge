@@ -2607,12 +2607,20 @@ function updateDashboard() {
 initMuscleBodyFlip();
 function isDashboardIslandActive() {
   const bridge = getRuntimeBridge();
-  return !!bridge && typeof bridge.setDashboardView === 'function';
+  return (
+    (!!bridge && typeof bridge.setDashboardView === 'function') ||
+    (window.__IRONFORGE_APP_SHELL_READY__ === true &&
+      !!document.getElementById('dashboard-react-root'))
+  );
 }
 function notifyDashboardIsland() {
   const bridge = getRuntimeBridge();
   if (bridge && typeof bridge.setDashboardView === 'function') {
     bridge.setDashboardView(buildDashboardView());
+    return;
+  }
+  if (window.__IRONFORGE_APP_SHELL_READY__ === true) {
+    window.updateDashboard?.();
   }
 }
 window.syncDashboardBridge = function syncDashboardBridge() {
@@ -2622,3 +2630,9 @@ window.syncDashboardBridge = function syncDashboardBridge() {
   }
 };
 window.buildDashboardWeekLegendMarkup = buildDashboardWeekLegendMarkup;
+window.getDashboardLabels = getDashboardLabels;
+window.getDashboardWeekLegendItems = getDashboardWeekLegendItems;
+window.getDashboardDayDetailData = getDashboardDayDetailData;
+window.getDashboardRecoverySnapshot = getDashboardRecoverySnapshot;
+window.getDashboardTrainingMaxData = getDashboardTrainingMaxData;
+window.buildDashboardPlanStructuredSnapshot = buildDashboardPlanStructuredSnapshot;

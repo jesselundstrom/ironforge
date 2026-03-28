@@ -15,9 +15,9 @@ import { installLegacyDataStoreBridge } from '../stores/data-store';
 import { installLegacyProfileStoreBridge } from '../stores/profile-store';
 import { installLegacyProgramStoreBridge } from '../stores/program-store';
 import { installLegacyWorkoutStoreBridge } from '../stores/workout-store';
-import { installLegacyDashboardStoreBridge } from '../stores/dashboard-store';
-import { installLegacyHistoryStoreBridge } from '../stores/history-store';
-import { installLegacyNutritionStoreBridge } from '../stores/nutrition-store';
+import { installDashboardStore } from '../stores/dashboard-store';
+import { installHistoryStore } from '../stores/history-store';
+import { installNutritionStore } from '../stores/nutrition-store';
 import { installTestStoresBridge } from './services/test-stores';
 
 function LegacyRuntimeBridge() {
@@ -62,9 +62,9 @@ if (mountNode) {
   installLegacyProfileStoreBridge();
   installLegacyProgramStoreBridge();
   installLegacyWorkoutStoreBridge();
-  installLegacyDashboardStoreBridge();
-  installLegacyHistoryStoreBridge();
-  installLegacyNutritionStoreBridge();
+  installDashboardStore();
+  installHistoryStore();
+  installNutritionStore();
   installTestStoresBridge();
   prepareLegacyShellMount();
   syncRuntimeStoreFromLegacy();

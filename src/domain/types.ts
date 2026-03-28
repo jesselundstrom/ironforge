@@ -38,6 +38,8 @@ export type ExerciseSet = {
   reps: number | string;
   done: boolean;
   isWarmup?: boolean;
+  isPr?: boolean;
+  isLastHeavySet?: boolean;
   rpe?: number | null;
   rir?: number | string | null;
   loggedReps?: number | null;

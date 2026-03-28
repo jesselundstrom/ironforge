@@ -45,13 +45,21 @@ function getRuntimeBridge() {
 
 function isHistoryIslandActive() {
   const bridge = getRuntimeBridge();
-  return !!bridge && typeof bridge.setHistoryView === 'function';
+  return (
+    (!!bridge && typeof bridge.setHistoryView === 'function') ||
+    (window.__IRONFORGE_APP_SHELL_READY__ === true &&
+      !!document.getElementById('history-react-root'))
+  );
 }
 
 function notifyHistoryIsland() {
   const bridge = getRuntimeBridge();
   if (bridge && typeof bridge.setHistoryView === 'function') {
     bridge.setHistoryView(buildHistoryView());
+    return;
+  }
+  if (window.__IRONFORGE_APP_SHELL_READY__ === true) {
+    window.renderHistory?.();
   }
 }
 

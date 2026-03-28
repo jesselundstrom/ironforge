@@ -112,7 +112,7 @@ test('nutrition island renders the setup card when the user is signed out', asyn
         };
       };
     };
-    currentUser = null;
+    window.__IRONFORGE_E2E__?.app?.setCurrentUser?.(null);
     if (runtimeWindow.__IRONFORGE_SUPABASE__?.auth) {
       runtimeWindow.__IRONFORGE_SUPABASE__.auth.getSession = async () => ({
         data: { session: null },

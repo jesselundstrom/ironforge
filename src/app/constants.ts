@@ -47,14 +47,6 @@ export type LogActiveView = {
   values: Record<string, unknown>;
 };
 
-export type HistoryView = {
-  [key: string]: unknown;
-};
-
-export type DashboardView = {
-  [key: string]: unknown;
-};
-
 export type SettingsAccountView = {
   [key: string]: unknown;
 };
@@ -72,10 +64,6 @@ export type SettingsProgramView = {
 };
 
 export type SettingsScheduleView = {
-  [key: string]: unknown;
-};
-
-export type NutritionView = {
   [key: string]: unknown;
 };
 

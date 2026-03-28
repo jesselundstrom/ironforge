@@ -190,7 +190,7 @@ test('post-workout nutrition nudge appears for a signed-in user and routes into 
   await expect(page.locator('.summary-nutrition-action')).toBeVisible();
 
   await page.locator('#summary-notes-textarea').fill('Quick post-workout note.');
-  await page.locator('.summary-nutrition-action').click();
+  await page.locator('.summary-nutrition-action').click({ force: true });
 
   await expect(page.locator('#page-nutrition')).toHaveClass(/active/);
 

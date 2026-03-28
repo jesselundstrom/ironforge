@@ -2,12 +2,9 @@ import { startTransition } from 'react';
 import {
   type AppPage,
   type ConfirmSnapshot,
-  type DashboardView,
   type ExerciseCatalogView,
-  type HistoryView,
   type LogActiveView,
   type LogStartView,
-  type NutritionView,
   type SessionSnapshot,
   type SettingsTab,
   type SettingsAccountView,
@@ -19,9 +16,8 @@ import {
   isSettingsTab,
 } from '../constants';
 import { useRuntimeStore } from '../store/runtime-store';
-import { useDashboardStore } from '../../stores/dashboard-store';
-import { useHistoryStore } from '../../stores/history-store';
-import { useNutritionStore } from '../../stores/nutrition-store';
+import { syncDashboardStoreWindowBindings } from '../../stores/dashboard-store';
+import { syncHistoryStoreWindowBindings } from '../../stores/history-store';
 import { casualFullBodyProgram } from '../../programs/casualfullbody';
 import { forgeProgram } from '../../programs/forge';
 import { hypertrophySplitProgram } from '../../programs/hypertrophysplit';
@@ -55,9 +51,6 @@ type RuntimeBridge = {
   setWorkoutSessionState: (partial: Partial<SessionSnapshot>) => void;
   setLogStartView: (view: LogStartView | null) => void;
   setLogActiveView: (view: LogActiveView | null) => void;
-  setHistoryView: (view: HistoryView | null) => void;
-  setDashboardView: (view: DashboardView | null) => void;
-  setNutritionView: (view: NutritionView | null) => void;
   setSettingsAccountView: (view: SettingsAccountView | null) => void;
   setSettingsBodyView: (view: SettingsBodyView | null) => void;
   setSettingsPreferencesView: (view: SettingsPreferencesView | null) => void;
@@ -166,15 +159,6 @@ function registerRuntimeBridge(): RuntimeBridge {
     setLogActiveView: (view) => {
       useRuntimeStore.getState().setLogActiveView(view);
     },
-    setHistoryView: (view) => {
-      useHistoryStore.getState().setView(view);
-    },
-    setDashboardView: (view) => {
-      useDashboardStore.getState().setView(view);
-    },
-    setNutritionView: (view) => {
-      useNutritionStore.getState().setView(view);
-    },
     setSettingsAccountView: (view) => {
       useRuntimeStore.getState().setSettingsAccountView(view);
     },
@@ -209,25 +193,13 @@ export function syncRuntimeStoreFromLegacy() {
   useRuntimeStore.getState().setActiveSettingsTab(detectInitialSettingsTab());
   const runtimeWindow = window as Window & {
     syncWorkoutSessionBridge?: () => void;
-    syncHistoryBridge?: () => void;
-    syncDashboardBridge?: () => void;
     syncSettingsBridge?: () => void;
-    syncNutritionBridge?: () => void;
   };
   if (typeof runtimeWindow.syncWorkoutSessionBridge === 'function') {
     runtimeWindow.syncWorkoutSessionBridge();
   }
-  if (typeof runtimeWindow.syncHistoryBridge === 'function') {
-    runtimeWindow.syncHistoryBridge();
-  }
-  if (typeof runtimeWindow.syncDashboardBridge === 'function') {
-    runtimeWindow.syncDashboardBridge();
-  }
   if (typeof runtimeWindow.syncSettingsBridge === 'function') {
     runtimeWindow.syncSettingsBridge();
-  }
-  if (typeof runtimeWindow.syncNutritionBridge === 'function') {
-    runtimeWindow.syncNutritionBridge();
   }
 }
 
@@ -235,31 +207,21 @@ export function startLegacyRuntimeBridge() {
   installTypedProgramOverrides();
   registerRuntimeBridge();
   syncRuntimeStoreFromLegacy();
+  syncDashboardStoreWindowBindings();
+  syncHistoryStoreWindowBindings();
 
   const onLanguage = () => {
     startTransition(() => {
       useRuntimeStore.getState().bumpLanguageVersion();
       const runtimeWindow = window as Window & {
         syncWorkoutSessionBridge?: () => void;
-        syncHistoryBridge?: () => void;
-        syncDashboardBridge?: () => void;
         syncSettingsBridge?: () => void;
-        syncNutritionBridge?: () => void;
       };
       if (typeof runtimeWindow.syncWorkoutSessionBridge === 'function') {
         runtimeWindow.syncWorkoutSessionBridge();
       }
-      if (typeof runtimeWindow.syncHistoryBridge === 'function') {
-        runtimeWindow.syncHistoryBridge();
-      }
-      if (typeof runtimeWindow.syncDashboardBridge === 'function') {
-        runtimeWindow.syncDashboardBridge();
-      }
       if (typeof runtimeWindow.syncSettingsBridge === 'function') {
         runtimeWindow.syncSettingsBridge();
-      }
-      if (typeof runtimeWindow.syncNutritionBridge === 'function') {
-        runtimeWindow.syncNutritionBridge();
       }
     });
   };
