@@ -447,9 +447,6 @@ function bindLegacyShellActions() {
         event.preventDefault();
         if (typeof window.loginWithEmail === 'function') {
           window.loginWithEmail();
-        } else {
-          const errEl = document.getElementById('login-error');
-          if (errEl) { errEl.style.color = '#f87171'; errEl.textContent = 'Auth not ready. Reload and try again.'; }
         }
         break;
       case 'signup-with-email':
