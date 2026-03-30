@@ -1,4 +1,4 @@
-const CACHE = 'ironforge-v53';
+const CACHE = 'ironforge-v54';
 
 // Only cache local assets — Google Fonts URLs can fail offline and would
 // break the entire SW install. Fonts are cached on first successful fetch.
@@ -33,6 +33,8 @@ self.addEventListener('fetch', (event) => {
     isSameOrigin &&
     (event.request.destination === 'script' ||
       event.request.destination === 'style' ||
+      url.pathname.endsWith('.js') ||
+      url.pathname.endsWith('.css') ||
       url.pathname.endsWith('.json'));
   const isBundledAsset = isSameOrigin && url.pathname.startsWith('/assets/');
   const isImageAsset = isSameOrigin && event.request.destination === 'image';
