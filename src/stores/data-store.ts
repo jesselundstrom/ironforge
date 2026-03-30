@@ -102,19 +102,6 @@ function getFallbackLocalCacheKey(baseKey: string, userId?: string) {
   return scopedUserId ? `${baseKey}::${scopedUserId}` : baseKey;
 }
 
-function readLegacyRuntimeValue<T>(name: string): T | undefined {
-  if (typeof window === 'undefined' || typeof window.eval !== 'function') {
-    return undefined;
-  }
-  try {
-    return window.eval(
-      `typeof ${name} !== 'undefined' ? ${name} : undefined`
-    ) as T | undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function hasWindowProperty(
   target: Record<string, unknown> | null | undefined,
   key: string
@@ -188,22 +175,10 @@ function readLegacySnapshot(
   const runtimeWindow = getLegacyWindow();
   const runtimeSnapshot = runtimeWindow?.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || {};
   const persisted = readPersistedScopedSnapshot(explicitUserId);
-  const legacyCurrentUser =
-    readLegacyRuntimeValue<Record<string, unknown> | null>('currentUser');
-  const legacyWorkouts =
-    readLegacyRuntimeValue<Array<Record<string, unknown>>>('workouts');
-  const legacySchedule =
-    readLegacyRuntimeValue<Record<string, unknown> | null>('schedule');
-  const legacyProfile =
-    readLegacyRuntimeValue<Record<string, unknown> | null>('profile');
-  const legacyActiveWorkout =
-    readLegacyRuntimeValue<Record<string, unknown> | null>('activeWorkout');
   return {
     currentUser: cloneJson(
       runtimeSnapshot.currentUser !== undefined
         ? (runtimeSnapshot.currentUser as Record<string, unknown> | null)
-        : legacyCurrentUser !== undefined
-        ? legacyCurrentUser
         : hasWindowProperty(
               runtimeWindow as unknown as Record<string, unknown> | null,
               'currentUser'
@@ -214,8 +189,6 @@ function readLegacySnapshot(
     workouts: cloneJson(
       Array.isArray(runtimeSnapshot.workouts)
         ? runtimeSnapshot.workouts
-        : Array.isArray(legacyWorkouts)
-        ? legacyWorkouts
         : Array.isArray(runtimeWindow?.workouts)
           ? runtimeWindow.workouts
           : persisted.workouts
@@ -223,8 +196,6 @@ function readLegacySnapshot(
     schedule: cloneJson(
       runtimeSnapshot.schedule !== undefined
         ? (runtimeSnapshot.schedule as Record<string, unknown> | null)
-        : legacySchedule !== undefined
-        ? legacySchedule
         : hasWindowProperty(
               runtimeWindow as unknown as Record<string, unknown> | null,
               'schedule'
@@ -235,8 +206,6 @@ function readLegacySnapshot(
     profile: cloneJson(
       runtimeSnapshot.profile !== undefined
         ? (runtimeSnapshot.profile as Record<string, unknown> | null)
-        : legacyProfile !== undefined
-        ? legacyProfile
         : hasWindowProperty(
               runtimeWindow as unknown as Record<string, unknown> | null,
               'profile'
@@ -247,8 +216,6 @@ function readLegacySnapshot(
     activeWorkout: cloneJson(
       runtimeSnapshot.activeWorkout !== undefined
         ? (runtimeSnapshot.activeWorkout as Record<string, unknown> | null)
-        : legacyActiveWorkout !== undefined
-        ? legacyActiveWorkout
         : runtimeWindow?.activeWorkout || null
     ),
     restDuration: Number(runtimeWindow?.restDuration || 0),

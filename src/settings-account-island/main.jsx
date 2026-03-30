@@ -11,6 +11,7 @@ import {
 } from '../app/services/settings-actions.ts';
 
 function getSnapshot() {
+  const appVersion = String(window.__IRONFORGE_APP_VERSION__ || '').trim();
   return {
     labels: {
       accountSection: 'Account',
@@ -40,7 +41,7 @@ function getSnapshot() {
       language: 'en',
       backupContext: '',
       nutritionReady: false,
-      appVersion: 'Ironforge v1.0.0',
+      appVersion: appVersion ? `Ironforge v${appVersion}` : 'Ironforge',
       dangerOpen: false,
       dangerInput: '',
       dangerDeleteDisabled: true,

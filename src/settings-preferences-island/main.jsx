@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRuntimeStore } from '../app/store/runtime-store.ts';
 import {
   restartOnboarding,
@@ -87,15 +87,67 @@ function SettingsPreferencesIsland() {
     useRuntimeStore((state) => state.pages.settingsPreferencesView) ||
     getSnapshot();
   const [formValues, setFormValues] = useState(() => getFormValues(snapshot));
+  const pendingToggleOverridesRef = useRef({
+    warmupSetsEnabled: null,
+    sportReadinessCheckEnabled: null,
+  });
 
   useEffect(() => {
-    setFormValues(getFormValues(snapshot));
+    const nextFormValues = getFormValues(snapshot);
+    setFormValues((current) => {
+      const next = { ...nextFormValues };
+
+      ['warmupSetsEnabled', 'sportReadinessCheckEnabled'].forEach((key) => {
+        const pendingValue = pendingToggleOverridesRef.current[key];
+        if (typeof pendingValue !== 'boolean') return;
+        if (next[key] === pendingValue) {
+          pendingToggleOverridesRef.current[key] = null;
+          return;
+        }
+        next[key] = current[key];
+      });
+
+      return next;
+    });
   }, [snapshot]);
 
   const labels = snapshot.labels;
 
   function updateField(key, value) {
     setFormValues((current) => ({ ...current, [key]: value }));
+  }
+
+  function getCheckboxValue(id, fallbackValue) {
+    const input = document.getElementById(id);
+    return input instanceof HTMLInputElement ? input.checked : fallbackValue;
+  }
+
+  function saveWarmupSetsEnabled(nextValue) {
+    pendingToggleOverridesRef.current.warmupSetsEnabled = nextValue;
+    updateField('warmupSetsEnabled', nextValue);
+    saveTrainingPreferences({
+      warmupSetsEnabledOverride: nextValue,
+      sportReadinessCheckEnabledOverride: getCheckboxValue(
+        'training-sport-check',
+        formValues.sportReadinessCheckEnabled
+      ),
+    });
+  }
+
+  function saveSportReadinessCheckEnabled(nextValue) {
+    pendingToggleOverridesRef.current.sportReadinessCheckEnabled = nextValue;
+    updateField('sportReadinessCheckEnabled', nextValue);
+    saveTrainingPreferences({
+      warmupSetsEnabledOverride: getCheckboxValue(
+        'training-warmup-sets',
+        formValues.warmupSetsEnabled
+      ),
+      sportReadinessCheckEnabledOverride: nextValue,
+    });
+  }
+
+  function isCheckboxInputTarget(target) {
+    return target instanceof HTMLInputElement;
   }
 
   return (
@@ -187,7 +239,15 @@ function SettingsPreferencesIsland() {
               <option value="minimal">{labels.equipmentMinimal}</option>
             </select>
 
-            <label className="toggle-row toggle-row-spaced" htmlFor="training-warmup-sets">
+            <label
+              className="toggle-row toggle-row-spaced"
+              htmlFor="training-warmup-sets"
+              onClick={(event) => {
+                if (isCheckboxInputTarget(event.target)) return;
+                event.preventDefault();
+                saveWarmupSetsEnabled(!formValues.warmupSetsEnabled);
+              }}
+            >
               <div>
                 <div className="toggle-row-title">{labels.warmupTitle}</div>
                 <div className="toggle-row-sub">{labels.warmupHelp}</div>
@@ -198,8 +258,7 @@ function SettingsPreferencesIsland() {
                   id="training-warmup-sets"
                   checked={formValues.warmupSetsEnabled}
                   onChange={(event) => {
-                    updateField('warmupSetsEnabled', event.target.checked);
-                    saveTrainingPreferences();
+                    saveWarmupSetsEnabled(event.target.checked);
                   }}
                 />
                 <span className="toggle-track">
@@ -208,7 +267,15 @@ function SettingsPreferencesIsland() {
               </div>
             </label>
 
-            <label className="toggle-row" htmlFor="training-sport-check">
+            <label
+              className="toggle-row"
+              htmlFor="training-sport-check"
+              onClick={(event) => {
+                if (isCheckboxInputTarget(event.target)) return;
+                event.preventDefault();
+                saveSportReadinessCheckEnabled(!formValues.sportReadinessCheckEnabled);
+              }}
+            >
               <div>
                 <div className="toggle-row-title">{labels.sportCheckTitle}</div>
                 <div className="toggle-row-sub">{labels.sportCheckHelp}</div>
@@ -219,8 +286,7 @@ function SettingsPreferencesIsland() {
                   id="training-sport-check"
                   checked={formValues.sportReadinessCheckEnabled}
                   onChange={(event) => {
-                    updateField('sportReadinessCheckEnabled', event.target.checked);
-                    saveTrainingPreferences();
+                    saveSportReadinessCheckEnabled(event.target.checked);
                   }}
                 />
                 <span className="toggle-track">

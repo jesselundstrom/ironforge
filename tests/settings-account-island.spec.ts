@@ -9,19 +9,22 @@ test('settings account island renders the signed-in nutrition coach state withou
   await openAppShell(page);
 
   await page.evaluate(() => {
-    currentUser = { id: 'e2e-user', email: 'account@example.com' };
-    profile.language = 'en';
-    workouts = [
-      {
-        id: 901,
-        date: '2026-03-10T09:00:00.000Z',
-        type: 'forge',
-        exercises: [],
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      currentUser: { id: 'e2e-user', email: 'account@example.com' },
+      profile: {
+        ...(window.profile || {}),
+        language: 'en',
       },
-    ];
-    initSettings();
-    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-    showSettingsTab('account');
+      workouts: [
+        {
+          id: 901,
+          date: '2026-03-10T09:00:00.000Z',
+          type: 'forge',
+          exercises: [],
+        },
+      ],
+    });
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
   });
 
   await expect(page.locator('#settings-account-legacy-shell')).toHaveCount(0);
@@ -56,10 +59,8 @@ test('settings account island shows signed-out nutrition coach copy without key 
   await openAppShell(page);
 
   await page.evaluate(() => {
-    currentUser = null;
-    initSettings();
-    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-    showSettingsTab('account');
+    window.__IRONFORGE_E2E__?.app?.setCurrentUser?.(null);
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
   });
 
   await expect(page.locator('#settings-account-react-root')).toContainText(
@@ -76,9 +77,7 @@ test('settings account island keeps the danger-zone confirmation flow working', 
   await openAppShell(page);
 
   await page.evaluate(() => {
-    initSettings();
-    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-    showSettingsTab('account');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
   });
 
   await page.locator('#danger-zone-trigger').click();
@@ -101,9 +100,7 @@ test('settings account import keeps hostile workout labels inert after reload', 
 
   await page.evaluate(() => {
     window.__importWorkoutXssTriggered = false;
-    initSettings();
-    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-    showSettingsTab('account');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
   });
 
   const backup = JSON.stringify({
@@ -162,7 +159,7 @@ test('settings account import keeps hostile workout labels inert after reload', 
   await reloadAppShell(page);
 
   await page.evaluate(() => {
-    window.showPage('history', document.querySelectorAll('.nav-btn')[2]);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
     renderHistory();
   });
 
@@ -216,9 +213,7 @@ test('settings account import normalizes malformed body metrics before persistin
       );
     };
     window.setTimeout = patchedSetTimeout as typeof window.setTimeout;
-    initSettings();
-    window.showPage('settings', document.querySelectorAll('.nav-btn')[3]);
-    showSettingsTab('account');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
   });
 
   const backup = JSON.stringify({

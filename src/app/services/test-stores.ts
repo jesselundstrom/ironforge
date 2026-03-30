@@ -60,6 +60,8 @@ type E2EHarness = {
     ) => Promise<void>;
     navigateToPage: (page: string) => void;
     setCurrentUser: (user: Record<string, unknown> | null) => void;
+    setLegacyRuntimeState: (partial: Record<string, unknown>) => void;
+    getLegacyRuntimeState: () => Record<string, unknown> | null;
     getSeedSnapshot: () => {
       workouts: Array<Record<string, unknown>>;
       profile: Record<string, unknown> | null;
@@ -72,6 +74,7 @@ type E2EHarness = {
     }) => Promise<void>;
   };
   settings: {
+    openTab: (tab: string) => void;
     openProgramTab: (
       programId?: string,
       programState?: Record<string, unknown> | null
@@ -115,9 +118,25 @@ function cloneJson<T>(value: T): T {
 }
 
 function openSettingsTab(tab: string) {
+  const trigger = document.querySelectorAll('.nav-btn')[3] || null;
   callLegacyWindowFunction('initSettings');
-  callLegacyWindowFunction('showPage', 'settings');
-  callLegacyWindowFunction('showSettingsTab', tab);
+  callLegacyWindowFunction('showPage', 'settings', trigger);
+  callLegacyWindowFunction('showSettingsTab', tab, trigger);
+  callLegacyWindowFunction('syncSettingsBridge');
+}
+
+function syncHarnessStores(testWindow: Window & {
+  __IRONFORGE_APP_RUNTIME__?: {
+    syncSettingsBridge?: () => void;
+  };
+  syncWorkoutSessionBridge?: () => void;
+}) {
+  dataStore.getState().syncFromLegacy();
+  profileStore.getState().syncFromDataStore();
+  programStore.getState().syncFromLegacy();
+  workoutStore.getState().syncFromLegacy();
+  testWindow.__IRONFORGE_APP_RUNTIME__?.syncSettingsBridge?.();
+  testWindow.syncWorkoutSessionBridge?.();
 }
 
 export function installTestStoresBridge() {
@@ -173,14 +192,21 @@ export function installTestStoresBridge() {
           page === 'nutrition'
         ) {
           navigateToPage(page);
+          callLegacyWindowFunction('runPageActivationSideEffects', page);
         }
       },
       setCurrentUser: (user) => {
         testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
           currentUser: cloneJson(user || null),
         });
-        dataStore.getState().syncFromLegacy();
+        syncHarnessStores(testWindow);
       },
+      setLegacyRuntimeState: (partial) => {
+        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.(cloneJson(partial || {}));
+        syncHarnessStores(testWindow);
+      },
+      getLegacyRuntimeState: () =>
+        cloneJson(window.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || null),
       getSeedSnapshot: () => {
         const currentData = dataStore.getState();
         return {
@@ -224,9 +250,21 @@ export function installTestStoresBridge() {
           allowLegacyFallback: false,
           userId,
         });
+        syncHarnessStores(testWindow);
       },
     },
     settings: {
+      openTab: (tab) => {
+        if (
+          tab === 'schedule' ||
+          tab === 'preferences' ||
+          tab === 'program' ||
+          tab === 'account' ||
+          tab === 'body'
+        ) {
+          openSettingsTab(tab);
+        }
+      },
       openProgramTab: (programId = 'forge', programState) => {
         const currentProfile =
           (profileStore.getState().profile || {}) as Record<string, unknown>;
@@ -303,9 +341,7 @@ export function installTestStoresBridge() {
     profile: {
       update: (patch) => profileStore.getState().updateProfile(patch),
       setSportReadinessCheckEnabled: (enabled) => {
-        callLegacyWindowFunction('initSettings');
-        callLegacyWindowFunction('showPage', 'settings');
-        callLegacyWindowFunction('showSettingsTab', 'preferences');
+        openSettingsTab('preferences');
         const checkbox = document.getElementById('training-sport-check');
         if (checkbox instanceof HTMLInputElement) {
           checkbox.checked = enabled === true;

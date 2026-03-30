@@ -50,13 +50,28 @@ function SettingsScheduleIsland() {
   const sportNameSaveTimerRef = useRef(null);
   const latestSportNameRef = useRef(formValues.sportName);
   const lastSavedSportNameRef = useRef(formValues.sportName);
+  const pendingSportNameRef = useRef(null);
 
   useEffect(() => {
     const nextFormValues = getFormValues(snapshot);
+    if (
+      typeof pendingSportNameRef.current === 'string' &&
+      nextFormValues.sportName !== pendingSportNameRef.current
+    ) {
+      nextFormValues.sportName = pendingSportNameRef.current;
+    } else if (
+      typeof pendingSportNameRef.current === 'string' &&
+      nextFormValues.sportName === pendingSportNameRef.current
+    ) {
+      pendingSportNameRef.current = null;
+    }
     window.clearTimeout(sportNameSaveTimerRef.current);
     latestSportNameRef.current = nextFormValues.sportName;
     lastSavedSportNameRef.current = nextFormValues.sportName;
-    setFormValues(nextFormValues);
+    setFormValues((current) => ({
+      ...current,
+      ...nextFormValues,
+    }));
   }, [snapshot]);
 
   const labels = snapshot.labels;
@@ -76,6 +91,7 @@ function SettingsScheduleIsland() {
     window.clearTimeout(sportNameSaveTimerRef.current);
     if (resolvedValue === lastSavedSportNameRef.current) return;
     lastSavedSportNameRef.current = resolvedValue;
+    pendingSportNameRef.current = resolvedValue;
     savePartial({ sportName: resolvedValue });
   }
 

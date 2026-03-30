@@ -78,7 +78,14 @@ export default defineConfig({
     // that the existing index.html scripts into the page.
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('react-router')) return 'router-vendor';
+          if (id.includes('react-dom') || id.includes('react')) {
+            return 'react-vendor';
+          }
+          return 'vendor';
+        },
       },
     },
   },

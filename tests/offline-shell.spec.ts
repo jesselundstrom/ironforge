@@ -43,16 +43,20 @@ test('offline shell boots after the service worker is installed', async ({ page 
     window.showLoginScreen = suppressLoginUi;
     window.hideLoginScreen = suppressLoginUi;
     window.maybeOpenOnboarding = () => {};
-    window.eval("currentUser = { id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user', email: 'e2e@example.com' };");
+    window.__IRONFORGE_E2E__?.app?.setCurrentUser?.({
+      id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
+      email: 'e2e@example.com',
+    });
 
     suppressLoginUi();
     document.getElementById('onboarding-modal')?.classList.remove('active');
   });
 
   await page.evaluate(async () => {
-    await window.eval(
-      "loadData({ allowCloudSync: false, userId: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user' })"
-    );
+    await window.__IRONFORGE_E2E__?.app?.loadData?.({
+      allowCloudSync: false,
+      userId: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
+    });
   });
 
   // Wait for the React shell to mount offline (proves the SW served all cached modules).

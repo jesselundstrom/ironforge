@@ -31,7 +31,7 @@ test('dashboard island renders from store-owned data and removes the fallback sh
       },
       schedule: window.schedule || null,
     });
-    window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
   });
 
   await expect(page.locator('#dashboard-legacy-shell')).toHaveCount(0);
@@ -81,7 +81,7 @@ test('dashboard rhythm card shows summary, featured metric, and supporting signa
       },
       schedule: window.schedule || null,
     });
-    window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
   });
 
   await expect(page.locator('.dashboard-plan-summary-title')).not.toBeEmpty();
@@ -122,7 +122,7 @@ test('dashboard rhythm card keeps sparse states compact', async ({ page }) => {
       },
       schedule: window.schedule || null,
     });
-    window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
   });
 
   await expect(page.locator('.dashboard-plan-primary-metric-value')).toContainText('%');
@@ -142,7 +142,7 @@ test('dashboard island keeps week strip detail toggling working', async ({ page 
         sportDays: [new Date().getDay()],
       },
     });
-    window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
   });
 
   await page.waitForFunction(
@@ -237,7 +237,7 @@ test('dashboard coach card shows a rotating rest-day tip when the week is comple
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
   });
 
   await expect(page.locator('.dashboard-plan-section-coach')).toBeVisible();
@@ -292,7 +292,7 @@ test('dashboard fatigue delegate stays wired to typed stores after the legacy ow
       },
       schedule: window.schedule || null,
     });
-    window.showPage?.('dashboard', document.querySelectorAll('.nav-btn')[0] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
     return runtimeWindow.computeFatigue?.() || null;
   });
 

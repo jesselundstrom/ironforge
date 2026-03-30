@@ -9,11 +9,8 @@ test('log start island renders from the legacy bridge and still starts a workout
   await openAppShell(page);
 
   await page.evaluate(() => {
-    const navButton =
-      document.querySelector('.nav-btn[data-page="log"]') ||
-      document.querySelectorAll('.nav-btn')[1];
     window.resetNotStartedView?.();
-    window.showPage?.('log', navButton);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('log');
   });
 
   await expect(page.locator('#page-log')).toHaveClass(/active/);
@@ -44,11 +41,8 @@ test('log start island uses explicit selection state when starting a different d
   await openAppShell(page);
 
   await page.evaluate(() => {
-    const navButton =
-      document.querySelector('.nav-btn[data-page="log"]') ||
-      document.querySelectorAll('.nav-btn')[1];
     window.resetNotStartedView?.();
-    window.showPage?.('log', navButton);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('log');
   });
 
   await expect(page.locator('#page-log')).toHaveClass(/active/);
@@ -98,11 +92,8 @@ test('log start island keeps sport readiness check-in interactions working', asy
         sportReadinessCheckEnabled: true,
       },
     });
-    const navButton =
-      document.querySelector('.nav-btn[data-page="log"]') ||
-      document.querySelectorAll('.nav-btn')[1];
     window.resetNotStartedView?.();
-    window.showPage?.('log', navButton);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('log');
   });
 
   await expect(page.locator('#page-log')).toHaveClass(/active/);
@@ -119,4 +110,63 @@ test('log start island keeps sport readiness check-in interactions working', asy
   await expect(
     page.locator('#log-start-react-root [data-sport-check-kind="level"][data-sport-check-option="heavy"]')
   ).toHaveClass(/active/);
+});
+
+test('workout start planner keeps queued toast ordering stable', async ({ page }) => {
+  await openAppShell(page);
+
+  const plan = await page.evaluate(() => {
+    return window.__IRONFORGE_WORKOUT_RUNTIME__?.buildWorkoutStartPresentation?.(
+      {
+        activeWorkout: {
+          exercises: [{ name: 'Squat' }],
+        },
+        title: 'Lower Body',
+        programName: 'Forge',
+        sessionDescription: 'Heavy lower focus',
+        effectiveDecision: {
+          action: 'train_light',
+          restrictionFlags: ['avoid_heavy_legs'],
+        },
+        planningContext: {},
+        startSnapshot: {
+          changes: ['Reduce lower-body volume'],
+          equipmentHint: 'Use dumbbells if racks are busy',
+        },
+        schedule: {
+          sportName: 'Hockey',
+          sportLegsHeavy: true,
+        },
+        legLifts: ['squat'],
+        isSportDay: true,
+        hadSportRecently: false,
+        isDeload: false,
+      },
+      {
+        t: (key: string, fallback: string, params?: Record<string, unknown>) => {
+          if (!params) return fallback;
+          return Object.entries(params).reduce(
+            (text, [paramKey, value]) =>
+              text.replace(`{${paramKey}}`, String(value ?? '')),
+            fallback
+          );
+        },
+        getWorkoutCommentaryState: () => ({ tone: 'caution' }),
+        presentTrainingCommentary: () => ({ text: 'Take it lighter today' }),
+        getWorkoutDecisionSummary: () => ({ title: 'Adjusted session plan' }),
+        getTrainingToastColor: () => 'var(--orange)',
+      }
+    );
+  });
+
+  expect(plan?.immediateToast?.text).toBe('Forge');
+  expect(plan?.queuedToasts?.map((toast: { text: string; delay?: number }) => ({
+    text: toast.text,
+    delay: toast.delay,
+  }))).toEqual([
+    { text: 'Take it lighter today', delay: 700 },
+    { text: 'Reduce lower-body volume', delay: 1800 },
+    { text: 'Use dumbbells if racks are busy', delay: 3500 },
+    { text: 'Hockey legs - consider fewer sets or swapping day order', delay: 1500 },
+  ]);
 });

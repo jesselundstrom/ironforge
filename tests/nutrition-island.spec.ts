@@ -66,10 +66,7 @@ async function seedYesterdayOnly(page: Page) {
 
 async function openNutrition(page: Page) {
   await page.evaluate(() => {
-    const navButton =
-      document.querySelector('.nav-btn[data-page="nutrition"]') ||
-      document.querySelectorAll('.nav-btn')[4];
-    window.showPage('nutrition', navButton);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('nutrition');
   });
 
   await expect(page.locator('#page-nutrition')).toHaveClass(/active/);
@@ -535,10 +532,7 @@ test('nutrition sends coaching context, renders structured JSON responses, and p
 
   await reloadAppShell(page);
   await page.evaluate(() => {
-    const navButton =
-      document.querySelector('.nav-btn[data-page="nutrition"]') ||
-      document.querySelectorAll('.nav-btn')[4];
-    window.showPage('nutrition', navButton);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('nutrition');
   });
   await expect(page.locator('#page-nutrition')).toHaveClass(/active/);
   await expect(

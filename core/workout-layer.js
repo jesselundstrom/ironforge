@@ -1944,116 +1944,52 @@ function clearWorkoutStartSnapshot() {
   workoutStartSnapshotCache = null;
 }
 
+function getWorkoutRuntime() {
+  const runtime = window.__IRONFORGE_WORKOUT_RUNTIME__;
+  if (!runtime) {
+    throw new Error('Workout runtime bridge is not installed');
+  }
+  return runtime;
+}
+
 function getWorkoutStartSnapshotSignature(input) {
-  const next = input || {};
-  const prefs = normalizeTrainingPreferences(profile);
-  const sportContext =
-    next.sportContext && typeof next.sportContext === 'object'
-      ? {
-          sportLoadLevel: next.sportContext.sportLoadLevel || 'none',
-          legsStress: next.sportContext.legsStress || 'none',
-          sportName: next.sportContext.sportName || '',
-        }
-      : null;
-  return JSON.stringify({
-    programId: String(next.prog?.id || getActiveProgram()?.id || ''),
-    selectedOption: String(next.selectedOption || ''),
-    state: cloneJson(next.state || getActiveProgramState() || {}),
-    sportContext,
-    selectedSessionMode:
-      next.decisionBundle?.selectedSessionMode || pendingSessionMode || 'auto',
-    effectiveSessionMode: next.decisionBundle?.effectiveSessionMode || 'normal',
-    energyLevel:
-      next.decisionBundle?.energyLevel ||
-      normalizeEnergyLevel(pendingEnergyLevel),
-    preferences: {
-      warmupSetsEnabled: !!prefs.warmupSetsEnabled,
-      goal: prefs.goal || '',
-      sessionMinutes: prefs.sessionMinutes || 0,
-      sportReadinessCheckEnabled: !!prefs.sportReadinessCheckEnabled,
+  return getWorkoutRuntime().getWorkoutStartSnapshotSignature(
+    {
+      ...(input || {}),
+      profile,
+      pendingSessionMode,
+      pendingEnergyLevel,
     },
-  });
+    {
+      normalizeTrainingPreferences,
+      getProfile: () => profile,
+      getActiveProgram,
+      getActiveProgramState,
+      normalizeEnergyLevel,
+    }
+  );
 }
 
 function buildWorkoutStartSnapshot(input) {
-  const next = input || {};
-  const prog = next.prog || getActiveProgram();
-  const state = next.state || getActiveProgramState();
-  const decisionBundle =
-    next.decisionBundle ||
-    getWorkoutStartDecisionBundle({
-      prog,
-      state,
-      sportContext: next.sportContext,
-    });
-  const planningContext =
-    next.planningContext || decisionBundle.planningContext || null;
-  const trainingDecision =
-    next.trainingDecision || decisionBundle.trainingDecision || null;
-  const effectiveDecision =
-    decisionBundle.effectiveDecision || trainingDecision;
-  let selectedOption = next.selectedOption;
-  if (!selectedOption && trainingDecision?.recommendedSessionOption)
-    selectedOption = trainingDecision.recommendedSessionOption;
-  selectedOption = String(selectedOption || '');
-  const buildContext = getProgramSessionBuildContext({
-    sessionModeBundle: decisionBundle,
-  });
-  const buildState = getProgramSessionStateForBuild(prog, state, buildContext);
-  const builtExercises = cloneWorkoutExercises(
-    (prog.buildSession(selectedOption, buildState, buildContext) || []).map(
-      withResolvedExerciseId
-    )
-  );
-  const sessionPrefs = applyTrainingPreferencesToExercises(
-    builtExercises,
-    next.sportContext,
+  return getWorkoutRuntime().buildWorkoutStartSnapshot(
     {
-      planningContext,
-      decision: effectiveDecision,
-      effectiveSessionMode: decisionBundle.effectiveSessionMode,
+      ...(input || {}),
+      profile,
+    },
+    {
+      getProfile: () => profile,
+      getActiveProgram,
+      getActiveProgramState,
+      getWorkoutStartDecisionBundle,
+      getProgramSessionBuildContext,
+      getProgramSessionStateForBuild,
+      cloneWorkoutExercises,
+      withResolvedExerciseId,
+      applyTrainingPreferencesToExercises,
+      normalizeTrainingPreferences,
+      injectWarmupSets,
     }
   );
-  const exercises = cloneWorkoutExercises(
-    sessionPrefs.exercises || builtExercises
-  );
-  const prefs = normalizeTrainingPreferences(profile);
-  if (prefs.warmupSetsEnabled) injectWarmupSets(exercises);
-  const blockInfo = prog.getBlockInfo
-    ? prog.getBlockInfo(buildState)
-    : { isDeload: false };
-  const sessionDescription = prog.getSessionDescription
-    ? prog.getSessionDescription(selectedOption, buildState, buildContext) || ''
-    : blockInfo.modeDesc || blockInfo.name || '';
-  return normalizeWorkoutStartSnapshot({
-    signature: getWorkoutStartSnapshotSignature({
-      prog,
-      state,
-      selectedOption,
-      sportContext: next.sportContext,
-      decisionBundle,
-      planningContext,
-      trainingDecision,
-    }),
-    programId: prog.id,
-    selectedOption,
-    buildContext,
-    buildState: cloneJson(buildState),
-    exercises,
-    sessionDescription,
-    programLabel: prog.getSessionLabel(
-      selectedOption,
-      buildState,
-      buildContext
-    ),
-    effectiveDecision,
-    trainingDecision,
-    changes: Array.isArray(sessionPrefs.changes)
-      ? sessionPrefs.changes.slice()
-      : [],
-    equipmentHint: sessionPrefs.equipmentHint || '',
-    commentary: sessionPrefs.commentary || undefined,
-  });
 }
 
 function getWorkoutStartSnapshot(input) {
@@ -3497,41 +3433,50 @@ function beginWorkoutStart(sportContext) {
       prog, state, workouts, schedule, bonusDuration
     );
     const bonusLabel = i18nText('workout.bonus.label', 'Bonus Workout');
-    activeWorkout = {
-      program: prog.id,
-      type: prog.id,
-      isBonus: true,
-      programOption: 'bonus',
-      programDayNum: 0,
-      programLabel: bonusLabel,
-      sportContext: sportContext || undefined,
-      runnerState: {
-        mode: 'train',
-        adjustments: [],
-        selectedSessionMode: 'normal',
-        effectiveSessionMode: 'normal',
+    activeWorkout = getWorkoutRuntime().buildBonusActiveWorkout(
+      {
+        programId: prog.id,
+        programLabel: bonusLabel,
+        sportContext: sportContext || undefined,
+        sessionDescription: i18nText(
+          'workout.bonus.subtitle',
+          'Extra session for undertrained areas'
+        ),
+        exercises: bonusExercises,
+        startTime: Date.now(),
       },
-      sessionDescription: i18nText(
-        'workout.bonus.subtitle',
-        'Extra session for undertrained areas'
-      ),
-      rewardState: buildWorkoutRewardState(),
-      exercises: ensureWorkoutExerciseUiKeys(bonusExercises),
-      startTime: Date.now(),
-    };
+      {
+        buildWorkoutRewardState,
+        ensureWorkoutExerciseUiKeys,
+      }
+    );
     ensureWorkoutCommentaryRecord(activeWorkout);
     resetActiveWorkoutUIState();
     persistCurrentWorkoutDraft();
     updateProgramDisplay();
     const isReactActive = isLogActiveIslandActive();
+    const bonusPresentation = getWorkoutRuntime().buildWorkoutStartPresentation(
+      {
+        isBonus: true,
+        title: bonusLabel,
+        sessionDescription: activeWorkout.sessionDescription || '',
+        activeWorkout,
+      },
+      {
+        t: i18nText,
+      }
+    );
     document.getElementById('workout-not-started').style.display = 'none';
     document.getElementById('workout-active').style.display = 'block';
     if (!isReactActive) {
-      document.getElementById('active-session-title').textContent = bonusLabel;
+      document.getElementById('active-session-title').textContent =
+        bonusPresentation?.title || bonusLabel;
       const descEl = document.getElementById('active-session-description');
       if (descEl) {
-        descEl.textContent = activeWorkout.sessionDescription;
-        descEl.style.display = '';
+        descEl.textContent =
+          bonusPresentation?.descriptionText || activeWorkout.sessionDescription;
+        descEl.style.display =
+          bonusPresentation?.descriptionVisible === false ? 'none' : '';
       }
     }
     restDuration =
@@ -3541,8 +3486,9 @@ function beginWorkoutStart(sportContext) {
     startWorkoutTimer();
     if (!isReactActive) renderExercises();
     showToast(
-      i18nText('workout.bonus.toast_started', 'Bonus workout started!'),
-      'var(--purple)'
+      bonusPresentation?.immediateToast?.text ||
+        i18nText('workout.bonus.toast_started', 'Bonus workout started!'),
+      bonusPresentation?.immediateToast?.color || 'var(--purple)'
     );
     notifyLogStartIsland();
     notifyLogActiveIsland();
@@ -3601,31 +3547,31 @@ function beginWorkoutStart(sportContext) {
         ''
       : bi.modeDesc || bi.name || '');
 
-  activeWorkout = {
-    program: prog.id,
-    type: prog.id, // keep type=prog.id for backwards-compat filters
-    programOption: selectedOption,
-    programDayNum: parseInt(selectedOption) || 1,
-    programMode: state.mode || undefined,
-    programLabel: label,
-    sportContext: sportContext || undefined,
-    planningDecision: trainingDecision || undefined,
-    planningContext: planningContext || undefined,
-    commentary: startSnapshot?.commentary || undefined,
-    runnerState: {
-      mode: effectiveDecision?.action || trainingDecision?.action || 'train',
-      adjustments: [],
-      initialDecision: trainingDecision || undefined,
-      selectedSessionMode: decisionBundle.selectedSessionMode || 'auto',
-      effectiveSessionMode: decisionBundle.effectiveSessionMode || 'normal',
-      sportAwareLowerBody: decisionBundle.sportAwareLowerBody === true,
-    },
-    sessionDescription,
-    sessionSnapshot: startSnapshot || undefined,
-    rewardState: buildWorkoutRewardState(),
-    exercises: ensureWorkoutExerciseUiKeys(exercises),
-    startTime: Date.now(),
-  };
+  activeWorkout =
+    getWorkoutRuntime().buildPlannedActiveWorkout(
+      {
+        programId: prog.id,
+        selectedOption,
+        programMode: state.mode || undefined,
+        programLabel: label,
+        sportContext: sportContext || undefined,
+        trainingDecision: trainingDecision || undefined,
+        planningContext: planningContext || undefined,
+        commentary: startSnapshot?.commentary || undefined,
+        effectiveDecision,
+        selectedSessionMode: decisionBundle.selectedSessionMode || 'auto',
+        effectiveSessionMode: decisionBundle.effectiveSessionMode || 'normal',
+        sportAwareLowerBody: decisionBundle.sportAwareLowerBody === true,
+        sessionDescription,
+        sessionSnapshot: startSnapshot || undefined,
+        exercises,
+        startTime: Date.now(),
+      },
+      {
+        buildWorkoutRewardState,
+        ensureWorkoutExerciseUiKeys,
+      }
+    );
   ensureWorkoutCommentaryRecord(activeWorkout);
   resetActiveWorkoutUIState();
   persistCurrentWorkoutDraft();
@@ -3655,101 +3601,66 @@ function beginWorkoutStart(sportContext) {
     window.I18N && I18N.t
       ? I18N.t('program.' + prog.id + '.name', null, prog.name || 'Training')
       : prog.name || 'Training';
+  const todayDow = new Date().getDay();
+  const isSportDay = schedule.sportDays.includes(todayDow);
+  const hadSportRecently = wasSportRecently();
+  const startPresentation = getWorkoutRuntime().buildWorkoutStartPresentation(
+    {
+      activeWorkout,
+      title: label,
+      programName: progName,
+      sessionDescription,
+      effectiveDecision,
+      planningContext,
+      startSnapshot,
+      schedule,
+      legLifts: prog.legLifts || [],
+      isSportDay,
+      hadSportRecently,
+      isDeload: bi.isDeload === true,
+    },
+    {
+      t: i18nText,
+      getWorkoutCommentaryState,
+      presentTrainingCommentary,
+      getWorkoutDecisionSummary,
+      getTrainingToastColor,
+    }
+  );
   showToast(
-    bi.isDeload
-      ? i18nText('workout.deload_light', 'Deload - keep it light')
-      : progName,
-    bi.isDeload ? 'var(--blue)' : 'var(--purple)'
+    startPresentation?.immediateToast?.text ||
+      (bi.isDeload
+        ? i18nText('workout.deload_light', 'Deload - keep it light')
+        : progName),
+    startPresentation?.immediateToast?.color ||
+      (bi.isDeload ? 'var(--blue)' : 'var(--purple)')
   );
-  const commentaryState = getWorkoutCommentaryState(activeWorkout);
-  const decisionSummary = getWorkoutDecisionSummary(
-    effectiveDecision,
-    planningContext
-  );
-  const startToast =
-    typeof presentTrainingCommentary === 'function' && commentaryState
-      ? presentTrainingCommentary(commentaryState, 'workout_start_toast')
-      : null;
-  const decisionToastColor = getTrainingToastColor(
-    startToast || commentaryState
-  );
-  const changeToastColor = (effectiveDecision?.restrictionFlags || []).includes(
-    'avoid_heavy_legs'
-  )
-    ? 'var(--orange)'
-    : decisionToastColor;
-  const sessionChanges = Array.isArray(startSnapshot?.changes)
-    ? startSnapshot.changes
-    : [];
-  const equipmentHint = startSnapshot?.equipmentHint || '';
   if (isLogActiveIslandActive()) notifyLogActiveIsland();
   if (isLogStartIslandActive()) notifyLogStartIsland();
-  if (
-    decisionSummary &&
-    effectiveDecision &&
-    (effectiveDecision.action !== 'train' ||
-      effectiveDecision.restrictionFlags?.includes('avoid_heavy_legs'))
-  ) {
-    setTimeout(
-      () =>
-        showToast(
-          startToast?.text || decisionSummary.title,
-          decisionToastColor
-        ),
-      700
-    );
-  }
-  if (sessionChanges.length) {
-    setTimeout(
-      () => showToast(sessionChanges[0], changeToastColor),
-      effectiveDecision &&
-        (effectiveDecision.action !== 'train' ||
-          effectiveDecision.restrictionFlags?.includes('avoid_heavy_legs'))
-        ? 1800
-        : 900
-    );
-  }
-  if (equipmentHint) {
-    const baseDelay = sessionChanges.length ? 2600 : 900;
-    const decisionDelay =
-      effectiveDecision &&
-      (effectiveDecision.action !== 'train' ||
-        effectiveDecision.restrictionFlags?.includes('avoid_heavy_legs'))
-        ? 900
-        : 0;
-    setTimeout(
-      () => showToast(equipmentHint, 'var(--blue)'),
-      baseDelay + decisionDelay
-    );
-  }
-
-  // Sport warning for leg-heavy days
-  const legLifts = prog.legLifts || [];
-  const todayDow = new Date().getDay();
-  const _isSportDay = schedule.sportDays.includes(todayDow);
-  const _hadSportRecently = wasSportRecently();
-  if (
-    (_isSportDay || _hadSportRecently) &&
-    !bi.isDeload &&
-    schedule.sportLegsHeavy !== false
-  ) {
-    const hasLegs = activeWorkout.exercises.some((e) =>
-      legLifts.includes(e.name.toLowerCase())
-    );
-    const _sn2 = schedule.sportName || 'Sport';
-    if (hasLegs)
-      setTimeout(
-        () =>
-          showToast(
-            i18nText(
-              'workout.sport_legs_warning',
-              '{sport} legs - consider fewer sets or swapping day order',
-              { sport: _sn2 }
-            ),
-            'var(--orange)'
-          ),
-        1500
-      );
+  const queuedStartToasts = Array.isArray(startPresentation?.queuedToasts)
+    ? startPresentation.queuedToasts
+    : [];
+  queuedStartToasts.forEach((toast) => {
+    const delay = parseInt(String(toast.delay || 0), 10) || 0;
+    setTimeout(() => showToast(toast.text, toast.color), delay);
+  });
+  if (!isReactActive) {
+    document.getElementById('active-session-title').textContent =
+      startPresentation?.title || label;
+    const descEl = document.getElementById('active-session-description');
+    if (descEl) {
+      descEl.textContent =
+        startPresentation?.descriptionText ||
+        (sessionDescription
+          ? `${i18nText('session.description', 'Session focus')}: ${sessionDescription}`
+          : '');
+      descEl.style.display =
+        startPresentation?.descriptionVisible === false
+          ? 'none'
+          : sessionDescription
+            ? ''
+            : 'none';
+    }
   }
 }
 
@@ -4620,16 +4531,7 @@ function addExerciseByName(name) {
 }
 
 function sanitizeSetValue(field, raw) {
-  if (field === 'weight') {
-    const n = parseFloat(raw);
-    return isNaN(n) ? '' : Math.max(0, Math.min(999, Math.round(n * 10) / 10));
-  }
-  if (field === 'reps') {
-    const n = parseInt(raw, 10);
-    return isNaN(n) ? '' : Math.max(0, Math.min(999, n));
-  }
-  if (field === 'rir') return raw;
-  return raw;
+  return getWorkoutRuntime().sanitizeSetValue(field, raw);
 }
 
 function getCurrentWorkoutRounding() {
@@ -4650,10 +4552,24 @@ function updateSet(ei, si, f, v) {
   const exercise = activeWorkout.exercises[ei];
   const set = exercise?.sets?.[si];
   if (!set) return;
-  const sanitizedValue = sanitizeSetValue(f, v);
+  const mutation =
+    window.__IRONFORGE_WORKOUT_RUNTIME__?.applySetUpdateMutation?.({
+      exercise,
+      setIndex: si,
+      field: f,
+      rawValue: v,
+    }) || null;
+  const sanitizedValue =
+    mutation?.sanitizedValue !== undefined
+      ? mutation.sanitizedValue
+      : sanitizeSetValue(f, v);
   const shouldRefreshDoneSet =
-    set.done && !set.isWarmup && (f === 'weight' || f === 'reps');
-  set[f] = sanitizedValue;
+    mutation?.shouldRefreshDoneSet !== undefined
+      ? mutation.shouldRefreshDoneSet
+      : set.done && !set.isWarmup && (f === 'weight' || f === 'reps');
+  if (!mutation) {
+    set[f] = sanitizedValue;
+  }
   if (shouldRefreshDoneSet) {
     set.isPr = false;
     rebuildActiveWorkoutRewardState();
@@ -4662,17 +4578,6 @@ function updateSet(ei, si, f, v) {
   persistCurrentWorkoutDraft();
   const exerciseUiKey = ensureExerciseUiKey(exercise);
   if (isLogActiveIslandActive()) {
-    if (f === 'weight' && !set.isWarmup) {
-      for (
-        let nextIndex = si + 1;
-        nextIndex < exercise.sets.length;
-        nextIndex++
-      ) {
-        const nextSet = exercise.sets[nextIndex];
-        if (nextSet.done || nextSet.isWarmup) continue;
-        nextSet.weight = sanitizedValue;
-      }
-    }
     notifyLogActiveIsland();
     return;
   }
@@ -4684,10 +4589,22 @@ function updateSet(ei, si, f, v) {
     return;
   }
   if (set.isWarmup) return;
-  for (let nextIndex = si + 1; nextIndex < exercise.sets.length; nextIndex++) {
-    const nextSet = exercise.sets[nextIndex];
-    if (nextSet.done || nextSet.isWarmup) continue;
-    nextSet.weight = sanitizedValue;
+  const propagatedSetIndexes = Array.isArray(mutation?.propagatedSetIndexes)
+    ? mutation.propagatedSetIndexes
+    : [];
+  const weightIndexesToRefresh = propagatedSetIndexes.length
+    ? propagatedSetIndexes
+    : (() => {
+        const indexes = [];
+        for (let nextIndex = si + 1; nextIndex < exercise.sets.length; nextIndex++) {
+          const nextSet = exercise.sets[nextIndex];
+          if (nextSet.done || nextSet.isWarmup) continue;
+          nextSet.weight = sanitizedValue;
+          indexes.push(nextIndex);
+        }
+        return indexes;
+      })();
+  for (const nextIndex of weightIndexesToRefresh) {
     const weightInput = document.getElementById(
       getSetInputId(exerciseUiKey, nextIndex, 'weight')
     );
@@ -4795,8 +4712,22 @@ function toggleSet(ei, si) {
   if (!exercise || !set) return;
   const exerciseUiKey = ensureExerciseUiKey(exercise);
   const isReactActive = isLogActiveIslandActive();
-  if (!set.done) {
-    set.done = true;
+  const toggleResult =
+    window.__IRONFORGE_WORKOUT_RUNTIME__?.toggleWorkoutSetCompletion?.({
+      exercise,
+      setIndex: si,
+    }) || null;
+  const isNowDone =
+    toggleResult?.isNowDone !== undefined ? toggleResult.isNowDone : !set.done;
+  if (!toggleResult) {
+    if (isNowDone) {
+      set.done = true;
+    } else {
+      set.done = false;
+      set.rir = undefined;
+    }
+  }
+  if (isNowDone) {
     const prEvent = detectSetPr(exercise, set, si);
     tryHaptic(40);
     if (isReactActive) {
@@ -4873,8 +4804,6 @@ function toggleSet(ei, si) {
       window.setTimeout(() => showSetRIRPrompt(ei, si), rirDelay);
     }
   } else {
-    set.done = false;
-    set.rir = undefined;
     clearSetPr(exercise, set, si);
     delete collapsedExerciseCardState[exerciseUiKey];
     persistCurrentWorkoutDraft();
@@ -4889,17 +4818,24 @@ function toggleSet(ei, si) {
 function addSet(ei) {
   const exercise = activeWorkout.exercises[ei];
   if (!exercise) return;
-  const lastSet = exercise.sets[exercise.sets.length - 1];
   const exerciseUiKey = ensureExerciseUiKey(exercise);
   delete collapsedExerciseCardState[exerciseUiKey];
-  exercise.sets.push({
-    weight: lastSet?.weight || '',
-    reps: lastSet?.reps || 5,
-    done: false,
-    rpe: null,
-  });
+  const appendResult =
+    window.__IRONFORGE_WORKOUT_RUNTIME__?.appendWorkoutSet?.({
+      exercise,
+    }) || null;
+  if (!appendResult) {
+    const lastSet = exercise.sets[exercise.sets.length - 1];
+    exercise.sets.push({
+      weight: lastSet?.weight || '',
+      reps: lastSet?.reps || 5,
+      done: false,
+      rpe: null,
+    });
+  }
   persistCurrentWorkoutDraft();
-  const newSetIndex = exercise.sets.length - 1;
+  const newSetIndex =
+    appendResult?.newSetIndex ?? exercise.sets.length - 1;
   const newInputId = getSetInputId(exerciseUiKey, newSetIndex, 'weight');
   if (isLogActiveIslandActive()) queueLogActiveFocusTarget(newInputId);
   updateExerciseCard(exerciseUiKey);
@@ -4909,7 +4845,12 @@ function addSet(ei) {
 }
 
 function removeEx(ei) {
-  const removed = activeWorkout.exercises.splice(ei, 1)[0];
+  const removal =
+    window.__IRONFORGE_WORKOUT_RUNTIME__?.removeWorkoutExercise?.({
+      exercises: activeWorkout.exercises,
+      exerciseIndex: ei,
+    }) || null;
+  const removed = removal?.removed || activeWorkout.exercises.splice(ei, 1)[0];
   const removedUiKey = removed?.uiKey || null;
   if (removedUiKey) delete collapsedExerciseCardState[removedUiKey];
   if (removedUiKey) removeExerciseCard(removedUiKey);
@@ -5053,83 +4994,18 @@ function buildCoachNote(
   advancedState,
   workout
 ) {
-  let note = '';
-
-  // PR rule — name up to 2 exercises max
-  const prs = workout?.rewardState?.detectedPrs || [];
-  if (prs.length > 0) {
-    const names = [...new Set(prs.map((p) => p.exerciseName))].slice(0, 2);
-    const label = names.join(' & ');
-    note =
-      prs.length === 1
-      ? i18nText(
-          'workout.coach_note.pr_single',
-          'New PR on {exercise}! Keep going.',
-          { exercise: label }
-        )
-      : i18nText(
-          'workout.coach_note.pr_multi',
-          'New PRs on {exercises}! Great session.',
-          { exercises: label }
-        );
-  }
-
-  // Week advance rule
-  if (
-    !note &&
-    advancedState?.week !== undefined &&
-    stateBeforeSession?.week !== undefined &&
-    advancedState.week !== stateBeforeSession.week
-  ) {
-    note = i18nText(
-      'workout.coach_note.week_advance',
-      'Week {week} starts now. Build on it.',
-      { week: advancedState.week }
-    );
-  }
-
-  // Cycle advance rule
-  if (
-    !note &&
-    advancedState?.cycle !== undefined &&
-    stateBeforeSession?.cycle !== undefined &&
-    advancedState.cycle !== stateBeforeSession.cycle
-  ) {
-    note = i18nText(
-      'workout.coach_note.cycle_advance',
-      'Cycle {cycle} starts — new progression block.',
-      { cycle: advancedState.cycle }
-    );
-  }
-
-  const completionRate =
-    summaryData.totalSets > 0
-      ? summaryData.completedSets / summaryData.totalSets
-      : 1;
-  const rpe = summaryData.rpe || 0;
-
-  // High RPE + incomplete sets rule
-  if (!note && rpe >= 9 && completionRate < 0.9) {
-    note = i18nText(
-      'workout.coach_note.tough_session',
-      'Tough session — rest well and come back strong.'
-    );
-  }
-
-  // Low completion rule (< 70% sets done)
-  if (!note && completionRate < 0.7) {
-    note = i18nText(
-      'workout.coach_note.partial_session',
-      'Partial session logged. Any training counts — consistency wins.'
-    );
-  }
-
-  // Clean completion fallback
-  if (!note)
-    note = i18nText('workout.coach_note.clean', 'All sets done. Solid work.');
-
-  const tmSummary = buildTmAdjustmentCoachSummary(summaryData.tmAdjustments);
-  return tmSummary ? `${note} ${tmSummary}` : note;
+  return getWorkoutRuntime().buildCoachNote(
+    {
+      summaryData,
+      stateBeforeSession,
+      advancedState,
+      workout,
+    },
+    {
+      t: i18nText,
+      formatWorkoutWeight,
+    }
+  );
 }
 
 function formatWorkoutWeight(value) {
@@ -5163,71 +5039,18 @@ function buildTmAdjustmentCoachSummary(adjustments) {
 }
 
 function buildTmAdjustmentToast(adjustments) {
-  const items = Array.isArray(adjustments) ? adjustments : [];
-  if (!items.length) return '';
-  if (items.length === 1) {
-    const adj = items[0];
-    return i18nText(
-      'workout.tm_updated_single',
-      '{lift} TM updated: {old} → {next} kg',
-      {
-        lift: adj.lift,
-        old: formatWorkoutWeight(adj.oldTM),
-        next: formatWorkoutWeight(adj.newTM),
-      }
-    );
-  }
-  const changes = items
-    .map(
-      (adj) =>
-        `${adj.lift} ${adj.direction === 'up' ? '\u2191' : '\u2193'} ${formatWorkoutWeight(adj.newTM)} kg`
-    )
-    .join(', ');
-  return i18nText('workout.tm_updated_multi', 'TMs updated: {changes}', {
-    changes,
+  return getWorkoutRuntime().buildTmAdjustmentToast(adjustments, {
+    t: i18nText,
+    formatWorkoutWeight,
   });
 }
 
 function buildSessionSummaryStats(summaryData) {
-  return [
-    {
-      key: 'duration',
-      accent: '',
-      label: i18nText('workout.summary_duration', 'Duration'),
-      value: Math.max(0, Math.round(summaryData.duration) || 0),
-      formatter: (value) => formatWorkoutDuration(value),
-    },
-    {
-      key: 'sets',
-      accent: 'green',
-      label: i18nText('workout.summary_sets', 'Sets Done'),
-      value: Math.max(0, parseInt(summaryData.completedSets, 10) || 0),
-      formatter: (value) =>
-        `${Math.round(value)}/${Math.max(0, parseInt(summaryData.totalSets, 10) || 0)}`,
-    },
-    {
-      key: 'volume',
-      accent: 'gold',
-      label: i18nText('workout.summary_volume', 'Volume'),
-      value: Math.max(0, parseFloat(summaryData.tonnage) || 0),
-      formatter: (value) => formatWorkoutTonnage(value),
-    },
-    {
-      key: 'rpe',
-      accent: 'purple',
-      label: i18nText('workout.summary_rpe', 'RPE'),
-      value: Math.max(0, parseFloat(summaryData.rpe) || 0),
-      formatter: (value) =>
-        value > 0 ? String(Math.round(value * 10) / 10) : '--',
-    },
-    {
-      key: 'prs',
-      accent: 'gold',
-      label: i18nText('workout.summary_prs', 'PRs'),
-      value: Math.max(0, parseInt(summaryData.prCount, 10) || 0),
-      formatter: (value) => String(Math.round(value)),
-    },
-  ];
+  return getWorkoutRuntime().buildSessionSummaryStats(summaryData, {
+    t: i18nText,
+    formatDuration: formatWorkoutDuration,
+    formatTonnage: formatWorkoutTonnage,
+  });
 }
 
 function animateSessionSummaryStats(modal, stats) {
@@ -5562,75 +5385,7 @@ function undoQuickWorkoutAdjustment() {
 }
 
 function diffProgramTMs(prog, stateBefore, stateAfter) {
-  const adjustments = [];
-  if (!stateBefore || !stateAfter) return adjustments;
-  // Handle lifts.main array (forge, wendler, hypertrophy split)
-  if (
-    Array.isArray(stateBefore.lifts?.main) &&
-    Array.isArray(stateAfter.lifts?.main)
-  ) {
-    stateBefore.lifts.main.forEach((lift, i) => {
-      const after = stateAfter.lifts.main[i];
-      if (!after || lift.name !== after.name) return;
-      const delta = after.tm - lift.tm;
-      if (delta !== 0)
-        adjustments.push({
-          lift: lift.name,
-          oldTM: lift.tm,
-          newTM: after.tm,
-          delta,
-          direction: delta > 0 ? 'up' : 'down',
-        });
-    });
-  }
-  // Handle lifts.aux array (forge)
-  if (
-    Array.isArray(stateBefore.lifts?.aux) &&
-    Array.isArray(stateAfter.lifts?.aux)
-  ) {
-    stateBefore.lifts.aux.forEach((lift, i) => {
-      const after = stateAfter.lifts.aux[i];
-      if (!after || lift.name !== after.name) return;
-      const delta = after.tm - lift.tm;
-      if (delta !== 0)
-        adjustments.push({
-          lift: lift.name,
-          oldTM: lift.tm,
-          newTM: after.tm,
-          delta,
-          direction: delta > 0 ? 'up' : 'down',
-        });
-    });
-  }
-  // Handle flat lifts object (stronglifts)
-  if (
-    stateBefore.lifts &&
-    !Array.isArray(stateBefore.lifts.main) &&
-    typeof stateBefore.lifts === 'object'
-  ) {
-    Object.keys(stateBefore.lifts).forEach((key) => {
-      const before = stateBefore.lifts[key];
-      const after = stateAfter.lifts?.[key];
-      if (!before || !after || typeof before !== 'object') return;
-      // Stronglifts uses .weight, not .tm
-      const bVal = before.tm !== undefined ? before.tm : before.weight;
-      const aVal = after.tm !== undefined ? after.tm : after.weight;
-      if (bVal === undefined || aVal === undefined) return;
-      const delta = aVal - bVal;
-      if (delta !== 0) {
-        // Capitalize lift key for display
-        const name = key.charAt(0).toUpperCase() + key.slice(1);
-        adjustments.push({
-          lift: name,
-          oldTM: bVal,
-          newTM: aVal,
-          delta,
-          direction: delta > 0 ? 'up' : 'down',
-        });
-      }
-    });
-  }
-  return adjustments;
+  return getWorkoutRuntime().buildProgramTmAdjustments(stateBefore, stateAfter);
 }
 
 async function finishWorkout() {
@@ -5644,13 +5399,9 @@ async function finishWorkout() {
   clearWorkoutTimer();
   renderWorkoutTimer();
   skipRest();
-  activeWorkout.exercises = activeWorkout.exercises.map(withResolvedExerciseId);
-  // Sanitize all set values before persisting (preserve AMRAP sentinel)
-  activeWorkout.exercises.forEach((e) => {
-    e.sets.forEach((s) => {
-      s.weight = sanitizeSetValue('weight', s.weight);
-      if (s.reps !== 'AMRAP') s.reps = sanitizeSetValue('reps', s.reps);
-    });
+  activeWorkout.exercises = getWorkoutRuntime().sanitizeWorkoutExercisesForSave({
+    exercises: activeWorkout.exercises,
+    withResolvedExerciseId,
   });
   let totalSets = 0;
   activeWorkout.exercises.forEach((e) => {
@@ -5699,99 +5450,59 @@ async function finishWorkout() {
   const sessionPrCount = getWorkoutPrCount(activeWorkout);
 
   // Push workout record with canonical program metadata fields only.
-  const savedWorkout = {
-    id: workoutId,
-    date: workoutDate,
-    program: prog.id,
-    type: prog.id,
-    programOption: activeWorkout.programOption,
-    programDayNum: activeWorkout.programDayNum,
-    programLabel: activeWorkout.programLabel || '',
-    sportContext: activeWorkout.sportContext || undefined,
-    programMeta,
-    sessionDescription: activeWorkout.sessionDescription || '',
-    commentary: activeWorkout.commentary
-      ? JSON.parse(JSON.stringify(activeWorkout.commentary))
-      : undefined,
-    planningDecision: activeWorkout.planningDecision || undefined,
-    runnerState: activeWorkout.runnerState
-      ? {
-          mode: activeWorkout.runnerState.mode,
-          adjustments: (activeWorkout.runnerState.adjustments || []).slice(),
-          initialDecision: activeWorkout.runnerState.initialDecision
-            ? cloneTrainingDecision(activeWorkout.runnerState.initialDecision)
-            : undefined,
-          selectedSessionMode:
-            activeWorkout.runnerState.selectedSessionMode || undefined,
-          effectiveSessionMode:
-            activeWorkout.runnerState.effectiveSessionMode || undefined,
-          sportAwareLowerBody:
-            activeWorkout.runnerState.sportAwareLowerBody === true,
-        }
-      : undefined,
-    isBonus: activeWorkout.isBonus || false,
-    prCount: sessionPrCount,
-    programStateBefore: stateBeforeSession,
-    programStateUsedForBuild: cloneJson(progressionSourceState),
-    duration: getWorkoutElapsedSeconds(),
-    exercises: activeWorkout.exercises,
-    rpe: sessionRPE,
-    sets: totalSets,
-  };
+  const savedWorkout = getWorkoutRuntime().buildSavedWorkoutRecord(
+    {
+      workoutId,
+      workoutDate,
+      programId: prog.id,
+      activeWorkout,
+      programMeta,
+      prCount: sessionPrCount,
+      stateBeforeSession,
+      progressionSourceState,
+      duration: getWorkoutElapsedSeconds(),
+      exercises: activeWorkout.exercises,
+      sessionRPE,
+      totalSets,
+    },
+    {
+      cloneTrainingDecision,
+    }
+  );
   workouts.push(savedWorkout);
 
   // Program state adjustment — wrapped in try/catch so a program bug never loses the workout.
   // If anything throws, the workout is already in the array and will be saved below.
   let advancedState = state;
+  let newState = state;
   let programHookFailed = false;
   let tmAdjustments = [];
 
-  // Bonus workouts do not adjust TMs or advance program state
-  if (activeWorkout.isBonus) {
-    savedWorkout.programStateAfter = JSON.parse(JSON.stringify(state));
-  } else try {
-    // Adjust program state (TMs, weights, failures, etc.)
-    // Strip warm-up sets so program progression logic only sees working sets
-    const exercisesForProgression =
-      typeof stripWarmupSetsFromExercises === 'function'
-        ? stripWarmupSetsFromExercises(activeWorkout.exercises)
-        : activeWorkout.exercises.map((ex) => ({
-            ...ex,
-            sets: (ex.sets || []).filter((s) => !s.isWarmup),
-          }));
-    let newState = prog.adjustAfterSession
-      ? prog.adjustAfterSession(
-          exercisesForProgression,
-          progressionSourceState,
-          activeWorkout.programOption
-        )
-      : progressionSourceState;
+  const progressionResult = getWorkoutRuntime().buildWorkoutProgressionResult(
+    {
+      prog,
+      activeWorkout,
+      state,
+      progressionSourceState,
+      workouts,
+    },
+    {
+      stripWarmupSetsFromExercises,
+      getWeekStart,
+    }
+  );
+  advancedState = progressionResult.advancedState || state;
+  newState = progressionResult.newState || state;
+  tmAdjustments = Array.isArray(progressionResult.tmAdjustments)
+    ? progressionResult.tmAdjustments
+    : [];
+  programHookFailed = progressionResult.programHookFailed === true;
+  savedWorkout.programStateAfter =
+    progressionResult.programStateAfter ||
+    JSON.parse(JSON.stringify(advancedState));
+  if (tmAdjustments.length) savedWorkout.tmAdjustments = tmAdjustments;
 
-    // Diff TM changes from adjustment
-    tmAdjustments = diffProgramTMs(prog, progressionSourceState, newState);
-
-    // Count sessions this week for advanceState
-    const now = new Date(),
-      sow = getWeekStart(now);
-    const sessionsThisWeek = workouts.filter(
-      (w) =>
-        (w.program === prog.id || (!w.program && w.type === prog.id)) &&
-        new Date(w.date) >= sow &&
-        !w.isBonus
-    ).length;
-
-    // Advance program state (week, cycle, A/B, etc.)
-    advancedState = prog.advanceState
-      ? prog.advanceState(newState, sessionsThisWeek)
-      : newState;
-    if (savedWorkout)
-      savedWorkout.programStateAfter = JSON.parse(
-        JSON.stringify(advancedState)
-      );
-    if (savedWorkout && tmAdjustments.length)
-      savedWorkout.tmAdjustments = tmAdjustments;
-
-    // Toast on week or cycle advance (any program)
+  if (!activeWorkout.isBonus && !programHookFailed) {
     if (
       advancedState.cycle !== undefined &&
       advancedState.cycle !== newState.cycle
@@ -5830,9 +5541,6 @@ async function finishWorkout() {
         500
       );
     }
-  } catch (e) {
-    logWarn('finishWorkout program hooks', e);
-    programHookFailed = true;
   }
 
   setProgramState(prog.id, advancedState);
@@ -5841,51 +5549,48 @@ async function finishWorkout() {
   await saveWorkouts();
   buildExerciseIndex();
 
-  // Compute summary before clearing activeWorkout
-  let tonnage = 0,
-    completedSets = 0;
-  activeWorkout.exercises.forEach((ex) => {
-    ex.sets.forEach((s) => {
-      if (s.done && !s.isWarmup) {
-        completedSets++;
-        tonnage +=
-          (parseFloat(s.weight) || 0) * (parseLoggedRepCount(s.reps) || 0);
-      }
-    });
-  });
-  const summaryData = {
-    duration: getWorkoutElapsedSeconds(),
-    exerciseCount: activeWorkout.exercises.length,
-    completedSets,
-    totalSets,
-    tonnage,
-    rpe: sessionRPE,
-    prCount: sessionPrCount,
-    isBonus: activeWorkout.isBonus || false,
-    programLabel: activeWorkout.programLabel || '',
-    coachNote: buildCoachNote(
-      {
-        completedSets,
-        totalSets,
-        rpe: sessionRPE,
-        prCount: sessionPrCount,
-        tmAdjustments,
-      },
+  const summaryData = getWorkoutRuntime().buildSessionSummaryData(
+    {
+      activeWorkout,
+      exercises: activeWorkout.exercises,
+      duration: getWorkoutElapsedSeconds(),
+      sessionRPE,
+      prCount: sessionPrCount,
+      isBonus: activeWorkout.isBonus || false,
+      programLabel: activeWorkout.programLabel || '',
+      tmAdjustments,
       stateBeforeSession,
       advancedState,
-      activeWorkout
-    ),
-  };
+      totalSets,
+    },
+    {
+      parseLoggedRepCount,
+      buildCoachNote,
+    }
+  );
 
+  const finishTeardownPlan = getWorkoutRuntime().buildWorkoutTeardownPlan(
+    {
+      mode: 'finish',
+    },
+    {
+      t: i18nText,
+    }
+  );
   resetActiveWorkoutUIState();
   activeWorkout = null;
   clearWorkoutStartSnapshot();
   clearCurrentWorkoutDraft();
-  document.getElementById('workout-not-started').style.display = 'block';
-  document.getElementById('workout-active').style.display = 'none';
-  resetNotStartedView();
-  if (isLogActiveIslandActive()) notifyLogActiveIsland();
-  updateDashboard();
+  document.getElementById('workout-not-started').style.display =
+    finishTeardownPlan.showNotStarted === false ? 'none' : 'block';
+  document.getElementById('workout-active').style.display =
+    finishTeardownPlan.hideActive === false ? 'block' : 'none';
+  if (finishTeardownPlan.resetNotStartedView !== false) {
+    resetNotStartedView();
+  }
+  if (isLogActiveIslandActive() && finishTeardownPlan.notifyLogActive !== false)
+    notifyLogActiveIsland();
+  if (finishTeardownPlan.updateDashboard !== false) updateDashboard();
 
   if (programHookFailed)
     showToast(
@@ -5896,27 +5601,40 @@ async function finishWorkout() {
       'var(--orange)'
     );
   const summaryResult = await showSessionSummary(summaryData);
-  if (summaryResult?.feedback)
-    savedWorkout.sessionFeedback = summaryResult.feedback;
-  if (summaryResult?.notes) savedWorkout.sessionNotes = summaryResult.notes;
-  if (typeof inferDurationSignal === 'function')
-    savedWorkout.durationSignal = inferDurationSignal(savedWorkout);
+  const postWorkoutOutcome = getWorkoutRuntime().buildPostWorkoutOutcome(
+    {
+      savedWorkout,
+      summaryResult,
+      summaryData,
+    },
+    {
+      inferDurationSignal,
+      t: i18nText,
+      formatWorkoutWeight,
+    }
+  );
   if (
+    postWorkoutOutcome.shouldSaveWorkouts ||
     summaryResult?.feedback ||
     summaryResult?.notes ||
     savedWorkout.durationSignal
   )
     await saveWorkouts();
-  const tmAdjustmentToast = buildTmAdjustmentToast(savedWorkout.tmAdjustments);
+  const tmAdjustmentToast =
+    typeof postWorkoutOutcome.tmAdjustmentToast === 'string'
+      ? postWorkoutOutcome.tmAdjustmentToast
+      : buildTmAdjustmentToast(savedWorkout.tmAdjustments);
   if (tmAdjustmentToast) {
     setTimeout(
       () => showToast(tmAdjustmentToast, 'var(--blue)'),
       600
     );
   }
-  if (summaryResult?.goToNutrition) {
+  if (postWorkoutOutcome.goToNutrition || summaryResult?.goToNutrition) {
     if (typeof window.setNutritionSessionContext === 'function') {
-      window.setNutritionSessionContext(summaryData);
+      window.setNutritionSessionContext(
+        postWorkoutOutcome.nutritionContext || summaryData
+      );
     }
     const bridge =
       typeof getRuntimeBridge === 'function' ? getRuntimeBridge() : null;
@@ -5929,15 +5647,31 @@ async function finishWorkout() {
 }
 
 function cancelWorkout() {
+  const cancelTeardownPlan = getWorkoutRuntime().buildWorkoutTeardownPlan(
+    {
+      mode: 'cancel',
+    },
+    {
+      t: i18nText,
+    }
+  );
   clearWorkoutTimer();
   skipRest();
   resetActiveWorkoutUIState();
   activeWorkout = null;
   clearWorkoutStartSnapshot();
   clearCurrentWorkoutDraft();
-  document.getElementById('workout-not-started').style.display = 'block';
-  document.getElementById('workout-active').style.display = 'none';
-  resetNotStartedView();
-  if (isLogActiveIslandActive()) notifyLogActiveIsland();
-  showToast(i18nText('workout.session_discarded', 'Workout discarded.'));
+  document.getElementById('workout-not-started').style.display =
+    cancelTeardownPlan.showNotStarted === false ? 'none' : 'block';
+  document.getElementById('workout-active').style.display =
+    cancelTeardownPlan.hideActive === false ? 'block' : 'none';
+  if (cancelTeardownPlan.resetNotStartedView !== false) {
+    resetNotStartedView();
+  }
+  if (isLogActiveIslandActive() && cancelTeardownPlan.notifyLogActive !== false)
+    notifyLogActiveIsland();
+  showToast(
+    cancelTeardownPlan.discardToast ||
+      i18nText('workout.session_discarded', 'Workout discarded.')
+  );
 }

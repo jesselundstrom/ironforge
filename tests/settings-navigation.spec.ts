@@ -20,8 +20,7 @@ test('settings page stays usable after synced UI refresh', async ({ page }) => {
   await openAppShell(page);
 
   await page.evaluate(() => {
-    window.showPage('settings');
-    showSettingsTab('account');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
   });
 
   await page.evaluate(() => {
@@ -36,8 +35,7 @@ test('program advanced setup sheet stays scrollable', async ({ page }) => {
   await openAppShell(page);
 
   const result = await page.evaluate(() => {
-    window.showPage('settings');
-    showSettingsTab('program');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('program');
     profile.activeProgram = 'forge';
     initSettings();
     openProgramSetupSheet();
@@ -64,8 +62,7 @@ test('forge advanced setup keeps only advanced controls', async ({ page }) => {
   await openAppShell(page);
 
   const result = await page.evaluate(() => {
-    window.showPage('settings');
-    showSettingsTab('program');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('program');
     profile.activeProgram = 'forge';
     initSettings();
     openProgramSetupSheet();
@@ -96,8 +93,7 @@ test('mobile forge program setup keeps the save action above the bottom nav', as
   await openAppShell(page);
 
   const result = await page.evaluate(() => {
-    window.showPage('settings');
-    showSettingsTab('program');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('program');
     profile.activeProgram = 'forge';
     initSettings();
     openProgramSetupSheet();

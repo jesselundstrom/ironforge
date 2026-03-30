@@ -18,7 +18,6 @@ declare function ensureWorkoutExerciseUiKeys(
 ): Array<Record<string, any>>;
 declare function closeSummaryModal(goToNutrition?: boolean): void;
 declare function renderHistory(): void;
-declare function showPage(page: string, trigger?: Element | null): void;
 declare function updateDashboard(): void;
 
 test.describe.configure({ mode: 'serial' });
@@ -96,7 +95,7 @@ async function setupRewardSession(
 
     window.showRPEPicker = (_name, _setNum, cb) =>
       cb(typeof activeRpe === 'number' ? activeRpe : 8);
-    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('log');
     window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
       toast: false,
     });

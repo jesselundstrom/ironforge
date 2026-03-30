@@ -6,7 +6,7 @@ test.describe.configure({ mode: 'serial' });
 
 async function openActiveWorkout(page: Page) {
   await page.evaluate(() => {
-    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('log');
     window.__IRONFORGE_STORES__?.workout?.startWorkout?.();
   });
 
@@ -62,7 +62,7 @@ test('log active island keeps weight edits and done toggles in sync with the vis
   await openActiveWorkout(page);
 
   await page.evaluate(() => {
-    window.eval('showSetRIRPrompt = () => {}');
+    window.showSetRIRPrompt = () => {};
   });
 
   const firstWeightInput = page.locator('#log-active-react-root input[data-field="weight"]').first();
@@ -145,7 +145,7 @@ test('log active island keeps RIR saves flowing through the workout store seam',
   await openActiveWorkout(page);
 
   await page.evaluate(() => {
-    window.eval('showSetRIRPrompt(0,0)');
+    window.showSetRIRPrompt?.(0, 0);
   });
 
   await expect(page.locator('#custom-swap-modal')).toBeVisible();

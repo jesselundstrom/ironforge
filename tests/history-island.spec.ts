@@ -24,7 +24,7 @@ test('history island renders read-only cards and refreshes from store-owned data
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
   });
 
   await expect
@@ -73,7 +73,7 @@ test('history island renders read-only cards and refreshes from store-owned data
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
   });
 
   await expect
@@ -104,7 +104,7 @@ test('history island switches to stats without leaving the legacy shell', async 
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
   });
 
   await page.waitForFunction(() => (window as any).getActivePageName?.() === 'history');
@@ -202,7 +202,7 @@ test('history stats show range controls, extra charts, and milestones for progre
       },
       schedule: window.schedule || null,
     });
-    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
   });
 
   await page.waitForFunction(() => (window as any).getActivePageName?.() === 'history');
@@ -280,7 +280,7 @@ test('history stats keep front squat and sumo deadlift out of the main lift tren
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
     window.switchHistoryTab?.('stats');
   });
 
@@ -334,7 +334,7 @@ test('history compatibility globals still delegate to the typed store view', asy
       profile: window.profile || null,
       schedule: window.schedule || null,
     });
-    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
     window.switchHistoryTab?.('stats');
     runtimeWindow.switchHistoryStatsRange?.('all');
     runtimeWindow.toggleHeatmap?.();
@@ -397,7 +397,7 @@ test('history delete undo preserves legacy-only profile fields that are not yet 
       schedule: window.schedule || null,
     });
 
-    window.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
       profile: {
         ...(window.profile || {}),
         activeProgram: 'forge',
@@ -416,7 +416,7 @@ test('history delete undo preserves legacy-only profile fields that are not yet 
       },
     });
 
-    window.showPage?.('history', document.querySelectorAll('.nav-btn')[2] || null);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
   });
 
   await expect(page.locator('.hist-card')).toHaveCount(1);

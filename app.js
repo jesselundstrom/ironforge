@@ -1,4 +1,5 @@
 ﻿const APP_VERSION = '1.0.0';
+window.__IRONFORGE_APP_VERSION__ = APP_VERSION;
 let DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function refreshDayNames() {
   DAY_NAMES = [
@@ -68,39 +69,92 @@ function cloneLegacyRuntimeStateValue(value) {
   }
 }
 
+function readLegacyRuntimeField(name) {
+  switch (name) {
+    case 'currentUser':
+      return cloneLegacyRuntimeStateValue(currentUser);
+    case 'workouts':
+      return cloneLegacyRuntimeStateValue(workouts);
+    case 'schedule':
+      return cloneLegacyRuntimeStateValue(schedule);
+    case 'profile':
+      return cloneLegacyRuntimeStateValue(profile);
+    case 'activeWorkout':
+      return cloneLegacyRuntimeStateValue(activeWorkout);
+    default:
+      return undefined;
+  }
+}
+
+function writeLegacyRuntimeField(name, value) {
+  const nextValue = cloneLegacyRuntimeStateValue(value);
+  switch (name) {
+    case 'currentUser':
+      currentUser = nextValue || null;
+      window.currentUser = cloneLegacyRuntimeStateValue(currentUser);
+      break;
+    case 'workouts':
+      workouts = Array.isArray(nextValue) ? nextValue : [];
+      window.workouts = cloneLegacyRuntimeStateValue(workouts);
+      break;
+    case 'schedule':
+      schedule = nextValue || null;
+      window.schedule = cloneLegacyRuntimeStateValue(schedule);
+      break;
+    case 'profile':
+      profile = nextValue || null;
+      window.profile = cloneLegacyRuntimeStateValue(profile);
+      break;
+    case 'activeWorkout':
+      activeWorkout = nextValue || null;
+      window.activeWorkout = cloneLegacyRuntimeStateValue(activeWorkout);
+      break;
+    default:
+      break;
+  }
+}
+
+window.__IRONFORGE_LEGACY_RUNTIME_ACCESS__ = {
+  read(name) {
+    return readLegacyRuntimeField(name);
+  },
+  write(name, value) {
+    writeLegacyRuntimeField(name, value);
+  },
+};
+
 window.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__ = function () {
-  return {
-    currentUser: cloneLegacyRuntimeStateValue(currentUser),
-    workouts: cloneLegacyRuntimeStateValue(workouts),
-    schedule: cloneLegacyRuntimeStateValue(schedule),
-    profile: cloneLegacyRuntimeStateValue(profile),
-    activeWorkout: cloneLegacyRuntimeStateValue(activeWorkout),
-  };
+  return (
+    window.__IRONFORGE_APP_RUNTIME__?.getLegacyRuntimeState?.() || {
+      currentUser: cloneLegacyRuntimeStateValue(currentUser),
+      workouts: cloneLegacyRuntimeStateValue(workouts),
+      schedule: cloneLegacyRuntimeStateValue(schedule),
+      profile: cloneLegacyRuntimeStateValue(profile),
+      activeWorkout: cloneLegacyRuntimeStateValue(activeWorkout),
+    }
+  );
 };
 
 window.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__ = function (partial) {
+  if (window.__IRONFORGE_APP_RUNTIME__?.setLegacyRuntimeState) {
+    window.__IRONFORGE_APP_RUNTIME__.setLegacyRuntimeState(partial);
+    return;
+  }
   if (!partial || typeof partial !== 'object') return;
   if (Object.prototype.hasOwnProperty.call(partial, 'currentUser')) {
-    currentUser = cloneLegacyRuntimeStateValue(partial.currentUser) || null;
-    window.currentUser = cloneLegacyRuntimeStateValue(currentUser);
+    writeLegacyRuntimeField('currentUser', partial.currentUser);
   }
   if (Object.prototype.hasOwnProperty.call(partial, 'workouts')) {
-    workouts = Array.isArray(partial.workouts)
-      ? cloneLegacyRuntimeStateValue(partial.workouts)
-      : [];
-    window.workouts = cloneLegacyRuntimeStateValue(workouts);
+    writeLegacyRuntimeField('workouts', partial.workouts);
   }
   if (Object.prototype.hasOwnProperty.call(partial, 'schedule')) {
-    schedule = cloneLegacyRuntimeStateValue(partial.schedule) || null;
-    window.schedule = cloneLegacyRuntimeStateValue(schedule);
+    writeLegacyRuntimeField('schedule', partial.schedule);
   }
   if (Object.prototype.hasOwnProperty.call(partial, 'profile')) {
-    profile = cloneLegacyRuntimeStateValue(partial.profile) || null;
-    window.profile = cloneLegacyRuntimeStateValue(profile);
+    writeLegacyRuntimeField('profile', partial.profile);
   }
   if (Object.prototype.hasOwnProperty.call(partial, 'activeWorkout')) {
-    activeWorkout = cloneLegacyRuntimeStateValue(partial.activeWorkout) || null;
-    window.activeWorkout = cloneLegacyRuntimeStateValue(activeWorkout);
+    writeLegacyRuntimeField('activeWorkout', partial.activeWorkout);
   }
 };
 
@@ -949,6 +1003,14 @@ function setSportIntensity(val, el) {
 }
 let _settingsTab = 'schedule';
 let settingsAccountUiState = { dangerOpen: false, dangerInput: '' };
+window.__IRONFORGE_ACTIVE_SETTINGS_TAB__ = _settingsTab;
+function getSettingsAccountUiStateSnapshot() {
+  return {
+    dangerOpen: settingsAccountUiState.dangerOpen === true,
+    dangerInput: settingsAccountUiState.dangerInput || '',
+  };
+}
+window.getSettingsAccountUiStateSnapshot = getSettingsAccountUiStateSnapshot;
 function showSettingsTab(name, el) {
   const nextTab = ['schedule', 'preferences', 'program', 'account', 'body'].includes(
     name
@@ -956,6 +1018,7 @@ function showSettingsTab(name, el) {
     ? name
     : 'schedule';
   _settingsTab = nextTab;
+  window.__IRONFORGE_ACTIVE_SETTINGS_TAB__ = nextTab;
   const bridge = getRuntimeBridge();
   if (bridge && typeof bridge.setActiveSettingsTab === 'function') {
     bridge.setActiveSettingsTab(nextTab);
@@ -976,10 +1039,7 @@ function isSettingsAccountIslandActive() {
   return !!bridge && typeof bridge.setSettingsAccountView === 'function';
 }
 function notifySettingsAccountIsland() {
-  const bridge = getRuntimeBridge();
-  if (bridge && typeof bridge.setSettingsAccountView === 'function') {
-    bridge.setSettingsAccountView(buildSettingsAccountView());
-  }
+  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsAccountView?.();
 }
 function getAccountBackupContextText() {
   const count = workouts ? workouts.length : 0;
@@ -1009,78 +1069,19 @@ function isDangerDeleteConfirmed() {
   );
 }
 function buildSettingsAccountView() {
-  const syncStatus =
-    typeof getSyncStatusLabel === 'function'
-      ? getSyncStatusLabel()
-      : {
-          label: tr('settings.sync.synced', 'Synced to cloud'),
-          className: 'sync-status synced',
-        };
-  const nutritionReady = !!String(currentUser?.id || '').trim();
-  return {
-    labels: {
-      accountSection: tr('settings.account_section', 'Account'),
-      languageLabel: tr('settings.language.label', 'App language'),
-      optionEn: tr('settings.language.option.en', 'English'),
-      optionFi: tr('settings.language.option.fi', 'Finnish'),
-      signOut: tr('settings.sign_out', 'Sign Out'),
-      dataBackup: tr('settings.data_backup', 'Data Backup'),
-      export: tr('settings.export', 'Export'),
-      import: tr('settings.import', 'Import'),
-      backupHelp: tr(
-        'settings.backup_help',
-        'Export saves all data as a JSON file. Import replaces all current data.'
-      ),
-      nutritionTitle: tr('settings.nutrition_coach.title', 'AI Nutrition Coach'),
-      nutritionHelp: nutritionReady
-        ? tr(
-            'settings.nutrition_coach.help_ready',
-            'Nutrition Coach is ready on this account. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.'
-          )
-        : tr(
-            'settings.nutrition_coach.help_signed_out',
-            'Sign in to use Nutrition Coach. Claude requests are routed through Ironforge securely, and no Claude API key is stored on this device.'
-          ),
-      danger: tr('settings.danger', 'Danger Zone'),
-      dangerDesc: tr(
-        'settings.danger_desc',
-        'This permanently deletes all your workouts, programs, and settings. This cannot be undone.'
-      ),
-      dangerTypeConfirm: tr(
-        'settings.danger_type_confirm',
-        'Type DELETE to confirm'
-      ),
-      clearAll: tr('settings.clear_all', 'Clear All Data'),
-      clearAllConfirm: tr(
-        'settings.clear_all_confirm',
-        'Permanently Delete All Data'
-      ),
-    },
-    values: {
-      email: currentUser?.email || '',
-      syncLabel: syncStatus.label,
-      syncClassName: syncStatus.className,
-      language:
-        profile.language ||
-        (window.I18N && I18N.getLanguage ? I18N.getLanguage() : 'en'),
-      backupContext: getAccountBackupContextText(),
-      nutritionReady,
-      appVersion: 'Ironforge v' + APP_VERSION,
-      dangerOpen: settingsAccountUiState.dangerOpen === true,
-      dangerInput: settingsAccountUiState.dangerInput || '',
-      dangerDeleteDisabled: !isDangerDeleteConfirmed(),
-    },
-  };
+  return (
+    window.__IRONFORGE_APP_RUNTIME__?.buildSettingsAccountView?.() || {
+      labels: {},
+      values: {},
+    }
+  );
 }
 function isSettingsScheduleIslandActive() {
   const bridge = getRuntimeBridge();
   return !!bridge && typeof bridge.setSettingsScheduleView === 'function';
 }
 function notifySettingsScheduleIsland() {
-  const bridge = getRuntimeBridge();
-  if (bridge && typeof bridge.setSettingsScheduleView === 'function') {
-    bridge.setSettingsScheduleView(buildSettingsScheduleView());
-  }
+  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsScheduleView?.();
 }
 function getSettingsScheduleStatusText() {
   const sep = ' · ';
@@ -1101,62 +1102,19 @@ function getSettingsScheduleStatusText() {
   return name + sep + intensityLabel + sep + dayStr;
 }
 function buildSettingsScheduleView() {
-  const intensity = schedule.sportIntensity || 'hard';
-  return {
-    labels: {
-      statusBar: getSettingsScheduleStatusText(),
-      title: tr('settings.sport_load.title', 'My Sport'),
-      subtitle: tr(
-        'settings.sport_load.subtitle',
-        'Set the sport or cardio that most affects your training week.'
-      ),
-      activitySection: tr('settings.sport_load.section.activity', 'Sport'),
-      activitySectionSub: tr(
-        'settings.sport_load.section.activity_sub',
-        'Name the recurring sport or cardio that affects your training week.'
-      ),
-      activityName: tr('settings.activity_name', 'Activity name'),
-      activityPlaceholder: tr(
-        'settings.activity_placeholder',
-        'e.g. Hockey, Soccer, Running'
-      ),
-      profileSection: tr('settings.sport_load.section.profile', 'Load profile'),
-      profileSectionSub: tr(
-        'settings.sport_load.section.profile_sub',
-        'Shape how strongly sport load should push training away from hard lower-body work.'
-      ),
-      intensityLabel: tr('settings.intensity', 'Intensity'),
-      intensityEasy: tr('settings.intensity.easy', 'Easy'),
-      intensityModerate: tr('settings.intensity.moderate', 'Moderate'),
-      intensityHard: tr('settings.intensity.hard', 'Hard'),
-      legHeavy: tr('settings.leg_heavy', 'Leg-heavy'),
-      legHeavySub: tr(
-        'settings.leg_heavy_sub',
-        'Warns when scheduling legs after sport'
-      ),
-      regularSportDays: tr('settings.regular_sport_days', 'Regular Sport Days'),
-    },
-    values: {
-      sportName: getScheduleSportNameValue(schedule),
-      sportIntensity: intensity,
-      sportLegsHeavy: schedule.sportLegsHeavy !== false,
-      sportDays: [...(schedule.sportDays || [])],
-      dayNames: Array.from(
-        { length: 7 },
-        (_, i) => DAY_NAMES[(i + 1) % 7] || ''
-      ),
-    },
-  };
+  return (
+    window.__IRONFORGE_APP_RUNTIME__?.buildSettingsScheduleView?.() || {
+      labels: {},
+      values: {},
+    }
+  );
 }
 function isSettingsProgramIslandActive() {
   const bridge = getRuntimeBridge();
   return !!bridge && typeof bridge.setSettingsProgramView === 'function';
 }
 function notifySettingsProgramIsland() {
-  const bridge = getRuntimeBridge();
-  if (bridge && typeof bridge.setSettingsProgramView === 'function') {
-    bridge.setSettingsProgramView(buildSettingsProgramView());
-  }
+  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsProgramView?.();
 }
 function parseInlineStyle(styleText) {
   return String(styleText || '')
@@ -1320,290 +1278,45 @@ function getProgramSwitcherSnapshotData() {
   };
 }
 function buildSettingsProgramView() {
-  const prog = getActiveProgram();
-  const basics = getProgramBasicsSnapshotData();
-  const switcher = getProgramSwitcherSnapshotData();
-  const progName =
-    window.I18N && I18N.t
-      ? I18N.t('program.' + prog.id + '.name', null, prog.name)
-      : prog.name;
-  const progDesc =
-    window.I18N && I18N.t
-      ? I18N.t(
-          'program.' + prog.id + '.description',
-          null,
-          prog.description || ''
-        )
-      : prog.description || '';
-  return {
-    labels: {
-      statusBar: (() => {
-        const canonicalName =
-          window.I18N && I18N.t
-            ? I18N.t('program.' + prog.id + '.name', null, prog.name)
-            : prog.name;
-        const summary = prog.getSimpleSettingsSummary
-          ? prog.getSimpleSettingsSummary(getActiveProgramState())
-          : '';
-        return summary ? canonicalName + ' · ' + summary : canonicalName;
-      })(),
-      basicsTitle: tr('settings.program_basics', 'Program Basics'),
-      trainingProgram: tr('settings.training_program', 'Training Program'),
-      advancedTitle: tr('settings.program_advanced_title', 'Advanced Setup'),
-      advancedHelp: tr(
-        'settings.program_advanced_help',
-        'Exercise swaps, cycle controls, peak block, and program-specific options.'
-      ),
-    },
-    values: {
-      programId: prog.id,
-      simpleMode:
-        typeof isSimpleMode === 'function' && isSimpleMode(profile),
-      basicsVisible: basics.visible,
-      basicsSummary: basics.summary,
-      basicsTree: basics.tree,
-      basicsRenderKey: JSON.stringify(basics.tree),
-      trainingProgramSummary: progDesc ? `${progName} · ${progDesc}` : progName,
-      switcher,
-    },
-  };
+  return (
+    window.__IRONFORGE_APP_RUNTIME__?.buildSettingsProgramView?.() || {
+      labels: {},
+      values: {},
+    }
+  );
 }
 function isSettingsPreferencesIslandActive() {
   const bridge = getRuntimeBridge();
   return !!bridge && typeof bridge.setSettingsPreferencesView === 'function';
 }
 function notifySettingsPreferencesIsland() {
-  const bridge = getRuntimeBridge();
-  if (bridge && typeof bridge.setSettingsPreferencesView === 'function') {
-    bridge.setSettingsPreferencesView(buildSettingsPreferencesView());
-  }
+  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsPreferencesView?.();
 }
 function buildSettingsPreferencesView() {
-  const prefs = normalizeTrainingPreferences(profile);
-  return {
-    labels: {
-      statusBar: getTrainingPreferencesSummary(profile),
-      title: tr('settings.preferences.title', 'Training Preferences'),
-      help: tr(
-        'settings.preferences.help',
-        'These preferences shape future smart recommendations and AI-generated training.'
-      ),
-      goalsSection: tr('settings.preferences.section.goals', 'Goals & Volume'),
-      goalLabel: tr('settings.preferences.goal', 'Primary Goal'),
-      goalStrength: tr('settings.preferences.goal.strength', 'Strength'),
-      goalHypertrophy: tr(
-        'settings.preferences.goal.hypertrophy',
-        'Hypertrophy'
-      ),
-      goalGeneralFitness: tr(
-        'settings.preferences.goal.general_fitness',
-        'General Fitness'
-      ),
-      goalSportSupport: tr(
-        'settings.preferences.goal.sport_support',
-        'Sport Support'
-      ),
-      trainingDaysLabel: tr(
-        'settings.preferences.training_days',
-        'Target Training Frequency'
-      ),
-      trainingDays2: tr(
-        'settings.preferences.training_days_value',
-        '{count} sessions / week',
-        { count: 2 }
-      ),
-      trainingDays3: tr(
-        'settings.preferences.training_days_value',
-        '{count} sessions / week',
-        { count: 3 }
-      ),
-      trainingDays4: tr(
-        'settings.preferences.training_days_value',
-        '{count} sessions / week',
-        { count: 4 }
-      ),
-      trainingDays5: tr(
-        'settings.preferences.training_days_value',
-        '{count} sessions / week',
-        { count: 5 }
-      ),
-      trainingDays6: tr(
-        'settings.preferences.training_days_value',
-        '{count} sessions / week',
-        { count: 6 }
-      ),
-      sessionDurationLabel: tr(
-        'settings.preferences.session_duration',
-        'Target Session Length'
-      ),
-      duration30: tr('settings.preferences.duration_value.30', '30 min'),
-      duration45: tr('settings.preferences.duration_value.45', '45 min'),
-      duration60: tr('settings.preferences.duration_value.60', '60 min'),
-      duration75: tr('settings.preferences.duration_value.75', '75 min'),
-      duration90: tr('settings.preferences.duration_value.90', '90 min'),
-      equipmentSection: tr(
-        'settings.preferences.section.equipment',
-        'Equipment & Session Prep'
-      ),
-      equipmentLabel: tr('settings.preferences.equipment', 'Equipment Access'),
-      equipmentFullGym: tr(
-        'settings.preferences.equipment.full_gym',
-        'Full Gym'
-      ),
-      equipmentBasicGym: tr(
-        'settings.preferences.equipment.basic_gym',
-        'Basic Gym'
-      ),
-      equipmentHomeGym: tr(
-        'settings.preferences.equipment.home_gym',
-        'Home Gym'
-      ),
-      equipmentMinimal: tr(
-        'settings.preferences.equipment.minimal',
-        'Minimal Equipment'
-      ),
-      warmupTitle: tr(
-        'settings.preferences.warmup_sets',
-        'Automatic warm-up sets'
-      ),
-      warmupHelp: tr(
-        'settings.preferences.warmup_sets_help',
-        'Prepend warm-up ramp sets (50%-85%) to main compound lifts at the start of each workout.'
-      ),
-      sportCheckTitle: tr(
-        'settings.preferences.sport_check',
-        'Pre-workout sport check-in'
-      ),
-      sportCheckHelp: tr(
-        'settings.preferences.sport_check_help',
-        'Ask about sport load around today before recommending the session.'
-      ),
-      detailedViewTitle: tr(
-        'settings.preferences.detailed_view',
-        'Show detailed metrics'
-      ),
-      detailedViewHelp: tr(
-        'settings.preferences.detailed_view_help',
-        'Show advanced stats like individual fatigue gauges and training maxes on the dashboard.'
-      ),
-      sessionSection: tr(
-        'settings.preferences.section.session',
-        'Session Settings'
-      ),
-      restLabel: tr('settings.default_rest', 'Default Rest Timer'),
-      off: tr('common.off', 'Off'),
-      notesLabel: tr(
-        'settings.preferences.notes',
-        'Notes, limitations, preferences'
-      ),
-      notesPlaceholder: tr(
-        'settings.preferences.notes_placeholder',
-        'e.g. Avoid high-impact jumps, prefer barbell compounds, 60 min cap'
-      ),
-      restartOnboarding: tr(
-        'settings.preferences.restart_onboarding',
-        'Run Guided Setup Again'
-      ),
-    },
-    values: {
-      summary: getTrainingPreferencesSummary(profile),
-      goal: prefs.goal,
-      trainingDaysPerWeek: String(prefs.trainingDaysPerWeek),
-      sessionMinutes: String(prefs.sessionMinutes),
-      equipmentAccess: prefs.equipmentAccess,
-      warmupSetsEnabled: prefs.warmupSetsEnabled === true,
-      sportReadinessCheckEnabled: prefs.sportReadinessCheckEnabled === true,
-      detailedView:
-        typeof prefs.detailedView === 'boolean'
-          ? prefs.detailedView
-          : !(
-              typeof isSimpleMode === 'function' && isSimpleMode(profile)
-            ),
-      defaultRest: String(profile.defaultRest || 120),
-      notes: prefs.notes || '',
-    },
-  };
+  return (
+    window.__IRONFORGE_APP_RUNTIME__?.buildSettingsPreferencesView?.() || {
+      labels: {},
+      values: {},
+    }
+  );
 }
 function isSettingsBodyIslandActive() {
   const bridge = getRuntimeBridge();
   return !!bridge && typeof bridge.setSettingsBodyView === 'function';
 }
 function notifySettingsBodyIsland() {
-  const bridge = getRuntimeBridge();
-  if (bridge && typeof bridge.setSettingsBodyView === 'function') {
-    bridge.setSettingsBodyView(buildSettingsBodyView());
-  }
+  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsBodyView?.();
 }
 function buildSettingsBodyView() {
-  const bodyMetrics = profile.bodyMetrics || {};
-  return {
-    labels: {
-      metricsTitle: tr('settings.body.metrics_title', 'Body Metrics'),
-      metricsHelp: tr(
-        'settings.body.metrics_help',
-        'Used by the AI Nutrition Coach to personalise advice. All weights in kg.'
-      ),
-      sex: tr('settings.body.sex', 'Sex'),
-      sexNone: tr('settings.body.sex_none', '— select —'),
-      sexMale: tr('settings.body.sex_male', 'Male'),
-      sexFemale: tr('settings.body.sex_female', 'Female'),
-      activity: tr('settings.body.activity', 'Activity level'),
-      activityNone: tr('settings.body.activity_none', '— select —'),
-      activitySedentary: tr('settings.body.activity_sedentary', 'Sedentary'),
-      activityLight: tr('settings.body.activity_light', 'Lightly active'),
-      activityModerate: tr('settings.body.activity_moderate', 'Active'),
-      activityVery: tr('settings.body.activity_very', 'Very active'),
-      weight: tr('settings.body.weight', 'Current weight (kg)'),
-      height: tr('settings.body.height', 'Height (cm)'),
-      age: tr('settings.body.age', 'Age'),
-      targetWeight: tr('settings.body.target_weight', 'Target weight (kg)'),
-      goalTitle: tr('settings.body.goal_title', 'Body Composition Goal'),
-      goalLabel: tr(
-        'settings.body.goal_label',
-        'What are you working towards?'
-      ),
-      goalNone: tr('settings.body.goal_none', '— select —'),
-      goalLoseFat: tr('settings.body.goal.lose_fat', 'Lose fat'),
-      goalGainMuscle: tr('settings.body.goal.gain_muscle', 'Gain muscle'),
-      goalRecomp: tr(
-        'settings.body.goal.recomp',
-        'Body recomp (lose fat + gain muscle)'
-      ),
-      goalMaintain: tr('settings.body.goal.maintain', 'Maintain'),
-      save: tr('settings.body.save', 'Save'),
-    },
-    values: {
-      sex: bodyMetrics.sex || '',
-      activityLevel: bodyMetrics.activityLevel || '',
-      weight: bodyMetrics.weight ?? '',
-      height: bodyMetrics.height ?? '',
-      age: bodyMetrics.age ?? '',
-      targetWeight: bodyMetrics.targetWeight ?? '',
-      bodyGoal: bodyMetrics.bodyGoal || '',
-    },
-  };
+  return (
+    window.__IRONFORGE_APP_RUNTIME__?.buildSettingsBodyView?.() || {
+      labels: {},
+      values: {},
+    }
+  );
 }
 window.syncSettingsBridge = function syncSettingsBridge() {
-  const bridge = getRuntimeBridge();
-  if (!bridge) return;
-  if (typeof bridge.setActiveSettingsTab === 'function') {
-    bridge.setActiveSettingsTab(_settingsTab);
-  }
-  if (typeof bridge.setSettingsAccountView === 'function') {
-    bridge.setSettingsAccountView(buildSettingsAccountView());
-  }
-  if (typeof bridge.setSettingsScheduleView === 'function') {
-    bridge.setSettingsScheduleView(buildSettingsScheduleView());
-  }
-  if (typeof bridge.setSettingsProgramView === 'function') {
-    bridge.setSettingsProgramView(buildSettingsProgramView());
-  }
-  if (typeof bridge.setSettingsPreferencesView === 'function') {
-    bridge.setSettingsPreferencesView(buildSettingsPreferencesView());
-  }
-  if (typeof bridge.setSettingsBodyView === 'function') {
-    bridge.setSettingsBodyView(buildSettingsBodyView());
-  }
+  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsBridge?.();
 };
 function openProgramSetupSheet() {
   const prog = getActiveProgram(),
@@ -1792,25 +1505,7 @@ function parseOnboardingExerciseIds(text) {
 }
 
 function getOnboardingDefaultDraft() {
-  const prefs = normalizeTrainingPreferences(profile);
-  const coaching = normalizeCoachingProfile(profile);
-  return {
-    goal: prefs.goal,
-    experienceLevel: coaching.experienceLevel,
-    trainingDaysPerWeek: prefs.trainingDaysPerWeek,
-    sessionMinutes: prefs.sessionMinutes,
-    equipmentAccess: prefs.equipmentAccess,
-    sportName: coaching.sportProfile?.name || schedule.sportName || '',
-    inSeason: coaching.sportProfile?.inSeason === true,
-    sportSessionsPerWeek:
-      coaching.sportProfile?.sessionsPerWeek || schedule.sportDays?.length || 0,
-    jointFlags: [...(coaching.limitations?.jointFlags || [])],
-    avoidMovementTags: [...(coaching.limitations?.avoidMovementTags || [])],
-    avoidExercisesText: (coaching.limitations?.avoidExerciseIds || []).join(
-      ', '
-    ),
-    guidanceMode: coaching.guidanceMode,
-  };
+  return window.__IRONFORGE_APP_RUNTIME__?.getOnboardingDefaultDraft?.() || null;
 }
 window.getOnboardingDefaultDraft = getOnboardingDefaultDraft;
 
@@ -1819,50 +1514,10 @@ function notifyOnboardingIsland() {
 }
 
 function buildOnboardingRecommendation(draft) {
-  const d = draft || getOnboardingDefaultDraft();
-  const nextProfile = cloneJson(profile) || {};
-  nextProfile.preferences = normalizeTrainingPreferences({
-    ...nextProfile,
-    preferences: {
-      ...(nextProfile.preferences || getDefaultTrainingPreferences()),
-      goal: d.goal,
-      trainingDaysPerWeek: parseInt(d.trainingDaysPerWeek, 10) || 3,
-      sessionMinutes: parseInt(d.sessionMinutes, 10) || 60,
-      equipmentAccess: d.equipmentAccess,
-    },
-  });
-  nextProfile.coaching = normalizeCoachingProfile({
-    ...nextProfile,
-    coaching: {
-      ...(nextProfile.coaching || getDefaultCoachingProfile()),
-      experienceLevel: d.experienceLevel,
-      guidanceMode: d.guidanceMode,
-      sportProfile: {
-        name: String(d.sportName || '').trim(),
-        inSeason: d.inSeason === true,
-        sessionsPerWeek: parseInt(d.sportSessionsPerWeek, 10) || 0,
-      },
-      limitations: {
-        jointFlags: [...(d.jointFlags || [])],
-        avoidMovementTags: [...(d.avoidMovementTags || [])],
-        avoidExerciseIds: parseOnboardingExerciseIds(d.avoidExercisesText),
-      },
-      exercisePreferences: {
-        preferredExerciseIds: [],
-        excludedExerciseIds: parseOnboardingExerciseIds(d.avoidExercisesText),
-      },
-      onboardingCompleted: false,
-    },
-  });
-  return getInitialPlanRecommendation({
-    profile: nextProfile,
-    schedule: {
-      ...schedule,
-      sportName:
-        String(d.sportName || schedule.sportName || '').trim() ||
-        schedule.sportName,
-    },
-  });
+  return (
+    window.__IRONFORGE_APP_RUNTIME__?.buildOnboardingRecommendation?.(draft) ||
+    null
+  );
 }
 
 function closeOnboardingModal() {
@@ -2162,9 +1817,13 @@ function saveTrainingPreferences(options) {
     document.getElementById('training-equipment')?.value ||
     prefs.equipmentAccess;
   const sportReadinessCheckEnabled =
-    document.getElementById('training-sport-check')?.checked === true;
+    Object.prototype.hasOwnProperty.call(opts, 'sportReadinessCheckEnabledOverride')
+      ? opts.sportReadinessCheckEnabledOverride === true
+      : document.getElementById('training-sport-check')?.checked === true;
   const warmupSetsEnabled =
-    document.getElementById('training-warmup-sets')?.checked === true;
+    Object.prototype.hasOwnProperty.call(opts, 'warmupSetsEnabledOverride')
+      ? opts.warmupSetsEnabledOverride === true
+      : document.getElementById('training-warmup-sets')?.checked === true;
   const detailedView = Object.prototype.hasOwnProperty.call(
     opts,
     'detailedViewOverride'
@@ -2504,50 +2163,7 @@ async function clearAllData() {
 
 function updateLanguageDependentUI() {
   refreshDayNames();
-  if (window.I18N && I18N.applyTranslations) I18N.applyTranslations(document);
-  updateDashboard();
-  renderSportDayToggles();
-  if (activeWorkout) {
-    const prog = getActiveProgram();
-    const titleEl = document.getElementById('active-session-title');
-    if (titleEl && prog && typeof prog.getSessionLabel === 'function') {
-      titleEl.textContent = prog.getSessionLabel(
-        activeWorkout.programOption,
-        getActiveProgramState()
-      );
-    }
-    renderExercises();
-    const descEl = document.getElementById('active-session-description');
-    if (descEl) {
-      const prefix =
-        window.I18N && I18N.t ? I18N.t('session.description') : 'Session focus';
-      const sessionDescription = activeWorkout.sessionDescription || '';
-      descEl.textContent = sessionDescription
-        ? prefix + ': ' + sessionDescription
-        : '';
-      descEl.style.display = sessionDescription ? '' : 'none';
-    }
-    if (
-      typeof isLogActiveIslandActive === 'function' &&
-      isLogActiveIslandActive()
-    )
-      notifyLogActiveIsland();
-  }
-  if (
-    document.getElementById('name-modal')?.classList.contains('active') &&
-    typeof renderExerciseCatalog === 'function'
-  ) {
-    renderExerciseCatalog();
-  }
-  if (document.getElementById('page-history')?.classList.contains('active'))
-    window.renderHistory?.();
-  else if (document.getElementById('page-log')?.classList.contains('active'))
-    resetNotStartedView();
-  notifySettingsAccountIsland();
-  notifySettingsScheduleIsland();
-  notifySettingsPreferencesIsland();
-  notifySettingsProgramIsland();
-  notifySettingsBodyIsland();
+  window.__IRONFORGE_APP_RUNTIME__?.updateLanguageDependentUI?.();
 }
 window.updateLanguageDependentUI = updateLanguageDependentUI;
 

@@ -7,8 +7,6 @@ declare function buildWorkoutRewardState(...args: any[]): Record<string, unknown
 declare function ensureWorkoutExerciseUiKeys(
   exercises: Array<Record<string, any>>
 ): Array<Record<string, any>>;
-declare function showPage(page: string, trigger?: Element | null): void;
-
 test('exercise guide modal shows specific bench guidance from the active workout', async ({
   page,
 }) => {
@@ -45,7 +43,7 @@ test('exercise guide modal shows specific bench guidance from the active workout
             ],
       startTime: Date.now() - 120000,
     };
-    showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('log');
     window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
       toast: false,
     });

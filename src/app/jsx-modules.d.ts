@@ -13,6 +13,62 @@ declare module './OnboardingFlow.jsx' {
 }
 
 declare global {
+  type IronforgeWorkoutToastPlan = {
+    text: string;
+    color: string;
+    delay?: number;
+  };
+  type IronforgePostWorkoutSummaryResult = {
+    feedback?: string;
+    notes?: string;
+    goToNutrition?: boolean;
+  };
+  type IronforgePostWorkoutOutcomeInput = {
+    savedWorkout?: Record<string, unknown> | null;
+    summaryResult?: IronforgePostWorkoutSummaryResult | null;
+    summaryData?: Record<string, unknown> | null;
+  };
+  type IronforgePostWorkoutOutcomeResult = {
+    shouldSaveWorkouts: boolean;
+    tmAdjustmentToast: string;
+    goToNutrition: boolean;
+    nutritionContext: Record<string, unknown> | null;
+    durationSignal?: string | null;
+  };
+  type IronforgeWorkoutStartPresentationInput = {
+    activeWorkout?: Record<string, unknown> | null;
+    isBonus?: boolean;
+    title?: string;
+    programLabel?: string;
+    programName?: string;
+    sessionDescription?: string;
+    effectiveDecision?: Record<string, unknown> | null;
+    planningContext?: Record<string, unknown> | null;
+    startSnapshot?: Record<string, unknown> | null;
+    schedule?: Record<string, unknown> | null;
+    legLifts?: Array<unknown>;
+    isSportDay?: boolean;
+    hadSportRecently?: boolean;
+    isDeload?: boolean;
+  };
+  type IronforgeWorkoutStartPresentationResult = {
+    title: string;
+    descriptionText: string;
+    descriptionVisible: boolean;
+    immediateToast: IronforgeWorkoutToastPlan;
+    queuedToasts: IronforgeWorkoutToastPlan[];
+  };
+  type IronforgeWorkoutTeardownPlanInput = {
+    mode?: 'finish' | 'cancel' | string;
+  };
+  type IronforgeWorkoutTeardownPlanResult = {
+    showNotStarted: boolean;
+    hideActive: boolean;
+    resetNotStartedView: boolean;
+    notifyLogActive: boolean;
+    updateDashboard: boolean;
+    discardToast: string;
+  };
   interface Window {
     I18N?: {
       t?: (
@@ -35,6 +91,28 @@ declare global {
       fallback?: string,
       params?: Record<string, unknown> | null
     ) => string;
+    __IRONFORGE_APP_RUNTIME__?: {
+      buildSettingsAccountView?: () => Record<string, unknown>;
+      buildSettingsScheduleView?: () => Record<string, unknown>;
+      buildSettingsProgramView?: () => Record<string, unknown>;
+      buildSettingsPreferencesView?: () => Record<string, unknown>;
+      buildSettingsBodyView?: () => Record<string, unknown>;
+      getLegacyRuntimeState?: () => Record<string, unknown>;
+      setLegacyRuntimeState?: (partial: Record<string, unknown>) => void;
+      syncSettingsBridge?: () => void;
+      syncSettingsAccountView?: () => void;
+      syncSettingsScheduleView?: () => void;
+      syncSettingsProgramView?: () => void;
+      syncSettingsPreferencesView?: () => void;
+      syncSettingsBodyView?: () => void;
+      getOnboardingDefaultDraft?: () => Record<string, unknown> | null;
+      buildOnboardingRecommendation?: (
+        draft?: Record<string, unknown>
+      ) => Record<string, unknown> | null;
+      updateLanguageDependentUI?: () => void;
+    };
+    __IRONFORGE_ACTIVE_SETTINGS_TAB__?: string;
+    __IRONFORGE_APP_VERSION__?: string;
     __IRONFORGE_APP_SHELL_READY__?: boolean;
     __IRONFORGE_RUNTIME_BRIDGE__?: {
       navigateToPage?: (page: string) => void;
@@ -70,6 +148,13 @@ declare global {
     syncWorkoutSessionBridge?: () => void;
     syncSettingsBridge?: () => void;
     getOnboardingDefaultDraft?: () => Record<string, unknown> | null;
+    buildOnboardingRecommendation?: (
+      draft?: Record<string, unknown>
+    ) => Record<string, unknown> | null;
+    getSettingsAccountUiStateSnapshot?: () => {
+      dangerOpen?: boolean;
+      dangerInput?: string;
+    };
     getProgramRegistry?: () => Record<string, unknown>;
     getRegisteredPrograms?: () => Array<Record<string, unknown>>;
     hasRegisteredPrograms?: () => boolean;
@@ -130,6 +215,92 @@ declare global {
     schedule?: Record<string, unknown> | null;
     profile?: Record<string, unknown> | null;
     activeWorkout?: Record<string, unknown> | null;
+    __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
+      read?: (name: string) => unknown;
+      write?: (name: string, value: unknown) => void;
+    };
+    __IRONFORGE_WORKOUT_RUNTIME__?: {
+      getWorkoutStartSnapshotSignature?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => string;
+      buildWorkoutStartSnapshot?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown> | null;
+      buildSessionSummaryStats?: (
+        summaryData?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Array<Record<string, unknown>>;
+      buildSavedWorkoutRecord?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown>;
+      buildSessionSummaryData?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown>;
+      buildBonusActiveWorkout?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown>;
+      buildPlannedActiveWorkout?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown>;
+      sanitizeSetValue?: (
+        field: unknown,
+        raw: unknown
+      ) => string | number;
+      applySetUpdateMutation?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown> | null;
+      toggleWorkoutSetCompletion?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown> | null;
+      appendWorkoutSet?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown> | null;
+      removeWorkoutExercise?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown> | null;
+      sanitizeWorkoutExercisesForSave?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Array<Record<string, unknown>>;
+      buildProgramTmAdjustments?: (
+        stateBefore?: Record<string, unknown> | null,
+        stateAfter?: Record<string, unknown> | null
+      ) => Array<Record<string, unknown>>;
+      buildWorkoutProgressionResult?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => Record<string, unknown>;
+      buildCoachNote?: (
+        input?: Record<string, unknown>,
+        deps?: Record<string, unknown>
+      ) => string;
+      buildTmAdjustmentToast?: (
+        adjustments?: Array<Record<string, unknown>> | null,
+        deps?: Record<string, unknown>
+      ) => string;
+      buildPostWorkoutOutcome?: (
+        input?: IronforgePostWorkoutOutcomeInput,
+        deps?: Record<string, unknown>
+      ) => IronforgePostWorkoutOutcomeResult;
+      buildWorkoutStartPresentation?: (
+        input?: IronforgeWorkoutStartPresentationInput,
+        deps?: Record<string, unknown>
+      ) => IronforgeWorkoutStartPresentationResult;
+      buildWorkoutTeardownPlan?: (
+        input?: IronforgeWorkoutTeardownPlanInput,
+        deps?: Record<string, unknown>
+      ) => IronforgeWorkoutTeardownPlanResult;
+    };
     __IRONFORGE_GET_LEGACY_RUNTIME_STATE__?: () => Record<string, unknown> | null;
     __IRONFORGE_SET_LEGACY_RUNTIME_STATE__?: (
       partial: Record<string, unknown>
@@ -245,6 +416,8 @@ declare global {
         loadData?: (options?: Record<string, unknown>) => Promise<void>;
         navigateToPage?: (page: string) => void;
         setCurrentUser?: (user: Record<string, unknown> | null) => void;
+        setLegacyRuntimeState?: (partial: Record<string, unknown>) => void;
+        getLegacyRuntimeState?: () => Record<string, unknown> | null;
         getSeedSnapshot?: () => {
           workouts?: Array<Record<string, unknown>>;
           profile?: Record<string, unknown> | null;
@@ -257,6 +430,7 @@ declare global {
         }) => Promise<void>;
       };
       settings?: {
+        openTab?: (tab: string) => void;
         openProgramTab?: (
           programId?: string,
           programState?: Record<string, unknown> | null

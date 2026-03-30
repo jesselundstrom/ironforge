@@ -9,7 +9,9 @@ import {
   startLegacyRuntimeBridge,
   syncRuntimeStoreFromLegacy,
 } from './services/legacy-runtime';
+import { installAppRuntimeBridge } from './services/app-runtime';
 import { installPlanningWindowBindings } from './services/planning-runtime';
+import { installWorkoutRuntimeBridge } from './services/workout-runtime';
 import { useRuntimeStore } from './store/runtime-store';
 import { installLegacyI18nStoreBridge } from '../stores/i18n-store';
 import { installLegacyDataStoreBridge } from '../stores/data-store';
@@ -64,10 +66,12 @@ if (mountNode) {
   installLegacyProgramStoreBridge();
   installLegacyWorkoutStoreBridge();
   installPlanningWindowBindings();
+  installWorkoutRuntimeBridge();
   installDashboardStore();
   installHistoryStore();
   installNutritionStore();
   installTestStoresBridge();
+  installAppRuntimeBridge();
   prepareLegacyShellMount();
   syncRuntimeStoreFromLegacy();
   createRoot(mountNode).render(<App />);

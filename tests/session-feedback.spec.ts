@@ -17,7 +17,6 @@ declare function ensureWorkoutExerciseUiKeys(
 declare function setSummaryFeedback(value: string): void;
 declare function closeSummaryModal(goToNutrition?: boolean): void;
 declare function renderHistory(): void;
-declare function showPage(page: string, trigger?: Element | null): void;
 declare function normalizeTrainingPreferences(
   profileLike?: Record<string, any> | null
 ): Record<string, any>;
@@ -82,7 +81,7 @@ async function setupWorkoutState(page: Page, seedWorkouts: object[] = []) {
       _setNum: number,
       cb: (v: number) => void
     ) => cb(7);
-    window.showPage('log', document.querySelectorAll('.nav-btn')[1]);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('log');
     window.__IRONFORGE_STORES__?.workout?.resumeActiveWorkoutUI?.({
       toast: false,
     });
@@ -170,7 +169,7 @@ test('summary notes persist onto the workout record and history card', async ({ 
 
   await page.evaluate(() => {
     renderHistory();
-    showPage('history', document.querySelectorAll('.nav-btn')[2]);
+    window.__IRONFORGE_E2E__?.app?.navigateToPage?.('history');
   });
   await expect(page.locator('.hist-session-notes')).toContainText(
     'Left shoulder felt tight on the descent'

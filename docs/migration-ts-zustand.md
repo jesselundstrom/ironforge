@@ -355,3 +355,4 @@ For any phase that changes cached runtime assets, review `sw.js` and decide whet
 - Do not add new migration instructions that refer to `docs/migration-inventory.md` unless that file is explicitly created later for a real need.
 - Prefer updating this file when the migration direction changes, rather than scattering migration status bullets across agent-guidance files.
 - If a future cleanup removes more legacy runtime files, track that as normal architecture cleanup rather than reopening this seven-phase migration plan.
+- Post-migration cleanup work now lives in `docs/post-migration-consolidation.md`.
