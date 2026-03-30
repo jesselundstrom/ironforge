@@ -72,7 +72,7 @@ function copyLegacyRuntime() {
 export default defineConfig({
   // GitHub Pages serves this project from /ironforge/, so built asset URLs
   // need that prefix in production while local dev still runs from /.
-  base: '/ironforge/',
+  base: '/',
   plugins: [preserveClassicScripts(), tailwindcss(), react(), copyLegacyRuntime()],
   build: {
     // The vanilla shell remains the app entry. Vite only bundles module assets
