@@ -2917,3 +2917,7 @@ window.addEventListener('pagehide', () => {
   void flushPendingCloudSync();
 });
 
+window.loginWithEmail = loginWithEmail;
+window.signUpWithEmail = signUpWithEmail;
+window.logout = logout;
+
