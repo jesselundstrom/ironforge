@@ -66,6 +66,15 @@
 - Keep controls usable on small screens and ensure new UI works with touch input.
 - Keep Settings simple-first: expose clear everyday controls in the main view, and keep technical program tuning behind a separate advanced setup path instead of pushing all knobs into the default UI.
 
+## CSS and Tailwind
+- Tailwind CSS v4 is installed and configured via `src/styles/tailwind.css`.
+- Design tokens are bridged from CSS custom properties in `src/styles/tokens.css` to Tailwind's theme system — use Tailwind classes like `bg-accent`, `text-muted`, `rounded-card` for new code.
+- **New components and new UI code must use Tailwind utilities**, not handwritten CSS.
+- **Do not migrate existing legacy CSS for its own sake.** `src/styles/legacy-ui.css` contains the existing styles and must not be rewritten as a standalone task.
+- When editing a component that already exists, opportunistically swap its legacy class names to Tailwind equivalents while you are already in the file — but only if the change is small and safe. Never open a file solely to migrate its CSS.
+- When a class in `legacy-ui.css` has no remaining references in the codebase, delete it. Do not keep dead CSS.
+- Do not add new rules to `legacy-ui.css`. That file shrinks over time, it does not grow.
+
 ## Internationalization
 - User-facing strings must go through the translation system.
 - Add new keys to the current translation source of truth, which is still `core/i18n-layer.js` unless the active migration phase moves that ownership.

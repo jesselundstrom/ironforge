@@ -60,6 +60,7 @@
 - **Layer architecture**: Business logic is still largely split across `core/*.js` plus `app.js`, with an active migration path toward TypeScript + Zustand
 - **Sport schedule**: Configurable sport type (not hardcoded to hockey)
 - **Mobile strategy**: Capacitor for PWA wrapping first, React Native as future option
+- **CSS strategy**: Tailwind CSS v4 for all new UI code; `src/styles/legacy-ui.css` stays untouched unless opportunistically cleaned while already editing a component — never migrated as a standalone task
 - **UI runtime**: React + Vite is the shipped visible-shell runtime
   - `src/app/main.tsx` boots the app
   - `src/app/AppShell.jsx` owns the visible shell, navigation, overlays, and page tree
