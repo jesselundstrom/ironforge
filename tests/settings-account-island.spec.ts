@@ -28,11 +28,11 @@ test('settings account island renders the signed-in nutrition coach state withou
   });
 
   await expect(page.locator('#settings-account-legacy-shell')).toHaveCount(0);
-  await expect(page.locator('#settings-account-react-root')).toContainText(
+  await expect(page.locator('[data-ui="settings-account-card"]')).toContainText(
     /account@example\.com/i
   );
   await expect(
-    page.locator('#settings-account-react-root #backup-context')
+    page.locator('[data-ui="settings-backup-card"] #backup-context')
   ).toContainText(/workouts? since/i);
 
   await page.evaluate(() => {
@@ -133,7 +133,7 @@ test('settings account import keeps hostile workout labels inert after reload', 
   });
 
   await page
-    .locator('#settings-account-react-root input[type="file"]')
+    .locator('[data-ui="settings-backup-import"]')
     .setInputFiles({
       name: 'ironforge-backup.json',
       mimeType: 'application/json',
@@ -276,7 +276,7 @@ test('settings account import normalizes malformed body metrics before persistin
   });
 
   await page
-    .locator('#settings-account-react-root input[type="file"]')
+    .locator('[data-ui="settings-backup-import"]')
     .setInputFiles({
       name: 'ironforge-backup.json',
       mimeType: 'application/json',

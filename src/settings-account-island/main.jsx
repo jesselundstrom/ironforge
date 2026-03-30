@@ -178,6 +178,7 @@ function SettingsAccountIsland() {
               type="file"
               accept=".json"
               className="hidden"
+              data-ui="settings-backup-import"
               onChange={(event) => importData(event.nativeEvent)}
             />
           </label>

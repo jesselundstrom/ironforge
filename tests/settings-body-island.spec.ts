@@ -19,6 +19,8 @@ test('settings body island renders from the legacy bridge and saves through the 
   });
 
   await expect(page.locator('#settings-body-legacy-shell')).toHaveCount(0);
+  await expect(page.locator('[data-ui="settings-body-metrics-card"]')).toBeVisible();
+  await expect(page.locator('[data-ui="settings-body-goal-card"]')).toBeVisible();
   await expect
     .poll(() => page.locator('#settings-body-react-root #body-weight').inputValue(), {
       timeout: 15000,

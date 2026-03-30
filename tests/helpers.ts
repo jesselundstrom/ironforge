@@ -14,16 +14,25 @@ export async function openApp(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 }
 
+async function waitForAppHarness(page: Page) {
+  const isHarnessReady = () =>
+    typeof window.__IRONFORGE_E2E__?.app?.loadData === 'function' &&
+    typeof window.__IRONFORGE_E2E__?.app?.navigateToPage === 'function' &&
+    typeof window.__IRONFORGE_E2E__?.app?.setCurrentUser === 'function' &&
+    typeof window.__IRONFORGE_STORES__?.workout?.getState === 'function' &&
+    typeof window.__IRONFORGE_STORES__?.data?.getActiveWorkoutDraftCache ===
+      'function';
+
+  try {
+    await page.waitForFunction(isHarnessReady, { timeout: 15000 });
+  } catch (error) {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(isHarnessReady, { timeout: 15000 });
+  }
+}
+
 export async function bootstrapAppShell(page: Page) {
-  await page.waitForFunction(
-    () =>
-      typeof window.__IRONFORGE_E2E__?.app?.loadData === 'function' &&
-      typeof window.__IRONFORGE_E2E__?.app?.navigateToPage === 'function' &&
-      typeof window.__IRONFORGE_E2E__?.app?.setCurrentUser === 'function' &&
-      typeof window.__IRONFORGE_STORES__?.workout?.getState === 'function' &&
-      typeof window.__IRONFORGE_STORES__?.data?.getActiveWorkoutDraftCache ===
-        'function'
-  );
+  await waitForAppHarness(page);
 
   await page.evaluate(() => {
     const runtimeWindow = window as Window & {
