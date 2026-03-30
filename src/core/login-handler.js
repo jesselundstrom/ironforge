@@ -69,4 +69,8 @@
   }
 
   document.addEventListener('click', handleLoginClick, true);
+
+  // DEBUG: confirm this script loaded and listeners are active
+  var errEl = document.getElementById('login-error');
+  if (errEl) errEl.textContent = 'handler ready';
 })();
