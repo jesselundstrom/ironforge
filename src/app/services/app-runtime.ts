@@ -143,12 +143,46 @@ function getShortDayNames() {
   ];
 }
 
+function getTrainingGoalLabel(goal: string): string {
+  const map: Record<string, [string, string]> = {
+    strength: ['settings.preferences.goal.strength', 'Strength'],
+    hypertrophy: ['settings.preferences.goal.hypertrophy', 'Hypertrophy'],
+    general_fitness: ['settings.preferences.goal.general_fitness', 'General Fitness'],
+    sport_support: ['settings.preferences.goal.sport_support', 'Sport Support'],
+  };
+  const [key, fallback] = map[goal] || map.strength;
+  return t(key, fallback);
+}
+
+function getEquipmentAccessLabel(value: string): string {
+  const map: Record<string, [string, string]> = {
+    full_gym: ['settings.preferences.equipment.full_gym', 'Full Gym'],
+    basic_gym: ['settings.preferences.equipment.basic_gym', 'Basic Gym'],
+    home_gym: ['settings.preferences.equipment.home_gym', 'Home Gym'],
+    minimal: ['settings.preferences.equipment.minimal', 'Minimal Equipment'],
+  };
+  const [key, fallback] = map[value] || map.full_gym;
+  return t(key, fallback);
+}
+
 function getTrainingSummary(profileLike: MutableRecord) {
-  return (
-    callLegacyWindowFunction<string>(
-      'getTrainingPreferencesSummary',
-      cloneJson(profileLike)
-    ) || ''
+  const prefs = normalizeTrainingPreferences(profileLike);
+  const goal = getTrainingGoalLabel(String(prefs.goal || ''));
+  const days = t(
+    'settings.preferences.training_days_value',
+    '{count} sessions / week',
+    { count: prefs.trainingDaysPerWeek }
+  );
+  const minutes = t(
+    'settings.preferences.duration_value',
+    '{minutes} min',
+    { minutes: prefs.sessionMinutes }
+  );
+  const equipment = getEquipmentAccessLabel(String(prefs.equipmentAccess || ''));
+  return t(
+    'dashboard.preferences_context',
+    'Goal: {goal} · {days} · {minutes} · {equipment}',
+    { goal, days, minutes, equipment }
   );
 }
 
@@ -474,6 +508,117 @@ function buildSettingsScheduleView() {
   };
 }
 
+type SettingsTreeNode =
+  | { type: 'text'; text: string }
+  | { type: 'element'; tag: string; attrs: Record<string, unknown>; children: SettingsTreeNode[] };
+
+function parseInlineStyle(style: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  style.split(';').forEach((decl) => {
+    const idx = decl.indexOf(':');
+    if (idx < 0) return;
+    const prop = decl.slice(0, idx).trim();
+    const val = decl.slice(idx + 1).trim();
+    if (prop && val) result[prop] = val;
+  });
+  return result;
+}
+
+function serializeSettingsNode(node: Node): SettingsTreeNode | null {
+  if (!node) return null;
+  if (node.nodeType === Node.TEXT_NODE) {
+    return node.textContent ? { type: 'text', text: node.textContent } : null;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return null;
+  const el = node as Element;
+  const attrs: Record<string, unknown> = {};
+  Array.from(el.attributes || []).forEach((attr) => {
+    if (attr.name === 'class') attrs.className = attr.value;
+    else if (attr.name === 'for') attrs.htmlFor = attr.value;
+    else if (attr.name === 'style') attrs.style = parseInlineStyle(attr.value);
+    else if (attr.name === 'onclick') attrs.onClickCode = attr.value;
+    else if (attr.name === 'onchange') attrs.onChangeCode = attr.value;
+    else if (attr.name === 'checked') attrs.defaultChecked = true;
+    else attrs[attr.name] = attr.value === '' ? true : attr.value;
+  });
+  if (el.tagName === 'INPUT') {
+    const inputEl = el as HTMLInputElement;
+    if (inputEl.type === 'checkbox') {
+      attrs.defaultChecked = inputEl.checked === true;
+    } else if (attrs.value !== undefined) {
+      attrs.defaultValue = attrs.value;
+      delete attrs.value;
+    } else if (inputEl.value !== '') {
+      attrs.defaultValue = inputEl.value;
+    }
+  } else if (el.tagName === 'TEXTAREA') {
+    attrs.defaultValue = (el as HTMLTextAreaElement).value || '';
+  } else if (el.tagName === 'SELECT') {
+    attrs.defaultValue = (el as HTMLSelectElement).value || '';
+  }
+  return {
+    type: 'element',
+    tag: el.tagName.toLowerCase(),
+    attrs,
+    children: Array.from(el.childNodes || [])
+      .map(serializeSettingsNode)
+      .filter((n): n is SettingsTreeNode => n !== null),
+  };
+}
+
+function buildProgramBasicsSnapshot(): {
+  visible: boolean;
+  summary: string;
+  tree: SettingsTreeNode[];
+} {
+  const store = programStore.getState();
+  const program = store.activeProgram as
+    | (Record<string, unknown> & {
+        renderSimpleSettings?: (state: Record<string, unknown> | null, container: HTMLElement) => void;
+        getSimpleSettingsSummary?: (state: Record<string, unknown> | null) => string;
+      })
+    | null;
+  const state = (store.activeProgramState as Record<string, unknown> | null) || null;
+
+  if (!program || typeof program.renderSimpleSettings !== 'function') {
+    return { visible: false, summary: '', tree: [] };
+  }
+
+  const card = document.createElement('details');
+  const container = document.createElement('div');
+  const summaryEl = document.createElement('div');
+
+  card.style.display = '';
+  program.renderSimpleSettings(state, container);
+
+  // Inject frequency notice if active program doesn't match user's requested days
+  const noticeHtml = callLegacyWindowFunction<string>(
+    'getProgramFrequencyNoticeHTML',
+    String(program.id || ''),
+    cloneJson(getProfileRecord())
+  );
+  if (noticeHtml) container.insertAdjacentHTML('afterbegin', noticeHtml);
+
+  // Apply i18n translations to the detached tree
+  const runtimeWindow = getRuntimeWindow();
+  if (runtimeWindow?.I18N && typeof runtimeWindow.I18N.applyTranslations === 'function') {
+    runtimeWindow.I18N.applyTranslations(card);
+  }
+
+  summaryEl.textContent =
+    typeof program.getSimpleSettingsSummary === 'function'
+      ? program.getSimpleSettingsSummary(state) || ''
+      : '';
+
+  return {
+    visible: card.style.display !== 'none',
+    summary: summaryEl.textContent || '',
+    tree: Array.from(container.childNodes)
+      .map(serializeSettingsNode)
+      .filter((n): n is SettingsTreeNode => n !== null),
+  };
+}
+
 function buildSettingsProgramView() {
   const profile = getProfileRecord();
   const program = programStore.getState().activeProgram as
@@ -487,12 +632,7 @@ function buildSettingsProgramView() {
   const state =
     (programStore.getState().activeProgramState as Record<string, unknown> | null) ||
     null;
-  const basics =
-    callLegacyWindowFunction<{
-      visible?: boolean;
-      summary?: string;
-      tree?: unknown[];
-    }>('getProgramBasicsSnapshotData') || {};
+  const basics = buildProgramBasicsSnapshot();
   const switcher = buildProgramSwitcherData();
   const programId = String(program?.id || programStore.getState().activeProgramId || '');
   const programName = t(`program.${programId}.name`, String(program?.name || ''));
