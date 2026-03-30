@@ -9,6 +9,8 @@ import {
   normalizeTrainingPreferences,
 } from '../../domain/normalizers';
 import { getInitialPlanRecommendation } from '../../domain/planning';
+import { isSimpleMode } from '../../domain/dashboard-view';
+import type { Profile } from '../../domain/types';
 import { useRuntimeStore } from '../store/runtime-store';
 import { isSettingsTab, type SettingsTab } from '../constants';
 import { t } from './i18n';
@@ -151,22 +153,162 @@ function getTrainingSummary(profileLike: MutableRecord) {
 }
 
 function isSimpleModeProfile(profileLike: MutableRecord) {
-  return (
-    callLegacyWindowFunction<boolean>('isSimpleMode', cloneJson(profileLike)) ===
-    true
+  return isSimpleMode(profileLike as Profile | null);
+}
+
+type ProgramSwitcherCard = {
+  id: string;
+  icon: string;
+  name: string;
+  description: string;
+  fitLabel: string;
+  fitTone: string;
+  difficultyKey: string;
+  difficultyTone: string;
+  difficultyLabel: string;
+  active: boolean;
+  activeLabel: string;
+};
+
+function buildProgramSwitcherData(): { helper: string; cards: ProgramSwitcherCard[] } {
+  const profile = getProfileRecord();
+  const prefs = normalizeTrainingPreferences(profile);
+  const requested = Number(prefs.trainingDaysPerWeek) || 3;
+  const requestedLabel = t(
+    'settings.preferences.training_days_value',
+    '{count} sessions / week',
+    { count: requested }
   );
+  const store = programStore.getState();
+  const activeProgramId = store.activeProgramId || '';
+
+  // Build list: programs that support requested days, always include active, fallback to all
+  const matching = store.programs.filter((prog) => {
+    const range = store.getProgramTrainingDaysRange(prog.id as string);
+    return requested >= range.min && requested <= range.max;
+  });
+  const visible = matching.slice();
+  if (
+    activeProgramId &&
+    !visible.some((prog) => (prog.id as string) === activeProgramId)
+  ) {
+    const activeProg = store.getProgramById(activeProgramId);
+    if (activeProg) visible.push(activeProg);
+  }
+  const source = visible.length ? visible : store.programs;
+
+  // Sort by recommendationScore desc, then name asc (mirrors legacy sort)
+  const sorted = source
+    .map((prog) => {
+      const caps = store.getProgramCapabilities(prog.id as string);
+      const score =
+        typeof caps.recommendationScore === 'function'
+          ? caps.recommendationScore(requested, prefs as Record<string, unknown>)
+          : 0;
+      return { prog, score };
+    })
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        String(a.prog.name || '').localeCompare(String(b.prog.name || ''))
+    )
+    .map((entry) => entry.prog);
+
+  const cards: ProgramSwitcherCard[] = sorted.map((prog) => {
+    const id = String(prog.id || '');
+    const range = store.getProgramTrainingDaysRange(id);
+    const supportsExact = requested >= range.min && requested <= range.max;
+    const effective = store.getEffectiveProgramFrequency(id, profile);
+    const effectiveLabel = t(
+      'settings.preferences.training_days_value',
+      '{count} sessions / week',
+      { count: effective }
+    );
+    const difficultyMeta = store.getProgramDifficultyMeta(id);
+    const isActive = id === activeProgramId;
+
+    return {
+      id,
+      icon: String(prog.icon || '🏋️'),
+      name: t(`program.${id}.name`, String(prog.name || '')),
+      description: t(`program.${id}.description`, String(prog.description || '')),
+      fitLabel: supportsExact
+        ? t('program.frequency_card.fit', 'Fits {value}', { value: requestedLabel })
+        : t('program.frequency_card.fallback', 'Uses {value}', { value: effectiveLabel }),
+      fitTone: supportsExact ? 'ok' : 'fallback',
+      difficultyKey: difficultyMeta.key,
+      difficultyTone: difficultyMeta.key,
+      difficultyLabel: t(difficultyMeta.labelKey, difficultyMeta.fallback),
+      active: isActive,
+      activeLabel: t('program.active', 'Active'),
+    };
+  });
+
+  return {
+    helper: t(
+      'program.frequency_filter.showing',
+      'Showing programs that fit {value}. Your current program stays visible if it needs a fallback.',
+      { value: requestedLabel }
+    ),
+    cards,
+  };
+}
+
+function buildSyncStatusLabel(): { label: string; className: string } {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return {
+      label: t(
+        'settings.sync.offline',
+        'Offline. Changes will sync when you reconnect.'
+      ),
+      className: 'sync-status offline',
+    };
+  }
+  const { state } = dataStore.getState().syncStatus;
+  if (state === 'syncing') {
+    return {
+      label: t('settings.sync.syncing', 'Syncing changes...'),
+      className: 'sync-status syncing',
+    };
+  }
+  if (state === 'error') {
+    return {
+      label: t(
+        'settings.sync.error',
+        'Cloud sync issue. Local changes are kept on this device.'
+      ),
+      className: 'sync-status error',
+    };
+  }
+  return {
+    label: t('settings.sync.synced', 'Synced to cloud'),
+    className: 'sync-status synced',
+  };
+}
+
+function buildBackupContextText(): string {
+  const workouts = dataStore.getState().workouts;
+  const count = workouts.length;
+  if (!count) return t('settings.backup_empty', 'No workouts recorded yet.');
+  const dates = workouts.map((w) => String(w.date || '')).filter(Boolean).sort();
+  const first = dates[0] || '';
+  const firstFormatted = first
+    ? new Date(first).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : '';
+  return t('settings.backup_context', '{count} workouts since {date}', {
+    count,
+    date: firstFormatted,
+  });
 }
 
 function buildSettingsAccountView() {
   const profile = getProfileRecord();
   const currentUser = getCurrentUserRecord();
-  const syncStatus =
-    callLegacyWindowFunction<{ label: string; className: string }>(
-      'getSyncStatusLabel'
-    ) || {
-      label: t('settings.sync.synced', 'Synced to cloud'),
-      className: 'sync-status synced',
-    };
+  const syncStatus = buildSyncStatusLabel();
   const nutritionReady = !!String(currentUser?.id || '').trim();
   const uiState = getRuntimeWindow()?.getSettingsAccountUiStateSnapshot?.() || {};
 
@@ -217,8 +359,7 @@ function buildSettingsAccountView() {
         String(profile.language || '').trim() ||
         getRuntimeWindow()?.I18N?.getLanguage?.() ||
         'en',
-      backupContext:
-        callLegacyWindowFunction<string>('getAccountBackupContextText') || '',
+      backupContext: buildBackupContextText(),
       nutritionReady,
       appVersion: getAppVersionLabel(),
       dangerOpen: uiState.dangerOpen === true,
@@ -275,10 +416,8 @@ function buildSettingsScheduleView() {
     : [];
   const dayNames = getShortDayNames();
   const statusName =
-    callLegacyWindowFunction<string>(
-      'getScheduleStatusName',
-      cloneJson(schedule)
-    ) || String(schedule.sportName || '');
+    String(schedule.sportName || '').trim() ||
+    t('settings.status.generic_sport', 'Sport / cardio');
   const intensityLabel = t(
     `settings.intensity.${intensity}`,
     intensity.charAt(0).toUpperCase() + intensity.slice(1)
@@ -326,11 +465,7 @@ function buildSettingsScheduleView() {
       regularSportDays: t('settings.regular_sport_days', 'Regular Sport Days'),
     },
     values: {
-      sportName:
-        callLegacyWindowFunction<string>(
-          'getScheduleSportNameValue',
-          cloneJson(schedule)
-        ) || String(schedule.sportName || ''),
+      sportName: String(schedule.sportName || '').trim(),
       sportIntensity: intensity,
       sportLegsHeavy: schedule.sportLegsHeavy !== false,
       sportDays,
@@ -358,13 +493,7 @@ function buildSettingsProgramView() {
       summary?: string;
       tree?: unknown[];
     }>('getProgramBasicsSnapshotData') || {};
-  const switcher =
-    callLegacyWindowFunction<Record<string, unknown>>(
-      'getProgramSwitcherSnapshotData'
-    ) || {
-      helper: '',
-      cards: [],
-    };
+  const switcher = buildProgramSwitcherData();
   const programId = String(program?.id || programStore.getState().activeProgramId || '');
   const programName = t(`program.${programId}.name`, String(program?.name || ''));
   const programDescription = t(

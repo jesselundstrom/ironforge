@@ -122,7 +122,7 @@ function getStatusText(
   return { tone: 'neutral', text: 'No session logged' };
 }
 
-function isSimpleMode(profile: Profile | null) {
+export function isSimpleMode(profile: Profile | null) {
   if (!profile || typeof profile !== 'object') return false;
   const preferences = (profile.preferences || {}) as Record<string, unknown>;
   if (preferences.detailedView === true) return false;
