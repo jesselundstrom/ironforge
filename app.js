@@ -17,7 +17,32 @@ function refreshDayNames() {
 const SUPABASE_URL = 'https://koreqcjrpzcbfgkptvfx.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY =
   'sb_publishable_Ccuq9Bwyxmyy4JfrWqXlhg_qiWmCYpn';
-const _SB = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+function isStandaloneDisplayMode() {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  );
+}
+
+async function noOpSupabaseLock(_name, _acquireTimeout, fn) {
+  return await fn();
+}
+
+function getSupabaseClientOptions() {
+  if (!isStandaloneDisplayMode()) return {};
+  return {
+    auth: {
+      lock: noOpSupabaseLock,
+    },
+  };
+}
+
+const _SB = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY,
+  getSupabaseClientOptions()
+);
 window.__IRONFORGE_SUPABASE_URL__ = SUPABASE_URL;
 window.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ = SUPABASE_PUBLISHABLE_KEY;
 window.__IRONFORGE_SUPABASE__ = _SB;
@@ -2183,6 +2208,6 @@ initAuth();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/ironforge/sw.js');
+    navigator.serviceWorker.register('./sw.js', { scope: './' });
   });
 }

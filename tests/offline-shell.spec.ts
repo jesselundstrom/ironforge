@@ -11,7 +11,7 @@ test('offline shell boots after the service worker is installed', async ({ page 
     await Promise.all(registrations.map((r) => r.unregister()));
     await caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
     // Register fresh and wait for it to activate before we reload.
-    await navigator.serviceWorker.register('/ironforge/sw.js', { scope: '/ironforge/' });
+    await navigator.serviceWorker.register('./sw.js', { scope: './' });
     await navigator.serviceWorker.ready;
   });
 
