@@ -68,7 +68,7 @@
   - `src/app/store/runtime-store.ts` is already part of the active runtime foundation
   - Compatibility bridges and selected `window.*` globals still exist temporarily for untouched legacy logic and tests
 - **Auth runtime**: React-owned auth/session orchestration now lives in `src/app/services/auth-runtime.ts`; legacy auth globals remain temporary compatibility delegates and should not be restored as the primary login owner
-- **PWA updates**: Installed-app updates use a user-confirmed refresh prompt when a waiting service worker is ready instead of immediately replacing the running shell
+- **PWA updates**: Installed-app updates currently auto-apply waiting service workers and reload so stale Vercel-installed bundles do not linger during login/PWA stabilization
 - **Legacy runtime migration**: The active migration is now the remaining business/runtime layer in `app.js`, `core/*.js`, and `programs/*.js` to TypeScript + Zustand
   - Migrate incrementally with compatibility shims until the typed runtime fully owns each surface
   - Preserve localStorage/Supabase compatibility, offline behavior, and i18n during every phase

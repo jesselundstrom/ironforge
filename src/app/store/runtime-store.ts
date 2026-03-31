@@ -113,7 +113,7 @@ const defaultToast: ToastSnapshot = {
 
 export const useRuntimeStore = create<RuntimeStore>((set) => ({
   auth: {
-    phase: 'booting',
+    phase: 'signed_out',
     isLoggedIn: false,
     pendingAction: null,
     message: '',

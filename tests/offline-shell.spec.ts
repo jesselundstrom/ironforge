@@ -4,19 +4,17 @@ import { openAppShell } from './helpers';
 test('offline shell boots after the service worker is installed', async ({ page }) => {
   await openAppShell(page);
 
-  // Force the latest SW to take over: unregister old, re-register current sw.js,
-  // then do a full online reload so the active SW caches all assets.
-  await page.evaluate(async () => {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((r) => r.unregister()));
-    await caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
-    // Register fresh and wait for it to activate before we reload.
-    await navigator.serviceWorker.register('./sw.js', { scope: './' });
-    await navigator.serviceWorker.ready;
-  });
+  // Wait for the app-managed SW registration to settle online before switching offline.
+  await page.waitForFunction(
+    async () => {
+      const registration = await navigator.serviceWorker.getRegistration('./');
+      return !!registration?.active;
+    },
+    { timeout: 15000 }
+  );
 
-  // Full online reload with the new SW active — waitUntil:'networkidle' lets all
-  // module fetches and their (now-awaited) cache.put operations complete.
+  // Full online reload with the active SW in place — waitUntil:'networkidle' lets
+  // module fetches and their cache.put operations complete before we go offline.
   await page.reload({ waitUntil: 'networkidle' });
 
   // Wait for the React app shell root to exist before switching offline

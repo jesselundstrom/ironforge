@@ -67,7 +67,7 @@
 - Avoid large HTML rewrites unless the task requires them.
 - Keep controls usable on small screens and ensure new UI works with touch input.
 - Keep Settings simple-first: expose clear everyday controls in the main view, and keep technical program tuning behind a separate advanced setup path instead of pushing all knobs into the default UI.
-- Installed-PWA updates now use a waiting-service-worker prompt flow from the React shell instead of immediate replacement; when changing update behavior, preserve the explicit user-confirmed refresh path.
+- Installed-PWA updates currently use an aggressive service-worker replacement path so stale installed bundles are replaced quickly on Vercel; when changing update behavior, prioritize fresh auth/login fixes reaching installed clients over prompt-driven niceties.
 
 ## CSS and Tailwind
 - Tailwind CSS v4 is installed and configured via `src/styles/tailwind.css`.

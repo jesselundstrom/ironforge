@@ -70,13 +70,8 @@ export default function LoginScreen() {
     await signUpWithEmailPassword({ email, password });
   }
 
-  const isBooting = auth.phase === 'booting';
   const isBusy = auth.pendingAction !== null;
-  const statusMessage =
-    auth.message ||
-    (isBooting
-      ? t('login.checking_session', 'Checking your session...')
-      : '');
+  const statusMessage = auth.message || '';
   const statusColor =
     auth.messageTone === 'error'
       ? '#f87171'

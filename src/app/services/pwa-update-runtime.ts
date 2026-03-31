@@ -24,6 +24,17 @@ let waitingWorker: WaitingWorkerLike | null = null;
 let registerPromise: Promise<void> | null = null;
 let controllerChangeAttached = false;
 
+function applyWaitingWorker(worker: WaitingWorkerLike | null) {
+  if (!worker) return;
+  useRuntimeStore.getState().setServiceWorkerState({
+    updateReady: false,
+    applyingUpdate: true,
+  });
+  sessionStorage.setItem(RELOAD_MARKER_KEY, '1');
+  trace('pwa update auto-apply requested');
+  worker.postMessage({ type: 'SKIP_WAITING' });
+}
+
 function getRuntimeWindow(): RuntimeWindow | null {
   if (typeof window === 'undefined') return null;
   return window as RuntimeWindow;
@@ -38,7 +49,7 @@ function trace(message: string, details?: Record<string, unknown>) {
 function setWaitingWorker(worker: WaitingWorkerLike | null) {
   waitingWorker = worker;
   useRuntimeStore.getState().setServiceWorkerState({
-    updateReady: !!worker,
+    updateReady: false,
     applyingUpdate: false,
   });
 }
@@ -49,6 +60,7 @@ function handleWaitingRegistration(
   if (registration?.waiting) {
     trace('pwa update waiting worker ready');
     setWaitingWorker(registration.waiting);
+    applyWaitingWorker(registration.waiting);
   }
 }
 
@@ -80,7 +92,10 @@ async function registerServiceWorker() {
 
     const registration = await navigator.serviceWorker.register('./sw.js', {
       scope: './',
+      updateViaCache: 'none',
     });
+
+    await registration.update();
 
     handleWaitingRegistration(registration);
 
@@ -94,6 +109,7 @@ async function registerServiceWorker() {
         if (!navigator.serviceWorker.controller) return;
         trace('pwa update installed and waiting');
         setWaitingWorker(registration.waiting || installingWorker);
+        applyWaitingWorker(registration.waiting || installingWorker);
       });
     });
 
@@ -120,13 +136,7 @@ async function registerServiceWorker() {
 
 function applyPendingUpdate() {
   if (!waitingWorker) return;
-
-  useRuntimeStore.getState().setServiceWorkerState({
-    applyingUpdate: true,
-  });
-  sessionStorage.setItem(RELOAD_MARKER_KEY, '1');
-  trace('pwa update apply requested');
-  waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+  applyWaitingWorker(waitingWorker);
 }
 
 export function installPwaUpdateRuntime() {
@@ -142,6 +152,7 @@ export function installPwaUpdateRuntime() {
     applyUpdate: applyPendingUpdate,
     setWaitingWorkerForTest: (worker) => {
       setWaitingWorker(worker);
+      applyWaitingWorker(worker);
     },
   };
 

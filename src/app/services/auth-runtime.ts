@@ -276,7 +276,7 @@ export async function bootstrapAuthRuntime() {
     const getSession = authApi.getSession.bind(authApi);
 
     useRuntimeStore.getState().setAuthState({
-      phase: 'booting',
+      phase: 'signed_out',
       isLoggedIn: false,
       pendingAction: null,
       message: '',

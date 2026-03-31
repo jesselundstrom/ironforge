@@ -92,7 +92,7 @@ test('failed sign-in keeps the login screen visible', async ({ page }) => {
   );
 });
 
-test('login stays usable while auth bootstrap is still checking the session', async ({
+test('login stays usable while auth bootstrap is still running in the background', async ({
   page,
 }) => {
   await openApp(page);
@@ -111,9 +111,7 @@ test('login stays usable while auth bootstrap is still checking the session', as
     });
   });
 
-  await expect(page.locator('#login-error')).toHaveText(
-    /checking your session/i
-  );
+  await expect(page.locator('#login-error')).toHaveText('');
   await expect(page.locator('#login-email')).toBeEnabled();
   await expect(page.locator('#login-password')).toBeEnabled();
   await expect(page.getByRole('button', { name: /sign in/i })).toBeEnabled();
@@ -151,7 +149,7 @@ test('logout returns to the login screen', async ({ page }) => {
   await expect(page.locator('#login-screen')).toBeVisible();
 });
 
-test('pwa update prompt applies the waiting worker and requests a reload', async ({
+test('pwa update auto-applies the waiting worker and requests a reload', async ({
   page,
 }) => {
   await openAppShell(page);
@@ -179,11 +177,6 @@ test('pwa update prompt applies the waiting worker and requests a reload', async
       },
     });
   });
-
-  await expect(page.locator('#app-update-toast')).toContainText(
-    /new version of ironforge is ready/i
-  );
-  await page.getByRole('button', { name: /refresh/i }).click();
 
   await page.waitForFunction(
     () =>
