@@ -1,6 +1,7 @@
 import { Component, useEffect, useMemo, useRef } from 'react';
 import { useRuntimeStore } from './store/runtime-store.ts';
 import { t } from './services/i18n.ts';
+import LoginScreen from './LoginScreen.jsx';
 import OnboardingFlow from './OnboardingFlow.jsx';
 import { DashboardIsland } from '../dashboard-island/main.jsx';
 import { HistoryIsland } from '../history-island/main.jsx';
@@ -353,6 +354,7 @@ function PageShell({ id, active, children }) {
 }
 
 export default function AppShell() {
+  const isLoggedIn = useRuntimeStore((state) => state.auth.isLoggedIn);
   const activePage = useRuntimeStore((state) => state.navigation.activePage);
   const activeSettingsTab = useRuntimeStore(
     (state) => state.navigation.activeSettingsTab
@@ -436,6 +438,10 @@ export default function AppShell() {
     previousPageRef.current = activePage;
     runPageActivationSideEffects(activePage);
   }, [activePage]);
+
+  if (!isLoggedIn) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="app" id="app-root">

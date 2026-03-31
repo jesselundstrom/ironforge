@@ -65,13 +65,3 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
-
-body.login-active::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-  background: #08080d url('../../assets/ironforge_bg.jpg') center bottom / cover
-    no-repeat;
-  pointer-events: none;
-}
