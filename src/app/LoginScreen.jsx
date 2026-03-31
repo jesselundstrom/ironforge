@@ -300,7 +300,6 @@ export default function LoginScreen() {
     auth.pendingAction === 'sign_up'
       ? t('login.creating_account', 'Creating account...')
       : t('login.create_account', 'Create Account');
-  const passwordPlaceholder = t('login.password', 'Password');
 
   return (
     <div
@@ -308,7 +307,7 @@ export default function LoginScreen() {
       data-ui="auth-screen"
       className="relative min-h-[100dvh] overflow-hidden bg-[#090b10] text-white"
       style={{
-        backgroundImage: `linear-gradient(180deg, rgba(8,11,16,0.08) 0%, rgba(8,7,5,0.34) 34%, rgba(7,6,5,0.72) 64%, rgba(5,4,4,0.94) 100%), url(${loginHeroImage})`,
+        backgroundImage: `linear-gradient(180deg, rgba(8,11,16,0.05) 0%, rgba(5,7,11,0.55) 60%, rgba(4,6,10,0.88) 100%), url(${loginHeroImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         backgroundRepeat: 'no-repeat',
@@ -322,29 +321,17 @@ export default function LoginScreen() {
         className="pointer-events-none absolute inset-0 z-10 h-full w-full"
       />
 
-      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_24%,rgba(255,156,84,0.26),rgba(255,112,38,0.12)_24%,transparent_54%)]" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-[-6%] z-0 h-[58%] bg-[radial-gradient(ellipse_74%_42%_at_50%_100%,rgba(255,120,44,0.24),rgba(255,92,24,0.1)_36%,transparent_72%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[55%] bg-[radial-gradient(ellipse_60%_45%_at_50%_22%,rgba(255,130,40,0.13),transparent_70%)]" />
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[64%] bg-[linear-gradient(0deg,rgba(5,4,4,0.98)_0%,rgba(7,5,4,0.88)_28%,rgba(10,8,7,0.66)_52%,transparent_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[55%] bg-[linear-gradient(0deg,rgba(4,6,10,0.92)_0%,rgba(4,6,10,0.68)_40%,transparent_100%)]" />
 
-      <div
-        className="absolute inset-x-0 bottom-[max(2.25rem,env(safe-area-inset-bottom))] z-20 flex justify-center px-5 sm:px-6"
-      >
-        <div
-          data-ui="auth-card"
-          className="relative w-full max-w-sm rounded-[28px] border border-[#f6c79e]/14 bg-[rgba(12,10,8,0.72)] px-5 pb-5 pt-6 shadow-[0_30px_80px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,190,120,0.03)] backdrop-blur-[18px]"
-        >
-          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,204,153,0.5),transparent)]" />
-          <div className="mb-5 text-center">
-            <h1 className="font-['Cinzel'] text-[2.1rem] uppercase tracking-[0.16em] text-[#fff4e6] [text-shadow:0_0_18px_rgba(255,155,88,0.22)]">
-              Ironforge
-            </h1>
-            <div className="mx-auto mt-3 h-px w-20 bg-[linear-gradient(90deg,transparent,rgba(255,176,122,0.9),transparent)]" />
-          </div>
+      <div className="pointer-events-none absolute inset-0 z-20" />
+      <div className="absolute z-20 w-full px-5 sm:px-6" style={{ top: '42%', bottom: '33%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="w-full max-w-xs pointer-events-auto">
 
-          <form className="space-y-3" onSubmit={handleSignIn}>
+          <form className="space-y-2" onSubmit={handleSignIn}>
             <input
-              className="h-12 w-full rounded-2xl border border-white/10 bg-black/34 px-4 text-center text-[0.95rem] text-[#fff8f2] placeholder:text-[#f6dcc8]/36 outline-none transition-colors focus:border-[#ff9a57]/56 focus:bg-black/44 focus:ring-0 disabled:opacity-60"
+              className="h-11 w-full rounded-xl border border-white/12 bg-black/40 px-4 text-center text-[14px] text-white placeholder:text-white/35 outline-none backdrop-blur-sm transition-colors focus:border-[#ff8a3d]/60 focus:bg-black/50 focus:ring-0 disabled:opacity-60"
               type="email"
               id="login-email"
               placeholder={t('login.email', 'Email')}
@@ -358,10 +345,10 @@ export default function LoginScreen() {
             />
 
             <input
-              className="h-12 w-full rounded-2xl border border-white/10 bg-black/34 px-4 text-center text-[0.95rem] text-[#fff8f2] placeholder:text-[#f6dcc8]/36 outline-none transition-colors focus:border-[#ff9a57]/56 focus:bg-black/44 focus:ring-0 disabled:opacity-60"
+              className="h-11 w-full rounded-xl border border-white/12 bg-black/40 px-4 text-center text-[14px] text-white placeholder:text-white/35 outline-none backdrop-blur-sm transition-colors focus:border-[#ff8a3d]/60 focus:bg-black/50 focus:ring-0 disabled:opacity-60"
               type="password"
               id="login-password"
-              placeholder={passwordPlaceholder}
+              placeholder={t('login.password', 'Password')}
               autoComplete="current-password"
               value={password}
               onChange={(event) => {
@@ -373,7 +360,7 @@ export default function LoginScreen() {
 
             <div
               id="login-error"
-              className={`min-h-[1rem] px-2 text-center text-[0.74rem] tracking-[0.02em] ${statusToneClass}`}
+              className={`min-h-[16px] text-center text-[12px] ${statusToneClass}`}
             >
               {statusMessage}
             </div>
@@ -390,7 +377,7 @@ export default function LoginScreen() {
               disabled={isBusy}
               data-ui="auth-sign-in"
               data-shell-action="login-with-email"
-              className="h-12 w-full rounded-2xl bg-[linear-gradient(90deg,#bc4f17_0%,#f27d35_52%,#ffb068_100%)] text-[0.95rem] font-semibold tracking-[0.16em] text-white shadow-[0_16px_38px_rgba(211,102,35,0.34),inset_0_1px_0_rgba(255,228,202,0.18)] transition active:scale-[0.985] disabled:opacity-60"
+              className="h-11 w-full rounded-xl bg-[linear-gradient(90deg,#d45f20_0%,#ff8c3a_100%)] text-[14px] font-semibold tracking-wide text-white shadow-[0_8px_28px_rgba(220,100,30,0.35)] transition active:scale-[0.985] disabled:opacity-60"
             >
               {signInLabel}
             </button>
@@ -401,17 +388,16 @@ export default function LoginScreen() {
               disabled={isBusy}
               data-ui="auth-sign-up"
               data-shell-action="signup-with-email"
-              className="h-12 w-full rounded-2xl border border-[#f0bb93]/16 bg-[rgba(255,255,255,0.02)] text-[0.92rem] font-semibold tracking-[0.12em] text-[#ffe4cf]/78 transition active:scale-[0.985] disabled:opacity-60"
+              className="h-11 w-full rounded-xl border border-white/15 bg-transparent text-[14px] font-semibold tracking-wide text-white/75 transition hover:border-white/25 hover:text-white active:scale-[0.985] disabled:opacity-60"
             >
               {signUpLabel}
             </button>
           </form>
 
-          {buildLabel ? (
-            <div className="mt-4 text-center text-[0.56rem] uppercase tracking-[0.34em] text-[#d7b59a]/36">
-              {buildLabel}
-            </div>
-          ) : null}
+          <div className="mt-3 flex items-center justify-center gap-4 text-[9px] uppercase tracking-[0.2em] text-white/25">
+            <span>{t('login.stack_label', 'React Auth')}</span>
+            {buildLabel ? <span>{buildLabel}</span> : null}
+          </div>
         </div>
       </div>
     </div>

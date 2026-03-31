@@ -205,6 +205,67 @@ test('legacy login capture yields once the auth runtime is ready', async ({
   expect(bubbled).toBe(true);
 });
 
+test('legacy fallback creates a standalone Supabase client before auth runtime is ready', async ({
+  page,
+}) => {
+  await openApp(page, { standalone: true });
+
+  await page.evaluate(() => {
+    const runtimeWindow = window as Window & {
+      __fallbackLoginCalled?: number;
+      __IRONFORGE_AUTH_RUNTIME_READY__?: boolean;
+      __IRONFORGE_AUTH_RUNTIME__?: Record<string, unknown>;
+      __IRONFORGE_SUPABASE__?: unknown;
+      loadData?: () => Promise<void>;
+      supabase?: {
+        createClient?: (...args: unknown[]) => {
+          auth: {
+            signInWithPassword: (credentials: {
+              email: string;
+              password: string;
+            }) => Promise<unknown>;
+          };
+        };
+      };
+    };
+
+    runtimeWindow.__fallbackLoginCalled = 0;
+    runtimeWindow.__IRONFORGE_AUTH_RUNTIME_READY__ = false;
+    delete runtimeWindow.__IRONFORGE_AUTH_RUNTIME__;
+    delete runtimeWindow.__IRONFORGE_SUPABASE__;
+    runtimeWindow.loadData = async () => {};
+    runtimeWindow.supabase = {
+      createClient: () => ({
+        auth: {
+          signInWithPassword: async () => {
+            runtimeWindow.__fallbackLoginCalled =
+              (runtimeWindow.__fallbackLoginCalled || 0) + 1;
+            return {
+              data: {
+                session: {
+                  user: {
+                    id: 'fallback-user',
+                    email: 'fallback@example.com',
+                  },
+                },
+              },
+              error: null,
+            };
+          },
+        },
+      }),
+    };
+  });
+
+  await page.locator('#login-email').fill('fallback@example.com');
+  await page.locator('#login-password').fill('hunter22');
+  await page.locator('[data-ui="auth-sign-in"]').dispatchEvent('touchend');
+
+  await page.waitForFunction(
+    () => (window as Window & { __fallbackLoginCalled?: number }).__fallbackLoginCalled === 1
+  );
+});
+
 test('stale standalone bootstrap cannot overwrite an in-flight sign-in', async ({
   page,
 }) => {

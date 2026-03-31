@@ -39,8 +39,77 @@
     return window.__IRONFORGE_AUTH_RUNTIME_READY__ === true;
   }
 
+  function isStandaloneDisplayMode() {
+    return (
+      window.matchMedia &&
+      window.matchMedia('(display-mode: standalone)').matches
+    ) || window.navigator.standalone === true;
+  }
+
+  function noOpSupabaseLock(_name, _acquireTimeout, handler) {
+    return Promise.resolve().then(handler);
+  }
+
+  function getFallbackSupabaseClient() {
+    if (window.__IRONFORGE_SUPABASE__?.auth) {
+      return window.__IRONFORGE_SUPABASE__;
+    }
+
+    var createClient = window.supabase && window.supabase.createClient;
+    var baseUrl = String(window.__IRONFORGE_SUPABASE_URL__ || '').trim();
+    var publishableKey = String(
+      window.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ || ''
+    ).trim();
+
+    if (typeof createClient !== 'function' || !baseUrl || !publishableKey) {
+      return null;
+    }
+
+    try {
+      var options = isStandaloneDisplayMode()
+        ? { auth: { lock: noOpSupabaseLock } }
+        : undefined;
+      var client = createClient(baseUrl, publishableKey, options);
+      if (client && client.auth) {
+        window.__IRONFORGE_SUPABASE__ = client;
+        trace('created fallback supabase client', {
+          standalone: isStandaloneDisplayMode(),
+        });
+        return client;
+      }
+    } catch (error) {
+      trace('failed to create fallback supabase client', {
+        message: error && error.message ? error.message : String(error),
+      });
+    }
+
+    return null;
+  }
+
+  function finalizeFallbackSession(result) {
+    var session = result && result.data ? result.data.session : null;
+    if (!session) return Promise.resolve();
+
+    if (window.__IRONFORGE_APPLY_AUTH_SESSION__) {
+      trace('applying fallback auth session');
+      return Promise.resolve(
+        window.__IRONFORGE_APPLY_AUTH_SESSION__(session, {
+          wasLoggedIn: false,
+          source: 'legacy-fallback-sign-in',
+        })
+      );
+    }
+
+    if (window.__IRONFORGE_AUTH_RUNTIME__ && window.__IRONFORGE_AUTH_RUNTIME__.bootstrap) {
+      trace('bootstrapping auth runtime after fallback sign in');
+      return Promise.resolve(window.__IRONFORGE_AUTH_RUNTIME__.bootstrap());
+    }
+
+    return Promise.resolve();
+  }
+
   function fallbackSignIn(email, password) {
-    var sb = window.__IRONFORGE_SUPABASE__;
+    var sb = getFallbackSupabaseClient();
     if (!sb || !sb.auth || typeof sb.auth.signInWithPassword !== 'function') {
       var keys = [];
       try {
@@ -60,7 +129,11 @@
           hasError: !!(result && result.error),
           error: result && result.error ? result.error.message : '',
         });
-        if (result && result.error) showError(result.error.message);
+        if (result && result.error) {
+          showError(result.error.message);
+          return;
+        }
+        return finalizeFallbackSession(result);
       })
       .catch(function (error) {
         trace('fallback sign in threw', {
@@ -71,7 +144,7 @@
   }
 
   function fallbackSignUp(email, password) {
-    var sb = window.__IRONFORGE_SUPABASE__;
+    var sb = getFallbackSupabaseClient();
     if (!sb || !sb.auth || typeof sb.auth.signUp !== 'function') {
       trace('supabase missing in fallback sign up');
       showError('SB not ready.');
@@ -144,6 +217,25 @@
     fallbackSignUp(email, password);
   }
 
-  document.addEventListener('click', handleLoginClick, true);
+  var lastTouchHandledAt = 0;
+
+  function handleLoginTouch(event) {
+    lastTouchHandledAt = Date.now();
+    handleLoginClick(event);
+  }
+
+  function handleLoginClickGuarded(event) {
+    if (
+      event.type === 'click' &&
+      lastTouchHandledAt &&
+      Date.now() - lastTouchHandledAt < 700
+    ) {
+      return;
+    }
+    handleLoginClick(event);
+  }
+
+  document.addEventListener('click', handleLoginClickGuarded, true);
+  document.addEventListener('touchend', handleLoginTouch, true);
   trace('login handler loaded');
 })();
