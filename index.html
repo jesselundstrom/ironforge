@@ -29,54 +29,8 @@
     />
     <link rel="preload" as="image" href="assets/ironforge_bg.jpg" />
   </head>
-  <body class="login-active">
+  <body>
     <div id="app-shell-react-root"></div>
-
-    <div class="login-page" id="login-screen">
-      <canvas id="sparks" aria-hidden="true"></canvas>
-      <div class="login-hero" aria-hidden="true"></div>
-      <div class="login-wrap">
-        <div class="login-form">
-          <input
-            class="login-input"
-            type="email"
-            id="login-email"
-            data-i18n-placeholder="login.email"
-            placeholder="Email"
-            autocomplete="email"
-          />
-          <input
-            class="login-input"
-            type="password"
-            id="login-password"
-            data-i18n-placeholder="login.password"
-            placeholder="Password"
-            autocomplete="current-password"
-          />
-          <div id="login-error"></div>
-          <pre
-            id="login-debug"
-            hidden
-            aria-live="polite"
-            style="display: none; margin: 10px 0 0; padding: 10px 12px; border-radius: 14px; background: rgba(7, 10, 14, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); color: #cbd5e1; font: 12px/1.45 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; white-space: pre-wrap; text-align: left; max-height: 180px; overflow: auto;"
-          ></pre>
-          <button
-            class="btn-primary"
-            data-shell-action="login-with-email"
-            data-i18n="login.sign_in"
-          >
-            Sign In
-          </button>
-          <button
-            class="btn-secondary"
-            data-shell-action="signup-with-email"
-            data-i18n="login.create_account"
-          >
-            Create Account
-          </button>
-        </div>
-      </div>
-    </div>
 
     <script src="core/login-debug.js"></script>
     <script src="core/error-display.js"></script>
@@ -91,7 +45,6 @@
     <script src="core/workout-layer.js"></script>
     <script src="core/ui-shell.js"></script>
     <script src="core/login-sparks.js"></script>
-    <script src="core/login-handler.js"></script>
     <script src="app.js"></script>
     <script src="programs/forge.js"></script>
     <script src="programs/wendler531.js"></script>

@@ -2910,17 +2910,13 @@ async function initAuth() {
 
 function showLoginScreen() {
   logAuthTrace('showLoginScreen');
-  document.body.classList.add('login-active');
-  document.getElementById('login-screen').style.display = 'flex';
+  window.__IRONFORGE_SET_AUTH_LOGGED_IN__?.(false);
   renderSyncStatus();
-  if (typeof window.startLoginSparks === 'function') window.startLoginSparks();
 }
 
 function hideLoginScreen() {
   logAuthTrace('hideLoginScreen', { userId: currentUser?.id || '' });
-  document.body.classList.remove('login-active');
-  document.getElementById('login-screen').style.display = 'none';
-  if (typeof window.stopLoginSparks === 'function') window.stopLoginSparks();
+  window.__IRONFORGE_SET_AUTH_LOGGED_IN__?.(true);
   const el = document.getElementById('account-email');
   if (el) el.textContent = currentUser?.email ?? '';
   renderSyncStatus();

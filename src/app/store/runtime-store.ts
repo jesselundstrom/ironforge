@@ -16,6 +16,9 @@ import type {
 } from '../constants';
 
 type RuntimeStore = {
+  auth: {
+    isLoggedIn: boolean;
+  };
   navigation: {
     activePage: AppPage;
     activeSettingsTab: SettingsTab;
@@ -55,6 +58,7 @@ type RuntimeStore = {
   setSettingsProgramView: (view: SettingsProgramView | null) => void;
   setSettingsScheduleView: (view: SettingsScheduleView | null) => void;
   setExerciseCatalogView: (view: ExerciseCatalogView | null) => void;
+  setAuthLoggedIn: (isLoggedIn: boolean) => void;
   bumpLanguageVersion: () => void;
 };
 
@@ -96,6 +100,9 @@ const defaultToast: ToastSnapshot = {
 };
 
 export const useRuntimeStore = create<RuntimeStore>((set) => ({
+  auth: {
+    isLoggedIn: false,
+  },
   navigation: {
     activePage: 'dashboard',
     activeSettingsTab: 'schedule',
@@ -236,6 +243,7 @@ export const useRuntimeStore = create<RuntimeStore>((set) => ({
         view,
       },
     })),
+  setAuthLoggedIn: (isLoggedIn) => set(() => ({ auth: { isLoggedIn } })),
   bumpLanguageVersion: () =>
     set((state) => ({
       ui: {
