@@ -1,8 +1,12 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
-export async function openApp(page: Page) {
-  await page.addInitScript(() => {
+type OpenAppOptions = {
+  standalone?: boolean;
+};
+
+export async function openApp(page: Page, options: OpenAppOptions = {}) {
+  await page.addInitScript(({ standalone }) => {
     if (window.name !== 'ironforge-e2e-initialized') {
       localStorage.clear();
       sessionStorage.clear();
@@ -10,7 +14,53 @@ export async function openApp(page: Page) {
     }
 
     window.__IRONFORGE_TEST_USER_ID__ = 'e2e-user';
-  });
+    if (!standalone) return;
+
+    const nativeMatchMedia =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia.bind(window)
+        : null;
+
+    const standaloneQuery = '(display-mode: standalone)';
+    window.matchMedia = (query: string) => {
+      if (query === standaloneQuery) {
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addEventListener() {},
+          removeEventListener() {},
+          addListener() {},
+          removeListener() {},
+          dispatchEvent() {
+            return false;
+          },
+        } as MediaQueryList;
+      }
+      if (nativeMatchMedia) {
+        return nativeMatchMedia(query);
+      }
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener() {},
+        removeEventListener() {},
+        addListener() {},
+        removeListener() {},
+        dispatchEvent() {
+          return false;
+        },
+      } as MediaQueryList;
+    };
+
+    try {
+      Object.defineProperty(window.navigator, 'standalone', {
+        configurable: true,
+        get: () => true,
+      });
+    } catch (_error) {}
+  }, { standalone: options.standalone === true });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 }
 
@@ -99,8 +149,8 @@ export async function bootstrapAppShell(page: Page) {
   });
 }
 
-export async function openAppShell(page: Page) {
-  await openApp(page);
+export async function openAppShell(page: Page, options: OpenAppOptions = {}) {
+  await openApp(page, options);
   await bootstrapAppShell(page);
 }
 

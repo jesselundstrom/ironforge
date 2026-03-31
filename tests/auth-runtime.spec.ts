@@ -131,6 +131,185 @@ test('login stays usable while auth bootstrap is still running in the background
   });
 });
 
+test('standalone sign-in uses the shared auth-owned Supabase client', async ({
+  page,
+}) => {
+  await openApp(page, { standalone: true });
+
+  await page.waitForFunction(
+    () =>
+      typeof window.__IRONFORGE_AUTH_RUNTIME__?.getSupabaseClient ===
+      'function'
+  );
+
+  const usesSingleClient = await page.evaluate(() => {
+    const runtimeClient =
+      window.__IRONFORGE_AUTH_RUNTIME__?.getSupabaseClient?.() || null;
+    return runtimeClient === (window.__IRONFORGE_SUPABASE__ || null);
+  });
+
+  expect(usesSingleClient).toBe(true);
+
+  await page.evaluate(() => {
+    window.loadData = async () => {};
+    if (window.__IRONFORGE_SUPABASE__?.auth) {
+      window.__IRONFORGE_SUPABASE__.auth.signInWithPassword = async ({
+        email,
+      }) => ({
+        data: {
+          session: {
+            user: {
+              id: 'standalone-user',
+              email,
+            },
+          },
+        },
+        error: null,
+      });
+    }
+  });
+
+  await page.locator('#login-email').fill('standalone@example.com');
+  await page.locator('#login-password').fill('hunter22');
+  await page.getByRole('button', { name: /sign in/i }).click();
+
+  await expect(page.locator('#app-root')).toBeVisible();
+});
+
+test('stale standalone bootstrap cannot overwrite an in-flight sign-in', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const runtimeWindow = window as Window & {
+      __IRONFORGE_TEST_AUTH_HOOK__?: {
+        resolveBootstrap?: (() => void) | null;
+      };
+      supabase?: {
+        createClient?: (...args: unknown[]) => Record<string, unknown>;
+      };
+    };
+
+    runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__ = {
+      resolveBootstrap: null,
+    };
+
+    let interceptedSupabase: { createClient?: (...args: unknown[]) => Record<string, unknown> } | undefined;
+
+    Object.defineProperty(runtimeWindow, 'supabase', {
+      configurable: true,
+      get() {
+        return interceptedSupabase;
+      },
+      set(value) {
+        interceptedSupabase = value;
+        if (!value || typeof value.createClient !== 'function') return;
+        const originalCreateClient = value.createClient.bind(value);
+        value.createClient = (...args: unknown[]) => {
+          const client = originalCreateClient(...args);
+          const auth = client?.auth as
+            | {
+                getSession?: () => Promise<unknown>;
+                signInWithPassword?: (credentials: {
+                  email: string;
+                  password: string;
+                }) => Promise<unknown>;
+              }
+            | undefined;
+          if (!auth) return client;
+
+          auth.getSession = async () =>
+            await new Promise((resolve) => {
+              runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__!.resolveBootstrap = () => {
+                resolve({
+                  data: { session: null },
+                  error: null,
+                });
+              };
+            });
+
+          auth.signInWithPassword = async ({ email }) => ({
+            data: {
+              session: {
+                user: {
+                  id: 'stale-bootstrap-user',
+                  email,
+                },
+              },
+            },
+            error: null,
+          });
+
+          return client;
+        };
+      },
+    });
+  });
+
+  await openApp(page, { standalone: true });
+
+  await page.evaluate(() => {
+    window.loadData = async () => {};
+  });
+
+  await page.locator('#login-email').fill('race@example.com');
+  await page.locator('#login-password').fill('hunter22');
+  await page.getByRole('button', { name: /sign in/i }).click();
+
+  await expect(page.locator('#app-root')).toBeVisible();
+
+  await page.evaluate(() => {
+    (
+      window as Window & {
+        __IRONFORGE_TEST_AUTH_HOOK__?: {
+          resolveBootstrap?: (() => void) | null;
+        };
+      }
+    ).__IRONFORGE_TEST_AUTH_HOOK__?.resolveBootstrap?.();
+  });
+
+  await page.waitForTimeout(100);
+
+  await expect(page.locator('#app-root')).toBeVisible();
+  await expect(page.locator('#login-screen')).toHaveCount(0);
+  await page.waitForFunction(() =>
+    (
+      window as Window & {
+        __IRONFORGE_LOGIN_DEBUG__?: {
+          getLines?: () => string[];
+        };
+      }
+    )
+      .__IRONFORGE_LOGIN_DEBUG__?.getLines?.()
+      ?.some((line) =>
+        line.includes('auth runtime bootstrap ignored after newer mutation')
+      )
+  );
+});
+
+test('standalone sign-up keeps the success state on the login screen', async ({
+  page,
+}) => {
+  await openApp(page, { standalone: true });
+
+  await page.evaluate(() => {
+    if (window.__IRONFORGE_SUPABASE__?.auth) {
+      window.__IRONFORGE_SUPABASE__.auth.signUp = async () => ({
+        data: { session: null },
+        error: null,
+      });
+    }
+  });
+
+  await page.locator('#login-email').fill('new-user@example.com');
+  await page.locator('#login-password').fill('hunter22');
+  await page.getByRole('button', { name: /create account/i }).click();
+
+  await expect(page.locator('#login-screen')).toBeVisible();
+  await expect(page.locator('#login-error')).toHaveText(
+    /account created/i
+  );
+});
+
 test('logout returns to the login screen', async ({ page }) => {
   await openAppShell(page);
 
@@ -144,8 +323,13 @@ test('logout returns to the login screen', async ({ page }) => {
 
   await page.evaluate(async () => {
     await window.__IRONFORGE_AUTH_RUNTIME__?.logout?.();
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen instanceof HTMLElement) {
+      loginScreen.style.display = '';
+    }
   });
 
+  await expect(page.locator('#app-root')).toHaveCount(0);
   await expect(page.locator('#login-screen')).toBeVisible();
 });
 

@@ -25,31 +25,36 @@ function isStandaloneDisplayMode() {
   );
 }
 
-async function noOpSupabaseLock(_name, _acquireTimeout, fn) {
-  return await fn();
-}
-
-function getSupabaseClientOptions() {
-  if (!isStandaloneDisplayMode()) return {};
-  return {
-    auth: {
-      lock: noOpSupabaseLock,
-    },
-  };
-}
-
-const _SB = supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
-  getSupabaseClientOptions()
-);
 window.__IRONFORGE_SUPABASE_URL__ = SUPABASE_URL;
 window.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ = SUPABASE_PUBLISHABLE_KEY;
-window.__IRONFORGE_SUPABASE__ = _SB;
-window.__IRONFORGE_LOGIN_DEBUG__?.trace?.('supabase client created', {
+window.__IRONFORGE_LOGIN_DEBUG__?.trace?.('supabase config ready', {
   standalone: isStandaloneDisplayMode(),
-  hasAuth: !!_SB?.auth,
 });
+function getSharedSupabaseClient() {
+  if (window.__IRONFORGE_SUPABASE__?.auth) {
+    return window.__IRONFORGE_SUPABASE__;
+  }
+  if (typeof window.__IRONFORGE_GET_SUPABASE_CLIENT__ === 'function') {
+    try {
+      return window.__IRONFORGE_GET_SUPABASE_CLIENT__();
+    } catch (_error) {
+      return null;
+    }
+  }
+  return null;
+}
+
+const _SB = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const client = getSharedSupabaseClient();
+      if (!client) return undefined;
+      const value = client[prop];
+      return typeof value === 'function' ? value.bind(client) : value;
+    },
+  }
+);
 let currentUser = null;
 
 // STATE (persisted via localStorage)
@@ -451,14 +456,30 @@ function bindLegacyShellActions() {
         event.preventDefault();
         window.__IRONFORGE_LOGIN_DEBUG__?.trace?.('shell action login-with-email');
         if (typeof window.loginWithEmail === 'function') {
-          window.loginWithEmail();
+          const email =
+            document.getElementById('login-email') instanceof HTMLInputElement
+              ? document.getElementById('login-email').value.trim()
+              : '';
+          const password =
+            document.getElementById('login-password') instanceof HTMLInputElement
+              ? document.getElementById('login-password').value
+              : '';
+          window.loginWithEmail({ email, password });
         }
         break;
       case 'signup-with-email':
         event.preventDefault();
         window.__IRONFORGE_LOGIN_DEBUG__?.trace?.('shell action signup-with-email');
         if (typeof window.signUpWithEmail === 'function') {
-          window.signUpWithEmail();
+          const email =
+            document.getElementById('login-email') instanceof HTMLInputElement
+              ? document.getElementById('login-email').value.trim()
+              : '';
+          const password =
+            document.getElementById('login-password') instanceof HTMLInputElement
+              ? document.getElementById('login-password').value
+              : '';
+          window.signUpWithEmail({ email, password });
         }
         break;
       default:
@@ -2208,11 +2229,6 @@ function updateLanguageDependentUI() {
   window.__IRONFORGE_APP_RUNTIME__?.updateLanguageDependentUI?.();
 }
 window.updateLanguageDependentUI = updateLanguageDependentUI;
-
-// INIT
-if (window.__IRONFORGE_AUTH_RUNTIME__?.bootstrap) {
-  window.__IRONFORGE_AUTH_RUNTIME__.bootstrap();
-}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

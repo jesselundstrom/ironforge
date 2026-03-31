@@ -1,7 +1,7 @@
 (function () {
   var TRACE_STORAGE_KEY = 'ironforge:login-debug-trace';
   var DEBUG_FLAG_KEY = 'ironforge:login-debug';
-  var MAX_LINES = 24;
+  var MAX_LINES = 40;
   var traceLines = [];
 
   function isStandaloneDisplayMode() {
@@ -119,6 +119,14 @@
     clear: clear,
     render: render,
     isEnabled: isEnabled,
+    getSnapshot: function () {
+      return {
+        enabled: isEnabled(),
+        standalone: isStandaloneDisplayMode(),
+        path: window.location.pathname,
+        lines: traceLines.slice(),
+      };
+    },
     getLines: function () {
       return traceLines.slice();
     },

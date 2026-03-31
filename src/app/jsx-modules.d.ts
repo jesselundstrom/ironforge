@@ -125,6 +125,23 @@ declare global {
       logout?: () => Promise<void>;
       showLoginScreen?: () => void;
       hideLoginScreen?: () => void;
+      getSupabaseClient?: () => {
+        auth?: {
+          getSession?: () => Promise<unknown>;
+          onAuthStateChange?: (
+            callback: (event: string, session: unknown | null) => void
+          ) => unknown;
+          signInWithPassword?: (credentials: {
+            email: string;
+            password: string;
+          }) => Promise<unknown>;
+          signUp?: (credentials: {
+            email: string;
+            password: string;
+          }) => Promise<unknown>;
+          signOut?: () => Promise<unknown>;
+        };
+      };
     };
     __IRONFORGE_APP_VERSION__?: string;
     __IRONFORGE_APP_SHELL_READY__?: boolean;
@@ -255,6 +272,23 @@ declare global {
     ) => Promise<void> | void;
     __IRONFORGE_REPORT_AUTH_SESSION_ERROR__?: (error: unknown) => void;
     __IRONFORGE_SUPABASE__?: {
+      auth?: {
+        getSession?: () => Promise<unknown>;
+        onAuthStateChange?: (
+          callback: (event: string, session: unknown | null) => void
+        ) => unknown;
+        signInWithPassword?: (credentials: {
+          email: string;
+          password: string;
+        }) => Promise<unknown>;
+        signUp?: (credentials: {
+          email: string;
+          password: string;
+        }) => Promise<unknown>;
+        signOut?: () => Promise<unknown>;
+      };
+    };
+    __IRONFORGE_GET_SUPABASE_CLIENT__?: () => {
       auth?: {
         getSession?: () => Promise<unknown>;
         onAuthStateChange?: (
@@ -427,8 +461,14 @@ declare global {
     confirmCancel?: () => void;
     clearNutritionHistory?: () => void;
     retryLastNutritionMessage?: () => void;
-    loginWithEmail?: () => Promise<unknown> | unknown;
-    signUpWithEmail?: () => Promise<unknown> | unknown;
+    loginWithEmail?: (credentials?: {
+      email?: string;
+      password?: string;
+    }) => Promise<unknown> | unknown;
+    signUpWithEmail?: (credentials?: {
+      email?: string;
+      password?: string;
+    }) => Promise<unknown> | unknown;
     logout?: () => Promise<unknown> | unknown;
     getNutritionRuntimeState?: () => Record<string, unknown>;
     getNutritionActionDefinitions?: () => Array<Record<string, unknown>>;
