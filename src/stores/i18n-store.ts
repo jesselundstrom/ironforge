@@ -6,7 +6,7 @@ type I18nStoreState = {
   version: number;
   fallbackLocale: string;
   supportedLocales: string[];
-  syncFromLegacy: () => string;
+  refreshSnapshot: () => string;
   t: (
     key: string,
     params?: Record<string, unknown> | null,
@@ -91,7 +91,7 @@ export const i18nStore = createStore<I18nStoreState>((set, get) => ({
   version: 0,
   fallbackLocale: 'en',
   supportedLocales: ['en', 'fi'],
-  syncFromLegacy: () => get().language,
+  refreshSnapshot: () => get().language,
   t: (key, params, fallback) =>
     translate(get().language, key, params, fallback),
   setLanguage: (locale, options) => {

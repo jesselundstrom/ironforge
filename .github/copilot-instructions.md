@@ -54,10 +54,10 @@
 - Tailwind CSS v4 is installed and configured via `src/styles/tailwind.css`.
 - Design tokens are bridged from CSS custom properties in `src/styles/tokens.css` to Tailwind's theme system — use Tailwind classes like `bg-accent`, `text-muted`, `rounded-card` for new code.
 - **New components and new UI code must use Tailwind utilities**, not handwritten CSS.
-- **Do not migrate existing legacy CSS for its own sake.** `src/styles/legacy-ui.css` contains the existing styles and must not be rewritten as a standalone task.
+- **Do not migrate existing compatibility CSS for its own sake.** `src/styles/compat-ui.css` contains the existing styles and must not be rewritten as a standalone task.
 - When editing a component that already exists, opportunistically swap its legacy class names to Tailwind equivalents while you are already in the file — but only if the change is small and safe. Never open a file solely to migrate its CSS.
-- When a class in `legacy-ui.css` has no remaining references in the codebase, delete it. Do not keep dead CSS.
-- Do not add new rules to `legacy-ui.css`. That file shrinks over time, it does not grow.
+- When a class in `compat-ui.css` has no remaining references in the codebase, delete it. Do not keep dead CSS.
+- Do not add new rules to `compat-ui.css`. That file shrinks over time, it does not grow.
 - New React-owned UI should expose stable `data-ui` and `data-state` hooks when tests or compatibility seams need a durable DOM contract.
 - Prefer role, id, and `data-*` selectors in Playwright tests; do not make presentational class names the long-term test contract for newly touched surfaces.
 

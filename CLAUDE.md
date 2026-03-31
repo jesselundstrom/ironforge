@@ -67,7 +67,7 @@ _Architecture decisions are logged here as they are made. IMPORTANT: Architectur
 - **Layer architecture**: The shipped app is React/Zustand-owned. Runtime state, auth, onboarding, dashboard, workout logging, history, settings, and typed program logic live under `src/`.
 - **Sport schedule**: Configurable sport type (not hardcoded to hockey)
 - **Mobile strategy**: Capacitor for PWA wrapping first, React Native as future option
-- **CSS strategy**: Tailwind CSS v4 for all new UI code; `src/styles/legacy-ui.css` is a shrinking compatibility layer that should only be cleaned opportunistically while already editing a surface, never as a standalone migration task
+- **CSS strategy**: Tailwind CSS v4 for all new UI code; `src/styles/compat-ui.css` is a shrinking compatibility layer that should only be cleaned opportunistically while already editing a surface, never as a standalone migration task
 - **UI contract**: New React-owned UI should expose stable `data-ui` / `data-state` hooks for tests and compatibility seams instead of relying on presentational class names as the long-term contract
 - **UI runtime**: React + Vite is the shipped runtime
   - `src/app/main.tsx` boots the app

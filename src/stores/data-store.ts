@@ -33,7 +33,7 @@ type DataStoreState = {
   cloudSyncEnabled: boolean;
   syncStatus: SyncStatus;
   activeWorkoutDraft: Record<string, unknown> | null;
-  syncFromLegacy: () => DataStoreSnapshot;
+  refreshSnapshot: () => DataStoreSnapshot;
   loadData: (options?: LoadDataOptions) => Promise<void>;
   saveWorkouts: () => Promise<void>;
   saveScheduleData: () => Promise<void>;
@@ -68,7 +68,7 @@ type DataStoreState = {
 
 type DataStoreSnapshot = Omit<
   DataStoreState,
-  | 'syncFromLegacy'
+  | 'refreshSnapshot'
   | 'loadData'
   | 'saveWorkouts'
   | 'saveScheduleData'
@@ -480,7 +480,7 @@ export const dataStore: StoreApi<DataStoreState> = createStore<DataStoreState>(
     cloudSyncEnabled: true,
     syncStatus: { state: 'idle', updatedAt: null },
     activeWorkoutDraft: null,
-    syncFromLegacy: () => syncSnapshot(),
+    refreshSnapshot: () => syncSnapshot(),
     loadData: async (options) => {
       clearLegacyCachesOnce();
       const userId = getScopedUserId(options?.userId);
@@ -735,5 +735,5 @@ export function reportAuthSessionError(error: unknown) {
 }
 
 export function getDataStateSnapshot() {
-  return dataStore.getState().syncFromLegacy();
+  return dataStore.getState().refreshSnapshot();
 }

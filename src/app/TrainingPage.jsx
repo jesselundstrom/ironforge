@@ -32,7 +32,8 @@ function StartView() {
   }, [options, selectedOption]);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4" id="log-start-react-root">
+      <div id="workout-not-started" className="grid gap-4">
       <section className="rounded-card border border-border bg-surface p-4 shadow-card">
         <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
           {t('log.program.kicker', 'Current Program')}
@@ -53,14 +54,15 @@ function StartView() {
         <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
           {t('log.start.kicker', 'Pick Today’s Session')}
         </div>
-        <div className="grid gap-3">
+        <div className="grid gap-3" id="program-day-options">
           {(options.length ? options : [{ value: '1', label: 'Session 1' }]).map((option) => {
             const active = selectedOption === option.value;
             return (
               <button
                 key={option.value}
                 type="button"
-                className={`rounded-2xl border p-4 text-left transition ${
+                data-option-value={option.value}
+                className={`program-day-option rounded-2xl border p-4 text-left transition ${
                   active
                     ? 'border-accent bg-[rgba(245,130,31,0.10)]'
                     : 'border-border bg-white/[0.02]'
@@ -85,6 +87,7 @@ function StartView() {
           })}
         </div>
         <button
+          data-ui="training-start-button"
           className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ff983d,#f5821f)] px-4 py-3 font-condensed text-base font-bold uppercase tracking-[0.05em] text-white"
           type="button"
           onClick={() => workoutStore.getState().startWorkout(selectedOption)}
@@ -92,6 +95,7 @@ function StartView() {
           {t('log.start_now', 'Start Workout')}
         </button>
       </section>
+      </div>
     </div>
   );
 }
@@ -105,14 +109,15 @@ function ActiveWorkoutView() {
   if (!workout) return null;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4" id="log-active-react-root">
+      <div className="grid gap-4" id="workout-active">
       <section className="rounded-card border border-border bg-surface p-4 shadow-card">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
               {t('log.active.kicker', 'In Progress')}
             </div>
-            <div className="mt-1 text-2xl font-black tracking-[-0.04em] text-text">
+            <div className="active-session-title mt-1 text-2xl font-black tracking-[-0.04em] text-text">
               {workout.sessionDescription || workout.programLabel || 'Workout'}
             </div>
           </div>
@@ -138,7 +143,13 @@ function ActiveWorkoutView() {
               }`}
               onClick={() => workoutStore.getState().updateRestDuration(value)}
             >
-              {value}s
+              {value === 60
+                ? '1 min'
+                : value === 90
+                  ? '90 s'
+                  : value === 120
+                    ? '2 min'
+                    : '3 min'}
             </button>
           ))}
           <button
@@ -155,7 +166,7 @@ function ActiveWorkoutView() {
         {workout.exercises.map((exercise, exerciseIndex) => (
           <section
             key={`${exercise.name}-${exerciseIndex}`}
-            className="rounded-card border border-border bg-surface p-4 shadow-card"
+            className="exercise-block rounded-card border border-border bg-surface p-4 shadow-card"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -183,6 +194,7 @@ function ActiveWorkoutView() {
                     {setIndex + 1}
                   </div>
                   <input
+                    data-field="weight"
                     className="h-12 rounded-xl border border-border bg-white/[0.03] px-3 text-text"
                     type="number"
                     inputMode="decimal"
@@ -195,6 +207,7 @@ function ActiveWorkoutView() {
                     }
                   />
                   <input
+                    data-field="reps"
                     className="h-12 rounded-xl border border-border bg-white/[0.03] px-3 text-text"
                     type="number"
                     inputMode="numeric"
@@ -208,9 +221,9 @@ function ActiveWorkoutView() {
                   />
                   <button
                     type="button"
-                    className={`h-12 rounded-xl border px-3 text-sm font-bold ${
+                    className={`set-check h-12 rounded-xl border px-3 text-sm font-bold ${
                       set.done
-                        ? 'border-green bg-green/15 text-green'
+                        ? 'done border-green bg-green/15 text-green'
                         : 'border-border bg-white/[0.03] text-text'
                     }`}
                     onClick={() => workoutStore.getState().toggleSet(exerciseIndex, setIndex)}
@@ -223,6 +236,7 @@ function ActiveWorkoutView() {
 
             <button
               type="button"
+              data-action="add-set"
               className="mt-4 rounded-xl border border-border bg-white/[0.03] px-4 py-3 text-sm font-bold text-text"
               onClick={() => workoutStore.getState().addSet(exerciseIndex)}
             >
@@ -238,6 +252,7 @@ function ActiveWorkoutView() {
         </div>
         <div className="flex gap-2">
           <input
+            data-field="exercise-name"
             className="h-12 flex-1 rounded-xl border border-border bg-white/[0.03] px-3 text-text"
             type="text"
             placeholder={t('workout.exercise_name', 'Exercise name')}
@@ -273,6 +288,7 @@ function ActiveWorkoutView() {
         >
           {t('workout.cancel', 'Discard Workout')}
         </button>
+      </div>
       </div>
     </div>
   );

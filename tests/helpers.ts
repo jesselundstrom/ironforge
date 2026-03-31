@@ -142,6 +142,33 @@ export async function bootstrapAppShell(page: Page) {
     });
   });
 
+  await page.evaluate(() => {
+    const seededUser = {
+      id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
+      email: 'e2e@example.com',
+    };
+    window.__IRONFORGE_E2E__?.app?.setCurrentUser?.(seededUser);
+    window.__IRONFORGE_SET_AUTH_STATE__?.({
+      phase: 'signed_in',
+      isLoggedIn: true,
+      pendingAction: null,
+      message: '',
+      messageTone: '',
+    });
+    document.body.classList.remove('login-active');
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) loginScreen.style.display = 'none';
+  });
+
+  await page.waitForFunction(() => {
+    const runtimeState = window.__IRONFORGE_STORES__?.runtime?.getState?.();
+    const dataState = window.__IRONFORGE_STORES__?.data?.getState?.();
+    return (
+      runtimeState?.auth?.phase === 'signed_in' &&
+      !!dataState?.currentUser?.id
+    );
+  });
+
   await page.waitForFunction(() => {
     if (window.__IRONFORGE_APP_SHELL_READY__ === true) return true;
     const root = document.getElementById('app-shell-react-root');
@@ -152,6 +179,23 @@ export async function bootstrapAppShell(page: Page) {
 export async function openAppShell(page: Page, options: OpenAppOptions = {}) {
   await openApp(page, options);
   await bootstrapAppShell(page);
+}
+
+export async function completeOnboardingForTests(page: Page) {
+  await page.evaluate(async () => {
+    await window.__IRONFORGE_E2E__?.profile?.update?.({
+      coaching: {
+        ...((window.profile?.coaching as Record<string, unknown>) || {}),
+        onboardingSeen: true,
+        onboardingCompleted: true,
+      },
+    });
+  });
+
+  await page.waitForFunction(() => {
+    const modal = document.getElementById('onboarding-modal');
+    return !modal || !modal.classList.contains('active');
+  });
 }
 
 export async function reloadAppShell(page: Page) {

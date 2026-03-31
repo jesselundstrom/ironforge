@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { useStore } from 'zustand';
 import { useRuntimeStore } from './store/runtime-store.ts';
 import { t } from './services/i18n.ts';
@@ -6,12 +6,19 @@ import LoginScreen from './LoginScreen.jsx';
 import { applyPendingPwaUpdate } from './services/pwa-update-runtime.ts';
 import { confirmCancel, confirmOk } from './services/confirm-actions.ts';
 import { navigateToPage } from './services/navigation-actions.ts';
-import { DashboardIsland } from '../dashboard-island/main.jsx';
-import { HistoryIsland } from '../history-island/main.jsx';
-import TrainingPage from './TrainingPage.jsx';
-import SettingsPage from './SettingsPage.jsx';
-import OnboardingFlow from './OnboardingFlow.jsx';
 import { profileStore } from '../stores/profile-store.ts';
+
+const DashboardPage = lazy(async () => {
+  const module = await import('../dashboard-island/main.jsx');
+  return { default: module.DashboardIsland };
+});
+const HistoryPage = lazy(async () => {
+  const module = await import('../history-island/main.jsx');
+  return { default: module.HistoryIsland };
+});
+const TrainingPage = lazy(() => import('./TrainingPage.jsx'));
+const SettingsPage = lazy(() => import('./SettingsPage.jsx'));
+const OnboardingFlow = lazy(() => import('./OnboardingFlow.jsx'));
 
 const PAGE_META = [
   { id: 'dashboard', label: 'Dashboard' },
@@ -52,11 +59,31 @@ function AppUpdateBanner({ updateReady, applyingUpdate }) {
   );
 }
 
+function PageFallback() {
+  return (
+    <div className="rounded-card border border-border bg-surface p-4 shadow-card">
+      <div className="text-sm text-muted">
+        {t('common.loading', 'Loading...')}
+      </div>
+    </div>
+  );
+}
+
 function PageBody({ activePage }) {
-  if (activePage === 'dashboard') return <DashboardIsland />;
-  if (activePage === 'log') return <TrainingPage />;
-  if (activePage === 'history') return <HistoryIsland />;
-  return <SettingsPage />;
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <div
+        id={`page-${activePage}`}
+        className="page active"
+        data-page={activePage}
+      >
+        {activePage === 'dashboard' ? <DashboardPage /> : null}
+        {activePage === 'log' ? <TrainingPage /> : null}
+        {activePage === 'history' ? <HistoryPage /> : null}
+        {activePage === 'settings' ? <SettingsPage /> : null}
+      </div>
+    </Suspense>
+  );
 }
 
 export default function AppShell() {
@@ -99,6 +126,7 @@ export default function AppShell() {
       />
 
       <div
+        id="toast"
         className={`fixed inset-x-4 bottom-24 z-40 rounded-2xl px-4 py-3 text-sm text-white shadow-card transition ${
           toast?.visible ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
@@ -111,6 +139,7 @@ export default function AppShell() {
           {toast?.undoAction ? (
             <button
               type="button"
+              id="t-undo"
               className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em]"
               onClick={() => {
                 const undoAction = toast.undoAction;
@@ -126,7 +155,9 @@ export default function AppShell() {
 
       <div
         className={`fixed inset-0 z-40 bg-black/55 px-4 py-8 backdrop-blur-sm transition ${
-          confirm?.open ? 'opacity-100' : 'pointer-events-none opacity-0'
+          confirm?.open
+            ? 'active opacity-100'
+            : 'pointer-events-none opacity-0'
         }`}
         id="confirm-modal"
       >
@@ -160,23 +191,25 @@ export default function AppShell() {
       {onboardingOpen ? (
         <div className="fixed inset-0 z-30 overflow-auto bg-black/60 px-4 py-6 backdrop-blur-sm">
           <div className="mx-auto max-w-xl rounded-card border border-border bg-surface p-5 shadow-card">
-            <OnboardingFlow
-              onDone={() => {}}
-              onSkip={async () => {
-                await profileStore.getState().updateProfile({
-                  coaching: {
-                    ...(profile?.coaching || {}),
-                    onboardingSeen: true,
-                    onboardingCompleted: true,
-                  },
-                });
-              }}
-            />
+            <Suspense fallback={<PageFallback />}>
+              <OnboardingFlow
+                onDone={() => {}}
+                onSkip={async () => {
+                  await profileStore.getState().updateProfile({
+                    coaching: {
+                      ...(profile?.coaching || {}),
+                      onboardingSeen: true,
+                      onboardingCompleted: true,
+                    },
+                  });
+                }}
+              />
+            </Suspense>
           </div>
         </div>
       ) : null}
 
-      <main className="mx-auto min-h-[100dvh] max-w-5xl px-4 pb-32 pt-[max(24px,env(safe-area-inset-top))] sm:px-6">
+      <main className="content mx-auto min-h-[100dvh] max-w-5xl px-4 pb-32 pt-[max(24px,env(safe-area-inset-top))] sm:px-6">
         <header className="mb-6 flex items-end justify-between gap-4">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted">
@@ -185,13 +218,17 @@ export default function AppShell() {
             <h1 className="mt-2 text-4xl font-black tracking-[-0.05em] text-text">
               Ironforge
             </h1>
+            <div
+              className="mt-2 text-sm leading-6 text-muted"
+              id="header-sub"
+            />
           </div>
         </header>
 
         <PageBody activePage={activePage} />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-white/8 bg-[#0b0e16]/96 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+      <nav className="bottom-nav fixed inset-x-0 bottom-0 z-20 border-t border-white/8 bg-[#0b0e16]/96 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
         <div className="mx-auto grid max-w-xl grid-cols-4 gap-2">
           {PAGE_META.map((item) => {
             const active = activePage === item.id;
@@ -199,9 +236,10 @@ export default function AppShell() {
               <button
                 key={item.id}
                 type="button"
+                data-page={item.id}
                 className={`rounded-2xl px-3 py-3 text-center transition ${
                   active
-                    ? 'bg-accent/12 text-accent'
+                    ? 'active bg-accent/12 text-accent'
                     : 'bg-white/[0.02] text-text'
                 }`}
                 onClick={() => navigateToPage(item.id)}

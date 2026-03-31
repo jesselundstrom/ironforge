@@ -448,7 +448,7 @@ function HistoryIsland() {
     snapshot.stats.milestones.visible;
 
   return (
-    <>
+    <div id="history-react-root">
       <div id="history-heatmap">
         <Heatmap data={snapshot.heatmap} />
       </div>
@@ -516,7 +516,7 @@ function HistoryIsland() {
           </>
         )}
       </div>
-    </>
+    </div>
   );
 }
 

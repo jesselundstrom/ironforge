@@ -7,8 +7,8 @@
 
 ## Project Context
 
-Ironforge is a personal coaching PWA with three pillars: Training, Nutrition, and Recovery. The shipped app already uses a React + Vite shell with a Zustand runtime foundation, while substantial business logic still lives in `app.js`, `core/*.js`, and `programs/*.js` during the ongoing TypeScript + Zustand migration. Nutrition coaching runs through the Supabase `nutrition-coach` edge function, and the app remains mobile-first with Capacitor as the near-term native wrapper path and React Native as a future option.
-The shipped styling pipeline now runs through Tailwind v4 in `src/styles/tailwind.css`, while `src/styles/legacy-ui.css` remains as a shrinking compatibility layer for untouched legacy surfaces.
+Ironforge is a personal coaching PWA whose broader product vision includes Training, Nutrition, and Recovery. The shipped runtime in this repo is currently the Training Core only: auth, onboarding, dashboard, workout logging, history, and settings. The production app runs through the React + Vite + Zustand shell in `src/`, while some compatibility and migration-era business logic still exists in `core/*.js` and `programs/*.js` for untouched seams. Nutrition coaching remains a deferred rebuild path and should not be treated as live shipped runtime behavior unless the user explicitly reintroduces it.
+The shipped styling pipeline now runs through Tailwind v4 in `src/styles/tailwind.css`, while `src/styles/compat-ui.css` remains as a shrinking compatibility layer for untouched compatibility surfaces.
 
 ## Skills
 

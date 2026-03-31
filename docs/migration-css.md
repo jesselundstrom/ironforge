@@ -1,4 +1,14 @@
-# Ironforge: CSS Architecture Migration Plan
+# Ironforge: Archived CSS Architecture Plan
+
+This file is historical context only.
+
+The current shipped styling direction is:
+
+- Tailwind v4 for new UI in `src/`
+- `src/styles/compat-ui.css` and `src/styles/compat-state.css` as shrinking compatibility layers
+- no active plan to split styles by legacy `*-island` page structure
+
+Do not treat the island-based CSS-module plan below as current runtime guidance unless a future task explicitly revives it.
 
 ## Goal
 

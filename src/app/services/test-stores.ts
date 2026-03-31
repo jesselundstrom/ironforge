@@ -4,6 +4,11 @@ import { i18nStore } from '../../stores/i18n-store';
 import { programStore } from '../../stores/program-store';
 import { profileStore } from '../../stores/profile-store';
 import { workoutStore } from '../../stores/workout-store';
+import type { WorkoutRecord } from '../../domain/types';
+import {
+  buildPlanningContext,
+  getTodayTrainingDecision,
+} from '../../domain/planning';
 import {
   normalizeBodyMetrics,
   normalizeTrainingPreferences,
@@ -14,6 +19,12 @@ import { navigateToPage } from './navigation-actions';
 function cloneJson<T>(value: T): T {
   if (value === undefined || value === null) return value;
   return JSON.parse(JSON.stringify(value));
+}
+
+function inferDurationSignal(durationSeconds: unknown) {
+  const seconds = Number(durationSeconds || 0);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return seconds >= 75 * 60 ? 'too_long' : 'on_target';
 }
 
 export function installTestStoresBridge() {
@@ -35,6 +46,7 @@ export function installTestStoresBridge() {
     workouts?: Array<Record<string, unknown>>;
     profile?: Record<string, unknown> | null;
     schedule?: Record<string, unknown> | null;
+    getActivePageName?: () => string;
   };
   if (testWindow.__IRONFORGE_STORES__) return;
 
@@ -51,6 +63,8 @@ export function installTestStoresBridge() {
   testWindow.__IRONFORGE_SET_AUTH_LOGGED_IN__ = (isLoggedIn) =>
     useRuntimeStore.getState().setAuthLoggedIn(isLoggedIn);
   testWindow.loadData = (options) => dataStore.getState().loadData(options);
+  testWindow.getActivePageName = () =>
+    useRuntimeStore.getState().navigation.activePage;
   testWindow.__IRONFORGE_APP_SHELL_READY__ = true;
   syncWindowState();
   dataStore.subscribe(() => {
@@ -247,6 +261,21 @@ export function installTestStoresBridge() {
       getInitialState: (programId: string) =>
         cloneJson(programStore.getState().getProgramInitialState(programId)) || null,
     },
+    planning: {
+      getTodayDecision: () => {
+        const context = buildPlanningContext({
+          workouts: dataStore.getState().workouts as WorkoutRecord[],
+          profile: (dataStore.getState().profile as Record<string, unknown> | null) || null,
+          schedule:
+            (dataStore.getState().schedule as Record<string, unknown> | null) || null,
+          activeProgram:
+            (programStore.getState().activeProgram as Record<string, unknown> | null) ||
+            null,
+          activeProgramState: programStore.getState().activeProgramState,
+        });
+        return cloneJson(getTodayTrainingDecision(context));
+      },
+    },
     i18n: {
       setLanguage: (locale: string, options?: { persist?: boolean; notify?: boolean }) =>
         i18nStore.getState().setLanguage(locale, options),
@@ -260,6 +289,49 @@ export function installTestStoresBridge() {
             sportReadinessCheckEnabled: enabled === true,
           },
         }),
+    },
+    workout: {
+      completeSession: async (options?: {
+        feedback?: string | null;
+        notes?: string | null;
+        durationSignal?: string | null;
+        inferDurationSignal?: boolean;
+      }) => {
+        const finishedWorkout = await workoutStore.getState().finishWorkout();
+        if (!finishedWorkout) return null;
+
+        const nextWorkout = cloneJson(finishedWorkout) as Record<string, unknown>;
+        if (typeof options?.feedback === 'string') {
+          nextWorkout.sessionFeedback = options.feedback;
+        }
+        if (typeof options?.notes === 'string') {
+          nextWorkout.sessionNotes = options.notes;
+        }
+
+        const durationSignal =
+          options?.durationSignal !== undefined
+            ? options.durationSignal
+            : options?.inferDurationSignal
+              ? inferDurationSignal(nextWorkout.duration)
+              : undefined;
+
+        if (durationSignal !== undefined) {
+          nextWorkout.durationSignal = durationSignal;
+        }
+
+        const workouts = cloneJson(dataStore.getState().workouts || []);
+        const nextWorkouts = workouts.map((workout) =>
+          String(workout?.id || '') === String(nextWorkout.id || '')
+            ? nextWorkout
+            : workout
+        );
+
+        await dataStore.getState().replaceWorkouts(
+          nextWorkouts as WorkoutRecord[]
+        );
+        syncWindowState();
+        return nextWorkout;
+      },
     },
   };
 }

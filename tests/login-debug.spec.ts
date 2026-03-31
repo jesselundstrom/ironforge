@@ -7,8 +7,9 @@ test('login debug handler loads and captures empty sign-in attempts', async ({
   await openApp(page);
 
   await expect(page.locator('#login-screen')).toBeVisible();
-
-  await expect(page.locator('#login-debug')).toContainText(/login debug ready/i);
+  await expect(page.locator('#login-debug')).toContainText(
+    /auth runtime bootstrap start|auth runtime created supabase client/i
+  );
 
   await page.getByRole('button', { name: /sign in/i }).click();
 

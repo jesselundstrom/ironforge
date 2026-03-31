@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openAppShell } from './helpers';
 
-test('dashboard island renders from store-owned data and removes the fallback shell', async ({
+test('dashboard page renders from store-owned data and removes the fallback shell', async ({
   page,
 }) => {
   await openAppShell(page);
@@ -130,7 +130,7 @@ test('dashboard rhythm card keeps sparse states compact', async ({ page }) => {
   await expect(page.locator('.dashboard-plan-insight-row')).toHaveCount(1);
 });
 
-test('dashboard island keeps week strip detail toggling working', async ({ page }) => {
+test('dashboard page keeps week strip detail toggling working', async ({ page }) => {
   await openAppShell(page);
 
   await page.evaluate(async () => {
@@ -249,15 +249,12 @@ test('dashboard coach card shows a rotating rest-day tip when the week is comple
   );
 });
 
-test('dashboard fatigue delegate stays wired to typed stores after the legacy owner extraction', async ({
+test('dashboard recovery card stays wired to typed store data after the runtime cutover', async ({
   page,
 }) => {
   await openAppShell(page);
 
-  const fatigue = await page.evaluate(async () => {
-    const runtimeWindow = window as Window & {
-      computeFatigue?: () => Record<string, unknown> | null;
-    };
+  const recoverySnapshot = await page.evaluate(async () => {
     const forgeState = window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge');
     const today = new Date();
     today.setHours(12, 0, 0, 0);
@@ -293,12 +290,16 @@ test('dashboard fatigue delegate stays wired to typed stores after the legacy ow
       schedule: window.schedule || null,
     });
     window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
-    return runtimeWindow.computeFatigue?.() || null;
+    return {
+      overall: document.getElementById('recovery-overall-value')?.textContent || '',
+      rows: Array.from(document.querySelectorAll('.fatigue-row')).map((row) =>
+        row.textContent || ''
+      ),
+    };
   });
 
-  expect(fatigue).not.toBeNull();
-  expect(typeof fatigue?.overall).toBe('number');
-  expect(typeof fatigue?.muscular).toBe('number');
-  expect(typeof fatigue?.cns).toBe('number');
+  expect(recoverySnapshot.overall).toMatch(/\d/);
+  expect(recoverySnapshot.rows.length).toBeGreaterThanOrEqual(2);
+  expect(recoverySnapshot.rows.join(' ')).toMatch(/muscular|nervous|overall/i);
   await expect(page.locator('#dashboard-react-root .dashboard-section')).toHaveCount(4);
 });

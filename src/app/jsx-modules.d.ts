@@ -548,6 +548,9 @@ declare global {
         getById?: (programId: string) => Record<string, unknown> | null;
         getInitialState?: (programId: string) => Record<string, unknown> | null;
       };
+      planning?: {
+        getTodayDecision?: () => Record<string, unknown> | null;
+      };
       i18n?: {
         setLanguage?: (
           locale: string,
@@ -561,6 +564,12 @@ declare global {
         setSportReadinessCheckEnabled?: (enabled: boolean) => void;
       };
       workout?: {
+        completeSession?: (options?: {
+          feedback?: string | null;
+          notes?: string | null;
+          durationSignal?: string | null;
+          inferDurationSignal?: boolean;
+        }) => Promise<Record<string, unknown> | null>;
         showRPEPicker?: (
           exerciseName: string,
           setNumber: number,

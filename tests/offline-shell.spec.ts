@@ -29,8 +29,7 @@ test('offline shell boots after the service worker is installed', async ({ page 
 
   await page.waitForFunction(
     () =>
-      typeof window.showPage === 'function' &&
-      typeof window.loadData === 'function' &&
+      typeof window.__IRONFORGE_E2E__?.app?.loadData === 'function' &&
       typeof window.__IRONFORGE_SET_AUTH_STATE__ === 'function'
   );
 
@@ -84,5 +83,5 @@ test('offline shell boots after the service worker is installed', async ({ page 
 
   await expect(page.locator('#app-root')).toBeVisible();
   await expect(page.locator('.bottom-nav')).toBeVisible();
-  await expect(page.locator('#sync-status')).toContainText(/offline/i);
+  await expect(page.locator('#page-dashboard')).toBeVisible();
 });

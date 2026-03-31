@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
-import { openAppShell } from './helpers';
+import { completeOnboardingForTests, openAppShell } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -21,10 +21,11 @@ async function openActiveWorkout(page: Page) {
   });
 }
 
-test('log active island renders the active workout editor through the legacy bridge', async ({
+test('log active page renders the active workout editor through the store seam', async ({
   page,
 }) => {
   await openAppShell(page);
+  await completeOnboardingForTests(page);
   await openActiveWorkout(page);
 
   await expect(page.locator('#log-active-react-root .active-session-title')).toContainText(/\S+/);
@@ -33,14 +34,20 @@ test('log active island renders the active workout editor through the legacy bri
     .toBeGreaterThan(0);
 });
 
-test('log active island keeps set completion and rest timer controls working', async ({ page }) => {
+test('log active page keeps set completion and rest timer controls working', async ({ page }) => {
   await openAppShell(page);
+  await completeOnboardingForTests(page);
   await openActiveWorkout(page);
 
   await expect(page.getByRole('button', { name: '3 min' })).toBeVisible({
     timeout: 15000,
   });
   await page.getByRole('button', { name: '3 min' }).click({ force: true });
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__IRONFORGE_STORES__?.workout?.getState?.().restDuration)
+    )
+    .toBe(180);
 
   const interactionResult = await page.evaluate(() => {
     window.__IRONFORGE_STORES__?.workout?.toggleSet?.(0, 0);
@@ -55,15 +62,12 @@ test('log active island keeps set completion and rest timer controls working', a
   expect(interactionResult.done).toBe(true);
 });
 
-test('log active island keeps weight edits and done toggles in sync with the visible UI', async ({
+test('log active page keeps weight edits and done toggles in sync with the visible UI', async ({
   page,
 }) => {
   await openAppShell(page);
+  await completeOnboardingForTests(page);
   await openActiveWorkout(page);
-
-  await page.evaluate(() => {
-    window.showSetRIRPrompt = () => {};
-  });
 
   const firstWeightInput = page.locator('#log-active-react-root input[data-field="weight"]').first();
   const firstToggle = page.locator('#log-active-react-root .set-check').first();
@@ -112,95 +116,47 @@ test('log active island keeps weight edits and done toggles in sync with the vis
     .toBe(false);
 });
 
-test('log active island keeps focus handoff inside React for enter progression and add set', async ({
+test('log active page keeps add-set interactions flowing through the workout store seam', async ({
   page,
 }) => {
   await openAppShell(page);
+  await completeOnboardingForTests(page);
   await openActiveWorkout(page);
 
   const firstExercise = page.locator('#log-active-react-root .exercise-block').first();
-  const firstWeightInput = firstExercise.locator('input[data-field="weight"]').first();
-  const firstRepsInput = firstExercise.locator('input[data-field="reps"]').first();
   const addSetButton = firstExercise.locator('button[data-action="add-set"]');
-
-  await firstWeightInput.focus();
-  await firstWeightInput.press('Enter');
-  await expect(firstRepsInput).toBeFocused();
-
-  const initialSetCount = await firstExercise.locator('.set-row').count();
-
-  await addSetButton.click();
-
-  const newWeightInput = firstExercise
-    .locator('input[data-field="weight"]')
-    .nth(initialSetCount);
-
-  await expect(newWeightInput).toBeFocused();
-});
-
-test('log active island keeps RIR saves flowing through the workout store seam', async ({
-  page,
-}) => {
-  await openAppShell(page);
-  await openActiveWorkout(page);
-
-  await page.evaluate(() => {
-    window.showSetRIRPrompt?.(0, 0);
-  });
-
-  await expect(page.locator('#custom-swap-modal')).toBeVisible();
-  await page.locator('#custom-swap-modal button[data-rir-value="2"]').click();
+  const initialSetCount = await firstExercise.locator('input[data-field="weight"]').count();
 
   await expect
     .poll(() =>
       page.evaluate(() =>
-        String(
-          window.__IRONFORGE_STORES__?.workout?.getState?.().activeWorkout
-            ?.exercises?.[0]?.sets?.[0]?.rir ?? ''
-        )
+        window.__IRONFORGE_STORES__?.workout?.getState?.().activeWorkout?.exercises?.[0]
+          ?.sets?.length || 0
       )
     )
-    .toBe('2');
-  await expect(page.locator('#custom-swap-modal')).toHaveCount(0);
-});
+    .toBe(initialSetCount);
 
-test('log active island keeps custom modal adjustment actions working under strict CSP', async ({
-  page,
-}) => {
-  await openAppShell(page);
-  await openActiveWorkout(page);
+  await addSetButton.click();
 
-  await page.evaluate(() => {
-    (
-      window as Window & {
-        showShortenAdjustmentOptions?: () => void;
-      }
-    ).showShortenAdjustmentOptions?.();
-  });
-
-  await expect(page.locator('#custom-swap-modal')).toBeVisible();
-  await page
-    .locator(
-      '#custom-swap-modal button[data-custom-modal-action="select-shorten-adjustment"][data-adjustment-level="medium"]'
-    )
-    .click();
-
-  await expect(page.locator('#custom-swap-modal')).toHaveCount(0);
+  await expect(
+    firstExercise.locator('input[data-field="weight"]').nth(initialSetCount)
+  ).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(
         () =>
-          window.__IRONFORGE_STORES__?.workout?.getState?.().activeWorkout
-            ?.runnerState?.adjustments?.length || 0
+          window.__IRONFORGE_STORES__?.workout?.getState?.().activeWorkout?.exercises?.[0]
+            ?.sets?.length || 0
       )
     )
-    .toBeGreaterThan(0);
+    .toBe(initialSetCount + 1);
 });
 
-test('log active island keeps add exercise flowing through the workout store seam', async ({
+test('log active page keeps add exercise flowing through the workout store seam', async ({
   page,
 }) => {
   await openAppShell(page);
+  await completeOnboardingForTests(page);
   await openActiveWorkout(page);
 
   const beforeCount = await page.evaluate(

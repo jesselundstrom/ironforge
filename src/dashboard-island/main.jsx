@@ -703,7 +703,7 @@ function DashboardIsland() {
   }, [snapshot]);
 
   return (
-    <>
+    <div id="dashboard-react-root">
       <div className="dashboard-hero dashboard-animate dashboard-delay-1">
         <div className={`card dashboard-card dashboard-hero-card is-${snapshot.hero.tone || 'rest'}`}>
           <div className="dashboard-card-body dashboard-hero-body">
@@ -757,7 +757,7 @@ function DashboardIsland() {
           />
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 

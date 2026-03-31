@@ -23,7 +23,7 @@ type WorkoutStoreState = {
   restEndsAt: number;
   restSecondsLeft: number;
   restTotal: number;
-  syncFromLegacy: () => WorkoutStoreSnapshot;
+  refreshSnapshot: () => WorkoutStoreSnapshot;
   getStartSnapshot: () => WorkoutStartSnapshot | null;
   getCachedStartSnapshot: () => WorkoutStartSnapshot | null;
   clearStartSnapshot: () => void;
@@ -55,7 +55,7 @@ type WorkoutStoreState = {
 
 type WorkoutStoreSnapshot = Omit<
   WorkoutStoreState,
-  | 'syncFromLegacy'
+  | 'refreshSnapshot'
   | 'getStartSnapshot'
   | 'getCachedStartSnapshot'
   | 'clearStartSnapshot'
@@ -98,7 +98,7 @@ function readWorkoutSnapshot(): WorkoutStoreSnapshot {
   };
 }
 
-function syncFromDataStore() {
+function refreshStoreSnapshot() {
   const snapshot = readWorkoutSnapshot();
   workoutStoreRef?.setState((state) => ({
     ...state,
@@ -145,7 +145,7 @@ function setActiveWorkout(
   }
 ) {
   dataStore.getState().setActiveWorkoutState(activeWorkout, restOverrides);
-  syncFromDataStore();
+  refreshStoreSnapshot();
 }
 
 function getSessionOption(selectedOption?: string) {
@@ -198,12 +198,12 @@ async function persistProgramStateAfterFinish(
 export const workoutStore: StoreApi<WorkoutStoreState> =
   createStore<WorkoutStoreState>(() => ({
     ...readWorkoutSnapshot(),
-    syncFromLegacy: () => syncFromDataStore(),
+    refreshSnapshot: () => refreshStoreSnapshot(),
     getStartSnapshot: () => normalizeWorkoutStartSnapshot(cachedStartSnapshot),
     getCachedStartSnapshot: () => normalizeWorkoutStartSnapshot(cachedStartSnapshot),
     clearStartSnapshot: () => {
       cachedStartSnapshot = null;
-      syncFromDataStore();
+      refreshStoreSnapshot();
     },
     startWorkout: (selectedOption) => {
       const program = programStore.getState().activeProgram;
@@ -268,7 +268,7 @@ export const workoutStore: StoreApi<WorkoutStoreState> =
           restSecondsLeft: restDuration,
         }
       );
-      syncFromDataStore();
+      refreshStoreSnapshot();
     },
     startRestTimer: () => {
       const restDuration = Number(dataStore.getState().restDuration || 0);
@@ -282,7 +282,7 @@ export const workoutStore: StoreApi<WorkoutStoreState> =
           restSecondsLeft: restDuration,
         }
       );
-      syncFromDataStore();
+      refreshStoreSnapshot();
     },
     skipRest: () => {
       dataStore.getState().setActiveWorkoutState(
@@ -293,7 +293,7 @@ export const workoutStore: StoreApi<WorkoutStoreState> =
           restTotal: 0,
         }
       );
-      syncFromDataStore();
+      refreshStoreSnapshot();
     },
     addExerciseByName: (name) => {
       const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
@@ -385,13 +385,13 @@ export const workoutStore: StoreApi<WorkoutStoreState> =
 workoutStoreRef = workoutStore;
 
 export function installWorkoutStore() {
-  syncFromDataStore();
+  refreshStoreSnapshot();
   unsubscribeDataStore?.();
   unsubscribeDataStore = dataStore.subscribe(() => {
-    syncFromDataStore();
+    refreshStoreSnapshot();
   });
 }
 
 export function getWorkoutStoreSnapshot() {
-  return workoutStore.getState().syncFromLegacy();
+  return workoutStore.getState().refreshSnapshot();
 }

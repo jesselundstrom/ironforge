@@ -30,7 +30,7 @@ type ProgramStoreState = {
   activeProgramId: string | null;
   activeProgram: AnyProgramPlugin | null;
   activeProgramState: Record<string, unknown> | null;
-  syncFromLegacy: () => ProgramStoreSnapshot;
+  refreshSnapshot: () => ProgramStoreSnapshot;
   getProgramById: (programId?: string | null) => AnyProgramPlugin | null;
   getProgramInitialState: (programId?: string | null) => Record<string, unknown> | null;
   getProgramCapabilities: (programId?: string | null) => ProgramCapabilities;
@@ -46,7 +46,7 @@ type ProgramStoreState = {
 
 type ProgramStoreSnapshot = Omit<
   ProgramStoreState,
-  | 'syncFromLegacy'
+  | 'refreshSnapshot'
   | 'getProgramById'
   | 'getProgramInitialState'
   | 'getProgramCapabilities'
@@ -251,7 +251,7 @@ function readProgramSnapshot(): ProgramStoreSnapshot {
   };
 }
 
-function syncStoreFromLegacy() {
+function refreshStoreSnapshot() {
   const snapshot = readProgramSnapshot();
   programStoreRef?.setState((state) => ({
     ...state,
@@ -263,7 +263,7 @@ function syncStoreFromLegacy() {
 export const programStore: StoreApi<ProgramStoreState> =
   createStore<ProgramStoreState>(() => ({
     ...readProgramSnapshot(),
-    syncFromLegacy: () => syncStoreFromLegacy(),
+    refreshSnapshot: () => refreshStoreSnapshot(),
     getProgramById: (programId) => {
       const registry = (programStoreRef?.getState().registry ||
         getTypedRegistry()) as ProgramRegistry;
@@ -306,17 +306,17 @@ export function installProgramStore() {
   if (storeInstalled) return;
   storeInstalled = true;
 
-  syncStoreFromLegacy();
+  refreshStoreSnapshot();
   unsubscribeProfileStore = profileStore.subscribe(() => {
-    syncStoreFromLegacy();
+    refreshStoreSnapshot();
   });
   unsubscribeDataStore = dataStore.subscribe(() => {
-    syncStoreFromLegacy();
+    refreshStoreSnapshot();
   });
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('visibilitychange', syncStoreFromLegacy);
-    window.addEventListener('focus', syncStoreFromLegacy);
+    window.addEventListener('visibilitychange', refreshStoreSnapshot);
+    window.addEventListener('focus', refreshStoreSnapshot);
   }
 }
 
@@ -326,12 +326,12 @@ export function disposeProgramStore() {
   unsubscribeProfileStore = null;
   unsubscribeDataStore = null;
   if (typeof window !== 'undefined') {
-    window.removeEventListener('visibilitychange', syncStoreFromLegacy);
-    window.removeEventListener('focus', syncStoreFromLegacy);
+    window.removeEventListener('visibilitychange', refreshStoreSnapshot);
+    window.removeEventListener('focus', refreshStoreSnapshot);
   }
   storeInstalled = false;
 }
 
 export function getProgramStoreSnapshot() {
-  return programStore.getState().syncFromLegacy();
+  return programStore.getState().refreshSnapshot();
 }
