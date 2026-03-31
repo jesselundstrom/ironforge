@@ -91,25 +91,19 @@ export default function LoginScreen() {
       : t('login.create_account', 'Create Account');
 
   return (
-    <div className="login-page" id="login-screen">
+    <div
+      className="login-page"
+      id="login-screen"
+      style={{
+        backgroundImage: `url(${loginHeroImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center center',
+        backgroundRepeat: 'no-repeat',
+        backgroundColor: '#090b10',
+      }}
+    >
       <canvas id="sparks" aria-hidden="true" />
-      <div className="login-hero" aria-hidden="true">
-        <img
-          src={loginHeroImage}
-          alt=""
-          loading="eager"
-          fetchPriority="high"
-          style={{
-            width: 'min(100%, 320px)',
-            maxHeight: '100%',
-            objectFit: 'contain',
-            filter:
-              'drop-shadow(0 16px 36px rgba(0, 0, 0, 0.42)) drop-shadow(0 0 20px rgba(245, 130, 31, 0.18))',
-            userSelect: 'none',
-            WebkitUserDrag: 'none',
-          }}
-        />
-      </div>
+      <div className="login-hero" aria-hidden="true" />
       <div className="login-wrap">
         <div className="login-form">
           <input

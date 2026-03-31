@@ -86,7 +86,12 @@ test('login stays usable while auth bootstrap is still checking the session', as
   await expect(page.locator('#login-email')).toBeEnabled();
   await expect(page.locator('#login-password')).toBeEnabled();
   await expect(page.getByRole('button', { name: /sign in/i })).toBeEnabled();
-  await expect(page.locator('#login-screen img')).toBeVisible();
+  await expect(page.locator('#login-screen img')).toHaveCount(0);
+  await page.waitForFunction(() => {
+    const screen = document.getElementById('login-screen');
+    if (!(screen instanceof HTMLElement)) return false;
+    return getComputedStyle(screen).backgroundImage !== 'none';
+  });
 });
 
 test('logout returns to the login screen', async ({ page }) => {

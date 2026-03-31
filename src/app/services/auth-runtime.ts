@@ -36,6 +36,12 @@ type SupabaseSessionResult = {
   error?: { message?: string } | null;
 };
 
+type BootstrapSessionResult =
+  | SupabaseSessionResult
+  | {
+      timedOut: true;
+    };
+
 type AuthRuntime = {
   bootstrap: () => Promise<void>;
   loginWithEmail: (credentials?: {
@@ -89,6 +95,7 @@ type RuntimeWindow = Window & {
 
 let bootstrapPromise: Promise<void> | null = null;
 let authSubscriptionAttached = false;
+const SESSION_BOOTSTRAP_TIMEOUT_MS = 4000;
 
 function getRuntimeWindow(): RuntimeWindow | null {
   if (typeof window === 'undefined') return null;
@@ -202,6 +209,61 @@ function readCredential(input?: { email?: string; password?: string }) {
   };
 }
 
+function clearSignedOutState() {
+  useRuntimeStore.getState().setAuthState({
+    phase: 'signed_out',
+    isLoggedIn: false,
+    pendingAction: null,
+    message: '',
+    messageTone: '',
+  });
+}
+
+async function resolveBootstrapSession(
+  getSession: () => Promise<{
+    data?: { session?: Session | null };
+    error?: Error | null;
+  }>
+): Promise<BootstrapSessionResult> {
+  return await Promise.race([
+    getSession() as Promise<SupabaseSessionResult>,
+    new Promise<BootstrapSessionResult>((resolve) => {
+      window.setTimeout(() => resolve({ timedOut: true }), SESSION_BOOTSTRAP_TIMEOUT_MS);
+    }),
+  ]);
+}
+
+function attachAuthStateSubscription(authApi: NonNullable<SupabaseClientLike['auth']>) {
+  if (authSubscriptionAttached || !authApi.onAuthStateChange) return;
+
+  authSubscriptionAttached = true;
+  authApi.onAuthStateChange((event, session) => {
+    const wasLoggedIn = useRuntimeStore.getState().auth.isLoggedIn;
+    trace('auth runtime onAuthStateChange', {
+      event,
+      hasSession: !!session,
+      userId: session?.user?.id || '',
+      wasLoggedIn,
+    });
+
+    window.setTimeout(() => {
+      void applySessionWithSideEffects(session, { wasLoggedIn }).catch(
+        (error) => {
+          reportAuthError(error);
+          setSignedOutMessage(
+            error instanceof Error
+              ? error.message
+              : t(
+                  'login.finish_error',
+                  'Unable to finish signing in right now.'
+                )
+          );
+        }
+      );
+    }, 0);
+  });
+}
+
 export async function bootstrapAuthRuntime() {
   if (bootstrapPromise) return bootstrapPromise;
 
@@ -221,9 +283,17 @@ export async function bootstrapAuthRuntime() {
     });
 
     trace('auth runtime bootstrap start');
+    attachAuthStateSubscription(authApi);
 
     try {
-      const sessionResult = (await authApi.getSession()) as SupabaseSessionResult;
+      const sessionResult = await resolveBootstrapSession(authApi.getSession);
+      if ('timedOut' in sessionResult) {
+        trace('auth runtime bootstrap timed out', {
+          timeoutMs: SESSION_BOOTSTRAP_TIMEOUT_MS,
+        });
+        clearSignedOutState();
+        return;
+      }
       const session = sessionResult?.data?.session || null;
 
       trace('auth runtime bootstrap resolved', {
@@ -244,37 +314,8 @@ export async function bootstrapAuthRuntime() {
           : t(
               'login.finish_error',
               'Unable to finish signing in right now.'
-            )
+          )
       );
-    }
-
-    if (!authSubscriptionAttached) {
-      authSubscriptionAttached = true;
-      authApi.onAuthStateChange((event, session) => {
-        const wasLoggedIn = useRuntimeStore.getState().auth.isLoggedIn;
-        trace('auth runtime onAuthStateChange', {
-          event,
-          hasSession: !!session,
-          userId: session?.user?.id || '',
-          wasLoggedIn,
-        });
-
-        window.setTimeout(() => {
-          void applySessionWithSideEffects(session, { wasLoggedIn }).catch(
-            (error) => {
-              reportAuthError(error);
-              setSignedOutMessage(
-                error instanceof Error
-                  ? error.message
-                  : t(
-                      'login.finish_error',
-                      'Unable to finish signing in right now.'
-                    )
-              );
-            }
-          );
-        }, 0);
-      });
     }
   })();
 
