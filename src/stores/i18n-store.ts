@@ -1,5 +1,21 @@
 import { createStore } from 'zustand/vanilla';
-import { useRuntimeStore } from '../app/store/runtime-store';
+
+type LegacyI18nApi = {
+  t?: (
+    key: string,
+    params?: Record<string, unknown> | null,
+    fallback?: string
+  ) => string;
+  extendStrings?: (locale: string, entries: Record<string, string>) => void;
+  setLanguage?: (
+    locale: string,
+    options?: { persist?: boolean; notify?: boolean }
+  ) => string | void;
+  getLanguage?: () => string;
+  applyTranslations?: (root?: ParentNode) => void;
+  fallbackLocale?: string;
+  supportedLocales?: string[];
+};
 
 type I18nStoreState = {
   language: string;
@@ -20,115 +36,73 @@ type I18nStoreState = {
   applyTranslations: (root?: ParentNode | null) => void;
 };
 
-type Dictionary = Record<string, string>;
+const LANGUAGE_EVENT = 'ironforge:language-changed';
+let bridgeInstalled = false;
 
-const LANGUAGE_STORAGE_KEY = 'if2_language';
-const dictionaries: Record<string, Dictionary> = {
-  en: {
-    'day.sun.short': 'Sun',
-    'day.mon.short': 'Mon',
-    'day.tue.short': 'Tue',
-    'day.wed.short': 'Wed',
-    'day.thu.short': 'Thu',
-    'day.fri.short': 'Fri',
-    'day.sat.short': 'Sat',
-    'common.sport': 'Sport',
-    'training.days_per_week': '{count} sessions / week',
-  },
-  fi: {
-    'day.sun.short': 'Su',
-    'day.mon.short': 'Ma',
-    'day.tue.short': 'Ti',
-    'day.wed.short': 'Ke',
-    'day.thu.short': 'To',
-    'day.fri.short': 'Pe',
-    'day.sat.short': 'La',
-    'common.sport': 'Urheilu',
-    'training.days_per_week': '{count} harjoitusta / viikko',
-  },
-};
-
-function readStoredLanguage() {
-  if (typeof localStorage === 'undefined') return 'en';
-  try {
-    return String(localStorage.getItem(LANGUAGE_STORAGE_KEY) || '').trim() === 'fi'
-      ? 'fi'
-      : 'en';
-  } catch {
-    return 'en';
-  }
+function getLegacyI18n(): LegacyI18nApi | null {
+  if (typeof window === 'undefined') return null;
+  return window.I18N || null;
 }
 
-function interpolate(
-  template: string,
-  params?: Record<string, unknown> | null
-) {
-  return Object.entries(params || {}).reduce(
-    (value, [key, nextValue]) =>
-      value.replaceAll(`{${key}}`, String(nextValue ?? '')),
-    template
-  );
+function getInitialLanguage() {
+  return getLegacyI18n()?.getLanguage?.() || 'en';
 }
 
-function translate(
-  language: string,
-  key: string,
-  params?: Record<string, unknown> | null,
-  fallback?: string
-) {
-  const dictionary = dictionaries[language] || dictionaries.en;
-  return interpolate(dictionary[key] || fallback || key, params);
+function syncStoreFromLegacy() {
+  const legacy = getLegacyI18n();
+  const language = legacy?.getLanguage?.() || 'en';
+  i18nStore.setState((state) => ({
+    ...state,
+    language,
+    fallbackLocale: String(legacy?.fallbackLocale || 'en'),
+    supportedLocales: Array.isArray(legacy?.supportedLocales)
+      ? legacy.supportedLocales.map((locale) => String(locale))
+      : ['en'],
+    version: state.version + 1,
+  }));
+  return language;
 }
 
-function notifyLanguageChanged() {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new Event('ironforge:language-changed'));
-  useRuntimeStore.getState().bumpLanguageVersion();
-}
-
-export const i18nStore = createStore<I18nStoreState>((set, get) => ({
-  language: readStoredLanguage(),
+export const i18nStore = createStore<I18nStoreState>((set) => ({
+  language: getInitialLanguage(),
   version: 0,
-  fallbackLocale: 'en',
-  supportedLocales: ['en', 'fi'],
-  syncFromLegacy: () => get().language,
-  t: (key, params, fallback) =>
-    translate(get().language, key, params, fallback),
-  setLanguage: (locale, options) => {
-    const nextLanguage = String(locale || '').toLowerCase().startsWith('fi')
-      ? 'fi'
-      : 'en';
-    if (options?.persist !== false && typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
-      } catch {}
+  fallbackLocale: String(getLegacyI18n()?.fallbackLocale || 'en'),
+  supportedLocales: Array.isArray(getLegacyI18n()?.supportedLocales)
+    ? (getLegacyI18n()?.supportedLocales || []).map((locale) => String(locale))
+    : ['en'],
+  syncFromLegacy: () => syncStoreFromLegacy(),
+  t: (key, params, fallback) => {
+    const legacy = getLegacyI18n();
+    if (legacy?.t) {
+      return legacy.t(key, params, fallback);
     }
+    return String(fallback ?? key);
+  },
+  setLanguage: (locale, options) => {
+    const legacy = getLegacyI18n();
+    legacy?.setLanguage?.(locale, options);
+    const nextLanguage = legacy?.getLanguage?.() || String(locale);
     set((state) => ({
       ...state,
       language: nextLanguage,
       version: state.version + 1,
     }));
-    if (options?.notify !== false) {
-      notifyLanguageChanged();
-    }
     return nextLanguage;
   },
   extendStrings: (locale, entries) => {
-    const key = String(locale || '').toLowerCase().startsWith('fi') ? 'fi' : 'en';
-    dictionaries[key] = {
-      ...(dictionaries[key] || {}),
-      ...(entries || {}),
-    };
-    set((state) => ({
-      ...state,
-      version: state.version + 1,
-    }));
+    getLegacyI18n()?.extendStrings?.(locale, entries);
+    syncStoreFromLegacy();
   },
-  applyTranslations: () => {},
+  applyTranslations: (root) => {
+    getLegacyI18n()?.applyTranslations?.(root || undefined);
+  },
 }));
 
-export function installI18nStore() {
-  useRuntimeStore.getState().bumpLanguageVersion();
+export function installLegacyI18nStoreBridge() {
+  if (bridgeInstalled || typeof window === 'undefined') return;
+  bridgeInstalled = true;
+  syncStoreFromLegacy();
+  window.addEventListener(LANGUAGE_EVENT, syncStoreFromLegacy);
 }
 
 export function tr(

@@ -10,52 +10,145 @@ import {
 } from '../../domain/normalizers';
 import { useRuntimeStore } from '../store/runtime-store';
 import { navigateToPage } from './navigation-actions';
+import { callLegacyWindowFunction } from './legacy-call';
+import {
+  showRPEPicker,
+  showSessionSummary,
+  showSportReadinessCheck,
+} from './workout-ui-actions';
+
+type TestStoreBridge = {
+  data: {
+    getState: () => ReturnType<typeof dataStore.getState>;
+    getActiveWorkoutDraftCache: () => ReturnType<
+      ReturnType<typeof dataStore.getState>['getActiveWorkoutDraftCache']
+    >;
+  };
+  workout: {
+    getState: () => ReturnType<typeof workoutStore.getState>;
+    startWorkout: () => void;
+    resumeActiveWorkoutUI: (options?: Record<string, unknown>) => unknown;
+    updateRestDuration: (
+      nextValue?: string | number | null
+    ) => void;
+    addExerciseByName: (name: string) => void;
+    applySetRIR: (
+      exerciseIndex: number,
+      setIndex: number,
+      rirValue: string | number
+    ) => void;
+    toggleSet: (exerciseIndex: number, setIndex: number) => void;
+    updateSet: (
+      exerciseIndex: number,
+      setIndex: number,
+      field: string,
+      value: string | number
+    ) => void;
+    addSet: (exerciseIndex: number) => void;
+    finishWorkout: () => Promise<unknown> | unknown;
+    cancelWorkout: () => void;
+  };
+  runtime: {
+    getState: () => ReturnType<typeof useRuntimeStore.getState>;
+  };
+};
+
+type E2EHarness = {
+  app: {
+    loadData: (
+      options?: Parameters<ReturnType<typeof dataStore.getState>['loadData']>[0]
+    ) => Promise<void>;
+    navigateToPage: (page: string) => void;
+    setCurrentUser: (user: Record<string, unknown> | null) => void;
+    setLegacyRuntimeState: (partial: Record<string, unknown>) => void;
+    getLegacyRuntimeState: () => Record<string, unknown> | null;
+    getSeedSnapshot: () => {
+      workouts: Array<Record<string, unknown>>;
+      profile: Record<string, unknown> | null;
+      schedule: Record<string, unknown> | null;
+    };
+    seedData: (snapshot: {
+      workouts?: Array<Record<string, unknown>>;
+      profile?: Record<string, unknown> | null;
+      schedule?: Record<string, unknown> | null;
+    }) => Promise<void>;
+  };
+  settings: {
+    openTab: (tab: string) => void;
+    openProgramTab: (
+      programId?: string,
+      programState?: Record<string, unknown> | null
+    ) => void;
+    openBodyTab: (bodyMetrics?: Record<string, unknown> | null) => Promise<void>;
+    openPreferencesTab: (options?: {
+      preferences?: Record<string, unknown> | null;
+      defaultRest?: number | string | null;
+    }) => Promise<void>;
+  };
+  program: {
+    getById: (programId: string) => Record<string, unknown> | null;
+    getInitialState: (programId: string) => Record<string, unknown> | null;
+  };
+  i18n: {
+    setLanguage: (
+      locale: string,
+      options?: { persist?: boolean; notify?: boolean }
+    ) => string;
+  };
+  profile: {
+    update: (patch: Record<string, unknown>) => Record<string, unknown> | null;
+    setSportReadinessCheckEnabled: (enabled: boolean) => void;
+  };
+  workout: {
+    showRPEPicker: (
+      exerciseName: string,
+      setNumber: number,
+      callback: (value: number | null) => void
+    ) => unknown;
+    showSportReadinessCheck: (
+      callback: (context: Record<string, unknown> | null) => void
+    ) => unknown;
+    showSessionSummary: (summaryData: Record<string, unknown>) => unknown;
+  };
+};
 
 function cloneJson<T>(value: T): T {
   if (value === undefined || value === null) return value;
   return JSON.parse(JSON.stringify(value));
 }
 
+function openSettingsTab(tab: string) {
+  const trigger = document.querySelectorAll('.nav-btn')[3] || null;
+  callLegacyWindowFunction('initSettings');
+  callLegacyWindowFunction('showPage', 'settings', trigger);
+  callLegacyWindowFunction('showSettingsTab', tab, trigger);
+  callLegacyWindowFunction('syncSettingsBridge');
+}
+
+function syncHarnessStores(testWindow: Window & {
+  __IRONFORGE_APP_RUNTIME__?: {
+    syncSettingsBridge?: () => void;
+  };
+  syncWorkoutSessionBridge?: () => void;
+}) {
+  dataStore.getState().syncFromLegacy();
+  profileStore.getState().syncFromDataStore();
+  programStore.getState().syncFromLegacy();
+  workoutStore.getState().syncFromLegacy();
+  testWindow.__IRONFORGE_APP_RUNTIME__?.syncSettingsBridge?.();
+  testWindow.syncWorkoutSessionBridge?.();
+}
+
 export function installTestStoresBridge() {
   if (typeof window === 'undefined' || !IS_E2E_TEST_ENV) return;
   const testWindow = window as Window & {
-    __IRONFORGE_STORES__?: Record<string, unknown>;
-    __IRONFORGE_E2E__?: Record<string, unknown>;
-    __IRONFORGE_SET_AUTH_STATE__?: (partial: {
-      phase?: 'booting' | 'signed_out' | 'signed_in';
-      isLoggedIn?: boolean;
-      pendingAction?: 'sign_in' | 'sign_up' | 'sign_out' | null;
-      message?: string;
-      messageTone?: '' | 'info' | 'error';
-    }) => void;
-    __IRONFORGE_SET_AUTH_LOGGED_IN__?: (isLoggedIn: boolean) => void;
-    __IRONFORGE_APP_SHELL_READY__?: boolean;
-    loadData?: (options?: { allowCloudSync?: boolean; userId?: string }) => Promise<void>;
-    currentUser?: Record<string, unknown> | null;
-    workouts?: Array<Record<string, unknown>>;
-    profile?: Record<string, unknown> | null;
-    schedule?: Record<string, unknown> | null;
+    __IRONFORGE_STORES__?: TestStoreBridge;
+    __IRONFORGE_E2E__?: E2EHarness;
+    __IRONFORGE_SET_LEGACY_RUNTIME_STATE__?: (
+      partial: Record<string, unknown>
+    ) => void;
   };
   if (testWindow.__IRONFORGE_STORES__) return;
-
-  const syncWindowState = () => {
-    const data = dataStore.getState();
-    testWindow.currentUser = cloneJson(data.currentUser || null);
-    testWindow.workouts = cloneJson((data.workouts || []) as Array<Record<string, unknown>>);
-    testWindow.profile = cloneJson(data.profile || null);
-    testWindow.schedule = cloneJson(data.schedule || null);
-  };
-
-  testWindow.__IRONFORGE_SET_AUTH_STATE__ = (partial) =>
-    useRuntimeStore.getState().setAuthState(partial);
-  testWindow.__IRONFORGE_SET_AUTH_LOGGED_IN__ = (isLoggedIn) =>
-    useRuntimeStore.getState().setAuthLoggedIn(isLoggedIn);
-  testWindow.loadData = (options) => dataStore.getState().loadData(options);
-  testWindow.__IRONFORGE_APP_SHELL_READY__ = true;
-  syncWindowState();
-  dataStore.subscribe(() => {
-    syncWindowState();
-  });
 
   testWindow.__IRONFORGE_STORES__ = {
     data: {
@@ -65,27 +158,20 @@ export function installTestStoresBridge() {
     },
     workout: {
       getState: () => workoutStore.getState(),
-      startWorkout: (selectedOption?: string) =>
-        workoutStore.getState().startWorkout(selectedOption),
-      resumeActiveWorkoutUI: () => workoutStore.getState().resumeActiveWorkoutUI(),
-      updateRestDuration: (nextValue?: string | number | null) =>
+      startWorkout: () => workoutStore.getState().startWorkout(),
+      resumeActiveWorkoutUI: (options) =>
+        workoutStore.getState().resumeActiveWorkoutUI(options),
+      updateRestDuration: (nextValue) =>
         workoutStore.getState().updateRestDuration(nextValue),
-      addExerciseByName: (name: string) =>
+      addExerciseByName: (name) =>
         workoutStore.getState().addExerciseByName(name),
-      applySetRIR: (
-        exerciseIndex: number,
-        setIndex: number,
-        rirValue: string | number
-      ) => workoutStore.getState().applySetRIR(exerciseIndex, setIndex, rirValue),
-      toggleSet: (exerciseIndex: number, setIndex: number) =>
+      applySetRIR: (exerciseIndex, setIndex, rirValue) =>
+        workoutStore.getState().applySetRIR(exerciseIndex, setIndex, rirValue),
+      toggleSet: (exerciseIndex, setIndex) =>
         workoutStore.getState().toggleSet(exerciseIndex, setIndex),
-      updateSet: (
-        exerciseIndex: number,
-        setIndex: number,
-        field: string,
-        value: string | number
-      ) => workoutStore.getState().updateSet(exerciseIndex, setIndex, field, value),
-      addSet: (exerciseIndex: number) => workoutStore.getState().addSet(exerciseIndex),
+      updateSet: (exerciseIndex, setIndex, field, value) =>
+        workoutStore.getState().updateSet(exerciseIndex, setIndex, field, value),
+      addSet: (exerciseIndex) => workoutStore.getState().addSet(exerciseIndex),
       finishWorkout: () => workoutStore.getState().finishWorkout(),
       cancelWorkout: () => workoutStore.getState().cancelWorkout(),
     },
@@ -96,23 +182,31 @@ export function installTestStoresBridge() {
 
   testWindow.__IRONFORGE_E2E__ = {
     app: {
-      loadData: (options?: { allowCloudSync?: boolean; userId?: string }) =>
-        Promise.resolve(dataStore.getState().loadData(options)),
-      navigateToPage: (page: string) => {
+      loadData: (options) => Promise.resolve(dataStore.getState().loadData(options)),
+      navigateToPage: (page) => {
         if (
           page === 'dashboard' ||
           page === 'log' ||
           page === 'history' ||
-          page === 'settings'
+          page === 'settings' ||
+          page === 'nutrition'
         ) {
           navigateToPage(page);
+          callLegacyWindowFunction('runPageActivationSideEffects', page);
         }
       },
-      setCurrentUser: (user: Record<string, unknown> | null) => {
-        dataStore.getState().setCurrentUser(cloneJson(user || null));
-        useRuntimeStore.getState().setAuthLoggedIn(!!user);
-        syncWindowState();
+      setCurrentUser: (user) => {
+        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+          currentUser: cloneJson(user || null),
+        });
+        syncHarnessStores(testWindow);
       },
+      setLegacyRuntimeState: (partial) => {
+        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.(cloneJson(partial || {}));
+        syncHarnessStores(testWindow);
+      },
+      getLegacyRuntimeState: () =>
+        cloneJson(window.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || null),
       getSeedSnapshot: () => {
         const currentData = dataStore.getState();
         return {
@@ -121,17 +215,24 @@ export function installTestStoresBridge() {
           schedule: cloneJson(currentData.schedule || null),
         };
       },
-      seedData: async (snapshot?: {
-        workouts?: Array<Record<string, unknown>>;
-        profile?: Record<string, unknown> | null;
-        schedule?: Record<string, unknown> | null;
-      }) => {
+      seedData: async (snapshot) => {
         const next = snapshot || {};
         const userId =
-          String(dataStore.getState().currentUser?.id || window.__IRONFORGE_TEST_USER_ID__ || '').trim() ||
+          String(window.currentUser?.id || window.__IRONFORGE_TEST_USER_ID__ || '').trim() ||
           'e2e-user';
-        const getKey = (baseKey: string) =>
-          dataStore.getState().getLocalCacheKey(baseKey, userId);
+        const currentData = dataStore.getState();
+        const nextWorkouts = Array.isArray(next.workouts)
+          ? next.workouts
+          : cloneJson(currentData.workouts || []);
+        const nextProfile =
+          next.profile && typeof next.profile === 'object'
+            ? next.profile
+            : cloneJson(currentData.profile || {});
+        const nextSchedule =
+          next.schedule && typeof next.schedule === 'object'
+            ? next.schedule
+            : cloneJson(currentData.schedule || {});
+        const getKey = (baseKey: string) => dataStore.getState().getLocalCacheKey(baseKey, userId);
         const writeJson = (key: string, value: unknown) => {
           if (value === undefined) {
             localStorage.removeItem(key);
@@ -140,25 +241,20 @@ export function installTestStoresBridge() {
           localStorage.setItem(key, JSON.stringify(value));
         };
 
-        if (next.workouts) {
-          writeJson(getKey('if2_workouts'), next.workouts);
-        }
-        if (next.profile) {
-          writeJson(getKey('if2_profile'), next.profile);
-        }
-        if (next.schedule) {
-          writeJson(getKey('if2_schedule'), next.schedule);
-        }
+        writeJson(getKey('ic_workouts'), nextWorkouts);
+        writeJson(getKey('ic_profile'), nextProfile);
+        writeJson(getKey('ic_schedule'), nextSchedule);
 
         await dataStore.getState().loadData({
           allowCloudSync: false,
+          allowLegacyFallback: false,
           userId,
         });
-        syncWindowState();
+        syncHarnessStores(testWindow);
       },
     },
     settings: {
-      openTab: (tab: string) => {
+      openTab: (tab) => {
         if (
           tab === 'schedule' ||
           tab === 'preferences' ||
@@ -166,34 +262,30 @@ export function installTestStoresBridge() {
           tab === 'account' ||
           tab === 'body'
         ) {
-          navigateToPage('settings');
-          useRuntimeStore.getState().setActiveSettingsTab(tab);
+          openSettingsTab(tab);
         }
       },
-      openProgramTab: async (
-        programId = 'forge',
-        programState?: Record<string, unknown> | null
-      ) => {
+      openProgramTab: (programId = 'forge', programState) => {
         const currentProfile =
           (profileStore.getState().profile || {}) as Record<string, unknown>;
         const currentPrograms =
           currentProfile.programs && typeof currentProfile.programs === 'object'
             ? (currentProfile.programs as Record<string, unknown>)
             : {};
-        await profileStore.getState().updateProfile({
+        const seededState =
+          cloneJson(programState) ||
+          cloneJson(programStore.getState().getProgramInitialState(programId)) ||
+          {};
+        profileStore.getState().updateProfile({
           activeProgram: programId,
           programs: {
             ...currentPrograms,
-            [programId]:
-              cloneJson(programState) ||
-              cloneJson(programStore.getState().getProgramInitialState(programId)) ||
-              {},
+            [programId]: seededState,
           },
         });
-        navigateToPage('settings');
-        useRuntimeStore.getState().setActiveSettingsTab('program');
+        openSettingsTab('program');
       },
-      openBodyTab: async (bodyMetrics?: Record<string, unknown> | null) => {
+      openBodyTab: async (bodyMetrics) => {
         const currentProfile =
           (cloneJson(dataStore.getState().profile) as Record<string, unknown> | null) || {};
         const currentBodyMetrics =
@@ -208,58 +300,60 @@ export function installTestStoresBridge() {
           },
         };
         normalizeBodyMetrics(nextProfile);
-        await profileStore.getState().setProfile(nextProfile);
-        navigateToPage('settings');
-        useRuntimeStore.getState().setActiveSettingsTab('body');
+        await testWindow.__IRONFORGE_E2E__?.app?.seedData?.({ profile: nextProfile });
+        openSettingsTab('body');
       },
-      openPreferencesTab: async (options?: {
-        preferences?: Record<string, unknown> | null;
-        defaultRest?: number | string | null;
-      }) => {
+      openPreferencesTab: async (options) => {
         const currentProfile =
           (cloneJson(dataStore.getState().profile) as Record<string, unknown> | null) || {};
         const currentPreferences =
           currentProfile.preferences && typeof currentProfile.preferences === 'object'
             ? (currentProfile.preferences as Record<string, unknown>)
             : {};
+        const nextPreferences = normalizeTrainingPreferences({
+          ...currentProfile,
+          preferences: {
+            ...currentPreferences,
+            ...((cloneJson(options?.preferences) as Record<string, unknown> | null) || {}),
+          },
+        });
         const nextProfile: Record<string, unknown> = {
           ...currentProfile,
-          preferences: normalizeTrainingPreferences({
-            ...currentProfile,
-            preferences: {
-              ...currentPreferences,
-              ...((cloneJson(options?.preferences) as Record<string, unknown> | null) || {}),
-            },
-          }),
+          preferences: nextPreferences,
         };
         if (options?.defaultRest !== undefined) {
           nextProfile.defaultRest = options.defaultRest;
         }
-        await profileStore.getState().setProfile(nextProfile);
-        navigateToPage('settings');
-        useRuntimeStore.getState().setActiveSettingsTab('preferences');
+        await testWindow.__IRONFORGE_E2E__?.app?.seedData?.({ profile: nextProfile });
+        openSettingsTab('preferences');
       },
     },
     program: {
-      getById: (programId: string) =>
+      getById: (programId) =>
         (programStore.getState().getProgramById(programId) as Record<string, unknown> | null) ||
         null,
-      getInitialState: (programId: string) =>
+      getInitialState: (programId) =>
         cloneJson(programStore.getState().getProgramInitialState(programId)) || null,
     },
     i18n: {
-      setLanguage: (locale: string, options?: { persist?: boolean; notify?: boolean }) =>
-        i18nStore.getState().setLanguage(locale, options),
+      setLanguage: (locale, options) => i18nStore.getState().setLanguage(locale, options),
     },
     profile: {
-      update: (patch: Record<string, unknown>) => profileStore.getState().updateProfile(patch),
-      setSportReadinessCheckEnabled: (enabled: boolean) =>
-        profileStore.getState().updateProfile({
-          preferences: {
-            ...(profileStore.getState().profile?.preferences || {}),
-            sportReadinessCheckEnabled: enabled === true,
-          },
-        }),
+      update: (patch) => profileStore.getState().updateProfile(patch),
+      setSportReadinessCheckEnabled: (enabled) => {
+        openSettingsTab('preferences');
+        const checkbox = document.getElementById('training-sport-check');
+        if (checkbox instanceof HTMLInputElement) {
+          checkbox.checked = enabled === true;
+        }
+        callLegacyWindowFunction('saveTrainingPreferences');
+      },
+    },
+    workout: {
+      showRPEPicker: (exerciseName, setNumber, callback) =>
+        showRPEPicker(exerciseName, setNumber, callback),
+      showSportReadinessCheck: (callback) => showSportReadinessCheck(callback),
+      showSessionSummary: (summaryData) => showSessionSummary(summaryData),
     },
   };
 }

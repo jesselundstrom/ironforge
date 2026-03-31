@@ -1,34 +1,26 @@
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
-import type {
-  ActiveWorkout,
-  WorkoutExercise,
-  WorkoutRecord,
-  WorkoutStartSnapshot,
-} from '../domain/types';
+import type { ActiveWorkout, WorkoutStartSnapshot } from '../domain/types';
 import {
   normalizeActiveWorkout,
   normalizeWorkoutStartSnapshot,
 } from '../domain/workout-helpers';
 import { dataStore } from './data-store';
-import { programStore } from './program-store';
-import { profileStore } from './profile-store';
 import { useRuntimeStore } from '../app/store/runtime-store';
 
-type WorkoutStoreState = {
+type LegacyWorkoutStoreState = {
   activeWorkout: ActiveWorkout | null;
   startSnapshot: WorkoutStartSnapshot | null;
   hasActiveWorkout: boolean;
   restDuration: number;
   restEndsAt: number;
   restSecondsLeft: number;
-  restTotal: number;
-  syncFromLegacy: () => WorkoutStoreSnapshot;
-  getStartSnapshot: () => WorkoutStartSnapshot | null;
+  syncFromLegacy: () => LegacyWorkoutSnapshot;
+  getStartSnapshot: (input?: Record<string, unknown>) => WorkoutStartSnapshot | null;
   getCachedStartSnapshot: () => WorkoutStartSnapshot | null;
   clearStartSnapshot: () => void;
-  startWorkout: (selectedOption?: string) => void;
-  resumeActiveWorkoutUI: () => ActiveWorkout | null;
+  startWorkout: () => void;
+  resumeActiveWorkoutUI: (options?: Record<string, unknown>) => unknown;
   updateRestDuration: (nextValue?: string | number | null) => void;
   startRestTimer: () => void;
   skipRest: () => void;
@@ -49,12 +41,12 @@ type WorkoutStoreState = {
   ) => void;
   addSet: (exerciseIndex: number) => void;
   removeExercise: (exerciseIndex: number) => void;
-  finishWorkout: () => Promise<WorkoutRecord | null>;
+  finishWorkout: () => Promise<unknown> | unknown;
   cancelWorkout: () => void;
 };
 
-type WorkoutStoreSnapshot = Omit<
-  WorkoutStoreState,
+type LegacyWorkoutSnapshot = Omit<
+  LegacyWorkoutStoreState,
   | 'syncFromLegacy'
   | 'getStartSnapshot'
   | 'getCachedStartSnapshot'
@@ -76,30 +68,165 @@ type WorkoutStoreSnapshot = Omit<
   | 'cancelWorkout'
 >;
 
-let workoutStoreRef: StoreApi<WorkoutStoreState> | null = null;
-let cachedStartSnapshot: WorkoutStartSnapshot | null = null;
-let unsubscribeDataStore: (() => void) | null = null;
+type LegacyWorkoutWindow = Window & {
+  activeWorkout?: Record<string, unknown> | null;
+  getLiveWorkoutSessionSnapshot?: () => {
+    activeWorkout?: Record<string, unknown> | null;
+    restDuration?: number;
+    restEndsAt?: number;
+    restSecondsLeft?: number;
+  } | null;
+  getWorkoutStartSnapshot?: (
+    input?: Record<string, unknown>
+  ) => Record<string, unknown> | null;
+  getCachedWorkoutStartSnapshot?: () => Record<string, unknown> | null;
+  clearWorkoutStartSnapshot?: () => void;
+  startWorkout?: () => void;
+  resumeActiveWorkoutUI?: (options?: Record<string, unknown>) => unknown;
+  updateRestDuration?: (nextValue?: string | number | null) => void;
+  startRestTimer?: () => void;
+  skipRest?: () => void;
+  addExerciseByName?: (name: string) => void;
+  selectExerciseCatalogExercise?: (exerciseId: string) => void;
+  showSetRIRPrompt?: (exerciseIndex: number, setIndex: number) => void;
+  applySetRIR?: (
+    exerciseIndex: number,
+    setIndex: number,
+    rirValue: string | number
+  ) => void;
+  toggleSet?: (exerciseIndex: number, setIndex: number) => void;
+  updateSet?: (
+    exerciseIndex: number,
+    setIndex: number,
+    field: string,
+    value: string | number
+  ) => void;
+  addSet?: (exerciseIndex: number) => void;
+  removeEx?: (exerciseIndex: number) => void;
+  finishWorkout?: () => Promise<unknown> | unknown;
+  cancelWorkout?: () => void;
+  persistActiveWorkoutDraft?: (...args: unknown[]) => unknown;
+  clearActiveWorkoutDraft?: (...args: unknown[]) => unknown;
+  syncWorkoutSessionBridge?: (...args: unknown[]) => unknown;
+  closeCustomModal?: () => void;
+  showToast?: (
+    message: string,
+    color?: string,
+    undoAction?: (() => void) | null
+  ) => void;
+  restDuration?: number;
+  restEndsAt?: number;
+  restSecondsLeft?: number;
+};
 
-function cloneJson<T>(value: T): T {
-  if (value === undefined || value === null) return value;
-  return JSON.parse(JSON.stringify(value)) as T;
+const WRAPPED_MARK = '__ironforgeWorkoutStoreWrapped';
+const DELEGATOR_MARK = '__ironforgeWorkoutStoreDelegator';
+const DELEGATED_WORKOUT_ACTIONS = [
+  'startWorkout',
+  'resumeActiveWorkoutUI',
+  'updateRestDuration',
+  'startRestTimer',
+  'skipRest',
+  'addExerciseByName',
+  'selectExerciseCatalogExercise',
+  'showSetRIRPrompt',
+  'applySetRIR',
+  'toggleSet',
+  'updateSet',
+  'addSet',
+  'removeEx',
+  'finishWorkout',
+  'cancelWorkout',
+] as const;
+
+type DelegatedWorkoutActionName = (typeof DELEGATED_WORKOUT_ACTIONS)[number];
+type LegacyWorkoutAction = (...args: unknown[]) => unknown;
+
+let bridgeInstalled = false;
+let workoutStoreRef: StoreApi<LegacyWorkoutStoreState> | null = null;
+let unsubscribeDataStore: (() => void) | null = null;
+let unsubscribeRuntimeStore: (() => void) | null = null;
+const legacyWorkoutActions: Partial<
+  Record<DelegatedWorkoutActionName, LegacyWorkoutAction>
+> = {};
+
+function getLegacyWindow(): LegacyWorkoutWindow | null {
+  if (typeof window === 'undefined') return null;
+  return window as LegacyWorkoutWindow;
 }
 
-function readWorkoutSnapshot(): WorkoutStoreSnapshot {
-  const dataState = dataStore.getState();
+function readRuntimeWorkoutSession() {
+  return useRuntimeStore.getState().workoutSession.session;
+}
+
+function getCapturedLegacyAction(
+  name: DelegatedWorkoutActionName
+): LegacyWorkoutAction | null {
+  return legacyWorkoutActions[name] || captureLegacyAction(name) || null;
+}
+
+function captureLegacyAction(
+  name: DelegatedWorkoutActionName
+): LegacyWorkoutAction | null {
+  const runtimeWindow = getLegacyWindow();
+  const target = runtimeWindow?.[name];
+  if (typeof target !== "function") return null;
+  if ((target as unknown as Record<string, unknown>)[DELEGATOR_MARK]) {
+    return getCapturedLegacyAction(name);
+  }
+  legacyWorkoutActions[name] = target as LegacyWorkoutAction;
+  return legacyWorkoutActions[name] || null;
+}
+
+function readSessionNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return !!value && typeof (value as Promise<unknown>).then === 'function';
+}
+
+function hasOwnProperty(
+  value: unknown,
+  key: string
+): value is Record<string, unknown> {
+  return !!value && Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function readLegacyWorkoutSnapshot(): LegacyWorkoutSnapshot {
+  const runtimeWindow = getLegacyWindow();
+  const runtimeSession = readRuntimeWorkoutSession();
+  const liveSession = runtimeWindow?.getLiveWorkoutSessionSnapshot?.() || null;
+  const activeWorkout = hasOwnProperty(liveSession, 'activeWorkout')
+    ? normalizeActiveWorkout(liveSession.activeWorkout ?? null)
+    : normalizeActiveWorkout(runtimeSession.activeWorkout) ||
+      normalizeActiveWorkout(runtimeWindow?.activeWorkout) ||
+      normalizeActiveWorkout(dataStore.getState().activeWorkout);
+  const startSnapshot = normalizeWorkoutStartSnapshot(
+    runtimeWindow?.getCachedWorkoutStartSnapshot?.() || null
+  );
   return {
-    activeWorkout: normalizeActiveWorkout(dataState.activeWorkout),
-    startSnapshot: normalizeWorkoutStartSnapshot(cachedStartSnapshot),
-    hasActiveWorkout: !!dataState.activeWorkout,
-    restDuration: Number(dataState.restDuration || 0),
-    restEndsAt: Number(dataState.restEndsAt || 0),
-    restSecondsLeft: Number(dataState.restSecondsLeft || 0),
-    restTotal: Number(dataState.restTotal || 0),
+    activeWorkout,
+    startSnapshot,
+    hasActiveWorkout: !!activeWorkout,
+    restDuration: readSessionNumber(
+      liveSession?.restDuration ?? runtimeSession.restDuration,
+      Number(runtimeWindow?.restDuration || 0)
+    ),
+    restEndsAt: readSessionNumber(
+      liveSession?.restEndsAt ?? runtimeSession.restEndsAt,
+      Number(runtimeWindow?.restEndsAt || 0)
+    ),
+    restSecondsLeft: readSessionNumber(
+      liveSession?.restSecondsLeft ?? runtimeSession.restSecondsLeft,
+      Number(runtimeWindow?.restSecondsLeft || 0)
+    ),
   };
 }
 
-function syncFromDataStore() {
-  const snapshot = readWorkoutSnapshot();
+function syncStoreFromLegacy() {
+  const snapshot = readLegacyWorkoutSnapshot();
   workoutStoreRef?.setState((state) => ({
     ...state,
     ...snapshot,
@@ -107,289 +234,237 @@ function syncFromDataStore() {
   return snapshot;
 }
 
-function getWeekStart(date = new Date()) {
-  const next = new Date(date);
-  const offset = (next.getDay() + 6) % 7;
-  next.setHours(0, 0, 0, 0);
-  next.setDate(next.getDate() - offset);
-  return next;
-}
+function wrapLegacyMethod(name: keyof LegacyWorkoutWindow) {
+  const runtimeWindow = getLegacyWindow();
+  const target = runtimeWindow?.[name];
+  if (typeof target !== 'function') return;
+  if ((target as Record<string, unknown>)[WRAPPED_MARK]) return;
 
-function countSessionsThisWeek(workouts: WorkoutRecord[]) {
-  const weekStart = getWeekStart(new Date());
-  return workouts.filter((workout) => new Date(workout.date) >= weekStart).length;
-}
-
-function createWorkoutId() {
-  return `w_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createExerciseSet(exercise?: WorkoutExercise) {
-  const lastSet = exercise?.sets?.[exercise.sets.length - 1];
-  return {
-    weight: lastSet?.weight ?? '',
-    reps: lastSet?.reps ?? '',
-    done: false,
-    rir: null,
-    rpe: null,
-  };
-}
-
-function setActiveWorkout(
-  activeWorkout: ActiveWorkout | null,
-  restOverrides?: {
-    restDuration?: number;
-    restTotal?: number;
-    restEndsAt?: number;
-    restSecondsLeft?: number;
-  }
-) {
-  dataStore.getState().setActiveWorkoutState(activeWorkout, restOverrides);
-  syncFromDataStore();
-}
-
-function getSessionOption(selectedOption?: string) {
-  if (selectedOption) return selectedOption;
-  const program = programStore.getState().activeProgram;
-  const state = programStore.getState().activeProgramState || {};
-  const workouts = dataStore.getState().workouts || [];
-  const schedule = profileStore.getState().schedule || null;
-  const options =
-    typeof program?.getSessionOptions === 'function'
-      ? program.getSessionOptions(state as any, workouts, schedule as any)
-      : [];
-  return (
-    options.find((option) => option.isRecommended)?.value ||
-    options.find((option) => option.done !== true)?.value ||
-    options[0]?.value ||
-    '1'
-  );
-}
-
-async function persistProgramStateAfterFinish(
-  workout: ActiveWorkout,
-  nextWorkouts: WorkoutRecord[]
-) {
-  const programId = String(workout.program || '').trim();
-  if (!programId) return;
-  const program = programStore.getState().getProgramById(programId);
-  let nextProgramState = cloneJson(programStore.getState().activeProgramState || {}) || {};
-
-  if (typeof program?.adjustAfterSession === 'function') {
-    nextProgramState =
-      program.adjustAfterSession(
-        cloneJson(workout.exercises),
-        cloneJson(nextProgramState),
-        workout.programOption
-      ) || nextProgramState;
-  }
-
-  if (typeof program?.advanceState === 'function') {
-    nextProgramState =
-      program.advanceState(
-        cloneJson(nextProgramState),
-        countSessionsThisWeek(nextWorkouts)
-      ) || nextProgramState;
-  }
-
-  await dataStore.getState().updateProgramState(programId, nextProgramState);
-}
-
-export const workoutStore: StoreApi<WorkoutStoreState> =
-  createStore<WorkoutStoreState>(() => ({
-    ...readWorkoutSnapshot(),
-    syncFromLegacy: () => syncFromDataStore(),
-    getStartSnapshot: () => normalizeWorkoutStartSnapshot(cachedStartSnapshot),
-    getCachedStartSnapshot: () => normalizeWorkoutStartSnapshot(cachedStartSnapshot),
-    clearStartSnapshot: () => {
-      cachedStartSnapshot = null;
-      syncFromDataStore();
-    },
-    startWorkout: (selectedOption) => {
-      const program = programStore.getState().activeProgram;
-      const programId = programStore.getState().activeProgramId || 'forge';
-      const programState = cloneJson(programStore.getState().activeProgramState || {}) || {};
-      const sessionOption = getSessionOption(selectedOption);
-      const exercises =
-        typeof program?.buildSession === 'function'
-          ? program.buildSession(sessionOption, cloneJson(programState) as any, {
-              preview: false,
-            })
-          : [];
-      const label =
-        typeof program?.getSessionLabel === 'function'
-          ? program.getSessionLabel(sessionOption, cloneJson(programState) as any, {
-              preview: false,
-            })
-          : `Session ${sessionOption}`;
-
-      const activeWorkout: ActiveWorkout = {
-        id: createWorkoutId(),
-        date: new Date().toISOString(),
-        program: programId,
-        type: 'training',
-        programOption: sessionOption,
-        programDayNum: Number.isFinite(Number(sessionOption))
-          ? Number(sessionOption)
-          : undefined,
-        programLabel: label,
-        programStateBefore: cloneJson(programState),
-        exercises: cloneJson(exercises || []),
-        startTime: Date.now(),
-        startedAt: new Date().toISOString(),
-        sessionDescription: label,
-      };
-
-      cachedStartSnapshot = {
-        programId,
-        selectedOption: sessionOption,
-        exercises: cloneJson(exercises || []),
-        sessionDescription: label,
-        programLabel: label,
-      };
-
-      setActiveWorkout(activeWorkout, {
-        restDuration: Number(profileStore.getState().profile?.defaultRest || 120),
-        restTotal: 0,
-        restEndsAt: 0,
-        restSecondsLeft: 0,
+  const wrapped = function (this: unknown, ...args: unknown[]) {
+    const result = target.apply(this, args);
+    if (isPromiseLike(result)) {
+      return result.finally(() => {
+        syncStoreFromLegacy();
       });
-      useRuntimeStore.getState().navigateToPage('log');
-    },
-    resumeActiveWorkoutUI: () => normalizeActiveWorkout(dataStore.getState().activeWorkout),
-    updateRestDuration: (nextValue) => {
-      const restDuration = Math.max(0, Number(nextValue || 0));
-      dataStore.getState().setActiveWorkoutState(
-        normalizeActiveWorkout(dataStore.getState().activeWorkout),
-        {
-          restDuration,
-          restTotal: restDuration,
-          restEndsAt: restDuration > 0 ? Date.now() + restDuration * 1000 : 0,
-          restSecondsLeft: restDuration,
-        }
+    }
+    syncStoreFromLegacy();
+    return result;
+  };
+
+  (wrapped as unknown as Record<string, unknown>)[WRAPPED_MARK] = true;
+  (runtimeWindow as unknown as Record<string, unknown>)[String(name)] = wrapped;
+}
+
+function installStoreDelegator(
+  name: keyof LegacyWorkoutWindow,
+  delegate: (...args: unknown[]) => unknown
+) {
+  const runtimeWindow = getLegacyWindow();
+  if (!runtimeWindow) return;
+  const existing = runtimeWindow[name];
+  if (
+    typeof existing === 'function' &&
+    (existing as Record<string, unknown>)[DELEGATOR_MARK]
+  ) {
+    return;
+  }
+  const delegated = function (...args: unknown[]) {
+    return delegate(...args);
+  };
+  (delegated as unknown as Record<string, unknown>)[DELEGATOR_MARK] = true;
+  (runtimeWindow as unknown as Record<string, unknown>)[String(name)] =
+    delegated;
+}
+
+export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
+  createStore<LegacyWorkoutStoreState>(() => ({
+    ...readLegacyWorkoutSnapshot(),
+    syncFromLegacy: () => syncStoreFromLegacy(),
+    getStartSnapshot: (input) => {
+      const snapshot = normalizeWorkoutStartSnapshot(
+        getLegacyWindow()?.getWorkoutStartSnapshot?.(input) || null
       );
-      syncFromDataStore();
+      syncStoreFromLegacy();
+      return snapshot;
+    },
+    getCachedStartSnapshot: () => {
+      const snapshot = normalizeWorkoutStartSnapshot(
+        getLegacyWindow()?.getCachedWorkoutStartSnapshot?.() || null
+      );
+      syncStoreFromLegacy();
+      return snapshot;
+    },
+    clearStartSnapshot: () => {
+      getLegacyWindow()?.clearWorkoutStartSnapshot?.();
+      syncStoreFromLegacy();
+    },
+    startWorkout: () => {
+      getCapturedLegacyAction('startWorkout')?.();
+      syncStoreFromLegacy();
+    },
+    resumeActiveWorkoutUI: (options) => {
+      const result = getCapturedLegacyAction('resumeActiveWorkoutUI')?.(options);
+      syncStoreFromLegacy();
+      return result;
+    },
+    updateRestDuration: (nextValue) => {
+      getCapturedLegacyAction('updateRestDuration')?.(nextValue);
+      syncStoreFromLegacy();
     },
     startRestTimer: () => {
-      const restDuration = Number(dataStore.getState().restDuration || 0);
-      if (restDuration <= 0) return;
-      dataStore.getState().setActiveWorkoutState(
-        normalizeActiveWorkout(dataStore.getState().activeWorkout),
-        {
-          restDuration,
-          restTotal: restDuration,
-          restEndsAt: Date.now() + restDuration * 1000,
-          restSecondsLeft: restDuration,
-        }
-      );
-      syncFromDataStore();
+      getCapturedLegacyAction('startRestTimer')?.();
+      syncStoreFromLegacy();
     },
     skipRest: () => {
-      dataStore.getState().setActiveWorkoutState(
-        normalizeActiveWorkout(dataStore.getState().activeWorkout),
-        {
-          restEndsAt: 0,
-          restSecondsLeft: 0,
-          restTotal: 0,
-        }
-      );
-      syncFromDataStore();
+      getCapturedLegacyAction('skipRest')?.();
+      syncStoreFromLegacy();
     },
     addExerciseByName: (name) => {
-      const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
-      if (!activeWorkout) return;
-      activeWorkout.exercises.push({
-        name: String(name || '').trim(),
-        sets: [createExerciseSet()],
-      } as WorkoutExercise);
-      setActiveWorkout(activeWorkout);
+      getCapturedLegacyAction('addExerciseByName')?.(name);
+      syncStoreFromLegacy();
     },
     selectExerciseCatalogExercise: (exerciseId) => {
-      workoutStore.getState().addExerciseByName(exerciseId);
+      getCapturedLegacyAction('selectExerciseCatalogExercise')?.(exerciseId);
+      syncStoreFromLegacy();
     },
-    showSetRIRPrompt: () => {},
+    showSetRIRPrompt: (exerciseIndex, setIndex) => {
+      getCapturedLegacyAction('showSetRIRPrompt')?.(exerciseIndex, setIndex);
+      syncStoreFromLegacy();
+    },
     applySetRIR: (exerciseIndex, setIndex, rirValue) => {
-      const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
-      const targetSet = activeWorkout?.exercises?.[exerciseIndex]?.sets?.[setIndex];
-      if (!activeWorkout || !targetSet) return;
-      targetSet.rir = rirValue;
-      setActiveWorkout(activeWorkout);
+      getCapturedLegacyAction('applySetRIR')?.(exerciseIndex, setIndex, rirValue);
+      syncStoreFromLegacy();
     },
     toggleSet: (exerciseIndex, setIndex) => {
-      const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
-      const targetSet = activeWorkout?.exercises?.[exerciseIndex]?.sets?.[setIndex];
-      if (!activeWorkout || !targetSet) return;
-      targetSet.done = !targetSet.done;
-      if (targetSet.done) {
-        workoutStore.getState().startRestTimer();
-      } else {
-        workoutStore.getState().skipRest();
-      }
-      setActiveWorkout(activeWorkout);
+      getCapturedLegacyAction('toggleSet')?.(exerciseIndex, setIndex);
+      syncStoreFromLegacy();
     },
     updateSet: (exerciseIndex, setIndex, field, value) => {
-      const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
-      const targetSet = activeWorkout?.exercises?.[exerciseIndex]?.sets?.[setIndex];
-      if (!activeWorkout || !targetSet) return;
-      (targetSet as Record<string, unknown>)[field] = value;
-      setActiveWorkout(activeWorkout);
+      getCapturedLegacyAction('updateSet')?.(
+        exerciseIndex,
+        setIndex,
+        field,
+        value
+      );
+      syncStoreFromLegacy();
     },
     addSet: (exerciseIndex) => {
-      const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
-      const exercise = activeWorkout?.exercises?.[exerciseIndex];
-      if (!activeWorkout || !exercise) return;
-      exercise.sets.push(createExerciseSet(exercise) as any);
-      setActiveWorkout(activeWorkout);
+      getCapturedLegacyAction('addSet')?.(exerciseIndex);
+      syncStoreFromLegacy();
     },
     removeExercise: (exerciseIndex) => {
-      const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
-      if (!activeWorkout) return;
-      activeWorkout.exercises.splice(exerciseIndex, 1);
-      setActiveWorkout(activeWorkout);
+      getCapturedLegacyAction('removeEx')?.(exerciseIndex);
+      syncStoreFromLegacy();
     },
-    finishWorkout: async () => {
-      const activeWorkout = normalizeActiveWorkout(dataStore.getState().activeWorkout);
-      if (!activeWorkout) return null;
-      const finishedWorkout: WorkoutRecord = {
-        ...cloneJson(activeWorkout),
-        duration: Math.max(
-          0,
-          Math.round((Date.now() - Number(activeWorkout.startTime || Date.now())) / 1000)
-        ),
-      } as WorkoutRecord;
-      const nextWorkouts = [...cloneJson(dataStore.getState().workouts || []), finishedWorkout];
-      await dataStore.getState().replaceWorkouts(nextWorkouts);
-      await persistProgramStateAfterFinish(activeWorkout, nextWorkouts);
-      cachedStartSnapshot = null;
-      setActiveWorkout(null, {
-        restEndsAt: 0,
-        restSecondsLeft: 0,
-        restTotal: 0,
-      });
-      useRuntimeStore.getState().showToast({
-        message: 'Workout saved',
-        variant: 'info',
-      });
-      return finishedWorkout;
+    finishWorkout: () => {
+      const result = getCapturedLegacyAction('finishWorkout')?.();
+      if (isPromiseLike(result)) {
+        return result.finally(() => {
+          syncStoreFromLegacy();
+        });
+      }
+      syncStoreFromLegacy();
+      return result;
     },
     cancelWorkout: () => {
-      cachedStartSnapshot = null;
-      setActiveWorkout(null, {
-        restEndsAt: 0,
-        restSecondsLeft: 0,
-        restTotal: 0,
-      });
+      getCapturedLegacyAction('cancelWorkout')?.();
+      syncStoreFromLegacy();
     },
   }));
 
 workoutStoreRef = workoutStore;
 
-export function installWorkoutStore() {
-  syncFromDataStore();
-  unsubscribeDataStore?.();
-  unsubscribeDataStore = dataStore.subscribe(() => {
-    syncFromDataStore();
+export function installLegacyWorkoutStoreBridge() {
+  if (bridgeInstalled || typeof window === 'undefined') return;
+  bridgeInstalled = true;
+
+  syncStoreFromLegacy();
+  DELEGATED_WORKOUT_ACTIONS.forEach((name) => {
+    captureLegacyAction(name);
   });
+  unsubscribeDataStore = dataStore.subscribe(() => {
+    syncStoreFromLegacy();
+  });
+  unsubscribeRuntimeStore = useRuntimeStore.subscribe((state, previousState) => {
+    if (state.workoutSession.session !== previousState.workoutSession.session) {
+      syncStoreFromLegacy();
+    }
+  });
+
+  [
+    'persistActiveWorkoutDraft',
+    'clearActiveWorkoutDraft',
+    'clearWorkoutStartSnapshot',
+  ].forEach((name) => wrapLegacyMethod(name as keyof LegacyWorkoutWindow));
+
+  installStoreDelegator('startWorkout', () =>
+    workoutStore.getState().startWorkout()
+  );
+  installStoreDelegator('resumeActiveWorkoutUI', (options) =>
+    workoutStore
+      .getState()
+      .resumeActiveWorkoutUI(options as Record<string, unknown> | undefined)
+  );
+  installStoreDelegator('updateRestDuration', (nextValue) =>
+    workoutStore
+      .getState()
+      .updateRestDuration(nextValue as string | number | null | undefined)
+  );
+  installStoreDelegator('startRestTimer', () =>
+    workoutStore.getState().startRestTimer()
+  );
+  installStoreDelegator('skipRest', () => workoutStore.getState().skipRest());
+  installStoreDelegator('addExerciseByName', (name) =>
+    workoutStore.getState().addExerciseByName(String(name ?? ''))
+  );
+  installStoreDelegator('selectExerciseCatalogExercise', (exerciseId) =>
+    workoutStore.getState().selectExerciseCatalogExercise(String(exerciseId ?? ''))
+  );
+  installStoreDelegator('showSetRIRPrompt', (exerciseIndex, setIndex) =>
+    workoutStore
+      .getState()
+      .showSetRIRPrompt(Number(exerciseIndex), Number(setIndex))
+  );
+  installStoreDelegator('applySetRIR', (exerciseIndex, setIndex, rirValue) =>
+    workoutStore
+      .getState()
+      .applySetRIR(Number(exerciseIndex), Number(setIndex), rirValue as string | number)
+  );
+  installStoreDelegator('toggleSet', (exerciseIndex, setIndex) =>
+    workoutStore.getState().toggleSet(Number(exerciseIndex), Number(setIndex))
+  );
+  installStoreDelegator('updateSet', (exerciseIndex, setIndex, field, value) =>
+    workoutStore
+      .getState()
+      .updateSet(Number(exerciseIndex), Number(setIndex), String(field), value as string | number)
+  );
+  installStoreDelegator('addSet', (exerciseIndex) =>
+    workoutStore.getState().addSet(Number(exerciseIndex))
+  );
+  installStoreDelegator('removeEx', (exerciseIndex) =>
+    workoutStore.getState().removeExercise(Number(exerciseIndex))
+  );
+  installStoreDelegator('finishWorkout', () =>
+    workoutStore.getState().finishWorkout()
+  );
+  installStoreDelegator('cancelWorkout', () =>
+    workoutStore.getState().cancelWorkout()
+  );
+
+  window.addEventListener('visibilitychange', syncStoreFromLegacy);
+  window.addEventListener('focus', syncStoreFromLegacy);
+}
+
+export function disposeLegacyWorkoutStoreBridge() {
+  unsubscribeDataStore?.();
+  unsubscribeDataStore = null;
+  unsubscribeRuntimeStore?.();
+  unsubscribeRuntimeStore = null;
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('visibilitychange', syncStoreFromLegacy);
+    window.removeEventListener('focus', syncStoreFromLegacy);
+  }
+  bridgeInstalled = false;
 }
 
 export function getWorkoutStoreSnapshot() {

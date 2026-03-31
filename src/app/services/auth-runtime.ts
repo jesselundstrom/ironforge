@@ -1,37 +1,88 @@
-import { createClient, type Session } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import { useRuntimeStore } from '../store/runtime-store';
-import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './app-config';
 import { t } from './i18n';
-import {
-  applyAuthSessionToDataStore,
-  reportAuthSessionError,
-} from '../../stores/data-store';
+
+type MutableRecord = Record<string, unknown>;
+
+type SupabaseClientLike = {
+  auth?: {
+    getSession?: () => Promise<{
+      data?: { session?: Session | null };
+      error?: Error | null;
+    }>;
+    onAuthStateChange?: (
+      callback: (event: string, session: Session | null) => void
+    ) => { data?: { subscription?: { unsubscribe?: () => void } } };
+    signInWithPassword?: (credentials: {
+      email: string;
+      password: string;
+    }) => Promise<{
+      data?: { session?: Session | null };
+      error?: Error | null;
+    }>;
+    signUp?: (credentials: {
+      email: string;
+      password: string;
+    }) => Promise<{
+      data?: { session?: Session | null };
+      error?: Error | null;
+    }>;
+    signOut?: () => Promise<{ error?: Error | null }>;
+  };
+};
+
+type SupabaseSessionResult = {
+  data?: { session?: Session | null } | null;
+  error?: { message?: string } | null;
+};
+
+type BootstrapSessionResult =
+  | SupabaseSessionResult
+  | {
+      timedOut: true;
+    };
 
 type AuthCredentials = {
   email?: string;
   password?: string;
 };
 
-type SupabaseClientLike = ReturnType<typeof createClient>;
-
 type AuthRuntime = {
   bootstrap: () => Promise<void>;
   loginWithEmail: (credentials?: AuthCredentials) => Promise<void>;
   signUpWithEmail: (credentials?: AuthCredentials) => Promise<void>;
   logout: () => Promise<void>;
+  showLoginScreen: () => void;
+  hideLoginScreen: () => void;
   getSupabaseClient: () => SupabaseClientLike;
 };
 
 type RuntimeWindow = Window & {
+  supabase?: {
+    createClient?: (
+      url: string,
+      key: string,
+      options?: Record<string, unknown>
+    ) => SupabaseClientLike;
+  };
   __IRONFORGE_SUPABASE__?: SupabaseClientLike;
+  __IRONFORGE_SUPABASE_URL__?: string;
+  __IRONFORGE_SUPABASE_PUBLISHABLE_KEY__?: string;
   __IRONFORGE_GET_SUPABASE_CLIENT__?: () => SupabaseClientLike;
-  __IRONFORGE_AUTH_RUNTIME__?: AuthRuntime;
+  __IRONFORGE_APPLY_AUTH_SESSION__?: (
+    session: Session | null,
+    options?: Record<string, unknown>
+  ) => Promise<void> | void;
+  __IRONFORGE_REPORT_AUTH_SESSION_ERROR__?: (error: unknown) => void;
   __IRONFORGE_LOGIN_DEBUG__?: {
     trace?: (message: string, details?: Record<string, unknown>) => void;
   };
-  __IRONFORGE_TEST_AUTH_HOOK__?: {
-    decorateClient?: (client: SupabaseClientLike) => SupabaseClientLike;
-  };
+  __IRONFORGE_AUTH_RUNTIME__?: AuthRuntime;
+  loginWithEmail?: (credentials?: AuthCredentials) => Promise<void>;
+  signUpWithEmail?: (credentials?: AuthCredentials) => Promise<void>;
+  logout?: () => Promise<void>;
+  showLoginScreen?: () => void;
+  hideLoginScreen?: () => void;
   navigator: Navigator & {
     standalone?: boolean;
   };
@@ -46,13 +97,15 @@ let authSubscriptionAttached = false;
 let activeMutationId = 0;
 let lastAppliedSessionSignature = 'uninitialized';
 
-function getRuntimeWindow() {
+function getRuntimeWindow(): RuntimeWindow | null {
   if (typeof window === 'undefined') return null;
   return window as RuntimeWindow;
 }
 
 function trace(message: string, details?: Record<string, unknown>) {
-  getRuntimeWindow()?.__IRONFORGE_LOGIN_DEBUG__?.trace?.(message, details);
+  try {
+    getRuntimeWindow()?.__IRONFORGE_LOGIN_DEBUG__?.trace?.(message, details);
+  } catch (_error) {}
 }
 
 function isStandaloneDisplayMode(runtimeWindow: RuntimeWindow) {
@@ -62,10 +115,10 @@ function isStandaloneDisplayMode(runtimeWindow: RuntimeWindow) {
   );
 }
 
-async function noOpSupabaseLock<T>(
+async function noOpSupabaseLock(
   _name: string,
   _acquireTimeout: number,
-  fn: () => Promise<T>
+  fn: () => Promise<unknown>
 ) {
   return await fn();
 }
@@ -118,6 +171,10 @@ function setSignedOutMessage(message: string) {
   });
 }
 
+function reportAuthError(error: unknown) {
+  getRuntimeWindow()?.__IRONFORGE_REPORT_AUTH_SESSION_ERROR__?.(error);
+}
+
 function beginMutation(kind: 'sign_in' | 'sign_up' | 'sign_out') {
   activeMutationId += 1;
   trace('auth runtime mutation start', {
@@ -138,7 +195,7 @@ function normalizeCredentials(input?: AuthCredentials) {
   };
 }
 
-function ensureSupabaseClient() {
+function ensureSupabaseClient(): SupabaseClientLike {
   const runtimeWindow = getRuntimeWindow();
   if (!runtimeWindow) {
     throw new Error('Auth runtime is unavailable outside the browser.');
@@ -146,21 +203,39 @@ function ensureSupabaseClient() {
   if (sharedSupabaseClient?.auth) {
     return sharedSupabaseClient;
   }
-  sharedSupabaseClient = createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY,
-    isStandaloneDisplayMode(runtimeWindow)
-      ? { auth: { lock: noOpSupabaseLock } }
-      : {}
-  );
-  if (typeof runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__?.decorateClient === 'function') {
-    sharedSupabaseClient =
-      runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__.decorateClient(sharedSupabaseClient);
+  if (runtimeWindow.__IRONFORGE_SUPABASE__?.auth) {
+    sharedSupabaseClient = runtimeWindow.__IRONFORGE_SUPABASE__;
+    trace('auth runtime reused existing supabase client', {
+      standalone: isStandaloneDisplayMode(runtimeWindow),
+    });
+    return sharedSupabaseClient;
   }
+
+  const createClient = runtimeWindow.supabase?.createClient;
+  const baseUrl = String(runtimeWindow.__IRONFORGE_SUPABASE_URL__ || '').trim();
+  const publishableKey = String(
+    runtimeWindow.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ || ''
+  ).trim();
+
+  if (!createClient || !baseUrl || !publishableKey) {
+    throw new Error('Supabase auth is not ready.');
+  }
+
+  const options = isStandaloneDisplayMode(runtimeWindow)
+    ? { auth: { lock: noOpSupabaseLock } }
+    : {};
+
+  sharedSupabaseClient = createClient(
+    baseUrl,
+    publishableKey,
+    options
+  ) as SupabaseClientLike;
   runtimeWindow.__IRONFORGE_SUPABASE__ = sharedSupabaseClient;
+
   trace('auth runtime created supabase client', {
     standalone: isStandaloneDisplayMode(runtimeWindow),
   });
+
   return sharedSupabaseClient;
 }
 
@@ -172,6 +247,7 @@ async function applySessionWithSideEffects(
     mutationId?: number;
   }
 ) {
+  const runtimeWindow = getRuntimeWindow();
   const source = String(options?.source || 'unknown');
   const mutationId = options?.mutationId;
   const sessionSignature = getSessionSignature(session);
@@ -186,10 +262,11 @@ async function applySessionWithSideEffects(
     return false;
   }
 
+  const sessionUser = (session?.user as unknown as MutableRecord | null) || null;
   if (
     lastAppliedSessionSignature === sessionSignature &&
     useRuntimeStore.getState().auth.pendingAction === null &&
-    (source === 'bootstrap' || source.startsWith('auth-state:'))
+    (source === 'bootstrap' || source.indexOf('auth-state:') === 0)
   ) {
     trace('auth runtime skipped duplicate session apply', {
       source,
@@ -197,13 +274,22 @@ async function applySessionWithSideEffects(
     });
     return true;
   }
+  trace('auth runtime apply session start', {
+    source,
+    mutationId: mutationId ?? null,
+    ...describeSession(session),
+  });
 
   setAuthState({
-    phase: session?.user ? 'signed_in' : 'signed_out',
-    isLoggedIn: !!session?.user,
+    phase: sessionUser ? 'signed_in' : 'signed_out',
+    isLoggedIn: !!sessionUser,
     pendingAction: null,
   });
-  await applyAuthSessionToDataStore(session);
+
+  await runtimeWindow?.__IRONFORGE_APPLY_AUTH_SESSION__?.(session, {
+    wasLoggedIn: options?.wasLoggedIn,
+    source,
+  });
   lastAppliedSessionSignature = sessionSignature;
 
   trace('auth runtime apply session done', {
@@ -211,25 +297,32 @@ async function applySessionWithSideEffects(
     mutationId: mutationId ?? null,
     ...describeSession(session),
   });
+
   return true;
 }
 
-async function resolveBootstrapSession(getSession: () => Promise<{
-  data: { session: Session | null };
-  error: Error | null;
-}>) {
+async function resolveBootstrapSession(
+  getSession: () => Promise<{
+    data?: { session?: Session | null };
+    error?: Error | null;
+  }>
+): Promise<BootstrapSessionResult> {
   return await Promise.race([
-    getSession(),
-    new Promise<{ timedOut: true }>((resolve) => {
-      window.setTimeout(() => resolve({ timedOut: true }), SESSION_BOOTSTRAP_TIMEOUT_MS);
+    getSession() as Promise<SupabaseSessionResult>,
+    new Promise<BootstrapSessionResult>((resolve) => {
+      window.setTimeout(
+        () => resolve({ timedOut: true }),
+        SESSION_BOOTSTRAP_TIMEOUT_MS
+      );
     }),
   ]);
 }
 
-function attachAuthStateSubscription(client: SupabaseClientLike) {
-  if (authSubscriptionAttached) return;
+function attachAuthStateSubscription(authApi: NonNullable<SupabaseClientLike['auth']>) {
+  if (authSubscriptionAttached || !authApi.onAuthStateChange) return;
+
   authSubscriptionAttached = true;
-  client.auth.onAuthStateChange((event, session) => {
+  authApi.onAuthStateChange((event, session) => {
     const observedMutationId = activeMutationId;
     const wasLoggedIn = useRuntimeStore.getState().auth.isLoggedIn;
     trace('auth runtime auth-state event', {
@@ -238,34 +331,63 @@ function attachAuthStateSubscription(client: SupabaseClientLike) {
       wasLoggedIn,
       ...describeSession(session),
     });
+
     window.setTimeout(() => {
       void applySessionWithSideEffects(session, {
         wasLoggedIn,
         source: `auth-state:${event}`,
         mutationId: observedMutationId,
-      }).catch((error) => {
-        if (!isCurrentMutation(observedMutationId)) return;
-        reportAuthSessionError(error);
-        setSignedOutMessage(
-          error instanceof Error
-            ? error.message
-            : t('login.finish_error', 'Unable to finish signing in right now.')
-        );
-      });
+      })
+        .then((applied) => {
+          if (!applied) return;
+          setAuthState({
+            message: '',
+            messageTone: '',
+          });
+        })
+        .catch((error) => {
+          if (!isCurrentMutation(observedMutationId)) {
+            trace('auth runtime ignored stale auth-state error', {
+              event,
+              observedMutationId,
+              activeMutationId,
+            });
+            return;
+          }
+          reportAuthError(error);
+          setSignedOutMessage(
+            error instanceof Error
+              ? error.message
+              : t(
+                  'login.finish_error',
+                  'Unable to finish signing in right now.'
+                )
+          );
+        });
     }, 0);
   });
 }
 
 export async function bootstrapAuthRuntime() {
   if (bootstrapPromise) return bootstrapPromise;
+
   bootstrapPromise = (async () => {
-    const client = ensureSupabaseClient();
+    const supabaseClient = ensureSupabaseClient();
+    const authApi = supabaseClient.auth;
+    if (!authApi?.getSession || !authApi.onAuthStateChange) {
+      throw new Error('Supabase auth is not available.');
+    }
+    const getSession = authApi.getSession.bind(authApi);
     const observedMutationId = activeMutationId;
+
     setBootingState();
-    trace('auth runtime bootstrap start', { observedMutationId });
-    attachAuthStateSubscription(client);
+    trace('auth runtime bootstrap start', {
+      observedMutationId,
+    });
+    attachAuthStateSubscription(authApi);
+
     try {
-      const result = await resolveBootstrapSession(() => client.auth.getSession());
+      const sessionResult = await resolveBootstrapSession(getSession);
       if (observedMutationId !== activeMutationId) {
         trace('auth runtime bootstrap ignored after newer mutation', {
           observedMutationId,
@@ -273,38 +395,71 @@ export async function bootstrapAuthRuntime() {
         });
         return;
       }
-      if ('timedOut' in result) {
-        clearSignedOutState();
+
+      if ('timedOut' in sessionResult) {
         trace('auth runtime bootstrap timed out', {
           timeoutMs: SESSION_BOOTSTRAP_TIMEOUT_MS,
         });
+        clearSignedOutState();
         return;
       }
-      await applySessionWithSideEffects(result.data.session || null, {
+
+      const session = sessionResult?.data?.session || null;
+      trace('auth runtime bootstrap resolved', describeSession(session));
+
+      const applied = await applySessionWithSideEffects(session, {
         wasLoggedIn: false,
         source: 'bootstrap',
         mutationId: observedMutationId,
       });
-      setAuthState({ message: '', messageTone: '' });
+
+      if (!applied) return;
+
+      setAuthState({
+        message: '',
+        messageTone: '',
+      });
     } catch (error) {
-      if (observedMutationId !== activeMutationId) return;
-      reportAuthSessionError(error);
+      if (observedMutationId !== activeMutationId) {
+        trace('auth runtime ignored stale bootstrap error', {
+          observedMutationId,
+          activeMutationId,
+        });
+        return;
+      }
+      reportAuthError(error);
       setSignedOutMessage(
         error instanceof Error
           ? error.message
-          : t('login.finish_error', 'Unable to finish signing in right now.')
+          : t(
+              'login.finish_error',
+              'Unable to finish signing in right now.'
+            )
       );
     }
   })();
+
   return bootstrapPromise;
 }
 
 export async function loginWithEmailPassword(credentials?: AuthCredentials) {
   const mutationId = beginMutation('sign_in');
-  const client = ensureSupabaseClient();
+  const supabaseClient = ensureSupabaseClient();
+  const authApi = supabaseClient.auth;
   const { email, password } = normalizeCredentials(credentials);
 
-  setAuthState({
+  if (!authApi?.signInWithPassword) {
+    throw new Error('Supabase auth is not available.');
+  }
+
+  trace('auth runtime submit start', {
+    action: 'sign_in',
+    mutationId,
+    hasEmail: !!email,
+    hasPassword: !!password,
+  });
+
+  useRuntimeStore.getState().setAuthState({
     phase: 'signed_out',
     isLoggedIn: false,
     pendingAction: 'sign_in',
@@ -313,33 +468,76 @@ export async function loginWithEmailPassword(credentials?: AuthCredentials) {
   });
 
   if (!email || !password) {
-    setSignedOutMessage(t('login.enter_credentials', 'Enter your email and password.'));
+    setSignedOutMessage(
+      t('login.enter_credentials', 'Enter your email and password.')
+    );
     return;
   }
 
   try {
-    const result = await client.auth.signInWithPassword({ email, password });
-    if (!isCurrentMutation(mutationId)) return;
-    if (result.error) {
+    const result = (await authApi.signInWithPassword({
+      email,
+      password,
+    })) as SupabaseSessionResult;
+
+    if (!isCurrentMutation(mutationId)) {
+      trace('auth runtime ignored stale submit result', {
+        action: 'sign_in',
+        mutationId,
+        activeMutationId,
+      });
+      return;
+    }
+
+    trace('auth runtime submit resolved', {
+      action: 'sign_in',
+      mutationId,
+      hasError: !!result?.error,
+      ...describeSession(result?.data?.session || null),
+    });
+
+    if (result?.error) {
       setSignedOutMessage(
-        result.error.message || t('login.sign_in_error', 'Unable to sign in right now.')
+        result.error.message ||
+          t('login.sign_in_error', 'Unable to sign in right now.')
       );
       return;
     }
-    if (!result.data.session) {
+
+    if (!result?.data?.session) {
       setSignedOutMessage(
         t('login.finish_error', 'Unable to finish signing in right now.')
       );
       return;
     }
-    await applySessionWithSideEffects(result.data.session, {
+
+    const applied = await applySessionWithSideEffects(result.data.session, {
       wasLoggedIn: false,
       source: 'sign-in-result',
       mutationId,
     });
+
+    if (!applied) return;
+
+    setAuthState({
+      message: '',
+      messageTone: '',
+    });
   } catch (error) {
-    if (!isCurrentMutation(mutationId)) return;
-    reportAuthSessionError(error);
+    if (!isCurrentMutation(mutationId)) {
+      trace('auth runtime ignored stale submit error', {
+        action: 'sign_in',
+        mutationId,
+        activeMutationId,
+      });
+      return;
+    }
+    trace('auth runtime submit threw', {
+      action: 'sign_in',
+      mutationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    reportAuthError(error);
     setSignedOutMessage(
       error instanceof Error
         ? error.message
@@ -350,10 +548,22 @@ export async function loginWithEmailPassword(credentials?: AuthCredentials) {
 
 export async function signUpWithEmailPassword(credentials?: AuthCredentials) {
   const mutationId = beginMutation('sign_up');
-  const client = ensureSupabaseClient();
+  const supabaseClient = ensureSupabaseClient();
+  const authApi = supabaseClient.auth;
   const { email, password } = normalizeCredentials(credentials);
 
-  setAuthState({
+  if (!authApi?.signUp) {
+    throw new Error('Supabase auth is not available.');
+  }
+
+  trace('auth runtime submit start', {
+    action: 'sign_up',
+    mutationId,
+    hasEmail: !!email,
+    passwordLength: password.length,
+  });
+
+  useRuntimeStore.getState().setAuthState({
     phase: 'signed_out',
     isLoggedIn: false,
     pendingAction: 'sign_up',
@@ -362,20 +572,39 @@ export async function signUpWithEmailPassword(credentials?: AuthCredentials) {
   });
 
   if (!email || !password) {
-    setSignedOutMessage(t('login.enter_credentials', 'Enter your email and password.'));
+    setSignedOutMessage(
+      t('login.enter_credentials', 'Enter your email and password.')
+    );
     return;
   }
 
   try {
-    const result = await client.auth.signUp({ email, password });
-    if (!isCurrentMutation(mutationId)) return;
-    if (result.error) {
+    const result = (await authApi.signUp({ email, password })) as SupabaseSessionResult;
+
+    if (!isCurrentMutation(mutationId)) {
+      trace('auth runtime ignored stale submit result', {
+        action: 'sign_up',
+        mutationId,
+        activeMutationId,
+      });
+      return;
+    }
+
+    trace('auth runtime submit resolved', {
+      action: 'sign_up',
+      mutationId,
+      hasError: !!result?.error,
+      ...describeSession(result?.data?.session || null),
+    });
+
+    if (result?.error) {
       setSignedOutMessage(
         result.error.message ||
           t('login.sign_up_error', 'Unable to create account right now.')
       );
       return;
     }
+
     setAuthState({
       phase: 'signed_out',
       isLoggedIn: false,
@@ -387,8 +616,20 @@ export async function signUpWithEmailPassword(credentials?: AuthCredentials) {
       messageTone: 'info',
     });
   } catch (error) {
-    if (!isCurrentMutation(mutationId)) return;
-    reportAuthSessionError(error);
+    if (!isCurrentMutation(mutationId)) {
+      trace('auth runtime ignored stale submit error', {
+        action: 'sign_up',
+        mutationId,
+        activeMutationId,
+      });
+      return;
+    }
+    trace('auth runtime submit threw', {
+      action: 'sign_up',
+      mutationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    reportAuthError(error);
     setSignedOutMessage(
       error instanceof Error
         ? error.message
@@ -399,8 +640,19 @@ export async function signUpWithEmailPassword(credentials?: AuthCredentials) {
 
 export async function logoutFromAuthRuntime() {
   const mutationId = beginMutation('sign_out');
-  const client = ensureSupabaseClient();
+  const supabaseClient = ensureSupabaseClient();
+  const authApi = supabaseClient.auth;
   const wasLoggedIn = useRuntimeStore.getState().auth.isLoggedIn;
+
+  if (!authApi?.signOut) {
+    throw new Error('Supabase auth is not available.');
+  }
+
+  trace('auth runtime submit start', {
+    action: 'sign_out',
+    mutationId,
+    wasLoggedIn,
+  });
 
   setAuthState({
     pendingAction: 'sign_out',
@@ -409,17 +661,49 @@ export async function logoutFromAuthRuntime() {
   });
 
   try {
-    const result = await client.auth.signOut();
-    if (!isCurrentMutation(mutationId)) return;
-    if (result.error) throw result.error;
+    const result = (await authApi.signOut()) as {
+      error?: Error | { message?: string } | null;
+    };
+
+    if (!isCurrentMutation(mutationId)) {
+      trace('auth runtime ignored stale submit result', {
+        action: 'sign_out',
+        mutationId,
+        activeMutationId,
+      });
+      return;
+    }
+
+    if (result?.error) {
+      throw result.error;
+    }
+
+    trace('auth runtime submit resolved', {
+      action: 'sign_out',
+      mutationId,
+      hasError: false,
+    });
+
     await applySessionWithSideEffects(null, {
       wasLoggedIn,
       source: 'sign-out-result',
       mutationId,
     });
   } catch (error) {
-    if (!isCurrentMutation(mutationId)) return;
-    reportAuthSessionError(error);
+    if (!isCurrentMutation(mutationId)) {
+      trace('auth runtime ignored stale submit error', {
+        action: 'sign_out',
+        mutationId,
+        activeMutationId,
+      });
+      return;
+    }
+    trace('auth runtime submit threw', {
+      action: 'sign_out',
+      mutationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    reportAuthError(error);
     setAuthState({
       pendingAction: null,
       message:
@@ -431,6 +715,22 @@ export async function logoutFromAuthRuntime() {
   }
 }
 
+export function showLoginScreen() {
+  setAuthState({
+    phase: 'signed_out',
+    isLoggedIn: false,
+    pendingAction: null,
+  });
+}
+
+export function hideLoginScreen() {
+  setAuthState({
+    phase: 'signed_in',
+    isLoggedIn: true,
+    pendingAction: null,
+  });
+}
+
 export function installAuthRuntime() {
   const runtimeWindow = getRuntimeWindow();
   if (!runtimeWindow) return null;
@@ -438,6 +738,11 @@ export function installAuthRuntime() {
     runtimeWindow.__IRONFORGE_AUTH_RUNTIME__ = authRuntimeInstance;
     runtimeWindow.__IRONFORGE_GET_SUPABASE_CLIENT__ =
       authRuntimeInstance.getSupabaseClient;
+    runtimeWindow.loginWithEmail = authRuntimeInstance.loginWithEmail;
+    runtimeWindow.signUpWithEmail = authRuntimeInstance.signUpWithEmail;
+    runtimeWindow.logout = authRuntimeInstance.logout;
+    runtimeWindow.showLoginScreen = authRuntimeInstance.showLoginScreen;
+    runtimeWindow.hideLoginScreen = authRuntimeInstance.hideLoginScreen;
     void authRuntimeInstance.bootstrap();
     return authRuntimeInstance;
   }
@@ -447,12 +752,20 @@ export function installAuthRuntime() {
     loginWithEmail: loginWithEmailPassword,
     signUpWithEmail: signUpWithEmailPassword,
     logout: logoutFromAuthRuntime,
+    showLoginScreen,
+    hideLoginScreen,
     getSupabaseClient: ensureSupabaseClient,
   };
 
   runtimeWindow.__IRONFORGE_AUTH_RUNTIME__ = authRuntimeInstance;
   runtimeWindow.__IRONFORGE_GET_SUPABASE_CLIENT__ =
     authRuntimeInstance.getSupabaseClient;
+  runtimeWindow.loginWithEmail = authRuntimeInstance.loginWithEmail;
+  runtimeWindow.signUpWithEmail = authRuntimeInstance.signUpWithEmail;
+  runtimeWindow.logout = authRuntimeInstance.logout;
+  runtimeWindow.showLoginScreen = authRuntimeInstance.showLoginScreen;
+  runtimeWindow.hideLoginScreen = authRuntimeInstance.hideLoginScreen;
+
   void authRuntimeInstance.bootstrap();
   return authRuntimeInstance;
 }

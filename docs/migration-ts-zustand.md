@@ -1,34 +1,12 @@
-# Ironforge: React-Only Runtime Cutover
+# Ironforge: Legacy Runtime Migration to TypeScript + Zustand
 
 ## Status
 
-This cutover is complete as of 2026-03-31.
+This migration plan is complete as of 2026-03-28.
 
-Ironforge now ships as a React + Vite + Zustand app without the root legacy runtime (`app.js`, `core/*.js`, `programs/*.js`) in the live page flow.
+All seven planned phases are now delivered and verified, and the follow-up cleanup phase is complete. The remaining work in this repo is ordinary cleanup, hardening, and feature work rather than unfinished migration-plan work.
 
-The shipped scope after cutover is the Training Core:
-
-- auth
-- onboarding
-- dashboard
-- workout logging
-- history
-- basic settings
-
-Deferred from the shipped runtime for later typed rebuilds:
-
-- nutrition
-- advanced program setup UX
-- backup/import/export
-- remaining legacy-only helper flows
-
-Current runtime truths:
-
-- `src/app/main.tsx` is the only production boot entrypoint
-- `src/app/services/auth-runtime.ts` is the single production auth owner
-- `src/stores/data-store.ts`, `src/stores/profile-store.ts`, `src/stores/program-store.ts`, and `src/stores/workout-store.ts` own training-core state
-- `public/manifest.json` and `public/sw.js` are the shipped PWA assets
-- Playwright keeps a test-only harness through `window.__IRONFORGE_E2E__`, `window.__IRONFORGE_STORES__`, and test auth helpers
+This closeout date supersedes the earlier 2026-03-25 claim. At that point the app shell and most typed runtime seams were in place, but the page-level `history-store`, `dashboard-store`, and `nutrition-store` were still bridge-fed compatibility stubs. Those stores now own their read models directly and the `syncHistoryBridge`, `syncDashboardBridge`, and `syncNutritionBridge` runtime path is no longer part of the live page flow.
 
 Closeout checkpoints completed:
 

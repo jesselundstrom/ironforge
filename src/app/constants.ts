@@ -3,6 +3,7 @@ export const APP_PAGES = [
   'log',
   'history',
   'settings',
+  'nutrition',
 ] as const;
 
 export type AppPage = (typeof APP_PAGES)[number];

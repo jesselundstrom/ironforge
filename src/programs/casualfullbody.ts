@@ -6,6 +6,7 @@ import type {
   WorkoutExercise,
   WorkoutRecord,
 } from '../domain/types';
+import { readLegacyWindowValue } from '../app/services/legacy-call';
 
 type CasualFullBodyState = {
   sessionCount: number;
@@ -90,14 +91,16 @@ function trCFB(key: string, fallback: string, params?: Record<string, unknown>) 
 }
 
 function getTrainingDaysPerWeek(programId: string, fallback: number) {
-  if (typeof window === 'undefined') return fallback;
-  const getter = window.getProgramTrainingDaysPerWeek;
+  const getter = readLegacyWindowValue<
+    (programId?: string | null, profileLike?: Record<string, unknown> | null) => number
+  >('getProgramTrainingDaysPerWeek');
   return Number(getter?.(programId)) || fallback;
 }
 
 function getTrainingDaysPerWeekLabel(value: number) {
-  if (typeof window === 'undefined') return `${value} sessions / week`;
-  const getter = window.getTrainingDaysPerWeekLabel;
+  const getter = readLegacyWindowValue<(value: number) => string>(
+    'getTrainingDaysPerWeekLabel'
+  );
   return getter?.(value) || `${value} sessions / week`;
 }
 

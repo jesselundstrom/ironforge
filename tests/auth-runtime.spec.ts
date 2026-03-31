@@ -182,58 +182,67 @@ test('stale standalone bootstrap cannot overwrite an in-flight sign-in', async (
   await page.addInitScript(() => {
     const runtimeWindow = window as Window & {
       __IRONFORGE_TEST_AUTH_HOOK__?: {
-        decorateClient?: (client: {
-          auth?: {
-            getSession?: () => Promise<unknown>;
-            signInWithPassword?: (credentials: {
-              email: string;
-              password: string;
-            }) => Promise<unknown>;
-          };
-        }) => {
-          auth?: {
-            getSession?: () => Promise<unknown>;
-            signInWithPassword?: (credentials: {
-              email: string;
-              password: string;
-            }) => Promise<unknown>;
-          };
-        };
         resolveBootstrap?: (() => void) | null;
+      };
+      supabase?: {
+        createClient?: (...args: unknown[]) => Record<string, unknown>;
       };
     };
 
     runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__ = {
       resolveBootstrap: null,
-      decorateClient: (client) => {
-        const auth = client?.auth;
-        if (!auth) return client;
+    };
 
-        auth.getSession = async () =>
-          await new Promise((resolve) => {
-            runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__!.resolveBootstrap = () => {
-              resolve({
-                data: { session: null },
-                error: null,
-              });
-            };
-          });
+    let interceptedSupabase: { createClient?: (...args: unknown[]) => Record<string, unknown> } | undefined;
 
-        auth.signInWithPassword = async ({ email }) => ({
-          data: {
-            session: {
-              user: {
-                id: 'stale-bootstrap-user',
-                email,
+    Object.defineProperty(runtimeWindow, 'supabase', {
+      configurable: true,
+      get() {
+        return interceptedSupabase;
+      },
+      set(value) {
+        interceptedSupabase = value;
+        if (!value || typeof value.createClient !== 'function') return;
+        const originalCreateClient = value.createClient.bind(value);
+        value.createClient = (...args: unknown[]) => {
+          const client = originalCreateClient(...args);
+          const auth = client?.auth as
+            | {
+                getSession?: () => Promise<unknown>;
+                signInWithPassword?: (credentials: {
+                  email: string;
+                  password: string;
+                }) => Promise<unknown>;
+              }
+            | undefined;
+          if (!auth) return client;
+
+          auth.getSession = async () =>
+            await new Promise((resolve) => {
+              runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__!.resolveBootstrap = () => {
+                resolve({
+                  data: { session: null },
+                  error: null,
+                });
+              };
+            });
+
+          auth.signInWithPassword = async ({ email }) => ({
+            data: {
+              session: {
+                user: {
+                  id: 'stale-bootstrap-user',
+                  email,
+                },
               },
             },
-          },
-          error: null,
-        });
+            error: null,
+          });
 
-        return client;
+          return client;
+        };
       },
-    };
+    });
   });
 
   await openApp(page, { standalone: true });

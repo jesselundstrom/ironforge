@@ -161,11 +161,6 @@ declare global {
     openNutritionLogin: () => void;
     retryLastNutritionMessage: () => void;
     saveLanguageSetting: (language?: string) => void;
-    getProgramTrainingDaysPerWeek: (
-      programId?: string | null,
-      profileLike?: Record<string, unknown> | null
-    ) => number;
-    getTrainingDaysPerWeekLabel: (value: number) => string;
     initSettings: () => void;
     showSettingsTab: (name: string, el?: Element | null) => void;
     notifySettingsAccountIsland: () => void;
