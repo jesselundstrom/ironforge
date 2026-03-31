@@ -15,6 +15,8 @@ window.createLoginSparksController = function createLoginSparksController() {
   let lastTs = 0;
   let reducedMotionQuery = null;
   let isReducedMotion = false;
+  let visibilityListenerAttached = false;
+  let bootstrapRetryId = 0;
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -59,8 +61,8 @@ window.createLoginSparksController = function createLoginSparksController() {
   function resize() {
     if (!canvas || !ctx) return;
     const rect = canvas.getBoundingClientRect();
-    width = Math.max(1, Math.floor(rect.width));
-    height = Math.max(1, Math.floor(rect.height));
+    width = Math.max(1, Math.floor(rect.width || window.innerWidth || 1));
+    height = Math.max(1, Math.floor(rect.height || window.innerHeight || 1));
     dpr = clamp(window.devicePixelRatio || 1, 1, 1.75);
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
@@ -145,6 +147,39 @@ window.createLoginSparksController = function createLoginSparksController() {
     }
   }
 
+  function ensureVisibleCanvas() {
+    if (!canvas || !ctx || isReducedMotion) return;
+    resize();
+    if (!isRunning) {
+      lastTs = 0;
+      isRunning = true;
+      animationId = requestAnimationFrame(draw);
+    }
+  }
+
+  function onVisibilityChange() {
+    if (document.hidden) return;
+    ensureVisibleCanvas();
+  }
+
+  function scheduleBootstrapRetry() {
+    if (!canvas || !ctx || isReducedMotion) return;
+    if (bootstrapRetryId) cancelAnimationFrame(bootstrapRetryId);
+
+    const attempt = () => {
+      if (!canvas || !ctx || isReducedMotion) return;
+      const rect = canvas.getBoundingClientRect();
+      if ((rect.width || 0) <= 1 || (rect.height || 0) <= 1) {
+        bootstrapRetryId = requestAnimationFrame(attempt);
+        return;
+      }
+      bootstrapRetryId = 0;
+      ensureVisibleCanvas();
+    };
+
+    bootstrapRetryId = requestAnimationFrame(attempt);
+  }
+
   function start() {
     if (isRunning) return;
     canvas = document.getElementById('sparks');
@@ -165,13 +200,22 @@ window.createLoginSparksController = function createLoginSparksController() {
     lastTs = 0;
     isRunning = true;
     window.addEventListener('resize', resize);
+    if (!visibilityListenerAttached) {
+      visibilityListenerAttached = true;
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      window.addEventListener('pageshow', ensureVisibleCanvas);
+      window.addEventListener('focus', ensureVisibleCanvas);
+    }
     animationId = requestAnimationFrame(draw);
+    scheduleBootstrapRetry();
   }
 
   function stop() {
     isRunning = false;
     if (animationId) cancelAnimationFrame(animationId);
     animationId = 0;
+    if (bootstrapRetryId) cancelAnimationFrame(bootstrapRetryId);
+    bootstrapRetryId = 0;
     lastTs = 0;
     if (reducedMotionQuery) {
       if (reducedMotionQuery.removeEventListener) {
@@ -182,6 +226,12 @@ window.createLoginSparksController = function createLoginSparksController() {
     }
     reducedMotionQuery = null;
     window.removeEventListener('resize', resize);
+    if (visibilityListenerAttached) {
+      visibilityListenerAttached = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pageshow', ensureVisibleCanvas);
+      window.removeEventListener('focus', ensureVisibleCanvas);
+    }
     if (ctx && width && height) ctx.clearRect(0, 0, width, height);
   }
 

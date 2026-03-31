@@ -1,6 +1,37 @@
 import { expect, test } from '@playwright/test';
 import { openApp, openAppShell } from './helpers';
 
+test('bootstrap keeps Supabase auth method context intact', async ({ page }) => {
+  await openApp(page);
+
+  await page.waitForFunction(
+    () => typeof window.__IRONFORGE_AUTH_RUNTIME__?.bootstrap === 'function'
+  );
+
+  await page.evaluate(() => {
+    if (!window.__IRONFORGE_SUPABASE__?.auth) return;
+
+    window.__IRONFORGE_SUPABASE__.auth.getSession = async function () {
+      const state = this as { initializePromise?: Promise<unknown> };
+      if (!state || typeof state !== 'object') {
+        throw new Error('Missing auth context');
+      }
+      state.initializePromise = Promise.resolve('ok');
+      return {
+        data: { session: null },
+        error: null,
+      };
+    };
+  });
+
+  await page.evaluate(async () => {
+    await window.__IRONFORGE_AUTH_RUNTIME__?.bootstrap?.();
+  });
+
+  await expect(page.locator('#login-screen')).toBeVisible();
+  await expect(page.locator('#login-error')).toHaveText('');
+});
+
 test('successful sign-in enters the app from the returned session', async ({
   page,
 }) => {
@@ -91,6 +122,14 @@ test('login stays usable while auth bootstrap is still checking the session', as
     const screen = document.getElementById('login-screen');
     if (!(screen instanceof HTMLElement)) return false;
     return getComputedStyle(screen).backgroundImage !== 'none';
+  });
+  await page.waitForFunction(() => {
+    const canvas = document.getElementById('sparks');
+    return (
+      canvas instanceof HTMLCanvasElement &&
+      canvas.width > 0 &&
+      canvas.height > 0
+    );
   });
 });
 

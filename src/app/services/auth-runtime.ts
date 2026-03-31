@@ -273,6 +273,7 @@ export async function bootstrapAuthRuntime() {
     if (!authApi?.getSession || !authApi.onAuthStateChange) {
       throw new Error('Supabase auth is not available.');
     }
+    const getSession = authApi.getSession.bind(authApi);
 
     useRuntimeStore.getState().setAuthState({
       phase: 'booting',
@@ -286,7 +287,7 @@ export async function bootstrapAuthRuntime() {
     attachAuthStateSubscription(authApi);
 
     try {
-      const sessionResult = await resolveBootstrapSession(authApi.getSession);
+      const sessionResult = await resolveBootstrapSession(getSession);
       if ('timedOut' in sessionResult) {
         trace('auth runtime bootstrap timed out', {
           timeoutMs: SESSION_BOOTSTRAP_TIMEOUT_MS,
