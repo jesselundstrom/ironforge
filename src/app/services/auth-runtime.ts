@@ -183,20 +183,19 @@ function ensureSupabaseClient(): SupabaseClientLike {
     return sharedSupabaseClient;
   }
 
+  // Fallback constants — these are publishable (non-secret) keys, safe in client code.
+  // app.js sets these globals at startup; if it hasn't run yet we fall back here.
+  const FALLBACK_URL = 'https://koreqcjrpzcbfgkptvfx.supabase.co';
+  const FALLBACK_KEY = 'sb_publishable_Ccuq9Bwyxmyy4JfrWqXlhg_qiWmCYpn';
+
   const createClient = runtimeWindow.supabase?.createClient;
-  const baseUrl = String(runtimeWindow.__IRONFORGE_SUPABASE_URL__ || '').trim();
+  const baseUrl = String(runtimeWindow.__IRONFORGE_SUPABASE_URL__ || FALLBACK_URL).trim();
   const publishableKey = String(
-    runtimeWindow.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ || ''
+    runtimeWindow.__IRONFORGE_SUPABASE_PUBLISHABLE_KEY__ || FALLBACK_KEY
   ).trim();
 
   if (!createClient) {
     throw new Error('Supabase SDK not loaded (window.supabase missing).');
-  }
-  if (!baseUrl) {
-    throw new Error('Supabase URL not set (app.js may not have run).');
-  }
-  if (!publishableKey) {
-    throw new Error('Supabase key not set (app.js may not have run).');
   }
 
   const options = isStandaloneDisplayMode(runtimeWindow)
