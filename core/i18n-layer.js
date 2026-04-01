@@ -337,7 +337,8 @@ function daysSince(dateStr) {
       'dashboard.insights.keep_going': 'Keep going',
       'dashboard.insights.adherence': '30d adherence',
       'dashboard.insights.best_days': 'Best days',
-      'dashboard.insights.best_days_line': 'You naturally land most sessions on {days}.',
+      'dashboard.insights.best_days_line':
+        'You naturally land most sessions on {days}.',
       'dashboard.insights.sessions_90': '90d sessions',
       'dashboard.insights.friction': 'Friction flags',
       'dashboard.insights.state.continue': 'On track',
@@ -737,8 +738,7 @@ function daysSince(dateStr) {
       'workout.coach_note.tm_increase':
         'Strength up: {lift} +{delta}kg → now {tm}kg',
       'workout.coach_note.tm_adjustment_up': '{lift} TM ↑ {tm} kg (+{delta})',
-      'workout.coach_note.tm_adjustment_down':
-        '{lift} TM ↓ {tm} kg (-{delta})',
+      'workout.coach_note.tm_adjustment_down': '{lift} TM ↓ {tm} kg (-{delta})',
       'workout.coach_note.week_advance': 'Week {week} starts now. Build on it.',
       'workout.coach_note.cycle_advance':
         'Cycle {cycle} starts — new progression block.',
@@ -784,7 +784,8 @@ function daysSince(dateStr) {
       'workout.energy.normal': 'Normal',
       'workout.energy.strong': 'Feeling strong',
       'workout.bonus.label': 'Bonus Workout',
-      'workout.bonus.subtitle': 'Extra session targeting what you missed this week',
+      'workout.bonus.subtitle':
+        'Extra session targeting what you missed this week',
       'workout.bonus.kicker': 'Week complete',
       'workout.bonus.start': 'Start Bonus Workout',
       'workout.bonus.preview_title': 'Bonus Session',
@@ -950,8 +951,7 @@ function daysSince(dateStr) {
       'import.file_too_large': 'Backup file is too large to import safely',
       'import.duplicate_workout_ids':
         'Backup file contains duplicate workout IDs',
-      'import.invalid_workout_dates':
-        'Backup file has invalid workout dates',
+      'import.invalid_workout_dates': 'Backup file has invalid workout dates',
       'import.title': 'Import Data',
       'import.replace_with_backup': 'Replace all data with backup from {date}?',
       'confirm.clear_all_title': 'Clear All Data',
@@ -1120,10 +1120,12 @@ function daysSince(dateStr) {
       'dashboard.trends.sessions': 'Recent sessions',
       'dashboard.trends.best_days': 'Most natural days',
       'dashboard.trends.friction': 'Friction points',
-      'dashboard.trends.summary.building.title': 'Your routine is still taking shape',
+      'dashboard.trends.summary.building.title':
+        'Your routine is still taking shape',
       'dashboard.trends.summary.building.body':
         'There is enough here to start reading your pattern, but a few steadier weeks will tell a much clearer story.',
-      'dashboard.trends.summary.stable.title': 'Your training rhythm is working',
+      'dashboard.trends.summary.stable.title':
+        'Your training rhythm is working',
       'dashboard.trends.summary.stable.body':
         'You are showing up often enough to build momentum, and the recent signals point in the right direction.',
       'dashboard.trends.summary.fragile.title':
@@ -1587,7 +1589,8 @@ function daysSince(dateStr) {
       'nutrition.loading.thinking': 'Thinking...',
       'nutrition.loading.analyzing': 'Analyzing your meal...',
       'nutrition.error.auth_required': 'Sign in to use Nutrition Coach.',
-      'nutrition.error.auth': 'Your session expired. Sign in again to continue.',
+      'nutrition.error.auth':
+        'Your session expired. Sign in again to continue.',
       'nutrition.error.rate_limit':
         'Rate limit reached \u2014 wait a moment and try again.',
       'nutrition.error.server': 'Nutrition Coach is temporarily unavailable.',
@@ -1649,7 +1652,8 @@ function daysSince(dateStr) {
       'nutrition.setup.help':
         'Nutrition Coach is available to signed-in users only. Your daily history stays on this device.',
       'nutrition.error.auth_required': 'Sign in to use Nutrition Coach.',
-      'nutrition.error.auth': 'Your session expired. Sign in again to continue.',
+      'nutrition.error.auth':
+        'Your session expired. Sign in again to continue.',
       'nutrition.error.server': 'Nutrition Coach is temporarily unavailable.',
       'nutrition.error.api': 'Something went wrong. Try again in a moment.',
       'nutrition.error.timeout':
@@ -1737,21 +1741,21 @@ function daysSince(dateStr) {
       'login.password': 'Salasana',
       'login.sign_in': 'Kirjaudu',
       'login.create_account': 'Luo tili',
-      'login.enter_credentials': 'Anna sÃ¤hkÃ¶posti ja salasana.',
-      'login.password_short': 'Salasanassa pitÃ¤Ã¤ olla vÃ¤hintÃ¤Ã¤n 6 merkkiÃ¤.',
+      'login.enter_credentials': 'Anna sähköposti ja salasana.',
+      'login.password_short': 'Salasanassa pitää olla vähintään 6 merkkiä.',
       'login.checking_session': 'Tarkistetaan istuntoa...',
       'login.signing_in': 'Kirjaudutaan...',
-      'login.creating_account': 'Luodaan tiliÃ¤...',
+      'login.creating_account': 'Luodaan tiliä...',
       'login.account_created':
-        'Tili luotiin! Vahvista sÃ¤hkÃ¶posti ja kirjaudu sitten sisÃ¤Ã¤n.',
-      'login.finish_error': 'Kirjautumista ei voitu viimeistellÃ¤ juuri nyt.',
+        'Tili luotiin! Vahvista sähköposti ja kirjaudu sitten sisään.',
+      'login.finish_error': 'Kirjautumista ei voitu viimeistellä juuri nyt.',
       'login.sign_in_error': 'Kirjautuminen ei onnistunut juuri nyt.',
       'login.sign_up_error': 'Tilin luominen ei onnistunut juuri nyt.',
       'login.sign_out_error': 'Uloskirjautuminen ei onnistunut juuri nyt.',
       'pwa.update.available': 'Ironforgesta on uusi versio valmiina.',
-      'pwa.update.refresh': 'PÃ¤ivitÃ¤',
-      'pwa.update.refreshing': 'PÃ¤ivitetÃ¤Ã¤n...',
-      'pwa.update.applying': 'PÃ¤ivitetÃ¤Ã¤n Ironforgea...',
+      'pwa.update.refresh': 'Päivitä',
+      'pwa.update.refreshing': 'Päivitetään...',
+      'pwa.update.applying': 'Päivitetään Ironforgea...',
       'modal.confirm.title': 'Vahvista',
       'modal.confirm.ok': 'Vahvista',
       'modal.confirm.cancel': 'Peruuta',
@@ -2019,7 +2023,8 @@ function daysSince(dateStr) {
       'dashboard.insights.keep_going': 'Jatka samalla linjalla',
       'dashboard.insights.adherence': '30 pv toteuma',
       'dashboard.insights.best_days': 'Parhaat päivät',
-      'dashboard.insights.best_days_line': 'Treenit osuvat luontevimmin {days}.',
+      'dashboard.insights.best_days_line':
+        'Treenit osuvat luontevimmin {days}.',
       'dashboard.insights.sessions_90': '90 pv treenit',
       'dashboard.insights.friction': 'Kitkasignaalit',
       'dashboard.insights.state.continue': 'Raiteilla',
@@ -2425,10 +2430,8 @@ function daysSince(dateStr) {
         'Uusia ennätyksiä, {exercises}! Loistava treeni.',
       'workout.coach_note.tm_increase':
         'Voima kasvaa: {lift} +{delta}kg → nyt {tm}kg',
-      'workout.coach_note.tm_adjustment_up':
-        '{lift} TM ↑ {tm} kg (+{delta})',
-      'workout.coach_note.tm_adjustment_down':
-        '{lift} TM ↓ {tm} kg (-{delta})',
+      'workout.coach_note.tm_adjustment_up': '{lift} TM ↑ {tm} kg (+{delta})',
+      'workout.coach_note.tm_adjustment_down': '{lift} TM ↓ {tm} kg (-{delta})',
       'workout.coach_note.week_advance':
         'Viikko {week} alkaa nyt. Rakenna sen päälle.',
       'workout.coach_note.cycle_advance':
@@ -2475,12 +2478,15 @@ function daysSince(dateStr) {
       'workout.energy.normal': 'Normaali',
       'workout.energy.strong': 'Vahva olo',
       'workout.bonus.label': 'Bonustreeni',
-      'workout.bonus.subtitle': 'Lis\u00e4treeni viikolta puuttuviin lihasryhmiin',
+      'workout.bonus.subtitle':
+        'Lis\u00e4treeni viikolta puuttuviin lihasryhmiin',
       'workout.bonus.kicker': 'Viikko kasassa',
       'workout.bonus.start': 'Aloita bonustreeni',
       'workout.bonus.preview_title': 'Bonussessio',
-      'workout.bonus.note': 'T\u00e4ydent\u00e4v\u00e4 ty\u00f6 \u00b7 3 sarjaa \u00d7 10\u201312',
-      'workout.bonus.toast_started': 'Bonustreeni k\u00e4yntiin \u2014 tsemppi\u00e4!',
+      'workout.bonus.note':
+        'T\u00e4ydent\u00e4v\u00e4 ty\u00f6 \u00b7 3 sarjaa \u00d7 10\u201312',
+      'workout.bonus.toast_started':
+        'Bonustreeni k\u00e4yntiin \u2014 tsemppi\u00e4!',
       'workout.bonus.toast_saved': 'Bonustreeni tallennettu!',
       'workout.bonus.duration.quick': '~20 min',
       'workout.bonus.duration.standard': '~35 min',
@@ -2499,8 +2505,7 @@ function daysSince(dateStr) {
       'workout.setup.advanced_toggle': 'Hienosäätö: {mode}',
       'workout.setup.advanced_hint':
         'Käytä tätä vain jos haluat ohittaa tavallisen suosituksen.',
-      'workout.tm_updated_single':
-        '{lift} TM päivitetty: {old} → {next} kg',
+      'workout.tm_updated_single': '{lift} TM päivitetty: {old} → {next} kg',
       'workout.tm_updated_multi': 'TM:t päivitetty: {changes}',
       'workout.runner.kicker': 'Treenisuunnitelma',
       'workout.runner.normal': 'Normaali treeni',
@@ -2685,7 +2690,8 @@ function daysSince(dateStr) {
       'day.sat.short': 'La',
       'rpe.set': 'Sarja',
       'rpe.session_title': 'Kuinka raskaalta tämä treeni tuntui?',
-      'rpe.session_subtitle': 'Arvioi kokonaisrasitus (6 = helppo, 10 = maksimi)',
+      'rpe.session_subtitle':
+        'Arvioi kokonaisrasitus (6 = helppo, 10 = maksimi)',
       'rpe.session_prompt':
         'Arvioi treenin rasittavuus (6 = kevyt, 10 = maksimi)',
       'rpe.desc.6': 'Jaksaisi jatkaa helposti',

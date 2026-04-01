@@ -17,7 +17,7 @@ function getBuildLabel() {
 const MIN_EMBERS = 18;
 const MAX_EMBERS = 34;
 const COLOR_A = [255, 122, 58];
-const COLOR_B = [255, 176, 103];
+const COLOR_B = [255, 158, 82];
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -58,8 +58,8 @@ function resetEmber(ember, initial, width, height) {
   ember.wiggle = 0.35 + Math.random() * 0.95;
   ember.life = 0.55 + Math.random() * 0.95;
   ember.alpha = fromForge
-    ? 0.24 + Math.random() * 0.36
-    : 0.16 + Math.random() * 0.22;
+    ? 0.14 + Math.random() * 0.2
+    : 0.08 + Math.random() * 0.14;
   ember.t = Math.random();
 }
 
@@ -136,8 +136,8 @@ function useForgeSparkEngine(canvasRef) {
         ctx.beginPath();
         ctx.globalCompositeOperation = 'lighter';
         ctx.fillStyle = emberColor(ember.t, alpha);
-        ctx.shadowColor = emberColor(ember.t, alpha * 0.6);
-        ctx.shadowBlur = 3;
+        ctx.shadowColor = emberColor(ember.t, alpha * 0.38);
+        ctx.shadowBlur = 2;
         ctx.arc(ember.x, ember.y, ember.size, 0, Math.PI * 2);
         ctx.fill();
       }
@@ -151,8 +151,8 @@ function useForgeSparkEngine(canvasRef) {
         height * 0.82,
         height * 0.2
       );
-      forgeGlow.addColorStop(0, 'rgba(255,132,46,0.18)');
-      forgeGlow.addColorStop(0.52, 'rgba(255,120,40,0.09)');
+      forgeGlow.addColorStop(0, 'rgba(255,132,46,0.1)');
+      forgeGlow.addColorStop(0.52, 'rgba(255,120,40,0.045)');
       forgeGlow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.globalCompositeOperation = 'screen';
       ctx.fillStyle = forgeGlow;
@@ -274,10 +274,16 @@ export default function LoginScreen() {
       return;
     }
     try {
-      await loginWithEmailPassword({ email: resolvedEmail, password: resolvedPassword });
+      await loginWithEmailPassword({
+        email: resolvedEmail,
+        password: resolvedPassword,
+      });
     } catch (err) {
       setAuthState({
-        message: err instanceof Error ? err.message : t('login.sign_in_error', 'Unable to sign in right now.'),
+        message:
+          err instanceof Error
+            ? err.message
+            : t('login.sign_in_error', 'Unable to sign in right now.'),
         messageTone: 'error',
         pendingAction: null,
       });
@@ -304,10 +310,16 @@ export default function LoginScreen() {
       return;
     }
     try {
-      await signUpWithEmailPassword({ email: resolvedEmail, password: resolvedPassword });
+      await signUpWithEmailPassword({
+        email: resolvedEmail,
+        password: resolvedPassword,
+      });
     } catch (err) {
       setAuthState({
-        message: err instanceof Error ? err.message : t('login.sign_up_error', 'Unable to create account right now.'),
+        message:
+          err instanceof Error
+            ? err.message
+            : t('login.sign_up_error', 'Unable to create account right now.'),
         messageTone: 'error',
         pendingAction: null,
       });
@@ -336,19 +348,36 @@ export default function LoginScreen() {
     auth.pendingAction === 'sign_up'
       ? t('login.creating_account', 'Creating account...')
       : t('login.create_account', 'Create Account');
+  const credentialInputClass =
+    'login-credential-input h-11 w-full rounded-[18px] border border-[#ffd7b8]/18 bg-[linear-gradient(180deg,rgba(255,248,242,0.16)_0%,rgba(255,224,196,0.06)_20%,rgba(39,22,16,0.14)_100%)] px-4 text-center text-[14px] text-[#fff5ea] placeholder:text-[#ffe1c5]/34 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(255,166,92,0.08),0_14px_34px_rgba(0,0,0,0.12)] outline-none backdrop-blur-[18px] backdrop-saturate-[1.65] transition-[background-color,border-color,box-shadow,color] focus:border-[#ff9a4e]/72 focus:bg-[linear-gradient(180deg,rgba(255,248,242,0.2)_0%,rgba(255,231,208,0.08)_18%,rgba(46,25,18,0.18)_100%)] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_0_1px_rgba(255,154,78,0.14),0_18px_36px_rgba(0,0,0,0.16)] focus:ring-0 disabled:opacity-60';
 
   return (
     <div
       id="login-screen"
       data-ui="auth-screen"
-      className="relative min-h-[100dvh] overflow-hidden bg-[#090b10] text-white"
+      className="relative min-h-[100dvh] overflow-hidden bg-[#110d0a] text-white"
       style={{
-        backgroundImage: `linear-gradient(180deg, rgba(8,11,16,0.05) 0%, rgba(5,7,11,0.55) 60%, rgba(4,6,10,0.88) 100%), url(${loginHeroImage})`,
+        backgroundImage: `linear-gradient(180deg, rgba(15,10,7,0.03) 0%, rgba(13,9,7,0.34) 54%, rgba(10,8,7,0.56) 100%), url(${loginHeroImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center top',
         backgroundRepeat: 'no-repeat',
       }}
     >
+      <style>{`
+        #login-screen .login-credential-input:-webkit-autofill,
+        #login-screen .login-credential-input:-webkit-autofill:hover,
+        #login-screen .login-credential-input:-webkit-autofill:focus {
+          -webkit-text-fill-color: #fff5ea;
+          caret-color: #fff5ea;
+          -webkit-box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.16),
+            inset 0 -1px 0 rgba(255, 166, 92, 0.08),
+            0 0 0 1000px rgba(44, 25, 18, 0.18) inset,
+            0 14px 34px rgba(0, 0, 0, 0.12);
+          transition: background-color 9999s ease-in-out 0s;
+        }
+      `}</style>
+
       {/* Spark particle canvas */}
       <canvas
         ref={canvasRef}
@@ -357,9 +386,11 @@ export default function LoginScreen() {
         className="pointer-events-none absolute inset-0 z-10 h-full w-full"
       />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[55%] bg-[radial-gradient(ellipse_60%_45%_at_50%_22%,rgba(255,130,40,0.13),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[55%] bg-[radial-gradient(ellipse_60%_45%_at_50%_22%,rgba(255,130,40,0.1),transparent_70%)]" />
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[55%] bg-[linear-gradient(0deg,rgba(4,6,10,0.92)_0%,rgba(4,6,10,0.68)_40%,transparent_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-0 h-[55%] bg-[linear-gradient(0deg,rgba(11,8,7,0.66)_0%,rgba(11,8,7,0.4)_36%,transparent_100%)]" />
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-[8%] z-0 h-[30%] bg-[radial-gradient(ellipse_58%_42%_at_50%_68%,rgba(255,131,47,0.2),rgba(255,131,47,0.07)_34%,transparent_72%)]" />
 
       <div className="pointer-events-none absolute inset-0 z-20" />
       <div
@@ -373,9 +404,9 @@ export default function LoginScreen() {
         }}
       >
         <div className="w-full max-w-xs pointer-events-auto">
-          <form className="space-y-2" onSubmit={handleSignIn}>
+          <form className="space-y-3" onSubmit={handleSignIn}>
             <input
-              className="h-11 w-full rounded-xl border border-white/12 bg-black/40 px-4 text-center text-[14px] text-white placeholder:text-white/35 outline-none backdrop-blur-sm transition-colors focus:border-[#ff8a3d]/60 focus:bg-black/50 focus:ring-0 disabled:opacity-60"
+              className={credentialInputClass}
               type="email"
               id="login-email"
               placeholder={t('login.email', 'Email')}
@@ -389,7 +420,7 @@ export default function LoginScreen() {
             />
 
             <input
-              className="h-11 w-full rounded-xl border border-white/12 bg-black/40 px-4 text-center text-[14px] text-white placeholder:text-white/35 outline-none backdrop-blur-sm transition-colors focus:border-[#ff8a3d]/60 focus:bg-black/50 focus:ring-0 disabled:opacity-60"
+              className={credentialInputClass}
               type="password"
               id="login-password"
               placeholder={t('login.password', 'Password')}
@@ -420,7 +451,7 @@ export default function LoginScreen() {
               type="submit"
               disabled={isBusy}
               data-ui="auth-sign-in"
-              className="h-11 w-full rounded-xl bg-[linear-gradient(90deg,#d45f20_0%,#ff8c3a_100%)] text-[14px] font-semibold tracking-wide text-white shadow-[0_8px_28px_rgba(220,100,30,0.35)] transition active:scale-[0.985] disabled:opacity-60"
+              className="h-11 w-full rounded-xl border border-[#ff8a3d]/85 bg-[linear-gradient(90deg,#d45f20_0%,#ff8c3a_100%)] text-[14px] font-semibold tracking-wide text-white shadow-[0_8px_28px_rgba(220,100,30,0.28)] shadow-[inset_0_1px_0_rgba(255,226,201,0.28)] transition active:scale-[0.985] disabled:opacity-60"
             >
               {signInLabel}
             </button>
@@ -430,7 +461,7 @@ export default function LoginScreen() {
               onClick={handleSignUp}
               disabled={isBusy}
               data-ui="auth-sign-up"
-              className="h-11 w-full rounded-xl border border-white/15 bg-transparent text-[14px] font-semibold tracking-wide text-white/75 transition hover:border-white/25 hover:text-white active:scale-[0.985] disabled:opacity-60"
+              className="h-11 w-full rounded-xl border border-[#ff8a3d]/55 bg-[rgba(14,10,9,0.12)] text-[14px] font-semibold tracking-wide text-[#ffd0b0] transition hover:border-[#ff8a3d]/75 hover:text-white active:scale-[0.985] disabled:opacity-60"
             >
               {signUpLabel}
             </button>

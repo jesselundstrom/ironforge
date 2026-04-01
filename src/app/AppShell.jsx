@@ -388,6 +388,7 @@ function AppUpdateBanner({ updateReady, applyingUpdate }) {
         className="btn btn-primary btn-sm"
         disabled={applyingUpdate}
         onClick={() => applyPendingPwaUpdate()}
+        style={{ textTransform: 'none' }}
       >
         {applyingUpdate
           ? t('pwa.update.refreshing', 'Refreshing...')
