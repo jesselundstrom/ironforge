@@ -301,6 +301,13 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
     },
     startWorkout: () => {
       getCapturedLegacyAction('startWorkout')?.();
+      // If the legacy layer set up an active workout, run resumeActiveWorkoutUI to
+      // guarantee the React bridge views (logStartView, logActiveView) are updated.
+      // beginWorkoutStart may skip its own notify calls if isLogActiveIslandActive()
+      // returns false at the time it runs, or if an exception occurs before line 3638.
+      if (getLegacyWindow()?.activeWorkout) {
+        getCapturedLegacyAction('resumeActiveWorkoutUI')?.({ toast: false });
+      }
       syncStoreFromLegacy();
       navigateToPage('log');
     },
