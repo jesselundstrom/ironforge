@@ -349,7 +349,7 @@ export default function LoginScreen() {
       ? t('login.creating_account', 'Creating account...')
       : t('login.create_account', 'Create Account');
   const credentialInputClass =
-    'login-credential-input h-11 w-full rounded-[18px] border border-[#ffd7b8]/18 bg-[linear-gradient(180deg,rgba(255,248,242,0.16)_0%,rgba(255,224,196,0.06)_20%,rgba(39,22,16,0.14)_100%)] px-4 text-center text-[14px] text-[#fff5ea] placeholder:text-[#ffe1c5]/34 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(255,166,92,0.08),0_14px_34px_rgba(0,0,0,0.12)] outline-none backdrop-blur-[18px] backdrop-saturate-[1.65] transition-[background-color,border-color,box-shadow,color] focus:border-[#ff9a4e]/72 focus:bg-[linear-gradient(180deg,rgba(255,248,242,0.2)_0%,rgba(255,231,208,0.08)_18%,rgba(46,25,18,0.18)_100%)] focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_0_0_1px_rgba(255,154,78,0.14),0_18px_36px_rgba(0,0,0,0.16)] focus:ring-0 disabled:opacity-60';
+    'login-credential-input h-[52px] w-full rounded-[15px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,13,20,0.18)_0%,rgba(12,13,20,0.1)_100%)] px-4 text-center text-[14px] text-white [text-shadow:0_1px_10px_rgba(0,0,0,0.9)] placeholder:text-[rgba(235,239,248,0.42)] placeholder:[text-shadow:none] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_18px_rgba(0,0,0,0.14)] outline-none backdrop-blur-[6px] transition-[border-color,box-shadow,background-color] focus:border-[#ff7a3a]/75 focus:bg-[linear-gradient(180deg,rgba(14,16,24,0.24)_0%,rgba(14,16,24,0.14)_100%)] focus:shadow-[0_0_0_3px_rgba(255,122,58,0.14),0_12px_28px_rgba(0,0,0,0.22)] focus:ring-0 disabled:opacity-60';
 
   return (
     <div
@@ -367,14 +367,14 @@ export default function LoginScreen() {
         #login-screen .login-credential-input:-webkit-autofill,
         #login-screen .login-credential-input:-webkit-autofill:hover,
         #login-screen .login-credential-input:-webkit-autofill:focus {
-          -webkit-text-fill-color: #fff5ea;
-          caret-color: #fff5ea;
           -webkit-box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.16),
-            inset 0 -1px 0 rgba(255, 166, 92, 0.08),
-            0 0 0 1000px rgba(44, 25, 18, 0.18) inset,
-            0 14px 34px rgba(0, 0, 0, 0.12);
-          transition: background-color 9999s ease-in-out 0s;
+            inset 0 1px 0 rgba(255, 255, 255, 0.05),
+            0 0 0 1000px rgba(12, 13, 20, 0.16) inset,
+            0 8px 18px rgba(0, 0, 0, 0.14);
+          -webkit-text-fill-color: rgba(255, 255, 255, 0.92);
+          caret-color: rgba(255, 255, 255, 0.92);
+          text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+          transition: background-color 5000s ease-in-out 0s;
         }
       `}</style>
 
@@ -404,7 +404,7 @@ export default function LoginScreen() {
         }}
       >
         <div className="w-full max-w-xs pointer-events-auto">
-          <form className="space-y-3" onSubmit={handleSignIn}>
+          <form className="space-y-[10px]" onSubmit={handleSignIn}>
             <input
               className={credentialInputClass}
               type="email"
@@ -451,7 +451,7 @@ export default function LoginScreen() {
               type="submit"
               disabled={isBusy}
               data-ui="auth-sign-in"
-              className="h-11 w-full rounded-xl border border-[#ff8a3d]/85 bg-[linear-gradient(90deg,#d45f20_0%,#ff8c3a_100%)] text-[14px] font-semibold tracking-wide text-white shadow-[0_8px_28px_rgba(220,100,30,0.28)] shadow-[inset_0_1px_0_rgba(255,226,201,0.28)] transition active:scale-[0.985] disabled:opacity-60"
+              className="mt-2 h-14 w-full rounded-[18px] bg-[linear-gradient(90deg,#e36a2c_0%,#ff8a3d_100%)] text-[16px] font-bold tracking-[0.04em] text-white shadow-[0_14px_36px_rgba(255,122,58,0.2),0_0_24px_rgba(255,122,58,0.16)] transition active:scale-[0.96] disabled:opacity-60"
             >
               {signInLabel}
             </button>
@@ -461,7 +461,7 @@ export default function LoginScreen() {
               onClick={handleSignUp}
               disabled={isBusy}
               data-ui="auth-sign-up"
-              className="h-11 w-full rounded-xl border border-[#ff8a3d]/55 bg-[rgba(14,10,9,0.12)] text-[14px] font-semibold tracking-wide text-[#ffd0b0] transition hover:border-[#ff8a3d]/75 hover:text-white active:scale-[0.985] disabled:opacity-60"
+              className="mt-2 h-14 w-full rounded-[18px] border border-[#ff7a3a]/60 bg-[rgba(0,0,0,0.18)] text-[16px] font-bold tracking-[0.04em] text-[#ff8b3f] transition active:scale-[0.96] disabled:opacity-60"
             >
               {signUpLabel}
             </button>
