@@ -1245,6 +1245,10 @@ function getCompletedSetPerformance(set) {
   return weight * reps;
 }
 
+function isSportWorkout(workout) {
+  return workout?.type === 'sport' || workout?.type === 'hockey';
+}
+
 function buildWorkoutPrBaseline() {
   const baseline = {};
   workouts.forEach((workout) => {

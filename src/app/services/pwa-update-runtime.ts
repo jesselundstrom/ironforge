@@ -7,7 +7,10 @@ type WaitingWorkerLike = {
 type PwaUpdateRuntime = {
   register: () => Promise<void>;
   applyUpdate: () => void;
-  setWaitingWorkerForTest: (worker: WaitingWorkerLike | null) => void;
+  setWaitingWorkerForTest: (
+    worker: WaitingWorkerLike | null,
+    options?: { autoApply?: boolean }
+  ) => void;
 };
 
 type RuntimeWindow = Window & {
@@ -24,7 +27,19 @@ let waitingWorker: WaitingWorkerLike | null = null;
 let registerPromise: Promise<void> | null = null;
 let controllerChangeAttached = false;
 
-function applyWaitingWorker(worker: WaitingWorkerLike | null) {
+function setUpdateReadyState() {
+  useRuntimeStore.getState().setServiceWorkerState({
+    updateReady: true,
+    applyingUpdate: false,
+  });
+}
+
+function requestPageReload() {
+  trace('pwa update reload requested');
+  window.location.reload();
+}
+
+function forceApplyWaitingWorker(worker: WaitingWorkerLike | null) {
   if (!worker) return;
   useRuntimeStore.getState().setServiceWorkerState({
     updateReady: false,
@@ -33,6 +48,15 @@ function applyWaitingWorker(worker: WaitingWorkerLike | null) {
   sessionStorage.setItem(RELOAD_MARKER_KEY, '1');
   trace('pwa update auto-apply requested');
   worker.postMessage({ type: 'SKIP_WAITING' });
+}
+
+function applyWaitingWorker(worker: WaitingWorkerLike | null) {
+  if (!worker) return;
+  if (import.meta.env.DEV) {
+    requestPageReload();
+    return;
+  }
+  forceApplyWaitingWorker(worker);
 }
 
 function getRuntimeWindow(): RuntimeWindow | null {
@@ -54,13 +78,23 @@ function setWaitingWorker(worker: WaitingWorkerLike | null) {
   });
 }
 
+function handleWaitingWorkerReady(worker: WaitingWorkerLike | null) {
+  if (!worker) return;
+  setWaitingWorker(worker);
+  if (import.meta.env.DEV) {
+    trace('pwa update waiting worker ready in dev');
+    setUpdateReadyState();
+    return;
+  }
+  forceApplyWaitingWorker(worker);
+}
+
 function handleWaitingRegistration(
   registration: ServiceWorkerRegistration | null | undefined
 ) {
   if (registration?.waiting) {
     trace('pwa update waiting worker ready');
-    setWaitingWorker(registration.waiting);
-    applyWaitingWorker(registration.waiting);
+    handleWaitingWorkerReady(registration.waiting);
   }
 }
 
@@ -108,8 +142,7 @@ async function registerServiceWorker() {
         if (installingWorker.state !== 'installed') return;
         if (!navigator.serviceWorker.controller) return;
         trace('pwa update installed and waiting');
-        setWaitingWorker(registration.waiting || installingWorker);
-        applyWaitingWorker(registration.waiting || installingWorker);
+        handleWaitingWorkerReady(registration.waiting || installingWorker);
       });
     });
 
@@ -150,9 +183,13 @@ export function installPwaUpdateRuntime() {
   const runtime: PwaUpdateRuntime = {
     register: registerServiceWorker,
     applyUpdate: applyPendingUpdate,
-    setWaitingWorkerForTest: (worker) => {
+    setWaitingWorkerForTest: (worker, options) => {
       setWaitingWorker(worker);
-      applyWaitingWorker(worker);
+      if (options?.autoApply === false) {
+        setUpdateReadyState();
+        return;
+      }
+      forceApplyWaitingWorker(worker);
     },
   };
 

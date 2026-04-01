@@ -153,7 +153,8 @@ declare global {
       register?: () => Promise<void>;
       applyUpdate?: () => void;
       setWaitingWorkerForTest?: (
-        worker: { postMessage: (message: unknown) => void } | null
+        worker: { postMessage: (message: unknown) => void } | null,
+        options?: { autoApply?: boolean }
       ) => void;
     };
     __IRONFORGE_RUNTIME_BRIDGE__?: {

@@ -62,6 +62,10 @@ function isCloudSyncEnabled() {
   return cloudSyncEnabled !== false;
 }
 
+function isBrowserOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
 function getLocalCacheKey(baseKey, userId) {
   const scopedUserId = getLocalCacheUserId(userId);
   return scopedUserId ? baseKey + '::' + scopedUserId : baseKey;
@@ -133,7 +137,7 @@ function resetRuntimeState() {
   syncStateCache = createDefaultSyncStateCache();
   activeWorkoutDraftCache = null;
   syncStatusState = {
-    state: navigator.onLine ? 'idle' : 'offline',
+    state: isBrowserOffline() ? 'offline' : 'idle',
     updatedAt: null,
   };
   cloudSyncEnabled = true;
@@ -155,7 +159,7 @@ function setSyncStatus(state) {
 }
 
 function getSyncStatusLabel() {
-  const state = !navigator.onLine ? 'offline' : syncStatusState.state || 'idle';
+  const state = isBrowserOffline() ? 'offline' : syncStatusState.state || 'idle';
   if (state === 'syncing')
     return {
       label: i18nText('settings.sync.syncing', 'Syncing changes...'),
@@ -199,9 +203,15 @@ function renderSyncStatus() {
 
 window.addEventListener('online', () => {
   setSyncStatus('synced');
-  if (currentUser) scheduleRealtimeSync('online');
+  if (currentUser) {
+    setupRealtimeSync();
+    scheduleRealtimeSync('online');
+  }
 });
-window.addEventListener('offline', () => setSyncStatus('offline'));
+window.addEventListener('offline', () => {
+  teardownRealtimeSync();
+  setSyncStatus('offline');
+});
 
 function notifyCloudSyncError(options) {
   const opts = options || {};
@@ -2555,6 +2565,10 @@ function applyLegacyProfileBlob(remoteProfile, remoteSchedule, options) {
 }
 
 async function pushLegacyProfileBlob() {
+  if (isBrowserOffline()) {
+    setSyncStatus('offline');
+    return false;
+  }
   try {
     setSyncStatus('syncing');
     const { data, error } = await _SB
@@ -2622,6 +2636,10 @@ async function pushLegacyProfileBlob() {
 async function pushToCloud(options) {
   if (!currentUser || !isCloudSyncEnabled() || isApplyingRemoteSync)
     return false;
+  if (isBrowserOffline()) {
+    setSyncStatus('offline');
+    return false;
+  }
   const opts = options || {};
   const docKeys = opts.docKeys || getAllProfileDocumentKeys(profile);
   setSyncStatus('syncing');
@@ -2644,6 +2662,10 @@ async function pushToCloud(options) {
 async function flushPendingCloudSync() {
   if (!currentUser || !isCloudSyncEnabled() || isApplyingRemoteSync)
     return false;
+  if (isBrowserOffline()) {
+    setSyncStatus('offline');
+    return false;
+  }
   const dirtyDocKeys = getDirtyDocKeys();
   if (!dirtyDocKeys.length) return true;
   return pushToCloud({ docKeys: dirtyDocKeys });
@@ -2767,6 +2789,10 @@ function teardownRealtimeSync() {
 
 async function applyRealtimeSync(reason) {
   if (!currentUser || !isCloudSyncEnabled() || isApplyingRemoteSync) return;
+  if (isBrowserOffline()) {
+    setSyncStatus('offline');
+    return;
+  }
   isApplyingRemoteSync = true;
   try {
     const beforeProfile = JSON.stringify(profile || {});
@@ -2793,6 +2819,7 @@ async function applyRealtimeSync(reason) {
 
 function scheduleRealtimeSync(reason) {
   if (!currentUser || !isCloudSyncEnabled()) return;
+  if (isBrowserOffline()) return;
   if (realtimeSyncTimer) clearTimeout(realtimeSyncTimer);
   realtimeSyncTimer = setTimeout(() => {
     applyRealtimeSync(reason);
@@ -2801,7 +2828,13 @@ function scheduleRealtimeSync(reason) {
 
 function setupRealtimeSync() {
   teardownRealtimeSync();
-  if (!currentUser || !isCloudSyncEnabled() || !_SB?.channel) return;
+  if (
+    !currentUser ||
+    !isCloudSyncEnabled() ||
+    isBrowserOffline() ||
+    !_SB?.channel
+  )
+    return;
   syncRealtimeChannel = _SB
     .channel('ironforge-sync-' + currentUser.id)
     .on(

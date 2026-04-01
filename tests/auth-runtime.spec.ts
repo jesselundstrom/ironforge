@@ -442,3 +442,30 @@ test('pwa update auto-applies the waiting worker and requests a reload', async (
   await page.waitForLoadState('domcontentloaded');
   await expect(page.locator('body')).toContainText(/sign in|dashboard/i);
 });
+
+test('pwa update stays manual in dev until refresh is clicked', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    window.__IRONFORGE_PWA_UPDATE_RUNTIME__?.setWaitingWorkerForTest?.(
+      {
+        postMessage: () => {},
+      },
+      { autoApply: false }
+    );
+  });
+
+  await expect(page.locator('#app-update-toast')).toContainText(
+    'A new version of Ironforge is ready.'
+  );
+  await expect(page.locator('#app-update-toast button')).toHaveText('Refresh');
+
+  await Promise.all([
+    page.waitForLoadState('domcontentloaded'),
+    page.locator('#app-update-toast button').click(),
+  ]);
+
+  await expect(page.locator('body')).toContainText(/sign in|dashboard/i);
+});
