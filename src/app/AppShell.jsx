@@ -22,7 +22,10 @@ import {
   setExerciseCatalogSearch,
 } from './services/exercise-catalog.ts';
 import { confirmCancel, confirmOk } from './services/confirm-actions.ts';
-import { navigateToPage, showSettingsTab } from './services/navigation-actions.ts';
+import {
+  navigateToPage,
+  showSettingsTab,
+} from './services/navigation-actions.ts';
 import { closeProgramSetupSheet } from './services/settings-actions.ts';
 import {
   cancelSportReadinessCheck,
@@ -246,7 +249,9 @@ function ExerciseCatalogModal({ view }) {
             className="exercise-catalog-search-input"
             placeholder={t('catalog.search.placeholder', 'Search exercises')}
             value={view?.search || ''}
-            onChange={(event) => setExerciseCatalogSearch(event.currentTarget.value)}
+            onChange={(event) =>
+              setExerciseCatalogSearch(event.currentTarget.value)
+            }
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 closeExerciseCatalog();
@@ -283,7 +288,10 @@ function ExerciseCatalogModal({ view }) {
                   className="catalog-filter-select"
                   value={group.activeValue || ''}
                   onChange={(event) =>
-                    setExerciseCatalogFilter(group.id, event.currentTarget.value)
+                    setExerciseCatalogFilter(
+                      group.id,
+                      event.currentTarget.value
+                    )
                   }
                 >
                   {group.options.map((option) => (
@@ -318,7 +326,10 @@ function ExerciseCatalogModal({ view }) {
                   <div className="catalog-section-empty">
                     {section.emptyCopy ||
                       view?.emptyCopy ||
-                      t('catalog.section.empty', 'No exercises in this section yet.')}
+                      t(
+                        'catalog.section.empty',
+                        'No exercises in this section yet.'
+                      )}
                   </div>
                 )}
               </section>
@@ -370,10 +381,7 @@ function AppUpdateBanner({ updateReady, applyingUpdate }) {
       <span>
         {applyingUpdate
           ? t('pwa.update.applying', 'Updating Ironforge...')
-          : t(
-              'pwa.update.available',
-              'A new version of Ironforge is ready.'
-            )}
+          : t('pwa.update.available', 'A new version of Ironforge is ready.')}
       </span>
       <button
         type="button"
@@ -401,7 +409,9 @@ export default function AppShell() {
   const hideToast = useRuntimeStore((state) => state.hideToast);
   const languageVersion = useRuntimeStore((state) => state.ui.languageVersion);
   const session = useRuntimeStore((state) => state.workoutSession.session);
-  const exerciseCatalog = useRuntimeStore((state) => state.exerciseCatalog.view);
+  const exerciseCatalog = useRuntimeStore(
+    (state) => state.exerciseCatalog.view
+  );
   const previousPageRef = useRef(activePage);
 
   const navItems = useMemo(
@@ -442,12 +452,12 @@ export default function AppShell() {
     window.requestAnimationFrame(() => {
       const modal = document.getElementById('summary-modal');
       if (modal) {
-        modal.classList.toggle(
-          'reduced-motion',
-          prefersReducedMotionUI()
-        );
+        modal.classList.toggle('reduced-motion', prefersReducedMotionUI());
       }
-      startSessionSummaryCelebration(modal, session.summaryPrompt?.summaryData || null);
+      startSessionSummaryCelebration(
+        modal,
+        session.summaryPrompt?.summaryData || null
+      );
       const notesField = document.getElementById('summary-notes-textarea');
       if (notesField instanceof HTMLTextAreaElement) {
         notesField.style.height = 'auto';
@@ -811,9 +821,7 @@ export default function AppShell() {
       </div>
 
       <div
-        className={`modal-overlay${
-          session.exerciseGuideOpen ? ' active' : ''
-        }`}
+        className={`modal-overlay${session.exerciseGuideOpen ? ' active' : ''}`}
         id="exercise-guide-modal"
         onClick={(event) => closeExerciseGuide(event)}
       >
@@ -826,11 +834,16 @@ export default function AppShell() {
           <div className="modal-sub" id="exercise-guide-modal-sub">
             {session.exerciseGuidePrompt?.subtitle || ''}
           </div>
-          <div className="exercise-guide-sheet-body" id="exercise-guide-modal-body">
+          <div
+            className="exercise-guide-sheet-body"
+            id="exercise-guide-modal-body"
+          >
             {session.exerciseGuidePrompt ? (
               <div className="exercise-guide-grid">
                 <div>
-                  <div className="exercise-guide-title">{t('guidance.setup', 'Setup')}</div>
+                  <div className="exercise-guide-title">
+                    {t('guidance.setup', 'Setup')}
+                  </div>
                   <div className="exercise-guide-text">
                     {session.exerciseGuidePrompt.setup || ''}
                   </div>
@@ -840,9 +853,11 @@ export default function AppShell() {
                     {t('guidance.execution', 'Execution')}
                   </div>
                   <ol className="exercise-guide-list">
-                    {session.exerciseGuidePrompt.execution.map((step, index) => (
-                      <li key={`${step}-${index}`}>{step}</li>
-                    ))}
+                    {session.exerciseGuidePrompt.execution.map(
+                      (step, index) => (
+                        <li key={`${step}-${index}`}>{step}</li>
+                      )
+                    )}
                   </ol>
                 </div>
                 <div>
@@ -956,7 +971,10 @@ export default function AppShell() {
               />
             </svg>
             <div className="header-text">
-              <h1 className="page-title page-title-wordmark" aria-label="Ironforge">
+              <h1
+                className="page-title page-title-wordmark"
+                aria-label="Ironforge"
+              >
                 <span>Ironforge</span>
               </h1>
               <p id="header-sub">
@@ -996,7 +1014,12 @@ export default function AppShell() {
         </PageShell>
 
         <PageShell id="settings" active={activePage === 'settings'}>
-          <div className="tabs" id="settings-tabs" role="tablist" aria-label="Settings sections">
+          <div
+            className="tabs"
+            id="settings-tabs"
+            role="tablist"
+            aria-label="Settings sections"
+          >
             {settingsTabs.map((tab) => {
               const isActive = activeSettingsTab === tab.id;
               return (
@@ -1007,7 +1030,9 @@ export default function AppShell() {
                   role="tab"
                   aria-selected={isActive ? 'true' : 'false'}
                   data-settings-tab={tab.id}
-                  onClick={(event) => showSettingsTab(tab.id, event.currentTarget)}
+                  onClick={(event) =>
+                    showSettingsTab(tab.id, event.currentTarget)
+                  }
                 >
                   {tab.label}
                 </button>
@@ -1015,7 +1040,10 @@ export default function AppShell() {
             })}
           </div>
 
-          <div id="settings-tab-schedule" style={{ display: activeSettingsTab === 'schedule' ? '' : 'none' }}>
+          <div
+            id="settings-tab-schedule"
+            style={{ display: activeSettingsTab === 'schedule' ? '' : 'none' }}
+          >
             <div id="settings-schedule-react-root">
               <IslandErrorBoundary>
                 <SettingsScheduleIsland />
@@ -1023,7 +1051,12 @@ export default function AppShell() {
             </div>
           </div>
 
-          <div id="settings-tab-preferences" style={{ display: activeSettingsTab === 'preferences' ? '' : 'none' }}>
+          <div
+            id="settings-tab-preferences"
+            style={{
+              display: activeSettingsTab === 'preferences' ? '' : 'none',
+            }}
+          >
             <div id="settings-preferences-react-root">
               <IslandErrorBoundary>
                 <SettingsPreferencesIsland />
@@ -1031,7 +1064,10 @@ export default function AppShell() {
             </div>
           </div>
 
-          <div id="settings-tab-program" style={{ display: activeSettingsTab === 'program' ? '' : 'none' }}>
+          <div
+            id="settings-tab-program"
+            style={{ display: activeSettingsTab === 'program' ? '' : 'none' }}
+          >
             <div id="settings-program-react-root">
               <IslandErrorBoundary>
                 <SettingsProgramIsland />
@@ -1039,7 +1075,10 @@ export default function AppShell() {
             </div>
           </div>
 
-          <div id="settings-tab-account" style={{ display: activeSettingsTab === 'account' ? '' : 'none' }}>
+          <div
+            id="settings-tab-account"
+            style={{ display: activeSettingsTab === 'account' ? '' : 'none' }}
+          >
             <div id="settings-account-react-root">
               <IslandErrorBoundary>
                 <SettingsAccountIsland />
@@ -1047,7 +1086,10 @@ export default function AppShell() {
             </div>
           </div>
 
-          <div id="settings-tab-body" style={{ display: activeSettingsTab === 'body' ? '' : 'none' }}>
+          <div
+            id="settings-tab-body"
+            style={{ display: activeSettingsTab === 'body' ? '' : 'none' }}
+          >
             <div id="settings-body-react-root">
               <IslandErrorBoundary>
                 <SettingsBodyIsland />
@@ -1068,7 +1110,9 @@ export default function AppShell() {
       <nav
         className="bottom-nav"
         style={{
-          '--nav-indicator-x': PAGE_META.findIndex((item) => item.id === activePage),
+          '--nav-indicator-x': PAGE_META.findIndex(
+            (item) => item.id === activePage
+          ),
         }}
         aria-label="Primary"
       >

@@ -391,7 +391,11 @@ function normalizeImportedRestDuration(value) {
 }
 
 function normalizeImportedLanguage(value) {
-  return String(value || '').trim().toLowerCase() === 'fi' ? 'fi' : 'en';
+  return String(value || '')
+    .trim()
+    .toLowerCase() === 'fi'
+    ? 'fi'
+    : 'en';
 }
 
 function getRegisteredProgramDefinition(programId) {
@@ -496,8 +500,13 @@ function createNormalizedProfileCore(profileLike, options) {
 function createNormalizedProfileImport(profileLike) {
   const next = createNormalizedProfileCore(profileLike);
   next.programs = getNormalizedProgramStateMap(profileLike);
-  const activeProgramDefinition = getRegisteredProgramDefinition(next.activeProgram);
-  if (activeProgramDefinition && next.programs[next.activeProgram] === undefined) {
+  const activeProgramDefinition = getRegisteredProgramDefinition(
+    next.activeProgram
+  );
+  if (
+    activeProgramDefinition &&
+    next.programs[next.activeProgram] === undefined
+  ) {
     next.programs[next.activeProgram] =
       cloneJson(
         typeof activeProgramDefinition.getInitialState === 'function'
@@ -1350,7 +1359,8 @@ function createImportedWorkoutSetRecord(set) {
   if ('isWarmup' in set) next.isWarmup = set.isWarmup === true;
   if ('isAmrap' in set) next.isAmrap = set.isAmrap === true;
   if ('isPr' in set) next.isPr = set.isPr === true;
-  if ('isLastHeavySet' in set) next.isLastHeavySet = set.isLastHeavySet === true;
+  if ('isLastHeavySet' in set)
+    next.isLastHeavySet = set.isLastHeavySet === true;
   if ('rir' in set) next.rir = sanitizeWorkoutTextValue(set.rir, 12);
   if ('rirTarget' in set) next.rirTarget = set.rirTarget;
   return sanitizeWorkoutSetRecord(next);
@@ -1369,7 +1379,8 @@ function createImportedWorkoutExerciseRecord(exercise) {
   if ('exerciseId' in exercise) next.exerciseId = exercise.exerciseId;
   if ('notes' in exercise) next.notes = exercise.notes;
   if ('isAux' in exercise) next.isAux = exercise.isAux === true;
-  if ('isAccessory' in exercise) next.isAccessory = exercise.isAccessory === true;
+  if ('isAccessory' in exercise)
+    next.isAccessory = exercise.isAccessory === true;
   return sanitizeWorkoutExerciseRecord(next);
 }
 
@@ -1424,21 +1435,25 @@ function createImportedWorkoutRecord(workout) {
   }
   ['completedAt', 'startedAt', 'createdAt', 'updatedAt', 'deletedAt'].forEach(
     (field) => {
-      if (field in workout) next[field] = sanitizeWorkoutTextValue(workout[field], 64);
+      if (field in workout)
+        next[field] = sanitizeWorkoutTextValue(workout[field], 64);
     }
   );
   if ('isDraft' in workout) next.isDraft = workout.isDraft === true;
   if (workout.programMeta && typeof workout.programMeta === 'object') {
     next.programMeta = {};
     Object.keys(workout.programMeta).forEach((key) => {
-      next.programMeta[key] = sanitizeWorkoutMetaValue(workout.programMeta[key]);
+      next.programMeta[key] = sanitizeWorkoutMetaValue(
+        workout.programMeta[key]
+      );
     });
   }
   const commentaryResult = normalizeWorkoutCommentaryValue({
     commentary: workout.commentary,
     adaptationReasons: workout.adaptationReasons,
   });
-  if (commentaryResult.commentary) next.commentary = commentaryResult.commentary;
+  if (commentaryResult.commentary)
+    next.commentary = commentaryResult.commentary;
   const normalized = normalizeWorkoutRecord(next);
   if (!isValidImportedWorkoutDate(normalized?.date)) return null;
   return normalized;
@@ -1636,11 +1651,7 @@ function validateImportedBackup(data) {
       fallback: 'Backup file contains unsupported sections',
     };
   }
-  if (
-    !('workouts' in data) &&
-    !('schedule' in data) &&
-    !('profile' in data)
-  ) {
+  if (!('workouts' in data) && !('schedule' in data) && !('profile' in data)) {
     return {
       ok: false,
       errorKey: 'import.invalid_file',
@@ -1691,7 +1702,11 @@ function validateImportedBackup(data) {
     next.workouts = workouts;
   }
   if ('schedule' in data) {
-    if (!data.schedule || typeof data.schedule !== 'object' || Array.isArray(data.schedule)) {
+    if (
+      !data.schedule ||
+      typeof data.schedule !== 'object' ||
+      Array.isArray(data.schedule)
+    ) {
       return {
         ok: false,
         errorKey: 'import.invalid_schedule_data',
@@ -1701,7 +1716,11 @@ function validateImportedBackup(data) {
     next.schedule = createNormalizedSchedulePayload(data.schedule);
   }
   if ('profile' in data) {
-    if (!data.profile || typeof data.profile !== 'object' || Array.isArray(data.profile)) {
+    if (
+      !data.profile ||
+      typeof data.profile !== 'object' ||
+      Array.isArray(data.profile)
+    ) {
       return {
         ok: false,
         errorKey: 'import.invalid_profile_data',
@@ -2034,12 +2053,18 @@ async function loadData(options) {
   }
   // Initialize program states for all registered programs (fills in defaults for new programs)
   if (!profile.programs) profile.programs = {};
-  (typeof getRegisteredPrograms === 'function' ? getRegisteredPrograms() : []).forEach((prog) => {
+  (typeof getRegisteredPrograms === 'function'
+    ? getRegisteredPrograms()
+    : []
+  ).forEach((prog) => {
     if (!profile.programs[prog.id])
       profile.programs[prog.id] = prog.getInitialState();
   });
   // Backfill new fields for programs that carry existing state (missing keys get safe defaults)
-  (typeof getRegisteredPrograms === 'function' ? getRegisteredPrograms() : []).forEach((prog) => {
+  (typeof getRegisteredPrograms === 'function'
+    ? getRegisteredPrograms()
+    : []
+  ).forEach((prog) => {
     if (prog.migrateState && profile.programs[prog.id])
       profile.programs[prog.id] = prog.migrateState(profile.programs[prog.id]);
   });
@@ -2170,7 +2195,10 @@ async function upsertProfileDocuments(
   rows.forEach((row) => {
     const serverRow = rowsByKey.get(String(row.doc_key || ''));
     if (serverRow) {
-      updateServerDocStamp(serverRow.doc_key, serverRow.updated_at || undefined);
+      updateServerDocStamp(
+        serverRow.doc_key,
+        serverRow.updated_at || undefined
+      );
     }
     if (!serverRow || serverRow.applied === false) {
       staleDocKeys.push(row.doc_key);

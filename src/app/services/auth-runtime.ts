@@ -35,9 +35,7 @@ type SupabaseSessionResult = {
   error?: { message?: string } | null;
 };
 
-type BootstrapSessionResult =
-  | SupabaseSessionResult
-  | { timedOut: true };
+type BootstrapSessionResult = SupabaseSessionResult | { timedOut: true };
 
 type AuthCredentials = {
   email?: string;
@@ -73,9 +71,7 @@ type RuntimeWindow = Window & {
     trace?: (message: string, details?: Record<string, unknown>) => void;
   };
   __IRONFORGE_AUTH_RUNTIME__?: AuthRuntime;
-  __IRONFORGE_SET_AUTH_STATE__?: (
-    partial: Record<string, unknown>
-  ) => void;
+  __IRONFORGE_SET_AUTH_STATE__?: (partial: Record<string, unknown>) => void;
   __IRONFORGE_SET_AUTH_LOGGED_IN__?: (isLoggedIn: boolean) => void;
   loginWithEmail?: (credentials?: AuthCredentials) => Promise<void>;
   signUpWithEmail?: (credentials?: AuthCredentials) => Promise<void>;

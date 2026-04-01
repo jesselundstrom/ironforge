@@ -94,9 +94,7 @@ test('failed sign-in keeps the login screen visible', async ({ page }) => {
   );
 });
 
-test('sign-in remains successful even if loadData throws', async ({
-  page,
-}) => {
+test('sign-in remains successful even if loadData throws', async ({ page }) => {
   await openApp(page);
 
   await page.waitForFunction(
@@ -215,9 +213,7 @@ test('standalone sign-in uses the shared auth-owned Supabase client', async ({
   await expect(page.locator('#app-root')).toBeVisible();
 });
 
-test('sign-in button click bubbles normally', async ({
-  page,
-}) => {
+test('sign-in button click bubbles normally', async ({ page }) => {
   await openApp(page);
 
   await page.waitForFunction(
