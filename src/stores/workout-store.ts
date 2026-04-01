@@ -7,6 +7,7 @@ import {
 } from '../domain/workout-helpers';
 import { dataStore } from './data-store';
 import { useRuntimeStore } from '../app/store/runtime-store';
+import { navigateToPage } from '../app/services/navigation-actions';
 
 type LegacyWorkoutStoreState = {
   activeWorkout: ActiveWorkout | null;
@@ -301,6 +302,7 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
     startWorkout: () => {
       getCapturedLegacyAction('startWorkout')?.();
       syncStoreFromLegacy();
+      navigateToPage('log');
     },
     resumeActiveWorkoutUI: (options) => {
       const result = getCapturedLegacyAction('resumeActiveWorkoutUI')?.(options);
