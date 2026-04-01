@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { openApp, openAppShell } from './helpers';
 
-test('bootstrap keeps Supabase auth method context intact', async ({ page }) => {
+test('bootstrap keeps Supabase auth method context intact', async ({
+  page,
+}) => {
   await openApp(page);
 
   await page.waitForFunction(
@@ -92,6 +94,45 @@ test('failed sign-in keeps the login screen visible', async ({ page }) => {
   );
 });
 
+test('sign-in remains successful even if legacy auth hydration throws', async ({
+  page,
+}) => {
+  await openApp(page);
+
+  await page.waitForFunction(
+    () => typeof window.__IRONFORGE_SET_AUTH_STATE__ === 'function'
+  );
+
+  await page.evaluate(() => {
+    window.loadData = async () => {};
+    window.__IRONFORGE_APPLY_AUTH_SESSION__ = async () => {
+      throw new Error('Legacy hydration failed');
+    };
+    if (window.__IRONFORGE_SUPABASE__?.auth) {
+      window.__IRONFORGE_SUPABASE__.auth.signInWithPassword = async ({
+        email,
+      }) => ({
+        data: {
+          session: {
+            user: {
+              id: 'e2e-user',
+              email,
+            },
+          },
+        },
+        error: null,
+      });
+    }
+  });
+
+  await page.locator('#login-email').fill('e2e@example.com');
+  await page.locator('#login-password').fill('hunter22');
+  await page.getByRole('button', { name: /sign in/i }).click();
+
+  await expect(page.locator('#app-root')).toBeVisible();
+  await expect(page.locator('#login-screen')).toHaveCount(0);
+});
+
 test('login stays usable while auth bootstrap is still running in the background', async ({
   page,
 }) => {
@@ -138,8 +179,7 @@ test('standalone sign-in uses the shared auth-owned Supabase client', async ({
 
   await page.waitForFunction(
     () =>
-      typeof window.__IRONFORGE_AUTH_RUNTIME__?.getSupabaseClient ===
-      'function'
+      typeof window.__IRONFORGE_AUTH_RUNTIME__?.getSupabaseClient === 'function'
   );
 
   const usesSingleClient = await page.evaluate(() => {
@@ -262,7 +302,9 @@ test('legacy fallback creates a standalone Supabase client before auth runtime i
   await page.locator('[data-ui="auth-sign-in"]').dispatchEvent('touchend');
 
   await page.waitForFunction(
-    () => (window as Window & { __fallbackLoginCalled?: number }).__fallbackLoginCalled === 1
+    () =>
+      (window as Window & { __fallbackLoginCalled?: number })
+        .__fallbackLoginCalled === 1
   );
 });
 
@@ -283,7 +325,9 @@ test('stale standalone bootstrap cannot overwrite an in-flight sign-in', async (
       resolveBootstrap: null,
     };
 
-    let interceptedSupabase: { createClient?: (...args: unknown[]) => Record<string, unknown> } | undefined;
+    let interceptedSupabase:
+      | { createClient?: (...args: unknown[]) => Record<string, unknown> }
+      | undefined;
 
     Object.defineProperty(runtimeWindow, 'supabase', {
       configurable: true,
@@ -309,12 +353,13 @@ test('stale standalone bootstrap cannot overwrite an in-flight sign-in', async (
 
           auth.getSession = async () =>
             await new Promise((resolve) => {
-              runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__!.resolveBootstrap = () => {
-                resolve({
-                  data: { session: null },
-                  error: null,
-                });
-              };
+              runtimeWindow.__IRONFORGE_TEST_AUTH_HOOK__!.resolveBootstrap =
+                () => {
+                  resolve({
+                    data: { session: null },
+                    error: null,
+                  });
+                };
             });
 
           auth.signInWithPassword = async ({ email }) => ({
@@ -368,8 +413,8 @@ test('stale standalone bootstrap cannot overwrite an in-flight sign-in', async (
           getLines?: () => string[];
         };
       }
-    )
-      .__IRONFORGE_LOGIN_DEBUG__?.getLines?.()
+    ).__IRONFORGE_LOGIN_DEBUG__
+      ?.getLines?.()
       ?.some((line) =>
         line.includes('auth runtime bootstrap ignored after newer mutation')
       )
@@ -395,9 +440,7 @@ test('standalone sign-up keeps the success state on the login screen', async ({
   await page.getByRole('button', { name: /create account/i }).click();
 
   await expect(page.locator('#login-screen')).toBeVisible();
-  await expect(page.locator('#login-error')).toHaveText(
-    /account created/i
-  );
+  await expect(page.locator('#login-error')).toHaveText(/account created/i);
 });
 
 test('logout returns to the login screen', async ({ page }) => {

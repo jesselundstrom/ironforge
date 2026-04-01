@@ -20,10 +20,7 @@ type SupabaseClientLike = {
       data?: { session?: Session | null };
       error?: Error | null;
     }>;
-    signUp?: (credentials: {
-      email: string;
-      password: string;
-    }) => Promise<{
+    signUp?: (credentials: { email: string; password: string }) => Promise<{
       data?: { session?: Session | null };
       error?: Error | null;
     }>;
@@ -69,6 +66,9 @@ type RuntimeWindow = Window & {
   __IRONFORGE_SUPABASE_URL__?: string;
   __IRONFORGE_SUPABASE_PUBLISHABLE_KEY__?: string;
   __IRONFORGE_GET_SUPABASE_CLIENT__?: () => SupabaseClientLike;
+  __IRONFORGE_SET_LEGACY_RUNTIME_STATE__?: (
+    partial: Record<string, unknown>
+  ) => void;
   __IRONFORGE_APPLY_AUTH_SESSION__?: (
     session: Session | null,
     options?: Record<string, unknown>
@@ -97,6 +97,8 @@ let bootstrapPromise: Promise<void> | null = null;
 let authSubscriptionAttached = false;
 let activeMutationId = 0;
 let lastAppliedSessionSignature = 'uninitialized';
+let legacyHydrationPromise: Promise<void> | null = null;
+let legacyHydrationSessionSignature = 'uninitialized';
 
 function getRuntimeWindow(): RuntimeWindow | null {
   if (typeof window === 'undefined') return null;
@@ -115,8 +117,8 @@ function markAuthRuntimeReady(runtimeWindow: RuntimeWindow) {
 
 function isStandaloneDisplayMode(runtimeWindow: RuntimeWindow) {
   return (
-    runtimeWindow.matchMedia?.('(display-mode: standalone)')?.matches === true ||
-    runtimeWindow.navigator.standalone === true
+    runtimeWindow.matchMedia?.('(display-mode: standalone)')?.matches ===
+      true || runtimeWindow.navigator.standalone === true
   );
 }
 
@@ -144,6 +146,66 @@ function describeSession(session: Session | null | undefined) {
 
 function getSessionSignature(session: Session | null | undefined) {
   return session?.user?.id ? `user:${session.user.id}` : 'signed_out';
+}
+
+function syncLegacyCurrentUser(session: Session | null) {
+  const runtimeWindow = getRuntimeWindow();
+  runtimeWindow?.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+    currentUser: session?.user || null,
+  });
+}
+
+async function applyLegacySessionSideEffects(
+  session: Session | null,
+  options?: {
+    wasLoggedIn?: boolean;
+    source?: string;
+  }
+) {
+  const runtimeWindow = getRuntimeWindow();
+  if (!runtimeWindow?.__IRONFORGE_APPLY_AUTH_SESSION__) return;
+
+  await runtimeWindow.__IRONFORGE_APPLY_AUTH_SESSION__(session, {
+    wasLoggedIn: options?.wasLoggedIn,
+    source: options?.source,
+  });
+}
+
+function hydrateLegacySignedInSession(
+  session: Session,
+  options?: {
+    wasLoggedIn?: boolean;
+    source?: string;
+  }
+) {
+  const sessionSignature = getSessionSignature(session);
+  if (
+    legacyHydrationPromise &&
+    legacyHydrationSessionSignature === sessionSignature
+  ) {
+    return legacyHydrationPromise;
+  }
+
+  syncLegacyCurrentUser(session);
+  legacyHydrationSessionSignature = sessionSignature;
+  legacyHydrationPromise = Promise.resolve(
+    applyLegacySessionSideEffects(session, options)
+  )
+    .catch((error) => {
+      trace('auth runtime legacy hydration failed', {
+        source: String(options?.source || 'unknown'),
+        sessionSignature,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      reportAuthError(error);
+    })
+    .finally(() => {
+      if (legacyHydrationSessionSignature === sessionSignature) {
+        legacyHydrationPromise = null;
+      }
+    });
+
+  return legacyHydrationPromise;
 }
 
 function setBootingState() {
@@ -267,7 +329,8 @@ async function applySessionWithSideEffects(
     return false;
   }
 
-  const sessionUser = (session?.user as unknown as MutableRecord | null) || null;
+  const sessionUser =
+    (session?.user as unknown as MutableRecord | null) || null;
   if (
     lastAppliedSessionSignature === sessionSignature &&
     useRuntimeStore.getState().auth.pendingAction === null &&
@@ -291,10 +354,22 @@ async function applySessionWithSideEffects(
     pendingAction: null,
   });
 
-  await runtimeWindow?.__IRONFORGE_APPLY_AUTH_SESSION__?.(session, {
-    wasLoggedIn: options?.wasLoggedIn,
-    source,
-  });
+  if (sessionUser) {
+    syncLegacyCurrentUser(session);
+    void hydrateLegacySignedInSession(session as Session, {
+      wasLoggedIn: options?.wasLoggedIn,
+      source,
+    });
+  } else {
+    legacyHydrationSessionSignature = 'signed_out';
+    legacyHydrationPromise = null;
+    syncLegacyCurrentUser(null);
+    await applyLegacySessionSideEffects(session, {
+      wasLoggedIn: options?.wasLoggedIn,
+      source,
+    });
+  }
+
   lastAppliedSessionSignature = sessionSignature;
 
   trace('auth runtime apply session done', {
@@ -323,7 +398,9 @@ async function resolveBootstrapSession(
   ]);
 }
 
-function attachAuthStateSubscription(authApi: NonNullable<SupabaseClientLike['auth']>) {
+function attachAuthStateSubscription(
+  authApi: NonNullable<SupabaseClientLike['auth']>
+) {
   if (authSubscriptionAttached || !authApi.onAuthStateChange) return;
 
   authSubscriptionAttached = true;
@@ -436,10 +513,7 @@ export async function bootstrapAuthRuntime() {
       setSignedOutMessage(
         error instanceof Error
           ? error.message
-          : t(
-              'login.finish_error',
-              'Unable to finish signing in right now.'
-            )
+          : t('login.finish_error', 'Unable to finish signing in right now.')
       );
     }
   })();
@@ -584,7 +658,10 @@ export async function signUpWithEmailPassword(credentials?: AuthCredentials) {
   }
 
   try {
-    const result = (await authApi.signUp({ email, password })) as SupabaseSessionResult;
+    const result = (await authApi.signUp({
+      email,
+      password,
+    })) as SupabaseSessionResult;
 
     if (!isCurrentMutation(mutationId)) {
       trace('auth runtime ignored stale submit result', {
