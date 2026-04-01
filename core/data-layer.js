@@ -159,7 +159,9 @@ function setSyncStatus(state) {
 }
 
 function getSyncStatusLabel() {
-  const state = isBrowserOffline() ? 'offline' : syncStatusState.state || 'idle';
+  const state = isBrowserOffline()
+    ? 'offline'
+    : syncStatusState.state || 'idle';
   if (state === 'syncing')
     return {
       label: i18nText('settings.sync.syncing', 'Syncing changes...'),
