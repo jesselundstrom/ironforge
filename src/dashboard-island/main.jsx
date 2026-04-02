@@ -357,31 +357,19 @@ function StatsSection({ section }) {
         <div className="dashboard-plan-card-head dashboard-plan-card-head-stats">
           {section.head}
         </div>
+        <div className={`stats-hero is-${section.primaryMetric.tone}`}>
+          <AdherenceGauge
+            value={section.primaryMetric.value}
+            tone={section.primaryMetric.tone}
+          />
+          <div className="stats-hero-copy">
+            <div className="stats-hero-label">{section.primaryMetric.label}</div>
+            <RichText className="stats-hero-sublabel" text={section.primaryMetric.sublabel} />
+          </div>
+        </div>
         <div className={`dashboard-plan-summary dashboard-plan-summary-${section.summary.tone}`}>
           <div className="dashboard-plan-summary-title">{section.summary.title}</div>
           <div className="dashboard-plan-summary-body">{section.summary.body}</div>
-        </div>
-        <div
-          className={`dashboard-plan-primary-metric is-${section.primaryMetric.tone}`}
-        >
-          <div className="dashboard-plan-primary-metric-gauge">
-            <AdherenceGauge
-              value={section.primaryMetric.value}
-              tone={section.primaryMetric.tone}
-            />
-          </div>
-          <div className="dashboard-plan-primary-metric-copy">
-            <div className="dashboard-plan-primary-metric-value">
-              {section.primaryMetric.value}
-            </div>
-            <div className="dashboard-plan-primary-metric-label">
-              {section.primaryMetric.label}
-            </div>
-            <RichText
-              className="dashboard-plan-primary-metric-sublabel"
-              text={section.primaryMetric.sublabel}
-            />
-          </div>
         </div>
         {section.supportingMetrics?.length ? (
           <div className="dashboard-plan-supporting-grid">

@@ -1,17 +1,6 @@
 import { useEffect, useState } from 'react';
-import { cn } from '../app/utils/cn.ts';
 import { useRuntimeStore } from '../app/store/runtime-store.ts';
 import { saveBodyMetrics } from '../app/services/settings-actions.ts';
-
-const cardClass =
-  'mb-4 w-full rounded-card border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] bg-surface p-4 shadow-card transition-[border-color,background-color,transform] duration-200 hover:border-[#35353a] hover:shadow-none xl:mx-auto xl:max-w-[640px]';
-const cardTitleClass =
-  "mb-2.5 text-[11px] font-bold uppercase tracking-[1.2px] text-muted before:mr-1 before:align-middle before:text-[7px] before:text-accent/50 before:content-['\\25C6']";
-const noteClass = 'text-[11px] leading-[1.45] text-muted';
-const fieldGridClass = 'grid grid-cols-2 gap-3';
-const fieldClass = 'mb-3.5 border-t border-white/6 pt-2.5';
-const secondaryButtonClass =
-  'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-white/[0.02] px-[18px] py-3 font-condensed text-base font-bold uppercase tracking-[0.04em] text-text transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 hover:bg-white/[0.05] active:scale-[0.97] active:opacity-90';
 
 function getSnapshot() {
   return {
@@ -99,11 +88,11 @@ function SettingsBodyIsland() {
 
   return (
     <>
-      <div className={cardClass} data-ui="settings-body-metrics-card">
-        <div className={cardTitleClass}>{labels.metricsTitle}</div>
-        <div className={cn(noteClass, 'mb-2.5')}>{labels.metricsHelp}</div>
-        <div className={fieldGridClass}>
-          <div className={fieldClass}>
+      <div className="card" data-ui="settings-body-metrics-card">
+        <div className="card-title">{labels.metricsTitle}</div>
+        <div className="settings-note settings-note-top">{labels.metricsHelp}</div>
+        <div className="settings-row-2col">
+          <div className="account-field">
             <label htmlFor="body-sex">{labels.sex}</label>
             <select id="body-sex" value={formValues.sex} onChange={handleFieldChange}>
               <option value="">{labels.sexNone}</option>
@@ -111,7 +100,7 @@ function SettingsBodyIsland() {
               <option value="female">{labels.sexFemale}</option>
             </select>
           </div>
-          <div className={fieldClass}>
+          <div className="account-field">
             <label htmlFor="body-activity">{labels.activity}</label>
             <select
               id="body-activity"
@@ -126,8 +115,8 @@ function SettingsBodyIsland() {
             </select>
           </div>
         </div>
-        <div className={fieldGridClass}>
-          <div className={fieldClass}>
+        <div className="settings-row-2col">
+          <div className="account-field">
             <label htmlFor="body-weight">{labels.weight}</label>
             <input
               type="number"
@@ -140,7 +129,7 @@ function SettingsBodyIsland() {
               onChange={handleFieldChange}
             />
           </div>
-          <div className={fieldClass}>
+          <div className="account-field">
             <label htmlFor="body-height">{labels.height}</label>
             <input
               type="number"
@@ -154,8 +143,8 @@ function SettingsBodyIsland() {
             />
           </div>
         </div>
-        <div className={fieldGridClass}>
-          <div className={fieldClass}>
+        <div className="settings-row-2col">
+          <div className="account-field">
             <label htmlFor="body-age">{labels.age}</label>
             <input
               type="number"
@@ -168,7 +157,7 @@ function SettingsBodyIsland() {
               onChange={handleFieldChange}
             />
           </div>
-          <div className={fieldClass}>
+          <div className="account-field">
             <label htmlFor="body-target-weight">{labels.targetWeight}</label>
             <input
               type="number"
@@ -184,9 +173,9 @@ function SettingsBodyIsland() {
         </div>
       </div>
 
-      <div className={cardClass} data-ui="settings-body-goal-card">
-        <div className={cardTitleClass}>{labels.goalTitle}</div>
-        <div className={fieldClass}>
+      <div className="card" data-ui="settings-body-goal-card">
+        <div className="card-title">{labels.goalTitle}</div>
+        <div className="account-field">
           <label htmlFor="body-goal">{labels.goalLabel}</label>
           <select id="body-goal" value={formValues.bodyGoal} onChange={handleFieldChange}>
             <option value="">{labels.goalNone}</option>
@@ -197,7 +186,7 @@ function SettingsBodyIsland() {
           </select>
         </div>
         <button
-          className={secondaryButtonClass}
+          className="btn btn-secondary"
           type="button"
           onClick={() => saveBodyMetrics()}
         >

@@ -1,6 +1,6 @@
 /* Compatibility rules still live here until each surface is migrated. */
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ NAV (Spotify-style: flat, flush to screen bottom) Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- NAV (Spotify-style: flat, flush to screen bottom) ---- */
 /* Intentionally ignore bottom safe-area padding so the bar docks to the physical screen edge. */
 .bottom-nav {
   position: fixed;
@@ -69,7 +69,7 @@
   pointer-events: none;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ PAGES Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- PAGES ---- */
 .header {
   padding: 10px 0 8px;
   max-width: 640px;
@@ -220,7 +220,7 @@ h2 {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ CARDS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- CARDS ---- */
 .card {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
@@ -248,7 +248,7 @@ h2 {
   font-weight: 700;
 }
 .card-title::before {
-  content: 'Ã¢â€”â€  ';
+  content: '◆ ';
   color: var(--accent);
   opacity: 0.5;
   font-size: 7px;
@@ -833,7 +833,7 @@ h2 {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ BUTTONS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- BUTTONS ---- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -950,7 +950,7 @@ label.btn {
   letter-spacing: 0.04em;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ INPUTS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- INPUTS ---- */
 input:not([type='checkbox']),
 select,
 textarea {
@@ -1391,7 +1391,7 @@ select optgroup {
   font-weight: 700;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ WEEK STRIP Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- WEEK STRIP ---- */
 .week-strip {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -1487,7 +1487,7 @@ select optgroup {
   opacity: 0;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ FATIGUE Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- FATIGUE ---- */
 .fatigue-row {
   display: flex;
   align-items: center;
@@ -1575,7 +1575,7 @@ select optgroup {
   font-weight: 500;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ PR GRID Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- PR GRID ---- */
 .lifts-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1678,7 +1678,7 @@ select optgroup {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ SET ROWS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- SET ROWS ---- */
 .exercise-sets {
   display: grid;
   gap: 8px;
@@ -1734,7 +1734,7 @@ select optgroup {
   color: var(--orange);
   font-size: 10px;
 }
-/* opacity override removed Ã¢â‚¬â€ input color handled by .set-input-cell.is-done */
+/* opacity override removed — input color handled by .set-input-cell.is-done */
 .set-row.set-amrap {
   background: rgba(167, 139, 250, 0.12);
 }
@@ -1825,9 +1825,9 @@ select optgroup {
     transform: scale(0.93);
   }
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Forge Strike: set completion animation Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Forge Strike: set completion animation ---- */
 
-/* Phase 1: Impact Ã¢â‚¬â€ button squishes down then springs back */
+/* Phase 1: Impact — button squishes down then springs back */
 @keyframes forgeStrike {
   0% {
     transform: scale(1);
@@ -1849,7 +1849,7 @@ select optgroup {
   }
 }
 
-/* Phase 2: Hot flash Ã¢â‚¬â€ white Ã¢â€ â€™ orange cooldown on the button */
+/* Phase 2: Hot flash — white → orange cooldown on the button */
 @keyframes forgeCooldown {
   0% {
     background: #fff8f0;
@@ -1930,7 +1930,7 @@ select optgroup {
   pointer-events: none;
   animation: forgeShockwave 0.45s ease-out forwards;
 }
-/* Row: no visual effect Ã¢â‚¬â€ animation stays on the checkbox only */
+/* Row: no visual effect — animation stays on the checkbox only */
 .set-row.set-done-anim {
   animation: none;
 }
@@ -2037,7 +2037,7 @@ select optgroup {
 .exercise-block.is-collapsed {
   padding: 0;
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Forge Seal: exercise collapse animation Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Forge Seal: exercise collapse animation ---- */
 @keyframes forgeSeal {
   0% {
     opacity: 1;
@@ -2382,7 +2382,7 @@ select optgroup {
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
-/* Input cell wrapper Ã¢â‚¬â€ gives the rounded bordered box */
+/* Input cell wrapper — gives the rounded bordered box */
 .set-input-cell {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2435,7 +2435,7 @@ select optgroup {
   text-align: center;
 }
 
-/* Add Set Ã¢â‚¬â€ dashed ghost button */
+/* Add Set — dashed ghost button */
 .exercise-add-set-btn {
   width: 100%;
   margin-top: 10px;
@@ -2465,7 +2465,7 @@ select optgroup {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ REST TIMER Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- REST TIMER ---- */
 .rest-timer-bar {
   position: fixed;
   top: var(--sat);
@@ -2523,7 +2523,7 @@ select optgroup {
   font-family: inherit;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ RPE MODAL Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- RPE MODAL ---- */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -2537,7 +2537,7 @@ select optgroup {
   padding: calc(var(--sat) + 8px) 0 0;
   overflow-y: auto;
   touch-action: pan-y;
-  /* Hidden state Ã¢â‚¬â€ animated with visibility + opacity */
+  /* Hidden state — animated with visibility + opacity */
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
@@ -3383,7 +3383,7 @@ select optgroup {
   font-weight: 600;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ CONFIRM MODAL Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- CONFIRM MODAL ---- */
 .confirm-modal {
   position: fixed;
   inset: 0;
@@ -3394,7 +3394,7 @@ select optgroup {
   justify-content: center;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  /* Hidden state Ã¢â‚¬â€ animated */
+  /* Hidden state — animated */
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
@@ -3447,7 +3447,7 @@ select optgroup {
   flex: 1;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ MISC Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- MISC ---- */
 .progress-bar {
   background: var(--surface2);
   border-radius: 99px;
@@ -3667,7 +3667,7 @@ select optgroup {
   font-weight: 600;
 }
 .divider-label span::before {
-  content: 'Ã¢Å“Â¦ ';
+  content: '✦ ';
   color: var(--accent);
   opacity: 0.55;
   font-size: 8px;
@@ -3847,7 +3847,7 @@ select optgroup {
   border: 1px solid var(--border);
   color: var(--text);
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Session character badge Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Session character badge -------------------------------------------------------- */
 .session-character-row {
   padding: 0;
   margin-top: 14px;
@@ -3903,7 +3903,7 @@ select optgroup {
   color: var(--muted);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Pre-session coaching note Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Pre-session coaching note ---------------------------------------------------- */
 .pre-session-note {
   padding: 6px 2px 0;
   font-size: 13px;
@@ -4240,7 +4240,7 @@ select optgroup {
   box-shadow: 0 8px 32px rgba(76, 175, 121, 0.3);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Bonus session card (extends workout-session-card) Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Bonus session card (extends workout-session-card) ---- */
 .bonus-session-card {
   cursor: pointer;
   transition:
@@ -4286,7 +4286,7 @@ select optgroup {
   color: var(--green);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ History bonus badge Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- History bonus badge ---------------------------------------------------------- */
 .hist-bonus-badge {
   display: inline-block;
   font-size: 10px;
@@ -4542,7 +4542,7 @@ select optgroup {
   color: var(--purple);
   font-weight: 700;
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ TOGGLE SWITCH Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- TOGGLE SWITCH ---- */
 .toggle-row {
   display: flex;
   align-items: center;
@@ -4689,7 +4689,7 @@ select optgroup {
   text-transform: uppercase;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ AI GENERATING STATE Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- AI GENERATING STATE ---- */
 .ai-generating {
   background: linear-gradient(
     135deg,
@@ -4727,7 +4727,7 @@ select optgroup {
   margin-top: 4px;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ HISTORY Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- HISTORY ---- */
 .history-item {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -4736,7 +4736,7 @@ select optgroup {
   margin-bottom: 10px;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ HISTORY: EMPTY STATE Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- HISTORY: EMPTY STATE ---- */
 .hist-empty {
   display: flex;
   flex-direction: column;
@@ -4832,7 +4832,7 @@ select optgroup {
   line-height: 1.5;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ HISTORY: CYCLE GROUPS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- HISTORY: CYCLE GROUPS ---- */
 .hist-cycle-group {
   margin-bottom: 28px;
 }
@@ -4870,7 +4870,7 @@ select optgroup {
   margin-top: 3px;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ HISTORY: WEEK SECTIONS (collapsible) Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- HISTORY: WEEK SECTIONS (collapsible) ---- */
 .hist-week-details {
   margin-bottom: 6px;
 }
@@ -4929,7 +4929,7 @@ select optgroup {
   padding: 0 0 4px;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ HISTORY: WORKOUT CARDS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- HISTORY: WORKOUT CARDS ---- */
 @keyframes histCardIn {
   from {
     opacity: 0;
@@ -5154,7 +5154,7 @@ select optgroup {
   font-style: italic;
   white-space: pre-wrap;
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ TM adjustment pills Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- TM adjustment pills -------------------------------------------------------------- */
 .hist-tm-adjustments {
   display: flex;
   flex-wrap: wrap;
@@ -5261,7 +5261,7 @@ select optgroup {
   padding: 2px 0 12px;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ HISTORY: TRAINING HEATMAP Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- HISTORY: TRAINING HEATMAP ---- */
 .heatmap-wrap {
   --heat-cell: clamp(18px, 5vw, 26px);
   margin-bottom: 0;
@@ -5470,7 +5470,7 @@ select optgroup {
   pointer-events: auto;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ SESSION SUMMARY Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- SESSION SUMMARY ---- */
 .summary-sheet {
   text-align: center;
 }
@@ -5533,7 +5533,7 @@ select optgroup {
   margin-top: 8px;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ COACH NOTE Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- COACH NOTE ---- */
 .summary-coach-note {
   margin: 12px 0 0;
   padding: 10px 14px;
@@ -5588,7 +5588,7 @@ select optgroup {
   box-shadow: 0 0 0 3px rgba(245, 200, 66, 0.12);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ SESSION FEEDBACK Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- SESSION FEEDBACK ---- */
 .summary-feedback {
   margin: 16px 0 4px;
 }
@@ -5649,7 +5649,7 @@ select optgroup {
   animation: summaryReveal 0.25s ease 0.42s both;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ SUMMARY CELEBRATION Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- SUMMARY CELEBRATION ---- */
 @keyframes summaryIconPulse {
   0% {
     transform: scale(0.5);
@@ -6090,7 +6090,7 @@ select optgroup {
   width: 100%;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ NAME INPUT MODAL Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- NAME INPUT MODAL ---- */
 .name-input-row {
   display: flex;
   gap: 8px;
@@ -6100,8 +6100,8 @@ select optgroup {
   flex: 1;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ LOGIN BACKGROUND (body::before avoids iOS fixed-bg bug) Ã¢â€â‚¬Ã¢â€â‚¬ */
-/* Ã¢â€â‚¬Ã¢â€â‚¬ LOGIN SCREEN Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- LOGIN BACKGROUND (body::before avoids iOS fixed-bg bug) ---- */
+/* ---- LOGIN SCREEN ---- */
 .login-page,
 .login-screen {
   min-height: var(--app-vh);
@@ -6379,7 +6379,7 @@ select optgroup {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ DASHBOARD COMPACT LAYOUT Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- DASHBOARD COMPACT LAYOUT ---- */
 .dash-week-card {
   margin-bottom: 8px;
 }
@@ -6537,7 +6537,7 @@ select optgroup {
   color: var(--muted);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ PROGRAM CARDS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- PROGRAM CARDS ---- */
 .program-card {
   display: flex;
   align-items: center;
@@ -6757,7 +6757,7 @@ select optgroup {
   font-weight: 700;
 }
 .settings-panel-title::before {
-  content: 'Ã¢â€”â€  ';
+  content: '◆ ';
   color: var(--accent);
   opacity: 0.5;
   font-size: 7px;
@@ -7480,7 +7480,7 @@ select optgroup {
 .dashboard-plan-card-head-stats {
   padding-bottom: 10px;
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Stats Hero: gauge + copy side-by-side Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Stats Hero: gauge + copy side-by-side ---- */
 .stats-hero {
   display: grid;
   grid-template-columns: 96px 1fr;
@@ -7525,7 +7525,7 @@ select optgroup {
     ),
     rgba(255, 255, 255, 0.02);
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Arc gauge Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Arc gauge ---- */
 .stats-gauge {
   position: relative;
   width: 96px;
@@ -7571,7 +7571,7 @@ select optgroup {
   line-height: 1.45;
   color: var(--text);
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Coaching summary Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Coaching summary ---- */
 .dashboard-plan-summary {
   margin: 12px 16px 0;
   padding: 14px 14px 13px;
@@ -7602,7 +7602,7 @@ select optgroup {
   line-height: 1.45;
   color: var(--muted);
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Supporting metric chips Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Supporting metric chips ---- */
 .dashboard-plan-supporting-grid {
   display: flex;
   flex-wrap: wrap;
@@ -7642,7 +7642,7 @@ select optgroup {
   line-height: 1.2;
   color: var(--muted);
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Insight rows Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Insight rows ---- */
 .dashboard-plan-insight-list {
   display: grid;
   padding-top: 10px;
@@ -7694,7 +7694,7 @@ select optgroup {
   color: var(--text);
   font-weight: 700;
 }
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Muscle Body Visualization Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Muscle Body Visualization ---- */
 .muscle-body-wrapper {
   padding: 16px 8px 12px;
   --muscle-base: #1a1a1e;
@@ -7857,7 +7857,7 @@ select optgroup {
   color: var(--muted);
 }
 
-/* Old muscle bar styles removed Ã¢â‚¬â€ replaced by muscle body visualization */
+/* Old muscle bar styles removed — replaced by muscle body visualization */
 @keyframes dashboardPlanFadeUp {
   from {
     opacity: 0;
@@ -8113,7 +8113,7 @@ select optgroup {
   color: var(--red);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ DASHBOARD: NUTRITION STATUS Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- DASHBOARD: NUTRITION STATUS ---- */
 .dashboard-nutrition-card {
   border-color: rgba(76, 175, 121, 0.15);
   background:
@@ -8639,7 +8639,7 @@ select optgroup {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ History Stats Charts Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- History Stats Charts ---------------------------------------------------------------------------------------------- */
 .stats-numbers-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -8862,7 +8862,7 @@ select optgroup {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Nutrition Coach page Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Nutrition Coach page -------------------------------------------------------------------------------------------------- */
 
 /* Chat-style layout: fixed height flex column so messages scroll internally
    and the input bar stays above the keyboard on mobile */
@@ -9409,7 +9409,7 @@ select optgroup {
   height: 22px;
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Streaming cursor Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Streaming cursor -------------------------------------------------------------------------------------------------------- */
 .nc-cursor {
   display: inline-block;
   width: 2px;
@@ -9428,7 +9428,7 @@ select optgroup {
   }
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Today's intake summary card Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Today's intake summary card -------------------------------------------------------------------------------- */
 .nutrition-today-card {
   display: flex;
   flex-direction: column;
@@ -9501,7 +9501,7 @@ select optgroup {
   color: var(--muted);
 }
 
-/* Ã¢â€â‚¬Ã¢â€â‚¬ Body settings tab Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+/* ---- Body settings tab -------------------------------------------------------------------------------------------------------- */
 .content.nutrition-active {
   display: flex;
   flex-direction: column;
@@ -10024,7 +10024,7 @@ select optgroup {
 .content.nutrition-active .nutrition-composer.nc-hidden {
   display: none;
 }
-/* -- Inline correction row (in message list, normal flow Ã¢â‚¬â€ keyboard-safe on iOS) -- */
+/* -- Inline correction row (in message list, normal flow — keyboard-safe on iOS) -- */
 .content.nutrition-active .nc-correction-trigger {
   display: flex;
   align-items: center;
@@ -10085,7 +10085,7 @@ select optgroup {
   /* transition handles the visualViewport lift smoothly */
   will-change: transform;
 }
-/* These live inside the portal on document.body Ã¢â‚¬â€ no .content.nutrition-active scope */
+/* These live inside the portal on document.body — no .content.nutrition-active scope */
 .nc-correction-header,
 .nc-photo-picker-header {
   display: flex;
@@ -10215,7 +10215,7 @@ select optgroup {
 .nc-photo-picker-option:active {
   transform: scale(0.98);
 }
-/* Photo CTA Ã¢â‚¬â€ full-width primary action above the text action row */
+/* Photo CTA — full-width primary action above the text action row */
 .content.nutrition-active .nc-photo-cta {
   display: flex;
   appearance: none;

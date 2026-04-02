@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { cn } from '../app/utils/cn.ts';
 import { useRuntimeStore } from '../app/store/runtime-store.ts';
 import {
   checkDangerConfirm,
@@ -10,35 +9,6 @@ import {
   saveLanguageSetting,
   showDangerConfirm,
 } from '../app/services/settings-actions.ts';
-
-const cardClass =
-  'mb-4 w-full rounded-card border border-border bg-[linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] bg-surface p-4 shadow-card transition-[border-color,background-color,transform] duration-200 hover:border-[#35353a] hover:shadow-none xl:mx-auto xl:max-w-[640px]';
-const cardTitleClass =
-  "mb-2.5 text-[11px] font-bold uppercase tracking-[1.2px] text-muted before:mr-1 before:align-middle before:text-[7px] before:text-accent/50 before:content-['\\25C6']";
-const noteClass = 'text-[11px] leading-[1.45] text-muted';
-const fieldClass = 'mb-3.5 border-t border-white/6 pt-2.5';
-const buttonRowClass = 'mb-2.5 flex gap-2.5';
-const buttonClass =
-  'inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-[18px] py-3 font-condensed text-base font-bold uppercase tracking-[0.04em] transition-[transform,opacity,box-shadow,background-color,border-color,color] duration-200 active:scale-[0.97] active:opacity-90 disabled:pointer-events-none disabled:opacity-50';
-const secondaryButtonClass = cn(
-  buttonClass,
-  'border border-border bg-white/[0.02] text-text hover:bg-white/[0.05]'
-);
-const ghostButtonClass = cn(
-  buttonClass,
-  'border border-white/8 bg-transparent text-text'
-);
-const dangerButtonClass = cn(
-  ghostButtonClass,
-  'border-red/30 text-red'
-);
-
-function getSyncState(syncClassName) {
-  if (syncClassName.includes('error')) return 'error';
-  if (syncClassName.includes('offline')) return 'offline';
-  if (syncClassName.includes('syncing')) return 'syncing';
-  return 'synced';
-}
 
 function getSnapshot() {
   const appVersion = String(window.__IRONFORGE_APP_VERSION__ || '').trim();
@@ -98,7 +68,6 @@ function SettingsAccountIsland() {
 
   const labels = snapshot.labels;
   const values = snapshot.values;
-  const syncState = getSyncState(values.syncClassName || '');
 
   function updateField(key, value) {
     setFormValues((current) => ({ ...current, [key]: value }));
@@ -106,35 +75,15 @@ function SettingsAccountIsland() {
 
   return (
     <>
-      <div className={cardClass} data-ui="settings-account-card">
-        <div className={cardTitleClass}>{labels.accountSection}</div>
-        <div
-          className={cn(
-            'mb-3.5 text-[13px] text-muted empty:hidden',
-            !values.email && 'hidden'
-          )}
-          id="account-email"
-        >
+      <div className="card" data-ui="settings-account-card">
+        <div className="card-title">{labels.accountSection}</div>
+        <div className="account-email" id="account-email">
           {values.email}
         </div>
-        <div
-          className={cn(
-            'mb-3.5 rounded-xl border px-3 py-2.5 text-xs leading-[1.4] text-text',
-            syncState === 'synced' &&
-              'border-[rgba(76,175,121,0.28)] bg-[rgba(76,175,121,0.08)] text-[#dff8e8]',
-            syncState === 'syncing' &&
-              'border-[rgba(74,143,232,0.28)] bg-[rgba(74,143,232,0.08)] text-[#edf5ff]',
-            syncState === 'offline' &&
-              'border-[rgba(245,130,31,0.28)] bg-[rgba(245,130,31,0.08)] text-[#fff0df]',
-            syncState === 'error' &&
-              'border-[rgba(224,82,82,0.28)] bg-[rgba(224,82,82,0.08)] text-[#fff0f0]'
-          )}
-          id="sync-status"
-          data-state={syncState}
-        >
+        <div className={values.syncClassName} id="sync-status">
           {values.syncLabel}
         </div>
-        <div className={fieldClass}>
+        <div className="account-field">
           <label htmlFor="app-language">{labels.languageLabel}</label>
           <select
             id="app-language"
@@ -150,7 +99,7 @@ function SettingsAccountIsland() {
           </select>
         </div>
         <button
-          className={ghostButtonClass}
+          className="btn btn-ghost"
           type="button"
           onClick={() => logout()}
         >
@@ -158,69 +107,58 @@ function SettingsAccountIsland() {
         </button>
       </div>
 
-      <div className={cardClass} data-ui="settings-backup-card">
-        <div className={cardTitleClass}>{labels.dataBackup}</div>
-        <div className={cn(noteClass, 'mb-2.5')} id="backup-context">
+      <div className="card" data-ui="settings-backup-card">
+        <div className="card-title">{labels.dataBackup}</div>
+        <div className="settings-note settings-note-top" id="backup-context">
           {values.backupContext}
         </div>
-        <div className={buttonRowClass}>
+        <div className="settings-button-row">
           <button
-            className={cn(secondaryButtonClass, 'flex-1')}
+            className="btn btn-secondary settings-row-button"
             type="button"
             onClick={() => exportData()}
           >
             {labels.export}
           </button>
-          <label className={cn(secondaryButtonClass, 'm-0 flex-1 cursor-pointer text-center')}>
+          <label className="btn btn-secondary settings-row-button settings-import-button">
             {labels.import}
             <input
               ref={importRef}
               type="file"
               accept=".json"
-              className="hidden"
+              className="file-input-hidden"
               data-ui="settings-backup-import"
               onChange={(event) => importData(event.nativeEvent)}
             />
           </label>
         </div>
-        <div className={noteClass}>
+        <div className="settings-note settings-note-tight">
           {labels.backupHelp}
         </div>
       </div>
 
-      <div className={cardClass} data-ui="settings-nutrition-card">
-        <div className={cardTitleClass}>{labels.nutritionTitle}</div>
-        <div className={noteClass}>
+      <div className="card" data-ui="settings-nutrition-card">
+        <div className="card-title">{labels.nutritionTitle}</div>
+        <div className="settings-note settings-note-top">
           {labels.nutritionHelp}
         </div>
       </div>
 
-      <div
-        className={cn(
-          cardClass,
-          'mt-6 border-[rgba(239,68,68,0.2)] bg-[linear-gradient(180deg,rgba(239,68,68,0.06),rgba(239,68,68,0.02))]'
-        )}
-        data-ui="danger-zone-card"
-      >
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-base text-red/80">&#9888;</span>
-          <div className="mb-0 text-[11px] font-bold uppercase tracking-[1.2px] text-red/90">
-            {labels.danger}
-          </div>
+      <div className="card danger-zone-card">
+        <div className="danger-zone-header">
+          <span className="danger-zone-icon">&#9888;</span>
+          <div className="card-title">{labels.danger}</div>
         </div>
-        <div className="mb-3 text-xs leading-[1.5] text-muted">{labels.dangerDesc}</div>
+        <div className="danger-zone-desc">{labels.dangerDesc}</div>
         {values.dangerOpen ? (
-          <div className="mt-3" id="danger-zone-confirm">
-            <label
-              className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-red"
-              htmlFor="danger-zone-input"
-            >
+          <div className="danger-zone-confirm" id="danger-zone-confirm">
+            <label className="danger-zone-label" htmlFor="danger-zone-input">
               {labels.dangerTypeConfirm}
             </label>
             <input
               type="text"
               id="danger-zone-input"
-              className="mb-2.5 border-red/30 font-condensed tracking-[0.06em]"
+              className="danger-zone-input"
               placeholder="DELETE"
               autoComplete="off"
               spellCheck="false"
@@ -232,7 +170,7 @@ function SettingsAccountIsland() {
               }}
             />
             <button
-              className={cn(dangerButtonClass, 'mt-1 w-full')}
+              className="btn btn-ghost danger-btn danger-btn-final"
               id="danger-zone-delete-btn"
               type="button"
               disabled={values.dangerDeleteDisabled}
@@ -244,7 +182,7 @@ function SettingsAccountIsland() {
         ) : null}
         {!values.dangerOpen ? (
           <button
-            className={dangerButtonClass}
+            className="btn btn-ghost danger-btn"
             id="danger-zone-trigger"
             type="button"
             onClick={() => showDangerConfirm()}
@@ -254,10 +192,7 @@ function SettingsAccountIsland() {
         ) : null}
       </div>
 
-      <div
-        className="px-0 py-5 text-center text-[11px] tracking-[0.04em] text-muted opacity-50"
-        id="app-version"
-      >
+      <div className="app-version" id="app-version">
         {values.appVersion}
       </div>
     </>
