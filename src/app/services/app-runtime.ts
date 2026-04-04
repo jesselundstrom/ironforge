@@ -47,6 +47,10 @@ type RuntimeWindow = Window & {
     read?: (name: string) => unknown;
     write?: (name: string, value: unknown) => void;
   };
+  __IRONFORGE_PROFILE_STORE__?: {
+    setProfile?: (profile: Record<string, unknown> | null) => unknown;
+    setSchedule?: (schedule: Record<string, unknown> | null) => unknown;
+  };
   currentUser?: Record<string, unknown> | null;
   workouts?: Array<Record<string, unknown>>;
   schedule?: Record<string, unknown> | null;
@@ -92,6 +96,23 @@ function writeLegacyRuntimeValue(name: string, value: unknown) {
     name,
     cloneJson(value)
   );
+}
+
+function hasOwnRuntimeField(partial: Record<string, unknown>, key: string) {
+  return Object.prototype.hasOwnProperty.call(partial, key);
+}
+
+function publishLegacyProfileSnapshot(
+  runtimeWindow: RuntimeWindow,
+  key: 'profile' | 'schedule',
+  value: MutableRecord | null
+) {
+  if (key === 'profile') {
+    runtimeWindow.profile = cloneJson(value);
+  } else {
+    runtimeWindow.schedule = cloneJson(value);
+  }
+  writeLegacyRuntimeValue(key, value);
 }
 
 function getProfileRecord() {
@@ -1054,30 +1075,42 @@ function getLegacyRuntimeState() {
 function setLegacyRuntimeState(partial: Record<string, unknown>) {
   const runtimeWindow = getRuntimeWindow();
   if (!runtimeWindow || !partial || typeof partial !== 'object') return;
+  const hasCurrentUser = hasOwnRuntimeField(partial, 'currentUser');
+  const hasWorkouts = hasOwnRuntimeField(partial, 'workouts');
+  const hasSchedule = hasOwnRuntimeField(partial, 'schedule');
+  const hasProfile = hasOwnRuntimeField(partial, 'profile');
+  const hasActiveWorkout = hasOwnRuntimeField(partial, 'activeWorkout');
+  const profileBridge = runtimeWindow.__IRONFORGE_PROFILE_STORE__ || null;
 
-  if (Object.prototype.hasOwnProperty.call(partial, 'currentUser')) {
+  if (hasCurrentUser) {
     const nextValue = cloneJson((partial.currentUser as MutableRecord | null) || null);
     runtimeWindow.currentUser = nextValue;
     writeLegacyRuntimeValue('currentUser', nextValue);
   }
-  if (Object.prototype.hasOwnProperty.call(partial, 'workouts')) {
+  if (hasWorkouts) {
     const nextValue = Array.isArray(partial.workouts)
       ? cloneJson(partial.workouts as Array<Record<string, unknown>>)
       : [];
     runtimeWindow.workouts = nextValue;
     writeLegacyRuntimeValue('workouts', nextValue);
   }
-  if (Object.prototype.hasOwnProperty.call(partial, 'schedule')) {
+  if (hasSchedule) {
     const nextValue = cloneJson((partial.schedule as MutableRecord | null) || null);
-    runtimeWindow.schedule = nextValue;
-    writeLegacyRuntimeValue('schedule', nextValue);
+    if (typeof profileBridge?.setSchedule === 'function') {
+      profileBridge.setSchedule(nextValue);
+    } else {
+      publishLegacyProfileSnapshot(runtimeWindow, 'schedule', nextValue);
+    }
   }
-  if (Object.prototype.hasOwnProperty.call(partial, 'profile')) {
+  if (hasProfile) {
     const nextValue = cloneJson((partial.profile as MutableRecord | null) || null);
-    runtimeWindow.profile = nextValue;
-    writeLegacyRuntimeValue('profile', nextValue);
+    if (typeof profileBridge?.setProfile === 'function') {
+      profileBridge.setProfile(nextValue);
+    } else {
+      publishLegacyProfileSnapshot(runtimeWindow, 'profile', nextValue);
+    }
   }
-  if (Object.prototype.hasOwnProperty.call(partial, 'activeWorkout')) {
+  if (hasActiveWorkout) {
     const nextValue = cloneJson(
       (partial.activeWorkout as MutableRecord | null) || null
     );
@@ -1085,12 +1118,23 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
     writeLegacyRuntimeValue('activeWorkout', nextValue);
   }
 
-  dataStore.getState().syncFromLegacy();
-  profileStore.getState().syncFromDataStore();
-  programStore.getState().syncFromLegacy();
-  workoutStore.getState().syncFromLegacy();
+  const shouldSyncDataStore = hasCurrentUser || hasWorkouts || hasActiveWorkout;
+  if (shouldSyncDataStore) {
+    dataStore.getState().syncFromLegacy();
+  }
+  if (!profileBridge && (hasProfile || hasSchedule)) {
+    profileStore.getState().syncFromDataStore();
+  }
+  if (shouldSyncDataStore || hasProfile || hasSchedule) {
+    programStore.getState().syncFromLegacy();
+  }
+  if (shouldSyncDataStore) {
+    workoutStore.getState().syncFromLegacy();
+  }
   syncSettingsBridge();
-  runtimeWindow.syncWorkoutSessionBridge?.();
+  if (hasWorkouts || hasActiveWorkout) {
+    runtimeWindow.syncWorkoutSessionBridge?.();
+  }
 }
 
 function updateLanguageDependentUI() {

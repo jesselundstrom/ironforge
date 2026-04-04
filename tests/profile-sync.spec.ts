@@ -258,6 +258,125 @@ test('saveSchedule marks only the schedule document as dirty', async ({ page }) 
   expect(dirtyDocKeys).toEqual(['schedule']);
 });
 
+test('profile store writes publish legacy snapshots without re-importing stray legacy fields', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  const result = await page.evaluate(() => {
+    const runtimeAccess = (window as any).__IRONFORGE_LEGACY_RUNTIME_ACCESS__;
+    const profileBridge = (window as any).__IRONFORGE_STORES__?.profile;
+    const dataBridge = (window as any).__IRONFORGE_STORES__?.data;
+    const currentProfile = structuredClone(profileBridge?.getState?.().profile || {});
+
+    runtimeAccess?.write?.('profile', {
+      ...currentProfile,
+      legacyOnlyBridgeField: 'stale-legacy-value',
+      preferences: normalizeTrainingPreferences({
+        preferences: {
+          ...getDefaultTrainingPreferences(),
+          trainingDaysPerWeek: 5,
+        },
+      }),
+    });
+
+    const nextProfile = profileBridge?.updateProfile?.({
+      preferences: normalizeTrainingPreferences({
+        preferences: {
+          ...getDefaultTrainingPreferences(),
+          trainingDaysPerWeek: 4,
+        },
+      }),
+    });
+    const canonicalProfile = profileBridge?.getState?.().profile || null;
+    const runtimeSnapshot =
+      (window as any).__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || {};
+    const mirroredProfile = dataBridge?.getState?.().profile || null;
+
+    return {
+      returnedDays: nextProfile?.preferences?.trainingDaysPerWeek ?? null,
+      canonicalDays: canonicalProfile?.preferences?.trainingDaysPerWeek ?? null,
+      mirroredDays: mirroredProfile?.preferences?.trainingDaysPerWeek ?? null,
+      legacyDays: runtimeSnapshot.profile?.preferences?.trainingDaysPerWeek ?? null,
+      canonicalHasLegacyOnly:
+        Object.prototype.hasOwnProperty.call(canonicalProfile || {}, 'legacyOnlyBridgeField'),
+      mirroredHasLegacyOnly:
+        Object.prototype.hasOwnProperty.call(mirroredProfile || {}, 'legacyOnlyBridgeField'),
+      legacyHasLegacyOnly:
+        Object.prototype.hasOwnProperty.call(
+          runtimeSnapshot.profile || {},
+          'legacyOnlyBridgeField'
+        ),
+    };
+  });
+
+  expect(result.returnedDays).toBe(4);
+  expect(result.canonicalDays).toBe(4);
+  expect(result.mirroredDays).toBe(4);
+  expect(result.legacyDays).toBe(4);
+  expect(result.canonicalHasLegacyOnly).toBe(false);
+  expect(result.mirroredHasLegacyOnly).toBe(false);
+  expect(result.legacyHasLegacyOnly).toBe(false);
+});
+
+test('legacy runtime profile updates route through the typed owner and refresh the compatibility snapshot', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  const result = await page.evaluate(() => {
+    const nextProfile = {
+      ...(profile || {}),
+      activeProgram: 'stronglifts5x5',
+      preferences: normalizeTrainingPreferences({
+        preferences: {
+          ...getDefaultTrainingPreferences(),
+          trainingDaysPerWeek: 4,
+        },
+      }),
+      programs: {
+        ...(((profile || {}) as Record<string, any>).programs || {}),
+        stronglifts5x5: {
+          ...(window as any).__IRONFORGE_E2E__?.program?.getInitialState?.('stronglifts5x5'),
+          testMarker: 'slice-3',
+        },
+      },
+    };
+
+    (window as any).__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+      profile: nextProfile,
+    });
+
+    const canonicalProfile =
+      (window as any).__IRONFORGE_STORES__?.profile?.getState?.().profile || null;
+    const programState =
+      (window as any).__IRONFORGE_STORES__?.program?.getState?.() || null;
+    const runtimeSnapshot =
+      (window as any).__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || {};
+
+    return {
+      canonicalActiveProgram: canonicalProfile?.activeProgram ?? null,
+      canonicalDays: canonicalProfile?.preferences?.trainingDaysPerWeek ?? null,
+      canonicalMarker:
+        canonicalProfile?.programs?.stronglifts5x5?.testMarker ?? null,
+      programStoreActiveProgram: programState?.activeProgramId ?? null,
+      programStoreMarker:
+        programState?.activeProgramState?.testMarker ?? null,
+      legacyActiveProgram: runtimeSnapshot.profile?.activeProgram ?? null,
+      legacyMarker:
+        runtimeSnapshot.profile?.programs?.stronglifts5x5?.testMarker ?? null,
+    };
+  });
+
+  expect(result.canonicalActiveProgram).toBe('stronglifts5x5');
+  expect(result.canonicalDays).toBe(4);
+  expect(result.canonicalMarker).toBe('slice-3');
+  expect(result.programStoreActiveProgram).toBe('stronglifts5x5');
+  expect(result.programStoreMarker).toBe('slice-3');
+  expect(result.legacyActiveProgram).toBe('stronglifts5x5');
+  expect(result.legacyMarker).toBe('slice-3');
+});
+
 test('blank schedule sport name survives normalization instead of reverting to the locale default', async ({
   page,
 }) => {

@@ -84,51 +84,54 @@ async function waitForAppHarness(page: Page) {
 export async function bootstrapAppShell(page: Page) {
   await waitForAppHarness(page);
 
-  await page.evaluate(() => {
-    const runtimeWindow = window as Window & {
-      __IRONFORGE_SUPABASE__?: {
-        auth?: {
-          getSession?: () => Promise<unknown>;
+  const seedSignedInState = () =>
+    page.evaluate(() => {
+      const runtimeWindow = window as Window & {
+        __IRONFORGE_SUPABASE__?: {
+          auth?: {
+            getSession?: () => Promise<unknown>;
+          };
         };
       };
-    };
-    const suppressLoginUi = () => {
-      document.body.classList.remove('login-active');
-      const loginScreen = document.getElementById('login-screen');
-      if (loginScreen) loginScreen.style.display = 'none';
-    };
+      const suppressLoginUi = () => {
+        document.body.classList.remove('login-active');
+        const loginScreen = document.getElementById('login-screen');
+        if (loginScreen) loginScreen.style.display = 'none';
+      };
 
-    window.showLoginScreen = suppressLoginUi;
-    window.hideLoginScreen = suppressLoginUi;
-    window.maybeOpenOnboarding = () => {};
-    const seededUser = {
-      id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
-      email: 'e2e@example.com',
-    };
-    window.__IRONFORGE_E2E__?.app?.setCurrentUser?.(seededUser);
-    window.__IRONFORGE_SET_AUTH_STATE__?.({
-      phase: 'signed_in',
-      isLoggedIn: true,
-      pendingAction: null,
-      message: '',
-      messageTone: '',
-    });
-    if (runtimeWindow.__IRONFORGE_SUPABASE__?.auth) {
-      runtimeWindow.__IRONFORGE_SUPABASE__.auth.getSession = async () => ({
-        data: {
-          session: {
-            access_token: 'test-access-token',
-            user:
-              window.__IRONFORGE_STORES__?.data?.getState?.().currentUser || null,
-          },
-        },
-        error: null,
+      window.showLoginScreen = suppressLoginUi;
+      window.hideLoginScreen = suppressLoginUi;
+      window.maybeOpenOnboarding = () => {};
+      const seededUser = {
+        id: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
+        email: 'e2e@example.com',
+      };
+      window.__IRONFORGE_E2E__?.app?.setCurrentUser?.(seededUser);
+      window.__IRONFORGE_SET_AUTH_STATE__?.({
+        phase: 'signed_in',
+        isLoggedIn: true,
+        pendingAction: null,
+        message: '',
+        messageTone: '',
       });
-    }
+      if (runtimeWindow.__IRONFORGE_SUPABASE__?.auth) {
+        runtimeWindow.__IRONFORGE_SUPABASE__.auth.getSession = async () => ({
+          data: {
+            session: {
+              access_token: 'test-access-token',
+              user:
+                window.__IRONFORGE_STORES__?.data?.getState?.().currentUser || null,
+            },
+          },
+          error: null,
+        });
+      }
 
-    suppressLoginUi();
-    document.getElementById('onboarding-modal')?.classList.remove('active');
-  });
+      suppressLoginUi();
+      document.getElementById('onboarding-modal')?.classList.remove('active');
+    });
+
+  await seedSignedInState();
 
   await page.evaluate(async () => {
     const loadData = window.__IRONFORGE_E2E__?.app?.loadData;
@@ -141,6 +144,8 @@ export async function bootstrapAppShell(page: Page) {
       userId: window.__IRONFORGE_TEST_USER_ID__ || 'e2e-user',
     });
   });
+
+  await seedSignedInState();
 
   await page.waitForFunction(() => {
     if (window.__IRONFORGE_APP_SHELL_READY__ === true) return true;

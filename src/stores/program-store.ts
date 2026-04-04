@@ -3,7 +3,6 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { ProgramPlugin } from '../domain/program-plugin';
 import type { Profile } from '../domain/types';
 import { typedProgramRegistry } from '../programs';
-import { dataStore } from './data-store';
 import { profileStore } from './profile-store';
 
 type AnyProgramPlugin = ProgramPlugin<any>;
@@ -67,7 +66,6 @@ const PROGRAM_ID_ALIASES: Record<string, string> = {
 
 let bridgeInstalled = false;
 let unsubscribeProfileStore: (() => void) | null = null;
-let unsubscribeDataStore: (() => void) | null = null;
 let programStoreRef: StoreApi<ProgramStoreState> | null = null;
 
 function cloneJson<T>(value: T): T {
@@ -132,11 +130,7 @@ function getStoredProgramState(
 }
 
 function getProfileLike() {
-  return (
-    profileStore.getState().profile ||
-    (dataStore.getState().profile as Profile | Record<string, unknown> | null) ||
-    null
-  );
+  return profileStore.getState().profile || null;
 }
 
 function getProgramsFromRegistry(registry: ProgramRegistry) {
@@ -310,9 +304,6 @@ export function installLegacyProgramStoreBridge() {
   unsubscribeProfileStore = profileStore.subscribe(() => {
     syncStoreFromLegacy();
   });
-  unsubscribeDataStore = dataStore.subscribe(() => {
-    syncStoreFromLegacy();
-  });
 
   if (typeof window !== 'undefined') {
     window.addEventListener('visibilitychange', syncStoreFromLegacy);
@@ -322,9 +313,7 @@ export function installLegacyProgramStoreBridge() {
 
 export function disposeLegacyProgramStoreBridge() {
   unsubscribeProfileStore?.();
-  unsubscribeDataStore?.();
   unsubscribeProfileStore = null;
-  unsubscribeDataStore = null;
   if (typeof window !== 'undefined') {
     window.removeEventListener('visibilitychange', syncStoreFromLegacy);
     window.removeEventListener('focus', syncStoreFromLegacy);

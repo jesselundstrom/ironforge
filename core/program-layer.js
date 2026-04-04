@@ -399,6 +399,9 @@ function getProgramInitialState(programId) {
   if (!prog || typeof prog.getInitialState !== 'function') return null;
   return cloneJson(prog.getInitialState()) || {};
 }
+function getProfileStoreBridge() {
+  return window.__IRONFORGE_PROFILE_STORE__ || null;
+}
 function getActiveProgramId() {
   return getCanonicalProgramRef(profile.activeProgram || 'forge') || 'forge';
 }
@@ -421,8 +424,13 @@ function getActiveProgramState() {
 }
 function setProgramState(id, state) {
   const canonicalId = getCanonicalProgramRef(id);
+  if (!canonicalId) return null;
+  if (getProfileStoreBridge()?.setProgramState) {
+    return getProfileStoreBridge().setProgramState(canonicalId, state);
+  }
   if (!profile.programs) profile.programs = {};
   profile.programs[canonicalId] = state;
+  return profile.programs[canonicalId];
 }
 function getWorkoutProgramId(w) {
   if (!w) return null;
@@ -434,7 +442,6 @@ function recomputeProgramStateFromWorkouts(programId) {
   const canonicalId = getCanonicalProgramRef(programId);
   const prog = getProgramById(canonicalId);
   if (!prog) return null;
-  if (!profile.programs) profile.programs = {};
 
   const programWorkouts = workouts
     .filter((w) => getWorkoutProgramId(w) === canonicalId)
@@ -469,8 +476,7 @@ function recomputeProgramStateFromWorkouts(programId) {
     }
   });
 
-  profile.programs[canonicalId] = state;
-  return state;
+  return setProgramState(canonicalId, state);
 }
 
 function applyProgramDateCatchUp(programId) {
@@ -485,7 +491,7 @@ function applyProgramDateCatchUp(programId) {
     JSON.stringify(caughtState) === JSON.stringify(currentState)
   )
     return false;
-  profile.programs[canonicalId] = caughtState;
+  setProgramState(canonicalId, caughtState);
   return true;
 }
 
@@ -808,13 +814,15 @@ function switchProgram(id) {
       { name: progName }
     ),
     () => {
-      profile.activeProgram = canonicalId;
-      if (!profile.programs) profile.programs = {};
+      if (getProfileStoreBridge()?.setActiveProgram) {
+        getProfileStoreBridge().setActiveProgram(canonicalId);
+      } else {
+        profile.activeProgram = canonicalId;
+      }
       let estimatedLoads = [];
-      if (!profile.programs[canonicalId]) {
-        profile.programs[canonicalId] = prog.getInitialState();
+      if (!profile.programs?.[canonicalId]) {
+        let nextState = cloneJson(prog.getInitialState()) || {};
         const estimates = estimateTMsFromHistory(canonicalId, workouts, profile);
-        const nextState = profile.programs[canonicalId];
         if (Object.keys(estimates).length) {
           if (Array.isArray(nextState?.lifts?.main)) {
             nextState.lifts.main.forEach((lift) => {
@@ -840,6 +848,7 @@ function switchProgram(id) {
               }));
           }
         }
+        setProgramState(canonicalId, nextState);
       }
       applyProgramDateCatchUp(canonicalId);
       saveProfileData({

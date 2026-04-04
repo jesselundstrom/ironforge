@@ -71,6 +71,11 @@ test('onboarding auto-opens only once and then stays settings-only', async ({
   page,
 }) => {
   await openApp(page);
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.resetRuntimeState?.();
+  });
   await bootSignedInApp(page);
 
   const onboardingModal = page.locator('#onboarding-modal');

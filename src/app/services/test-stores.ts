@@ -51,6 +51,20 @@ type TestStoreBridge = {
   runtime: {
     getState: () => ReturnType<typeof useRuntimeStore.getState>;
   };
+  program: {
+    getState: () => ReturnType<typeof programStore.getState>;
+  };
+  profile: {
+    getState: () => ReturnType<typeof profileStore.getState>;
+    updateProfile: (patch: Record<string, unknown>) => ReturnType<
+      ReturnType<typeof profileStore.getState>['updateProfile']
+    >;
+    setActiveProgram: (programId: string | null) => string | null;
+    setProgramState: (
+      programId: string,
+      state: Record<string, unknown> | null
+    ) => Record<string, unknown> | null;
+  };
 };
 
 type E2EHarness = {
@@ -86,6 +100,7 @@ type E2EHarness = {
     }) => Promise<void>;
   };
   program: {
+    getState: () => ReturnType<typeof programStore.getState>;
     getById: (programId: string) => Record<string, unknown> | null;
     getInitialState: (programId: string) => Record<string, unknown> | null;
   };
@@ -97,6 +112,11 @@ type E2EHarness = {
   };
   profile: {
     update: (patch: Record<string, unknown>) => Record<string, unknown> | null;
+    setActiveProgram: (programId: string | null) => string | null;
+    setProgramState: (
+      programId: string,
+      state: Record<string, unknown> | null
+    ) => Record<string, unknown> | null;
     setSportReadinessCheckEnabled: (enabled: boolean) => void;
   };
   workout: {
@@ -177,6 +197,17 @@ export function installTestStoresBridge() {
     },
     runtime: {
       getState: () => useRuntimeStore.getState(),
+    },
+    program: {
+      getState: () => programStore.getState(),
+    },
+    profile: {
+      getState: () => profileStore.getState(),
+      updateProfile: (patch) => profileStore.getState().updateProfile(patch),
+      setActiveProgram: (programId) =>
+        profileStore.getState().setActiveProgram(programId),
+      setProgramState: (programId, state) =>
+        profileStore.getState().setProgramState(programId, state),
     },
   };
 
@@ -276,13 +307,18 @@ export function installTestStoresBridge() {
           cloneJson(programState) ||
           cloneJson(programStore.getState().getProgramInitialState(programId)) ||
           {};
-        profileStore.getState().updateProfile({
+        const nextProfile = {
+          ...currentProfile,
           activeProgram: programId,
           programs: {
             ...currentPrograms,
             [programId]: seededState,
           },
+        };
+        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+          profile: cloneJson(nextProfile),
         });
+        syncHarnessStores(testWindow);
         openSettingsTab('program');
       },
       openBodyTab: async (bodyMetrics) => {
@@ -300,7 +336,10 @@ export function installTestStoresBridge() {
           },
         };
         normalizeBodyMetrics(nextProfile);
-        await testWindow.__IRONFORGE_E2E__?.app?.seedData?.({ profile: nextProfile });
+        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+          profile: cloneJson(nextProfile),
+        });
+        syncHarnessStores(testWindow);
         openSettingsTab('body');
       },
       openPreferencesTab: async (options) => {
@@ -324,11 +363,15 @@ export function installTestStoresBridge() {
         if (options?.defaultRest !== undefined) {
           nextProfile.defaultRest = options.defaultRest;
         }
-        await testWindow.__IRONFORGE_E2E__?.app?.seedData?.({ profile: nextProfile });
+        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+          profile: cloneJson(nextProfile),
+        });
+        syncHarnessStores(testWindow);
         openSettingsTab('preferences');
       },
     },
     program: {
+      getState: () => cloneJson(programStore.getState()),
       getById: (programId) =>
         (programStore.getState().getProgramById(programId) as Record<string, unknown> | null) ||
         null,
@@ -340,6 +383,10 @@ export function installTestStoresBridge() {
     },
     profile: {
       update: (patch) => profileStore.getState().updateProfile(patch),
+      setActiveProgram: (programId) =>
+        profileStore.getState().setActiveProgram(programId),
+      setProgramState: (programId, state) =>
+        profileStore.getState().setProgramState(programId, state),
       setSportReadinessCheckEnabled: (enabled) => {
         openSettingsTab('preferences');
         const checkbox = document.getElementById('training-sport-check');

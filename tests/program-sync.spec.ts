@@ -30,15 +30,20 @@ test('gym basics preview stays locked to the started session', async ({ page }) 
   await openTrainPage(page);
 
   const result = await page.evaluate(() => {
-    profile.preferences = normalizeTrainingPreferences({
+    const nextPreferences = normalizeTrainingPreferences({
       preferences: {
         ...getDefaultTrainingPreferences(),
         trainingDaysPerWeek: 3,
       },
     });
-    profile.activeProgram = 'casualfullbody';
-    profile.programs.casualfullbody =
-      window.__IRONFORGE_E2E__?.program?.getInitialState?.('casualfullbody');
+    window.__IRONFORGE_E2E__?.profile?.update?.({
+      preferences: nextPreferences,
+    });
+    window.__IRONFORGE_E2E__?.profile?.setActiveProgram?.('casualfullbody');
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.(
+      'casualfullbody',
+      window.__IRONFORGE_E2E__?.program?.getInitialState?.('casualfullbody')
+    );
     resetNotStartedView();
     const snapshot = getCachedWorkoutStartSnapshot();
     const previewNames = (snapshot?.exercises || []).map((exercise) => exercise.name);
@@ -57,17 +62,22 @@ test('forge normal override on deload uses the previous build week for progressi
   await openTrainPage(page);
 
   const result = await page.evaluate(async () => {
-    profile.preferences = normalizeTrainingPreferences({
+    const nextPreferences = normalizeTrainingPreferences({
       preferences: {
         ...getDefaultTrainingPreferences(),
         trainingDaysPerWeek: 3,
         warmupSetsEnabled: false,
       },
     });
-    profile.activeProgram = 'forge';
-    profile.programs.forge = window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge');
-    profile.programs.forge.week = 7;
-    profile.programs.forge.mode = 'rir';
+    window.__IRONFORGE_E2E__?.profile?.update?.({
+      preferences: nextPreferences,
+    });
+    window.__IRONFORGE_E2E__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.('forge', {
+      ...window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge'),
+      week: 7,
+      mode: 'rir',
+    });
     resetNotStartedView();
     setPendingSessionMode('normal');
     updateProgramDisplay();
@@ -102,17 +112,22 @@ test('forge default deload stays light and does not apply normal-week progressio
   await openTrainPage(page);
 
   const result = await page.evaluate(async () => {
-    profile.preferences = normalizeTrainingPreferences({
+    const nextPreferences = normalizeTrainingPreferences({
       preferences: {
         ...getDefaultTrainingPreferences(),
         trainingDaysPerWeek: 3,
         warmupSetsEnabled: false,
       },
     });
-    profile.activeProgram = 'forge';
-    profile.programs.forge = window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge');
-    profile.programs.forge.week = 7;
-    profile.programs.forge.mode = 'rir';
+    window.__IRONFORGE_E2E__?.profile?.update?.({
+      preferences: nextPreferences,
+    });
+    window.__IRONFORGE_E2E__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.('forge', {
+      ...window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge'),
+      week: 7,
+      mode: 'rir',
+    });
     resetNotStartedView();
     updateProgramDisplay();
     const snapshot = getCachedWorkoutStartSnapshot();
@@ -146,17 +161,22 @@ test('recomputing forge state from history matches the saved post-workout state'
   await openTrainPage(page);
 
   const result = await page.evaluate(async () => {
-    profile.preferences = normalizeTrainingPreferences({
+    const nextPreferences = normalizeTrainingPreferences({
       preferences: {
         ...getDefaultTrainingPreferences(),
         trainingDaysPerWeek: 3,
         warmupSetsEnabled: true,
       },
     });
-    profile.activeProgram = 'forge';
-    profile.programs.forge = window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge');
-    profile.programs.forge.week = 6;
-    profile.programs.forge.mode = 'sets';
+    window.__IRONFORGE_E2E__?.profile?.update?.({
+      preferences: nextPreferences,
+    });
+    window.__IRONFORGE_E2E__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.('forge', {
+      ...window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge'),
+      week: 6,
+      mode: 'sets',
+    });
     resetNotStartedView();
     updateProgramDisplay();
     window.showRPEPicker = (_title, _index, cb) => cb(7);
@@ -264,17 +284,17 @@ test('switching to delayed calendar-based programs applies catch-up immediately'
   const result = await page.evaluate(() => {
     const daysAgo = (count) =>
       new Date(Date.now() - count * 24 * 60 * 60 * 1000).toISOString();
-    profile.programs.forge = {
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.('forge', {
       ...window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge'),
       week: 1,
       weekStartDate: daysAgo(15),
-    };
-    profile.programs.hypertrophysplit = {
+    });
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.('hypertrophysplit', {
       ...window.__IRONFORGE_E2E__?.program?.getInitialState?.('hypertrophysplit'),
       week: 1,
       weekStartDate: daysAgo(15),
-    };
-    profile.activeProgram = 'wendler531';
+    });
+    window.__IRONFORGE_E2E__?.profile?.setActiveProgram?.('wendler531');
     const originalConfirm = window.showConfirm;
     window.showConfirm = (_title, _message, onConfirm) => onConfirm();
     switchProgram('forge');
@@ -288,4 +308,88 @@ test('switching to delayed calendar-based programs applies catch-up immediately'
   expect(result.forgeWeek).toBeGreaterThan(1);
   expect(result.hypertrophyWeek).toBeGreaterThan(1);
   expect(result.activeProgram).toBe('hypertrophysplit');
+});
+
+test('store-owned active program changes keep program store and legacy snapshot aligned', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  const result = await page.evaluate(() => {
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.(
+      'stronglifts5x5',
+      {
+        ...window.__IRONFORGE_E2E__?.program?.getInitialState?.('stronglifts5x5'),
+        testWeek: 9,
+      }
+    );
+    window.__IRONFORGE_E2E__?.profile?.setActiveProgram?.('stronglifts5x5');
+
+    const programState = window.__IRONFORGE_E2E__?.program?.getState?.() || null;
+
+    return {
+      activeProgramId: programState?.activeProgramId || null,
+      activeProgramStateWeek: programState?.activeProgramState?.testWeek || null,
+      legacyActiveProgram: window.profile?.activeProgram || null,
+      legacyActiveProgramStateWeek:
+        window.profile?.programs?.stronglifts5x5?.testWeek || null,
+    };
+  });
+
+  expect(result.activeProgramId).toBe('stronglifts5x5');
+  expect(result.activeProgramStateWeek).toBe(9);
+  expect(result.legacyActiveProgram).toBe('stronglifts5x5');
+  expect(result.legacyActiveProgramStateWeek).toBe(9);
+});
+
+test('program store derives from the canonical profile store instead of stray legacy program mutations', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  const result = await page.evaluate(() => {
+    window.__IRONFORGE_E2E__?.profile?.setProgramState?.('forge', {
+      ...window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge'),
+      week: 4,
+      testMarker: 'typed-owner',
+    });
+    window.__IRONFORGE_E2E__?.profile?.setActiveProgram?.('forge');
+
+    window.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write?.('profile', {
+      ...(window.__IRONFORGE_GET_LEGACY_RUNTIME_STATE?.()?.profile || {}),
+      activeProgram: 'stronglifts5x5',
+      programs: {
+        ...((window.__IRONFORGE_GET_LEGACY_RUNTIME_STATE?.()?.profile || {}).programs || {}),
+        forge: {
+          week: 99,
+          testMarker: 'stale-legacy',
+        },
+      },
+    });
+
+    const profileState = window.__IRONFORGE_STORES__?.profile?.getState?.().profile || null;
+    const programState = window.__IRONFORGE_E2E__?.program?.getState?.() || null;
+
+    return {
+      canonicalActiveProgram: profileState?.activeProgram || null,
+      canonicalWeek: profileState?.programs?.forge?.week || null,
+      canonicalMarker: profileState?.programs?.forge?.testMarker || null,
+      derivedActiveProgram: programState?.activeProgramId || null,
+      derivedWeek: programState?.activeProgramState?.week || null,
+      derivedMarker: programState?.activeProgramState?.testMarker || null,
+      legacyActiveProgram: window.profile?.activeProgram || null,
+      legacyWeek: window.profile?.programs?.forge?.week || null,
+      legacyMarker: window.profile?.programs?.forge?.testMarker || null,
+    };
+  });
+
+  expect(result.canonicalActiveProgram).toBe('forge');
+  expect(result.canonicalWeek).toBe(4);
+  expect(result.canonicalMarker).toBe('typed-owner');
+  expect(result.derivedActiveProgram).toBe('forge');
+  expect(result.derivedWeek).toBe(4);
+  expect(result.derivedMarker).toBe('typed-owner');
+  expect(result.legacyActiveProgram).toBe('stronglifts5x5');
+  expect(result.legacyWeek).toBe(99);
+  expect(result.legacyMarker).toBe('stale-legacy');
 });

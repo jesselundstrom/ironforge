@@ -11,7 +11,6 @@ test('settings program island renders program basics and switcher through the le
   });
 
   await expect(page.locator('#settings-program-legacy-shell')).toHaveCount(0);
-  await expect(page.locator('#settings-program-react-root #training-program-summary')).not.toBeEmpty();
   await expect(
     page.locator('#settings-program-react-root [data-ui="program-card"]').first()
   ).toBeVisible();
@@ -21,6 +20,15 @@ test('settings program island renders program basics and switcher through the le
   await expect(
     page.locator('#settings-program-react-root [data-ui="program-advanced-trigger"]')
   ).toBeVisible();
+  await expect
+    .poll(
+      () =>
+        page
+          .locator('#settings-program-react-root #training-program-summary')
+          .textContent(),
+      { timeout: 15000 }
+    )
+    .not.toEqual('');
 });
 
 test('settings program island still opens the advanced setup sheet', async ({ page }) => {

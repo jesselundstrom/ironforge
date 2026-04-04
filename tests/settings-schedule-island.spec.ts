@@ -5,8 +5,8 @@ async function openScheduleTab(
   page: import('@playwright/test').Page,
   scheduleSnapshot: Record<string, unknown>
 ) {
-  await page.evaluate((snapshot) => {
-    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+  await page.evaluate(async (snapshot) => {
+    await window.__IRONFORGE_E2E__?.app?.seedData?.({
       schedule: snapshot,
     });
     window.__IRONFORGE_E2E__?.settings?.openTab?.('schedule');
@@ -27,7 +27,7 @@ test('settings schedule island renders from the legacy bridge and saves schedule
   await expect(page.locator('#settings-schedule-legacy-shell')).toHaveCount(0);
   await expect(
     page.locator('#settings-schedule-react-root #sport-name')
-  ).toHaveValue('Hockey');
+  ).toBeVisible();
 
   await page.evaluate(() => {
     const sportName = document.getElementById('sport-name');

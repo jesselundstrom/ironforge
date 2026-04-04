@@ -270,7 +270,7 @@ test('nutrition uses the updated Finnish meal logging label', async ({
   ).toContainText('Kirjaa ateriasi');
 });
 
-test('nutrition logout clears local nutrition data and leaves the signed-out setup state', async ({
+test('nutrition logout clears local nutrition data and returns to the signed-out login state', async ({
   page,
 }) => {
   await openAppShell(page);
@@ -322,10 +322,7 @@ test('nutrition logout clears local nutrition data and leaves the signed-out set
     currentUserId: null,
   });
 
-  await openNutrition(page);
-  await expect(
-    page.locator('#nutrition-react-root .nutrition-setup-card')
-  ).toBeVisible();
+  await expect(page.locator('#login-screen')).toBeVisible();
 });
 
 test('nutrition clear all data removes nutrition local keys too', async ({

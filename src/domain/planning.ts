@@ -1,7 +1,4 @@
-import {
-  FATIGUE_CONFIG as DEFAULT_FATIGUE_CONFIG,
-  MUSCLE_LOAD_CONFIG as DEFAULT_MUSCLE_LOAD_CONFIG,
-} from './config';
+import { FATIGUE_CONFIG as DEFAULT_FATIGUE_CONFIG } from './config';
 import {
   getDisplayName as getExerciseDisplayName,
   getExerciseMeta,
@@ -30,215 +27,41 @@ import {
   getProgramDifficultyMeta as getRegistryProgramDifficultyMeta,
   getRegisteredPrograms,
 } from '../core/program-registry.js';
-import { dataStore } from '../stores/data-store';
-import { profileStore } from '../stores/profile-store';
-
-type MutableRecord = Record<string, unknown>;
-
-export type ProgramDifficultyMeta = {
-  key: string;
-  labelKey: string;
-  fallback: string;
-};
-
-export type ProgramCapabilities = Record<string, unknown> & {
-  difficulty?: string;
-  frequencyRange?: {
-    min: number;
-    max: number;
-  };
-  recommendationScore?: (
-    days: number,
-    preferences?: Record<string, unknown>
-  ) => number;
-};
-
-export type PlanningContextInput = Record<string, unknown> & {
-  profile?: Profile | Record<string, unknown> | null;
-  schedule?: SportSchedule | Record<string, unknown> | null;
-  workouts?: WorkoutRecord[];
-  activeProgram?: Record<string, unknown> | null;
-  activeProgramState?: Record<string, unknown> | null;
-  fatigue?: FatigueResult | Record<string, unknown> | null;
-  sportContext?: Record<string, unknown> | null;
-};
-
-export type TrainingDecision = PlanningDecision &
-  Record<string, unknown> & {
-    action: string;
-    restrictionFlags: string[];
-    reasonCodes: string[];
-    timeBudgetMinutes?: number;
-    recommendedSessionOption?: string;
-  };
-
-export type CoachingInsights = Record<string, unknown> & {
-  recommendation?: Record<string, unknown> | null;
-};
-
-export type InitialPlanRecommendation = Record<string, unknown> & {
-  programId?: string;
-  why?: string[];
-  fitReasons?: string[];
-  weekTemplate?: Array<Record<string, unknown>>;
-  initialAdjustments?: string[];
-};
-
-export type WeekPlanPreview = Record<string, unknown>;
-
-export type ComputeFatigueInput = {
-  workouts?: WorkoutRecord[];
-  schedule?: SportSchedule | Record<string, unknown> | null;
-};
-
-type PlanningWindow = Window & {
-  I18N?: {
-    t?: (
-      key: string,
-      params?: Record<string, unknown> | null,
-      fallback?: string
-    ) => string;
-  };
-  FATIGUE_CONFIG?: typeof DEFAULT_FATIGUE_CONFIG;
-  MUSCLE_LOAD_CONFIG?: typeof DEFAULT_MUSCLE_LOAD_CONFIG;
-  DAY_NAMES?: string[];
-  getWeekStart?: (date: Date) => Date;
-  getRecentDisplayMuscleLoads?: (days?: number) => Record<string, number>;
-  getTrainingGoalLabel?: (goal?: unknown) => string;
-  __IRONFORGE_GET_LEGACY_RUNTIME_STATE__?: () => Record<string, unknown> | null;
-  workouts?: WorkoutRecord[];
-  profile?: Record<string, unknown> | null;
-  schedule?: Record<string, unknown> | null;
-};
-
-const PROGRAM_ID_ALIASES: Record<string, string> = {
-  w531: 'wendler531',
-};
-
-function cloneJson<T>(value: T): T {
-  if (value === undefined || value === null) return value;
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function getPlanningWindow(): PlanningWindow | null {
-  if (typeof window === 'undefined') return null;
-  return window as unknown as PlanningWindow;
-}
-
-function trPlan(
-  key: string,
-  fallback: string,
-  params?: Record<string, unknown> | null
-) {
-  const runtimeWindow = getPlanningWindow();
-  if (runtimeWindow?.I18N?.t) {
-    return runtimeWindow.I18N.t(key, params || null, fallback);
-  }
-  return fallback;
-}
-
-function clampPlanningValue(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function toPlanList<T>(value: T | T[] | null | undefined | ''): T[] {
-  if (Array.isArray(value)) return value.filter(Boolean) as T[];
-  if (value === undefined || value === null || value === '') return [];
-  return [value];
-}
-
-function getCanonicalProgramId(programId?: unknown) {
-  const raw = String(programId || '').trim();
-  if (!raw) return '';
-  const normalized = raw.toLowerCase();
-  if (PROGRAM_ID_ALIASES[normalized]) return PROGRAM_ID_ALIASES[normalized];
-  return normalized;
-}
-
-function getWeekStart(date: Date) {
-  const runtimeWindow = getPlanningWindow();
-  if (typeof runtimeWindow?.getWeekStart === 'function') {
-    return runtimeWindow.getWeekStart(new Date(date));
-  }
-  const next = new Date(date);
-  const offset = (next.getDay() + 6) % 7;
-  next.setHours(0, 0, 0, 0);
-  next.setDate(next.getDate() - offset);
-  return next;
-}
-
-function getDayNames() {
-  return (
-    getPlanningWindow()?.DAY_NAMES || [
-      'Sun',
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-    ]
-  );
-}
-
-function getDefaultTrainingGoalLabel(goal?: unknown) {
-  const normalized = String(goal || '').trim();
-  if (normalized === 'hypertrophy') return 'Hypertrophy';
-  if (normalized === 'sport_support') return 'Sport Support';
-  if (normalized === 'general_fitness') return 'General Fitness';
-  return 'Strength';
-}
-
-function getStoredProfileRecord() {
-  const runtimeWindow = getPlanningWindow();
-  const legacyRuntime = runtimeWindow?.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || null;
-  return (
-    cloneJson(
-      (legacyRuntime?.profile as MutableRecord | null) ||
-        runtimeWindow?.profile ||
-        (profileStore.getState().profile as MutableRecord | null) ||
-        (dataStore.getState().profile as MutableRecord | null) ||
-        null
-    ) || {}
-  );
-}
-
-function getStoredScheduleRecord() {
-  const runtimeWindow = getPlanningWindow();
-  const legacyRuntime = runtimeWindow?.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || null;
-  return (
-    cloneJson(
-      (legacyRuntime?.schedule as MutableRecord | null) ||
-        runtimeWindow?.schedule ||
-        (profileStore.getState().schedule as MutableRecord | null) ||
-        (dataStore.getState().schedule as MutableRecord | null) ||
-        null
-    ) || {}
-  );
-}
-
-function getStoredWorkouts() {
-  const runtimeWindow = getPlanningWindow();
-  const legacyRuntime = runtimeWindow?.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__?.() || null;
-  return cloneJson(
-    ((legacyRuntime?.workouts as WorkoutRecord[]) ||
-      runtimeWindow?.workouts ||
-      dataStore.getState().workouts ||
-      []) as WorkoutRecord[]
-  );
-}
-
-export function getFatigueConfig() {
-  const runtimeWindow = getPlanningWindow();
-  return cloneJson(runtimeWindow?.FATIGUE_CONFIG || DEFAULT_FATIGUE_CONFIG);
-}
-
-export function getMuscleLoadConfig() {
-  const runtimeWindow = getPlanningWindow();
-  return cloneJson(
-    runtimeWindow?.MUSCLE_LOAD_CONFIG || DEFAULT_MUSCLE_LOAD_CONFIG
-  );
-}
+import {
+  clampPlanningValue,
+  cloneJson,
+  getCanonicalProgramId,
+  getDayNames,
+  getDefaultTrainingGoalLabel,
+  getPlanningWindow,
+  getStoredProfileRecord,
+  getStoredScheduleRecord,
+  getStoredWorkouts,
+  getWeekStart,
+  toPlanList,
+  trPlan,
+  type CoachingInsights,
+  type ComputeFatigueInput,
+  type InitialPlanRecommendation,
+  type MutableRecord,
+  type PlanningContextInput,
+  type ProgramCapabilities,
+  type ProgramDifficultyMeta,
+  type TrainingDecision,
+  type WeekPlanPreview,
+} from './planning-utils';
+import {
+  computeFatigue,
+  getFatigueConfig,
+  getMuscleLoadConfig,
+  getRecentDisplayMuscleLoads,
+} from './planning-fatigue';
+import {
+  buildOnboardingRecommendation,
+  getInitialPlanRecommendation,
+  getProgramCapabilities,
+  getProgramDifficultyMeta,
+} from './planning-recommendations';
 
 function isSportWorkout(workout: WorkoutRecord | Record<string, unknown>) {
   return workout?.type === 'sport' || workout?.type === 'hockey';
@@ -378,75 +201,6 @@ function getSportWorkoutFatigueImpulse(
     muscular: (base.muscular || 0) * durationFactor * effortFactor,
     cns: (base.cns || 0) * durationFactor * effortFactor * cnsMultiplier,
   };
-}
-
-function getDaysSinceMostRecent(
-  workouts: WorkoutRecord[],
-  predicate: (workout: WorkoutRecord) => boolean
-) {
-  const latest = workouts
-    .filter(predicate)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-  if (!latest) return 99;
-  const ageDays = getWorkoutAgeDays(latest, Date.now());
-  return ageDays === null ? 99 : ageDays;
-}
-
-export function computeFatigue(input?: ComputeFatigueInput) {
-  const config = getFatigueConfig();
-  const workouts = Array.isArray(input?.workouts)
-    ? input.workouts
-    : getStoredWorkouts();
-  const scheduleLike = input?.schedule || getStoredScheduleRecord();
-  const now = Date.now();
-  const lookbackDays = Math.max(1, parseInt(String(config?.lookbackDays), 10) || 10);
-  let muscular = 0;
-  let cns = 0;
-  let recentLiftSessions = 0;
-  let recentSportSessions = 0;
-
-  workouts.forEach((workout) => {
-    const ageDays = getWorkoutAgeDays(workout, now);
-    if (ageDays === null || ageDays < 0 || ageDays > lookbackDays) return;
-    const impulse = isSportWorkout(workout)
-      ? getSportWorkoutFatigueImpulse(workout, scheduleLike, config)
-      : getLiftWorkoutFatigueImpulse(workout, config);
-    if (!impulse.muscular && !impulse.cns) return;
-
-    if (isSportWorkout(workout)) recentSportSessions += 1;
-    else recentLiftSessions += 1;
-
-    muscular +=
-      impulse.muscular *
-      getFatigueDecayWeight(ageDays, config?.muscularHalfLifeDays || 4.5);
-    cns +=
-      impulse.cns *
-      getFatigueDecayWeight(ageDays, config?.cnsHalfLifeDays || 3.25);
-  });
-
-  const roundedMuscular = Math.round(clampPlanningValue(muscular, 0, 100));
-  const roundedCns = Math.round(clampPlanningValue(cns, 0, 100));
-  return {
-    muscular: roundedMuscular,
-    cns: roundedCns,
-    overall: Math.round((roundedMuscular + roundedCns) * 0.5),
-    computedAt: new Date().toISOString(),
-    daysSinceLift: getDaysSinceMostRecent(
-      workouts,
-      (workout) => !isSportWorkout(workout)
-    ),
-    daysSinceSport: getDaysSinceMostRecent(
-      workouts,
-      (workout) => isSportWorkout(workout)
-    ),
-    recentLiftSessions,
-    recentSportSessions,
-  };
-}
-
-export function getRecentDisplayMuscleLoads(days?: number) {
-  const runtimeWindow = getPlanningWindow();
-  return cloneJson(runtimeWindow?.getRecentDisplayMuscleLoads?.(days) || {});
 }
 
 function resolvePlanExerciseId(exercise: unknown) {
@@ -1778,161 +1532,13 @@ export function getCoachingInsights(input?: Record<string, unknown>) {
   } as CoachingInsights;
 }
 
-function buildInitialWeekTemplate(
-  programId: string,
-  frequency: number,
-  sessionMinutes: number
-) {
-  const rows: Array<Record<string, unknown>> = [];
-  for (let index = 0; index < frequency; index += 1) {
-    const dayLabel = trPlan('plan.week.day_label', 'Day {day}', { day: index + 1 });
-    rows.push({
-      dayLabel,
-      type: programId === 'stronglifts5x5' && index % 2 !== 0 ? 'Workout B' : 'Session',
-      durationHint: trPlan('onboarding.duration_value', '{count} min', {
-        count: sessionMinutes,
-      }),
-    });
-  }
-  return rows;
-}
-
-export function getInitialPlanRecommendation(input?: Record<string, unknown>) {
-  const next = input || {};
-  const profileLike =
-    cloneJson((next.profile as MutableRecord | null) || getStoredProfileRecord()) || {};
-  const scheduleLike =
-    cloneJson((next.schedule as MutableRecord | null) || getStoredScheduleRecord()) || {};
-  const preferences = normalizeTrainingPreferences(profileLike);
-  const coaching = normalizeCoachingProfile(profileLike);
-  const programs = getRegisteredPrograms();
-  const ranked = (programs.length
-    ? programs
-    : ['casualfullbody', 'forge', 'stronglifts5x5', 'wendler531', 'hypertrophysplit'].map(
-        (id) => ({ id, name: id })
-      )
-  )
-    .map((program) => ({
-      program,
-      score:
-        (getRegistryProgramCapabilities(program.id)?.recommendationScore?.(
-          Number(preferences.trainingDaysPerWeek) || 3,
-          preferences
-        ) || 0) +
-        (program.id === 'casualfullbody' && coaching.experienceLevel === 'beginner' ? 5 : 0) +
-        (program.id === 'forge' && preferences.goal === 'strength' ? 4 : 0) +
-        (program.id === 'hypertrophysplit' && preferences.goal === 'hypertrophy' ? 4 : 0) +
-        (program.id === 'wendler531' && coaching.experienceLevel === 'advanced' ? 3 : 0),
-    }))
-    .sort((a, b) => b.score - a.score || String(a.program.name).localeCompare(String(b.program.name)));
-  const chosen = ranked[0]?.program || programs[0] || { id: 'forge', name: 'forge' };
-  const programId = String(chosen.id || 'forge');
-  const runtimeWindow = getPlanningWindow();
-  const goalLabel =
-    runtimeWindow?.getTrainingGoalLabel?.(preferences.goal) ||
-    getDefaultTrainingGoalLabel(preferences.goal);
-  return {
-    programId,
-    why: [
-      trPlan('onboarding.why.goal_match', 'Matches your main goal: {goal}.', {
-        goal: goalLabel,
-      }),
-    ],
-    fitReasons: [
-      trPlan('onboarding.fit.frequency', '{count} sessions / week', {
-        count: Number(preferences.trainingDaysPerWeek) || 3,
-      }),
-      coaching.guidanceMode === 'guided'
-        ? trPlan('onboarding.fit.guided', 'Guided')
-        : trPlan('onboarding.fit.self_directed', 'Flexible'),
-    ],
-    weekTemplate: buildInitialWeekTemplate(
-      programId,
-      Number(preferences.trainingDaysPerWeek) || 3,
-      Number(preferences.sessionMinutes) || 60
-    ),
-    firstSessionOption: '1',
-    initialAdjustments: [],
-  } as InitialPlanRecommendation;
-}
-
-function parseOnboardingExerciseIds(text: unknown) {
-  return String(text || '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .map((name) => resolveExerciseId(name) || name)
-    .filter(Boolean);
-}
-
-export function buildOnboardingRecommendation(draft?: Record<string, unknown>) {
-  const profile = getStoredProfileRecord();
-  const schedule = getStoredScheduleRecord();
-  const nextDraft = draft || {};
-  const nextProfile = cloneJson(profile) || {};
-
-  nextProfile.preferences = normalizeTrainingPreferences({
-    ...nextProfile,
-    preferences: {
-      ...(((nextProfile.preferences as MutableRecord) ||
-        getDefaultTrainingPreferences()) as MutableRecord),
-      goal: nextDraft.goal,
-      trainingDaysPerWeek:
-        parseInt(String(nextDraft.trainingDaysPerWeek), 10) || 3,
-      sessionMinutes: parseInt(String(nextDraft.sessionMinutes), 10) || 60,
-      equipmentAccess: nextDraft.equipmentAccess,
-    },
-  });
-
-  nextProfile.coaching = normalizeCoachingProfile({
-    ...nextProfile,
-    coaching: {
-      ...(((nextProfile.coaching as MutableRecord) ||
-        getDefaultCoachingProfile()) as MutableRecord),
-      experienceLevel: nextDraft.experienceLevel,
-      guidanceMode: nextDraft.guidanceMode,
-      sportProfile: {
-        name: String(nextDraft.sportName || '').trim(),
-        inSeason: nextDraft.inSeason === true,
-        sessionsPerWeek:
-          parseInt(String(nextDraft.sportSessionsPerWeek), 10) || 0,
-      },
-      limitations: {
-        jointFlags: [...((nextDraft.jointFlags as string[]) || [])],
-        avoidMovementTags: [...((nextDraft.avoidMovementTags as string[]) || [])],
-        avoidExerciseIds: parseOnboardingExerciseIds(nextDraft.avoidExercisesText),
-      },
-      exercisePreferences: {
-        preferredExerciseIds: [],
-        excludedExerciseIds: parseOnboardingExerciseIds(
-          nextDraft.avoidExercisesText
-        ),
-      },
-      onboardingCompleted: false,
-    },
-  });
-
-  return getInitialPlanRecommendation({
-    profile: nextProfile,
-    schedule: {
-      ...schedule,
-      sportName:
-        String(nextDraft.sportName || schedule.sportName || '').trim() ||
-        String(schedule.sportName || ''),
-    },
-  });
-}
-
-export function getProgramCapabilities(programId?: string | null) {
-  return { ...(getRegistryProgramCapabilities(programId) || {}) };
-}
-
-export function getProgramDifficultyMeta(programId?: string | null) {
-  return (
-    cloneJson(getRegistryProgramDifficultyMeta(programId) || null) || {
-      key: 'intermediate',
-      labelKey: 'program.difficulty.intermediate',
-      fallback: 'Intermediate',
-    }
-  );
-}
+export {
+  buildOnboardingRecommendation,
+  computeFatigue,
+  getFatigueConfig,
+  getInitialPlanRecommendation,
+  getMuscleLoadConfig,
+  getProgramCapabilities,
+  getProgramDifficultyMeta,
+  getRecentDisplayMuscleLoads,
+};

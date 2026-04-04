@@ -125,7 +125,7 @@ test('dashboard rhythm card keeps sparse states compact', async ({ page }) => {
     window.__IRONFORGE_E2E__?.app?.navigateToPage?.('dashboard');
   });
 
-  await expect(page.locator('.dashboard-plan-primary-metric-value')).toContainText('%');
+  await expect(page.locator('.stats-gauge-value')).toContainText('%');
   await expect(page.locator('.dashboard-plan-support-chip')).toHaveCount(1);
   await expect(page.locator('.dashboard-plan-insight-row')).toHaveCount(1);
 });

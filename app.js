@@ -192,6 +192,55 @@ window.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__ = function (partial) {
   }
 };
 
+function getProfileStoreBridge() {
+  return window.__IRONFORGE_PROFILE_STORE__ || null;
+}
+
+function setStoreOwnedProfile(nextProfile) {
+  const bridge = getProfileStoreBridge();
+  if (bridge?.setProfile) return bridge.setProfile(nextProfile);
+  profile = nextProfile || null;
+  return profile;
+}
+
+function updateStoreOwnedProfile(patch) {
+  const bridge = getProfileStoreBridge();
+  if (bridge?.updateProfile) return bridge.updateProfile(patch || {});
+  profile = { ...(profile || {}), ...(patch || {}) };
+  return profile;
+}
+
+function setStoreOwnedSchedule(nextSchedule) {
+  const bridge = getProfileStoreBridge();
+  if (bridge?.setSchedule) return bridge.setSchedule(nextSchedule);
+  schedule = nextSchedule || null;
+  return schedule;
+}
+
+function updateStoreOwnedSchedule(patch) {
+  const bridge = getProfileStoreBridge();
+  if (bridge?.updateSchedule) return bridge.updateSchedule(patch || {});
+  schedule = { ...(schedule || {}), ...(patch || {}) };
+  return schedule;
+}
+
+function setStoreOwnedActiveProgram(programId) {
+  const bridge = getProfileStoreBridge();
+  if (bridge?.setActiveProgram) return bridge.setActiveProgram(programId);
+  if (!profile || typeof profile !== 'object') profile = {};
+  profile.activeProgram = programId || null;
+  return profile.activeProgram || null;
+}
+
+function setStoreOwnedProgramState(programId, state) {
+  const bridge = getProfileStoreBridge();
+  if (bridge?.setProgramState) return bridge.setProgramState(programId, state);
+  if (!profile || typeof profile !== 'object') profile = {};
+  if (!profile.programs || typeof profile.programs !== 'object') profile.programs = {};
+  profile.programs[programId] = state;
+  return profile.programs[programId] || null;
+}
+
 function getRuntimeBridge() {
   return window.__IRONFORGE_RUNTIME_BRIDGE__ || null;
 }
@@ -1024,7 +1073,7 @@ function renderSportDayToggles() {
     notifySettingsScheduleIsland();
 }
 function setSportIntensity(val, el) {
-  schedule.sportIntensity = val;
+  schedule = updateStoreOwnedSchedule({ sportIntensity: val });
   document
     .querySelectorAll('#sport-intensity-btns button')
     .forEach((b) => b.classList.remove('active'));
@@ -1634,16 +1683,19 @@ async function completeOnboarding(draft) {
   ) {
     nextPrograms[recommendation.programId] = recommendedProgramInitialState;
   }
-  profile = {
+  profile = setStoreOwnedProfile({
     ...profile,
     preferences: nextPreferences,
     coaching: nextCoaching,
     activeProgram: recommendation.programId,
     programs: nextPrograms,
-  };
+  });
   normalizeProfileProgramStateMap(profile);
+  profile = setStoreOwnedProfile({ ...profile });
   if (String(d.sportName || '').trim())
-    schedule.sportName = String(d.sportName || '').trim();
+    schedule = updateStoreOwnedSchedule({
+      sportName: String(d.sportName || '').trim(),
+    });
   closeOnboardingModal();
   await saveProfileData({ docKeys: getAllProfileDocumentKeys(profile) });
   await saveScheduleData();
@@ -1681,7 +1733,7 @@ function maybeOpenOnboarding(options) {
     return;
   }
   if (!opts.force && coaching.onboardingSeen !== true) {
-    profile = {
+    profile = setStoreOwnedProfile({
       ...profile,
       coaching: normalizeCoachingProfile({
         ...profile,
@@ -1690,7 +1742,7 @@ function maybeOpenOnboarding(options) {
           onboardingSeen: true,
         },
       }),
-    };
+    });
     saveProfileData({ docKeys: ['profile_core'] });
   }
   document.getElementById('onboarding-modal')?.classList.add('active');
@@ -1767,7 +1819,10 @@ function initSettings() {
     if (notesEl) notesEl.value = prefs.notes || '';
   }
   renderSportDayToggles();
-  document.getElementById('default-rest').value = profile.defaultRest || 120;
+  {
+    const defaultRestEl = document.getElementById('default-rest');
+    if (defaultRestEl) defaultRestEl.value = profile.defaultRest || 120;
+  }
   renderProgramSwitcher();
   renderTrainingProgramSummary();
   renderProgramBasics();
@@ -1832,8 +1887,9 @@ function toggleDay(kind, dow, el) {
 }
 
 function saveRestTimer() {
-  profile.defaultRest =
-    parseInt(document.getElementById('default-rest').value) || 120;
+  profile = updateStoreOwnedProfile({
+    defaultRest: parseInt(document.getElementById('default-rest').value) || 120,
+  });
   restDuration = profile.defaultRest;
   saveProfileData({ docKeys: ['profile_core'] });
   notifySettingsPreferencesIsland();
@@ -1844,8 +1900,7 @@ function saveBodyMetrics() {
     const v = document.getElementById(id)?.value;
     return v ? parse(v) : null;
   };
-  if (!profile.bodyMetrics) profile.bodyMetrics = {};
-  profile.bodyMetrics = {
+  const nextBodyMetrics = {
     sex: document.getElementById('body-sex')?.value || null,
     activityLevel: document.getElementById('body-activity')?.value || null,
     weight: toNum('body-weight', parseFloat),
@@ -1854,7 +1909,16 @@ function saveBodyMetrics() {
     targetWeight: toNum('body-target-weight', parseFloat),
     bodyGoal: document.getElementById('body-goal')?.value || null,
   };
+  profile = updateStoreOwnedProfile({
+    bodyMetrics: {
+      ...((profile?.bodyMetrics && typeof profile.bodyMetrics === 'object'
+        ? profile.bodyMetrics
+        : {}) || {}),
+      ...nextBodyMetrics,
+    },
+  });
   if (typeof normalizeBodyMetrics === 'function') normalizeBodyMetrics(profile);
+  profile = setStoreOwnedProfile({ ...profile });
   saveProfileData({ docKeys: ['profile_core'] });
   notifySettingsBodyIsland();
   showToast(tr('settings.body.saved', 'Saved'), 'var(--green)');
@@ -1892,7 +1956,7 @@ function saveTrainingPreferences(options) {
     : prefs.detailedView;
   const notes =
     document.getElementById('training-preferences-notes')?.value || '';
-  profile.preferences = normalizeTrainingPreferences({
+  const nextPreferences = normalizeTrainingPreferences({
     ...profile,
     preferences: {
       ...prefs,
@@ -1905,6 +1969,9 @@ function saveTrainingPreferences(options) {
       detailedView,
       notes,
     },
+  });
+  profile = updateStoreOwnedProfile({
+    preferences: nextPreferences,
   });
   saveProfileData({ docKeys: ['profile_core'] });
   renderTrainingPreferencesSummary();
@@ -1960,7 +2027,7 @@ function saveLanguageSetting() {
       : document.getElementById('app-language')?.value || 'en';
   if (window.I18N && I18N.setLanguage)
     I18N.setLanguage(lang, { persist: true });
-  profile.language = lang;
+  profile = updateStoreOwnedProfile({ language: lang });
   saveProfileData({ docKeys: ['profile_core'] });
   notifySettingsAccountIsland();
   notifySettingsBodyIsland();
@@ -1976,25 +2043,28 @@ function _showAutoSaveToast(msg, color) {
   _autoSaveToastTimer = setTimeout(() => showToast(msg, color), 600);
 }
 function saveSchedule(nextValues) {
+  const nextSchedule = { ...(schedule || {}) };
   if (nextValues && typeof nextValues === 'object') {
     if ('sportName' in nextValues)
-      schedule.sportName = String(nextValues.sportName || '').trim();
+      nextSchedule.sportName = String(nextValues.sportName || '').trim();
     if ('sportLegsHeavy' in nextValues)
-      schedule.sportLegsHeavy = nextValues.sportLegsHeavy !== false;
+      nextSchedule.sportLegsHeavy = nextValues.sportLegsHeavy !== false;
     if ('sportIntensity' in nextValues)
-      schedule.sportIntensity = nextValues.sportIntensity || 'hard';
+      nextSchedule.sportIntensity = nextValues.sportIntensity || 'hard';
     if ('sportDays' in nextValues)
-      schedule.sportDays = Array.isArray(nextValues.sportDays)
+      nextSchedule.sportDays = Array.isArray(nextValues.sportDays)
         ? [...nextValues.sportDays]
         : [];
   } else {
     const nameInp = document.getElementById('sport-name');
-    if (nameInp) schedule.sportName = nameInp.value.trim();
+    if (nameInp) nextSchedule.sportName = nameInp.value.trim();
     const cb = document.getElementById('sport-legs-heavy');
-    if (cb) schedule.sportLegsHeavy = cb.checked;
+    if (cb) nextSchedule.sportLegsHeavy = cb.checked;
   }
+  schedule = setStoreOwnedSchedule(nextSchedule);
   if (typeof normalizeScheduleState === 'function')
     normalizeScheduleState(schedule);
+  schedule = setStoreOwnedSchedule({ ...schedule });
   if (!activeWorkout) resetNotStartedView();
   saveScheduleData();
   if (isSettingsScheduleIslandActive()) notifySettingsScheduleIsland();
@@ -2094,16 +2164,19 @@ function importData(event) {
         ),
         async () => {
           if (validated.workouts) workouts = validated.workouts;
-          if (validated.schedule) schedule = validated.schedule;
-          if (validated.profile) profile = validated.profile;
+          if (validated.schedule)
+            schedule = setStoreOwnedSchedule(validated.schedule);
+          if (validated.profile) profile = setStoreOwnedProfile(validated.profile);
           if (typeof normalizeScheduleState === 'function') {
             normalizeScheduleState(schedule);
           }
+          schedule = setStoreOwnedSchedule({ ...schedule });
           cleanupLegacyProfileFields(profile);
           if (typeof normalizeBodyMetrics === 'function')
             normalizeBodyMetrics(profile);
           normalizeTrainingPreferences(profile);
           normalizeCoachingProfile(profile);
+          profile = setStoreOwnedProfile({ ...profile });
           await replaceWorkoutTableSnapshot(workouts);
           await saveWorkouts();
           await saveScheduleData();
@@ -2171,26 +2244,26 @@ async function clearAllData() {
     } catch (e) {}
   }
   workouts = [];
-  schedule = {
+  schedule = setStoreOwnedSchedule({
     sportName: '',
     sportDays: [],
     sportIntensity: 'hard',
     sportLegsHeavy: true,
-  };
-  profile = {
+  });
+  profile = setStoreOwnedProfile({
     defaultRest: 120,
     activeProgram: 'forge',
     programs: {},
     language: window.I18N && I18N.getLanguage ? I18N.getLanguage() : 'en',
     preferences: getDefaultTrainingPreferences(),
     coaching: getDefaultCoachingProfile(),
-  };
+  });
   settingsAccountUiState = { dangerOpen: false, dangerInput: '' };
   (typeof getRegisteredPrograms === 'function'
     ? getRegisteredPrograms()
     : []
   ).forEach((prog) => {
-    profile.programs[prog.id] = prog.getInitialState();
+    setStoreOwnedProgramState(prog.id, prog.getInitialState());
   });
   await replaceWorkoutTableSnapshot([]);
   await saveWorkouts();

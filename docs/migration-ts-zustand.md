@@ -2,9 +2,9 @@
 
 ## Status
 
-This migration plan is complete as of 2026-03-28.
+The visible-shell migration is complete, but runtime ownership consolidation is still in progress as of 2026-04-04.
 
-All seven planned phases are now delivered and verified, and the follow-up cleanup phase is complete. The remaining work in this repo is ordinary cleanup, hardening, and feature work rather than unfinished migration-plan work.
+All seven planned phases for the React + Vite shell are delivered and verified. The remaining work is no longer "page shell migration", but it is also not ordinary cleanup: profile/program/runtime ownership is still being consolidated out of the bidirectional legacy sync layer.
 
 This closeout date supersedes the earlier 2026-03-25 claim. At that point the app shell and most typed runtime seams were in place, but the page-level `history-store`, `dashboard-store`, and `nutrition-store` were still bridge-fed compatibility stubs. Those stores now own their read models directly and the `syncHistoryBridge`, `syncDashboardBridge`, and `syncNutritionBridge` runtime path is no longer part of the live page flow.
 
@@ -20,9 +20,9 @@ Closeout checkpoints completed:
 - `core/nutrition-layer.js` is no longer part of the live page flow; its legacy globals are now provided by `src/stores/nutrition-store.ts`.
 - `core/dashboard-layer.js` is no longer part of the live page flow; dashboard helpers and compatibility delegates now live in typed runtime code.
 
-## Cleanup Phase Complete
+## Visible Shell Complete
 
-The page-store migration follow-up seams are now closed.
+The page-store migration follow-up seams listed below are closed.
 
 ### 1. Nutrition runtime state ownership: done
 
@@ -38,9 +38,9 @@ The page-store migration follow-up seams are now closed.
 
 `src/domain/planning.ts` now contains the typed fatigue implementation. The dashboard store consumes it directly from typed inputs, and `window.computeFatigue` remains only as a thin compatibility delegate for untouched legacy planning/workout/program callers.
 
-## Current Gate
+## Current Consolidation Gate
 
-The cleanup follow-up work is complete.
+The visible-shell cleanup follow-up work is complete, but runtime ownership cleanup is still active.
 
 Gate status:
 
@@ -59,7 +59,7 @@ Gate status:
 
 Ironforge's visible UI migration is complete. The shipped app shell already runs through React + Vite from `src/app/main.tsx` and `src/app/AppShell.jsx`, and the shared `src/app/store/runtime-store.ts` is already part of the live runtime.
 
-The remaining migration target is the legacy business/runtime layer in `app.js`, `core/*.js`, and `programs/*.js`. This migration replaces that legacy runtime incrementally with TypeScript modules and Zustand stores while preserving current behavior, current data formats, and the current Playwright suite.
+The remaining migration target is the legacy business/runtime layer in `app.js`, `core/*.js`, and `programs/*.js`. That work now centers on ownership cleanup: reducing multi-writer state, shrinking compatibility bridges, and moving the remaining business logic behind typed store/domain seams while preserving current behavior, current data formats, and the current Playwright suite.
 
 The first milestone is intentionally conservative:
 

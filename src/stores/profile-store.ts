@@ -15,6 +15,19 @@ type ProfileStoreState = {
   setSchedule: (schedule: Record<string, unknown> | null) => SportSchedule | null;
   updateProfile: (patch: Record<string, unknown>) => Profile | null;
   updateSchedule: (patch: Record<string, unknown>) => SportSchedule | null;
+  setActiveProgram: (programId: string | null) => string | null;
+  setProgramState: (
+    programId: string,
+    state: Record<string, unknown> | null
+  ) => Record<string, unknown> | null;
+  updateProgramState: (
+    programId: string,
+    patchOrUpdater:
+      | Record<string, unknown>
+      | ((
+          current: Record<string, unknown>
+        ) => Record<string, unknown> | null)
+  ) => Record<string, unknown> | null;
 };
 
 type ProfileWindow = Window & {
@@ -22,6 +35,29 @@ type ProfileWindow = Window & {
   schedule?: Record<string, unknown> | null;
   syncSettingsBridge?: () => void;
   getCanonicalProgramId?: (programId?: string | null) => string | null;
+  __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
+    write?: (name: string, value: unknown) => void;
+  };
+  __IRONFORGE_PROFILE_STORE__?: {
+    getState?: () => { profile: Profile | null; schedule: SportSchedule | null };
+    setProfile?: (profile: Record<string, unknown> | null) => Profile | null;
+    setSchedule?: (schedule: Record<string, unknown> | null) => SportSchedule | null;
+    updateProfile?: (patch: Record<string, unknown>) => Profile | null;
+    updateSchedule?: (patch: Record<string, unknown>) => SportSchedule | null;
+    setActiveProgram?: (programId: string | null) => string | null;
+    setProgramState?: (
+      programId: string,
+      state: Record<string, unknown> | null
+    ) => Record<string, unknown> | null;
+    updateProgramState?: (
+      programId: string,
+      patchOrUpdater:
+        | Record<string, unknown>
+        | ((
+            current: Record<string, unknown>
+          ) => Record<string, unknown> | null)
+    ) => Record<string, unknown> | null;
+  };
 };
 
 let bridgeInstalled = false;
@@ -78,15 +114,36 @@ function syncStoreFromDataStore() {
   return snapshot;
 }
 
-function writeBackToLegacy(
+function syncProfileDataStore(
+  profile: Profile | null,
+  schedule: SportSchedule | null
+) {
+  dataStore.setState((state) => ({
+    ...state,
+    profile: cloneJson(profile),
+    schedule: cloneJson(schedule),
+  }));
+}
+
+function publishToLegacy(
   profile: Profile | null,
   schedule: SportSchedule | null
 ) {
   const runtimeWindow = getProfileWindow();
   if (!runtimeWindow) return;
-  runtimeWindow.profile = cloneJson(profile);
-  runtimeWindow.schedule = cloneJson(schedule);
-  dataStore.getState().syncFromLegacy();
+  runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write?.(
+    'profile',
+    cloneJson(profile)
+  );
+  runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write?.(
+    'schedule',
+    cloneJson(schedule)
+  );
+  if (!runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write) {
+    runtimeWindow.profile = cloneJson(profile);
+    runtimeWindow.schedule = cloneJson(schedule);
+  }
+  syncProfileDataStore(profile, schedule);
   runtimeWindow.syncSettingsBridge?.();
 }
 
@@ -104,7 +161,7 @@ export const profileStore: StoreApi<ProfileStoreState> =
         ...state,
         profile: nextProfile,
       }));
-      writeBackToLegacy(nextProfile, currentSchedule);
+      publishToLegacy(nextProfile, currentSchedule);
       return nextProfile;
     },
     setSchedule: (schedule) => {
@@ -116,7 +173,7 @@ export const profileStore: StoreApi<ProfileStoreState> =
         ...state,
         schedule: nextSchedule,
       }));
-      writeBackToLegacy(currentProfile, nextSchedule);
+      publishToLegacy(currentProfile, nextSchedule);
       return nextSchedule;
     },
     updateProfile: (patch) => {
@@ -134,7 +191,7 @@ export const profileStore: StoreApi<ProfileStoreState> =
         ...state,
         profile: nextProfile,
       }));
-      writeBackToLegacy(nextProfile, currentSchedule);
+      publishToLegacy(nextProfile, currentSchedule);
       return nextProfile;
     },
     updateSchedule: (patch) => {
@@ -152,8 +209,97 @@ export const profileStore: StoreApi<ProfileStoreState> =
         ...state,
         schedule: nextSchedule,
       }));
-      writeBackToLegacy(currentProfile, nextSchedule);
+      publishToLegacy(currentProfile, nextSchedule);
       return nextSchedule;
+    },
+    setActiveProgram: (programId) => {
+      const nextProgramId =
+        getProfileWindow()?.getCanonicalProgramId?.(programId) ||
+        String(programId || '').trim() ||
+        null;
+      const nextProfile = normalizeProfileForStore({
+        ...((profileStoreRef?.getState().profile ||
+          dataStore.getState().profile ||
+          {}) as Record<string, unknown>),
+        activeProgram: nextProgramId,
+      });
+      const currentSchedule =
+        profileStoreRef?.getState().schedule ||
+        normalizeScheduleForStore(dataStore.getState().schedule);
+      set((state) => ({
+        ...state,
+        profile: nextProfile,
+      }));
+      publishToLegacy(nextProfile, currentSchedule);
+      return nextProgramId;
+    },
+    setProgramState: (programId, state) => {
+      const canonicalId =
+        getProfileWindow()?.getCanonicalProgramId?.(programId) ||
+        String(programId || '').trim() ||
+        null;
+      if (!canonicalId) return null;
+      const currentProfile =
+        cloneJson(
+          profileStoreRef?.getState().profile || dataStore.getState().profile || {}
+        ) || {};
+      const currentPrograms =
+        currentProfile.programs && typeof currentProfile.programs === 'object'
+          ? (currentProfile.programs as Record<string, unknown>)
+          : {};
+      const nextPrograms = {
+        ...currentPrograms,
+      };
+      nextPrograms[canonicalId] = cloneJson(state);
+      const nextProfile = normalizeProfileForStore({
+        ...currentProfile,
+        programs: nextPrograms,
+      });
+      const currentSchedule =
+        profileStoreRef?.getState().schedule ||
+        normalizeScheduleForStore(dataStore.getState().schedule);
+      const nextState =
+        nextProfile?.programs && typeof nextProfile.programs === 'object'
+          ? ((nextProfile.programs as Record<string, unknown>)[
+              canonicalId
+            ] as Record<string, unknown> | null) || null
+          : null;
+      set((storeState) => ({
+        ...storeState,
+        profile: nextProfile,
+      }));
+      publishToLegacy(nextProfile, currentSchedule);
+      return cloneJson(nextState);
+    },
+    updateProgramState: (programId, patchOrUpdater) => {
+      const canonicalId =
+        getProfileWindow()?.getCanonicalProgramId?.(programId) ||
+        String(programId || '').trim() ||
+        null;
+      if (!canonicalId) return null;
+      const currentProfile =
+        cloneJson(
+          profileStoreRef?.getState().profile || dataStore.getState().profile || {}
+        ) || {};
+      const currentPrograms =
+        currentProfile.programs && typeof currentProfile.programs === 'object'
+          ? (currentProfile.programs as Record<string, unknown>)
+          : {};
+      const currentState = cloneJson(
+        (currentPrograms[canonicalId] as Record<string, unknown> | null) || {}
+      ) as Record<string, unknown>;
+      const nextProgramState =
+        typeof patchOrUpdater === 'function'
+          ? patchOrUpdater(currentState)
+          : {
+              ...currentState,
+              ...cloneJson(patchOrUpdater || {}),
+            };
+      return profileStoreRef
+        ?.getState()
+        .setProgramState(canonicalId, nextProgramState || null) as
+        | Record<string, unknown>
+        | null;
     },
   }));
 
@@ -166,11 +312,34 @@ export function installLegacyProfileStoreBridge() {
   unsubscribeDataStore = dataStore.subscribe(() => {
     syncStoreFromDataStore();
   });
+  const runtimeWindow = getProfileWindow();
+  if (runtimeWindow) {
+    runtimeWindow.__IRONFORGE_PROFILE_STORE__ = {
+      getState: () => ({
+        profile: cloneJson(profileStore.getState().profile),
+        schedule: cloneJson(profileStore.getState().schedule),
+      }),
+      setProfile: (profile) => profileStore.getState().setProfile(profile),
+      setSchedule: (schedule) => profileStore.getState().setSchedule(schedule),
+      updateProfile: (patch) => profileStore.getState().updateProfile(patch),
+      updateSchedule: (patch) => profileStore.getState().updateSchedule(patch),
+      setActiveProgram: (programId) =>
+        profileStore.getState().setActiveProgram(programId),
+      setProgramState: (programId, state) =>
+        profileStore.getState().setProgramState(programId, state),
+      updateProgramState: (programId, patchOrUpdater) =>
+        profileStore.getState().updateProgramState(programId, patchOrUpdater),
+    };
+  }
 }
 
 export function disposeLegacyProfileStoreBridge() {
   unsubscribeDataStore?.();
   unsubscribeDataStore = null;
+  const runtimeWindow = getProfileWindow();
+  if (runtimeWindow) {
+    delete runtimeWindow.__IRONFORGE_PROFILE_STORE__;
+  }
   bridgeInstalled = false;
 }
 
