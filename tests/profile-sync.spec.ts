@@ -377,6 +377,41 @@ test('legacy runtime profile updates route through the typed owner and refresh t
   expect(result.legacyMarker).toBe('slice-3');
 });
 
+test('legacy runtime rejects profile-owned writes when the profile store bridge is unavailable', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  const result = await page.evaluate(() => {
+    const previousBridge = (window as any).__IRONFORGE_PROFILE_STORE__;
+    let errorMessage = '';
+
+    try {
+      delete (window as any).__IRONFORGE_PROFILE_STORE__;
+      (window as any).__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+        profile: {
+          ...(profile || {}),
+          activeProgram: 'forge',
+        },
+      });
+    } catch (error) {
+      errorMessage = String((error as Error)?.message || error || '');
+    } finally {
+      (window as any).__IRONFORGE_PROFILE_STORE__ = previousBridge;
+    }
+
+    return {
+      errorMessage,
+      canonicalActiveProgram:
+        (window as any).__IRONFORGE_STORES__?.profile?.getState?.().profile
+          ?.activeProgram || null,
+    };
+  });
+
+  expect(result.errorMessage).toContain('Profile store bridge is required');
+  expect(result.canonicalActiveProgram).toBe('forge');
+});
+
 test('blank schedule sport name survives normalization instead of reverting to the locale default', async ({
   page,
 }) => {

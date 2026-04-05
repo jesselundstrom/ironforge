@@ -145,13 +145,18 @@ function openSettingsTab(tab: string) {
   callLegacyWindowFunction('syncSettingsBridge');
 }
 
-function syncHarnessStores(testWindow: Window & {
+function syncHarnessStores(
+  testWindow: Window & {
   __IRONFORGE_APP_RUNTIME__?: {
     syncSettingsBridge?: () => void;
   };
   syncWorkoutSessionBridge?: () => void;
-}) {
-  dataStore.getState().syncFromLegacy();
+},
+  options?: { syncDataFromLegacy?: boolean }
+) {
+  if (options?.syncDataFromLegacy !== false) {
+    dataStore.getState().syncFromLegacy();
+  }
   profileStore.getState().syncFromDataStore();
   programStore.getState().syncFromLegacy();
   workoutStore.getState().syncFromLegacy();
@@ -281,7 +286,11 @@ export function installTestStoresBridge() {
           allowLegacyFallback: false,
           userId,
         });
-        syncHarnessStores(testWindow);
+        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
+          profile: cloneJson(nextProfile),
+          schedule: cloneJson(nextSchedule),
+        });
+        syncHarnessStores(testWindow, { syncDataFromLegacy: false });
       },
     },
     settings: {

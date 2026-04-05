@@ -131,18 +131,16 @@ function publishToLegacy(
 ) {
   const runtimeWindow = getProfileWindow();
   if (!runtimeWindow) return;
-  runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write?.(
-    'profile',
-    cloneJson(profile)
-  );
-  runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write?.(
-    'schedule',
-    cloneJson(schedule)
-  );
-  if (!runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write) {
-    runtimeWindow.profile = cloneJson(profile);
-    runtimeWindow.schedule = cloneJson(schedule);
+  const writeLegacyRuntimeValue =
+    typeof runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.write === 'function'
+      ? runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__.write
+      : null;
+  if (writeLegacyRuntimeValue) {
+    writeLegacyRuntimeValue('profile', cloneJson(profile));
+    writeLegacyRuntimeValue('schedule', cloneJson(schedule));
   }
+  runtimeWindow.profile = cloneJson(profile);
+  runtimeWindow.schedule = cloneJson(schedule);
   syncProfileDataStore(profile, schedule);
   runtimeWindow.syncSettingsBridge?.();
 }

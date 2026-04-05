@@ -99,6 +99,7 @@ declare global {
       buildSettingsBodyView?: () => Record<string, unknown>;
       getLegacyRuntimeState?: () => Record<string, unknown>;
       setLegacyRuntimeState?: (partial: Record<string, unknown>) => void;
+      saveSchedule?: (nextValues?: Record<string, unknown>) => void;
       syncSettingsBridge?: () => void;
       syncSettingsAccountView?: () => void;
       syncSettingsScheduleView?: () => void;

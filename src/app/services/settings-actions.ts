@@ -1,6 +1,11 @@
 import { callLegacyWindowFunction } from './legacy-call';
 import { dataStore } from '../../stores/data-store';
 
+function getAppRuntime() {
+  if (typeof window === 'undefined') return null;
+  return window.__IRONFORGE_APP_RUNTIME__ || null;
+}
+
 export function saveTrainingPreferences(options?: Record<string, unknown>) {
   callLegacyWindowFunction('saveTrainingPreferences', options);
 }
@@ -18,6 +23,10 @@ export function saveBodyMetrics() {
 }
 
 export function saveSchedule(nextValues?: Record<string, unknown>) {
+  if (typeof getAppRuntime()?.saveSchedule === 'function') {
+    getAppRuntime()?.saveSchedule?.(nextValues);
+    return;
+  }
   callLegacyWindowFunction('saveSchedule', nextValues);
 }
 

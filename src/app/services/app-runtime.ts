@@ -26,6 +26,7 @@ type RuntimeApi = {
   buildSettingsBodyView: () => Record<string, unknown>;
   getLegacyRuntimeState: () => Record<string, unknown>;
   setLegacyRuntimeState: (partial: Record<string, unknown>) => void;
+  saveSchedule: (nextValues?: Record<string, unknown>) => void;
   syncSettingsBridge: () => void;
   syncSettingsAccountView: () => void;
   syncSettingsScheduleView: () => void;
@@ -100,19 +101,6 @@ function writeLegacyRuntimeValue(name: string, value: unknown) {
 
 function hasOwnRuntimeField(partial: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(partial, key);
-}
-
-function publishLegacyProfileSnapshot(
-  runtimeWindow: RuntimeWindow,
-  key: 'profile' | 'schedule',
-  value: MutableRecord | null
-) {
-  if (key === 'profile') {
-    runtimeWindow.profile = cloneJson(value);
-  } else {
-    runtimeWindow.schedule = cloneJson(value);
-  }
-  writeLegacyRuntimeValue(key, value);
 }
 
 function getProfileRecord() {
@@ -1023,13 +1011,12 @@ function buildOnboardingRecommendation(draft?: Record<string, unknown>) {
 function getLegacyRuntimeState() {
   const dataState = dataStore.getState();
   const workoutState = workoutStore.getState();
+  const profileState = profileStore.getState();
   const runtimeWindow = getRuntimeWindow();
   const legacyCurrentUser = readLegacyRuntimeValue<MutableRecord | null>('currentUser');
   const legacyWorkouts = readLegacyRuntimeValue<Array<Record<string, unknown>>>(
     'workouts'
   );
-  const legacySchedule = readLegacyRuntimeValue<MutableRecord | null>('schedule');
-  const legacyProfile = readLegacyRuntimeValue<MutableRecord | null>('profile');
   const legacyActiveWorkout = readLegacyRuntimeValue<MutableRecord | null>(
     'activeWorkout'
   );
@@ -1046,17 +1033,13 @@ function getLegacyRuntimeState() {
         : dataState.workouts || runtimeWindow?.workouts || []
     ),
     schedule: cloneJson(
-      legacySchedule !== undefined
-        ? legacySchedule
-        : (profileStore.getState().schedule as MutableRecord | null) ||
+      (profileState.schedule as MutableRecord | null) ||
           (dataState.schedule as MutableRecord | null) ||
           runtimeWindow?.schedule ||
           null
     ),
     profile: cloneJson(
-      legacyProfile !== undefined
-        ? legacyProfile
-        : (profileStore.getState().profile as MutableRecord | null) ||
+      (profileState.profile as MutableRecord | null) ||
           (dataState.profile as MutableRecord | null) ||
           runtimeWindow?.profile ||
           null
@@ -1099,7 +1082,9 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
     if (typeof profileBridge?.setSchedule === 'function') {
       profileBridge.setSchedule(nextValue);
     } else {
-      publishLegacyProfileSnapshot(runtimeWindow, 'schedule', nextValue);
+      throw new Error(
+        '[Ironforge] Profile store bridge is required before writing legacy schedule state.'
+      );
     }
   }
   if (hasProfile) {
@@ -1107,7 +1092,9 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
     if (typeof profileBridge?.setProfile === 'function') {
       profileBridge.setProfile(nextValue);
     } else {
-      publishLegacyProfileSnapshot(runtimeWindow, 'profile', nextValue);
+      throw new Error(
+        '[Ironforge] Profile store bridge is required before writing legacy profile state.'
+      );
     }
   }
   if (hasActiveWorkout) {
@@ -1135,6 +1122,54 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
   if (hasWorkouts || hasActiveWorkout) {
     runtimeWindow.syncWorkoutSessionBridge?.();
   }
+}
+
+function saveSchedule(nextValues?: Record<string, unknown>) {
+  const currentSchedule = getScheduleRecord();
+  const nextSchedule = {
+    ...(currentSchedule || {}),
+  } as MutableRecord;
+
+  if (nextValues && typeof nextValues === 'object') {
+    if (hasOwnRuntimeField(nextValues, 'sportName')) {
+      nextSchedule.sportName = String(nextValues.sportName || '').trim();
+    }
+    if (hasOwnRuntimeField(nextValues, 'sportLegsHeavy')) {
+      nextSchedule.sportLegsHeavy = nextValues.sportLegsHeavy !== false;
+    }
+    if (hasOwnRuntimeField(nextValues, 'sportIntensity')) {
+      nextSchedule.sportIntensity = nextValues.sportIntensity || 'hard';
+    }
+    if (hasOwnRuntimeField(nextValues, 'sportDays')) {
+      nextSchedule.sportDays = Array.isArray(nextValues.sportDays)
+        ? [...nextValues.sportDays]
+        : [];
+    }
+  } else {
+    const nameInput = document.getElementById('sport-name');
+    if (nameInput instanceof HTMLInputElement) {
+      nextSchedule.sportName = nameInput.value.trim();
+    }
+    const legsHeavyInput = document.getElementById('sport-legs-heavy');
+    if (legsHeavyInput instanceof HTMLInputElement) {
+      nextSchedule.sportLegsHeavy = legsHeavyInput.checked;
+    }
+  }
+
+  profileStore.getState().setSchedule(nextSchedule);
+  if (!getLegacyRuntimeState().activeWorkout) {
+    callLegacyWindowFunction('resetNotStartedView');
+  }
+  callLegacyWindowFunction('saveScheduleData');
+  syncSettingsScheduleView();
+  callLegacyWindowFunction('updateProgramDisplay');
+  callLegacyWindowFunction('updateDashboard');
+  callLegacyWindowFunction('renderSportStatusBar');
+  callLegacyWindowFunction(
+    'showToast',
+    t('toast.schedule_saved', 'Saved'),
+    'var(--blue)'
+  );
 }
 
 function updateLanguageDependentUI() {
@@ -1184,6 +1219,7 @@ export function installAppRuntimeBridge() {
     buildSettingsBodyView,
     getLegacyRuntimeState,
     setLegacyRuntimeState,
+    saveSchedule,
     syncSettingsBridge,
     syncSettingsAccountView,
     syncSettingsScheduleView,

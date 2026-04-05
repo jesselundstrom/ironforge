@@ -196,49 +196,39 @@ function getProfileStoreBridge() {
   return window.__IRONFORGE_PROFILE_STORE__ || null;
 }
 
-function setStoreOwnedProfile(nextProfile) {
+function requireProfileStoreBridgeMethod(methodName) {
   const bridge = getProfileStoreBridge();
-  if (bridge?.setProfile) return bridge.setProfile(nextProfile);
-  profile = nextProfile || null;
-  return profile;
+  const method = bridge?.[methodName];
+  if (typeof method === 'function') {
+    return method.bind(bridge);
+  }
+  throw new Error(
+    '[Ironforge] Profile store bridge is required before legacy profile/program writes.'
+  );
+}
+
+function setStoreOwnedProfile(nextProfile) {
+  return requireProfileStoreBridgeMethod('setProfile')(nextProfile);
 }
 
 function updateStoreOwnedProfile(patch) {
-  const bridge = getProfileStoreBridge();
-  if (bridge?.updateProfile) return bridge.updateProfile(patch || {});
-  profile = { ...(profile || {}), ...(patch || {}) };
-  return profile;
+  return requireProfileStoreBridgeMethod('updateProfile')(patch || {});
 }
 
 function setStoreOwnedSchedule(nextSchedule) {
-  const bridge = getProfileStoreBridge();
-  if (bridge?.setSchedule) return bridge.setSchedule(nextSchedule);
-  schedule = nextSchedule || null;
-  return schedule;
+  return requireProfileStoreBridgeMethod('setSchedule')(nextSchedule);
 }
 
 function updateStoreOwnedSchedule(patch) {
-  const bridge = getProfileStoreBridge();
-  if (bridge?.updateSchedule) return bridge.updateSchedule(patch || {});
-  schedule = { ...(schedule || {}), ...(patch || {}) };
-  return schedule;
+  return requireProfileStoreBridgeMethod('updateSchedule')(patch || {});
 }
 
 function setStoreOwnedActiveProgram(programId) {
-  const bridge = getProfileStoreBridge();
-  if (bridge?.setActiveProgram) return bridge.setActiveProgram(programId);
-  if (!profile || typeof profile !== 'object') profile = {};
-  profile.activeProgram = programId || null;
-  return profile.activeProgram || null;
+  return requireProfileStoreBridgeMethod('setActiveProgram')(programId);
 }
 
 function setStoreOwnedProgramState(programId, state) {
-  const bridge = getProfileStoreBridge();
-  if (bridge?.setProgramState) return bridge.setProgramState(programId, state);
-  if (!profile || typeof profile !== 'object') profile = {};
-  if (!profile.programs || typeof profile.programs !== 'object') profile.programs = {};
-  profile.programs[programId] = state;
-  return profile.programs[programId] || null;
+  return requireProfileStoreBridgeMethod('setProgramState')(programId, state);
 }
 
 function getRuntimeBridge() {

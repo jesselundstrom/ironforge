@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openAppShell } from './helpers';
+import { openAppShell, reloadAppShell } from './helpers';
 
 async function openScheduleTab(
   page: import('@playwright/test').Page,
@@ -90,6 +90,38 @@ test('settings schedule island keeps sport name empty when the field is cleared'
     .poll(() => page.evaluate(() => schedule.sportName), { timeout: 15000 })
     .toBe('');
   await expect(sportNameInput).toHaveValue('');
+  await expect(page.locator('#sport-status-bar')).toContainText(/sport \/ cardio/i);
+});
+
+test('settings schedule island keeps cleared sport name after reload', async ({
+  page,
+}) => {
+  await openAppShell(page);
+  await openScheduleTab(page, {
+    sportName: 'Kestavyys',
+    sportDays: [2, 4],
+    sportIntensity: 'hard',
+    sportLegsHeavy: true,
+  });
+
+  const sportNameInput = page.locator('#settings-schedule-react-root #sport-name');
+  await sportNameInput.fill('');
+  await sportNameInput.blur();
+
+  await expect
+    .poll(() => page.evaluate(() => schedule.sportName), { timeout: 15000 })
+    .toBe('');
+
+  await reloadAppShell(page);
+  await page.evaluate(() => {
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('schedule');
+  });
+
+  const reloadedInput = page.locator('#settings-schedule-react-root #sport-name');
+  await expect
+    .poll(() => page.evaluate(() => schedule.sportName), { timeout: 15000 })
+    .toBe('');
+  await expect(reloadedInput).toHaveValue('');
   await expect(page.locator('#sport-status-bar')).toContainText(/sport \/ cardio/i);
 });
 

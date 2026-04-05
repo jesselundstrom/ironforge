@@ -402,6 +402,17 @@ function getProgramInitialState(programId) {
 function getProfileStoreBridge() {
   return window.__IRONFORGE_PROFILE_STORE__ || null;
 }
+
+function requireProfileStoreBridgeMethod(methodName) {
+  const bridge = getProfileStoreBridge();
+  const method = bridge?.[methodName];
+  if (typeof method === 'function') {
+    return method.bind(bridge);
+  }
+  throw new Error(
+    '[Ironforge] Profile store bridge is required before legacy program writes.'
+  );
+}
 function getActiveProgramId() {
   return getCanonicalProgramRef(profile.activeProgram || 'forge') || 'forge';
 }
@@ -425,12 +436,7 @@ function getActiveProgramState() {
 function setProgramState(id, state) {
   const canonicalId = getCanonicalProgramRef(id);
   if (!canonicalId) return null;
-  if (getProfileStoreBridge()?.setProgramState) {
-    return getProfileStoreBridge().setProgramState(canonicalId, state);
-  }
-  if (!profile.programs) profile.programs = {};
-  profile.programs[canonicalId] = state;
-  return profile.programs[canonicalId];
+  return requireProfileStoreBridgeMethod('setProgramState')(canonicalId, state);
 }
 function getWorkoutProgramId(w) {
   if (!w) return null;
@@ -814,11 +820,7 @@ function switchProgram(id) {
       { name: progName }
     ),
     () => {
-      if (getProfileStoreBridge()?.setActiveProgram) {
-        getProfileStoreBridge().setActiveProgram(canonicalId);
-      } else {
-        profile.activeProgram = canonicalId;
-      }
+      requireProfileStoreBridgeMethod('setActiveProgram')(canonicalId);
       let estimatedLoads = [];
       if (!profile.programs?.[canonicalId]) {
         let nextState = cloneJson(prog.getInitialState()) || {};
