@@ -2,7 +2,7 @@
 
 ## Status
 
-The visible-shell migration is complete, but runtime ownership consolidation is still in progress as of 2026-04-04.
+The visible-shell migration is complete, but runtime ownership consolidation is still in progress as of 2026-04-05.
 
 All seven planned phases for the React + Vite shell are delivered and verified. The remaining work is no longer "page shell migration", but it is also not ordinary cleanup: profile/program/runtime ownership is still being consolidated out of the bidirectional legacy sync layer.
 
@@ -19,6 +19,7 @@ Closeout checkpoints completed:
 - `core/history-layer.js` is retired from the live runtime load order, and its legacy globals are now provided by `src/stores/history-store.ts`.
 - `core/nutrition-layer.js` is no longer part of the live page flow; its legacy globals are now provided by `src/stores/nutrition-store.ts`.
 - `core/dashboard-layer.js` is no longer part of the live page flow; dashboard helpers and compatibility delegates now live in typed runtime code.
+- bootstrap normalization for profile/program/schedule/workout startup data now runs through the typed runtime bridge and `src/domain/profile-bootstrap.ts` instead of being owned inline by `core/data-layer.js`.
 
 ## Visible Shell Complete
 
@@ -60,6 +61,12 @@ Gate status:
 Ironforge's visible UI migration is complete. The shipped app shell already runs through React + Vite from `src/app/main.tsx` and `src/app/AppShell.jsx`, and the shared `src/app/store/runtime-store.ts` is already part of the live runtime.
 
 The remaining migration target is the legacy business/runtime layer in `app.js`, `core/*.js`, and `programs/*.js`. That work now centers on ownership cleanup: reducing multi-writer state, shrinking compatibility bridges, and moving the remaining business logic behind typed store/domain seams while preserving current behavior, current data formats, and the current Playwright suite.
+
+Recent consolidation progress:
+
+- `core/data-layer.js` now acts as loader/persister for startup and merge flows, while typed bootstrap normalization lives in `src/domain/profile-bootstrap.ts`.
+- `window.__IRONFORGE_APP_RUNTIME__.bootstrapProfileRuntime(...)` is now the typed bootstrap bridge for startup/profile-document/legacy-blob normalization.
+- `profileStore` now has an atomic bootstrap hydrate path for `profile + schedule` together instead of relying on sequential store writes during typed bootstrap ownership.
 
 The first milestone is intentionally conservative:
 

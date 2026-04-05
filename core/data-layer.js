@@ -120,6 +120,151 @@ function clearLocalDataCache(options) {
   }
 }
 
+function bootstrapProfileRuntimeState(input) {
+  const opts = input || {};
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (typeof runtime?.bootstrapProfileRuntime === 'function') {
+    return runtime.bootstrapProfileRuntime(opts);
+  }
+  return fallbackBootstrapProfileRuntimeState(opts);
+}
+
+function fallbackBootstrapProfileRuntimeState(input) {
+  const opts = input || {};
+  const nextProfile = cloneJson(opts.profile || {}) || {};
+  const nextSchedule = cloneJson(opts.schedule || {}) || {};
+  const nextWorkouts = Array.isArray(opts.workouts)
+    ? cloneJson(opts.workouts)
+    : [];
+  const normalizeWorkoutsEnabled = opts.normalizeWorkouts !== false;
+  const applyProgramCatchUp = opts.applyProgramCatchUp !== false;
+  const profileBeforeNormalization = JSON.stringify(nextProfile || {});
+  const scheduleBeforeNormalization = JSON.stringify(nextSchedule || {});
+  const workoutsBeforeNormalization = JSON.stringify(nextWorkouts || []);
+
+  if (nextSchedule.hockeyDays && !nextSchedule.sportDays) {
+    nextSchedule.sportDays = nextSchedule.hockeyDays;
+    delete nextSchedule.hockeyDays;
+  }
+  normalizeScheduleState(nextSchedule);
+
+  if (nextProfile.atsLifts && !nextProfile.forgeLifts) {
+    nextProfile.forgeLifts = nextProfile.atsLifts;
+    nextProfile.forgeWeek = nextProfile.atsWeek || 1;
+    nextProfile.forgeRounding = nextProfile.atsRounding || 2.5;
+    nextProfile.forgeDaysPerWeek = nextProfile.atsDaysPerWeek || 3;
+    nextProfile.forgeDayNum = nextProfile.atsDayNum || 1;
+    nextProfile.forgeBackExercise =
+      nextProfile.atsBackExercise || 'Barbell Rows';
+    nextProfile.forgeBackWeight = nextProfile.atsBackWeight || 0;
+    nextProfile.forgeMode = nextProfile.atsMode || 'sets';
+    nextProfile.forgeWeekStartDate =
+      nextProfile.atsWeekStartDate || new Date().toISOString();
+  }
+
+  if (normalizeWorkoutsEnabled) {
+    nextWorkouts.forEach((workout) => {
+      if (workout.type !== 'ats') return;
+      workout.type = 'forge';
+      workout.program = 'forge';
+      if (workout.atsWeek) {
+        workout.programMeta = { ...(workout.programMeta || {}), week: workout.atsWeek };
+      }
+      if (workout.atsDayNum && workout.programDayNum === undefined) {
+        workout.programDayNum = workout.atsDayNum;
+      }
+      if ('atsWeek' in workout) delete workout.atsWeek;
+      if ('atsDayNum' in workout) delete workout.atsDayNum;
+    });
+  }
+
+  if (nextProfile.forgeLifts && !nextProfile.programs) {
+    nextProfile.programs = {
+      forge: {
+        week: nextProfile.forgeWeek || 1,
+        dayNum: nextProfile.forgeDayNum || 1,
+        daysPerWeek: nextProfile.forgeDaysPerWeek || 3,
+        mode: nextProfile.forgeMode || 'sets',
+        rounding: nextProfile.forgeRounding || 2.5,
+        weekStartDate:
+          nextProfile.forgeWeekStartDate || new Date().toISOString(),
+        backExercise: nextProfile.forgeBackExercise || 'Barbell Rows',
+        backWeight: nextProfile.forgeBackWeight || 0,
+        lifts: nextProfile.forgeLifts,
+      },
+    };
+    nextProfile.activeProgram = 'forge';
+  }
+
+  cleanupLegacyProfileFields(nextProfile);
+  normalizeBodyMetrics(nextProfile);
+  normalizeTrainingPreferences(nextProfile);
+  normalizeCoachingProfile(nextProfile);
+  normalizeProfileProgramStateMap(nextProfile);
+
+  if (!nextProfile.activeProgram) nextProfile.activeProgram = 'forge';
+  nextProfile.activeProgram =
+    getCanonicalProgramId(nextProfile.activeProgram) || 'forge';
+  if (!nextProfile.language) {
+    nextProfile.language =
+      window.I18N && I18N.getLanguage ? I18N.getLanguage() : 'en';
+  }
+
+  if (!nextProfile.programs) nextProfile.programs = {};
+  (typeof getRegisteredPrograms === 'function' ? getRegisteredPrograms() : []).forEach(
+    (prog) => {
+      if (!nextProfile.programs[prog.id]) {
+        nextProfile.programs[prog.id] = prog.getInitialState();
+      }
+    }
+  );
+  (typeof getRegisteredPrograms === 'function' ? getRegisteredPrograms() : []).forEach(
+    (prog) => {
+      if (prog.migrateState && nextProfile.programs[prog.id]) {
+        nextProfile.programs[prog.id] = prog.migrateState(
+          nextProfile.programs[prog.id]
+        );
+      }
+    }
+  );
+
+  if (applyProgramCatchUp) {
+    const activeProgramDefinition = getRegisteredProgramDefinition(
+      nextProfile.activeProgram
+    );
+    if (
+      activeProgramDefinition &&
+      activeProgramDefinition.dateCatchUp &&
+      nextProfile.programs[activeProgramDefinition.id]
+    ) {
+      const caught = activeProgramDefinition.dateCatchUp(
+        nextProfile.programs[activeProgramDefinition.id]
+      );
+      if (caught !== nextProfile.programs[activeProgramDefinition.id]) {
+        nextProfile.programs[activeProgramDefinition.id] = caught;
+      }
+    }
+  }
+
+  const normalizedWorkouts = normalizeWorkoutsEnabled
+    ? normalizeWorkoutRecords(nextWorkouts)
+    : { items: nextWorkouts, changed: false };
+
+  return {
+    profile: nextProfile,
+    schedule: nextSchedule,
+    workouts: normalizedWorkouts.items,
+    changed: {
+      profile: JSON.stringify(nextProfile || {}) !== profileBeforeNormalization,
+      schedule:
+        JSON.stringify(nextSchedule || {}) !== scheduleBeforeNormalization,
+      workouts:
+        normalizedWorkouts.changed ||
+        JSON.stringify(normalizedWorkouts.items || []) !== workoutsBeforeNormalization,
+    },
+  };
+}
+
 function resetRuntimeState() {
   workouts = [];
   schedule = {
@@ -1994,100 +2139,17 @@ async function loadData(options) {
     persistLocalScheduleCache();
     persistLocalProfileCache();
   }
-  const profileBeforeNormalization = JSON.stringify(profile || {});
-  const scheduleBeforeNormalization = JSON.stringify(schedule || {});
-  // Migrate legacy hockeyDays -> sportDays (one-time migration)
-  if (schedule.hockeyDays && !schedule.sportDays) {
-    schedule.sportDays = schedule.hockeyDays;
-    delete schedule.hockeyDays;
-  }
-  normalizeScheduleState(schedule);
-  // Migrate legacy ats* keys to forge* (one-time migration)
-  if (profile.atsLifts && !profile.forgeLifts) {
-    profile.forgeLifts = profile.atsLifts;
-    profile.forgeWeek = profile.atsWeek || 1;
-    profile.forgeRounding = profile.atsRounding || 2.5;
-    profile.forgeDaysPerWeek = profile.atsDaysPerWeek || 3;
-    profile.forgeDayNum = profile.atsDayNum || 1;
-    profile.forgeBackExercise = profile.atsBackExercise || 'Barbell Rows';
-    profile.forgeBackWeight = profile.atsBackWeight || 0;
-    profile.forgeMode = profile.atsMode || 'sets';
-    profile.forgeWeekStartDate =
-      profile.atsWeekStartDate || new Date().toISOString();
-  }
-  workouts.forEach((w) => {
-    if (w.type !== 'ats') return;
-    w.type = 'forge';
-    w.program = 'forge';
-    if (w.atsWeek) {
-      w.programMeta = { ...(w.programMeta || {}), week: w.atsWeek };
-    }
-    if (w.atsDayNum && w.programDayNum === undefined) {
-      w.programDayNum = w.atsDayNum;
-    }
-    if ('atsWeek' in w) delete w.atsWeek;
-    if ('atsDayNum' in w) delete w.atsDayNum;
+  const bootstrapResult = bootstrapProfileRuntimeState({
+    profile,
+    schedule,
+    workouts,
   });
-  // Migrate forge* flat fields -> profile.programs.forge (one-time migration)
-  if (profile.forgeLifts && !profile.programs) {
-    profile.programs = {
-      forge: {
-        week: profile.forgeWeek || 1,
-        dayNum: profile.forgeDayNum || 1,
-        daysPerWeek: profile.forgeDaysPerWeek || 3,
-        mode: profile.forgeMode || 'sets',
-        rounding: profile.forgeRounding || 2.5,
-        weekStartDate: profile.forgeWeekStartDate || new Date().toISOString(),
-        backExercise: profile.forgeBackExercise || 'Barbell Rows',
-        backWeight: profile.forgeBackWeight || 0,
-        lifts: profile.forgeLifts,
-      },
-    };
-    profile.activeProgram = 'forge';
-  }
-  cleanupLegacyProfileFields(profile);
-  normalizeBodyMetrics(profile);
-  normalizeTrainingPreferences(profile);
-  normalizeCoachingProfile(profile);
-  normalizeProfileProgramStateMap(profile);
-  const normalizedWorkouts = normalizeWorkoutRecords(workouts);
-  workouts = normalizedWorkouts.items;
-  // Ensure activeProgram is set
-  if (!profile.activeProgram) profile.activeProgram = 'forge';
-  profile.activeProgram =
-    getCanonicalProgramId(profile.activeProgram) || 'forge';
-  if (!profile.language)
-    profile.language =
-      window.I18N && I18N.getLanguage ? I18N.getLanguage() : 'en';
+  profile = bootstrapResult.profile;
+  schedule = bootstrapResult.schedule;
+  workouts = bootstrapResult.workouts;
   if (window.I18N && I18N.setLanguage) {
     I18N.setLanguage(profile.language, { persist: true, notify: false });
     profile.language = I18N.getLanguage();
-  }
-  // Initialize program states for all registered programs (fills in defaults for new programs)
-  if (!profile.programs) profile.programs = {};
-  (typeof getRegisteredPrograms === 'function'
-    ? getRegisteredPrograms()
-    : []
-  ).forEach((prog) => {
-    if (!profile.programs[prog.id])
-      profile.programs[prog.id] = prog.getInitialState();
-  });
-  // Backfill new fields for programs that carry existing state (missing keys get safe defaults)
-  (typeof getRegisteredPrograms === 'function'
-    ? getRegisteredPrograms()
-    : []
-  ).forEach((prog) => {
-    if (prog.migrateState && profile.programs[prog.id])
-      profile.programs[prog.id] = prog.migrateState(profile.programs[prog.id]);
-  });
-  // Apply date-based catch-up for the active program
-  const activeProg = getActiveProgram();
-  if (typeof applyProgramDateCatchUp === 'function')
-    applyProgramDateCatchUp(activeProg.id);
-  else if (activeProg.dateCatchUp && profile.programs[activeProg.id]) {
-    const caught = activeProg.dateCatchUp(profile.programs[activeProg.id]);
-    if (caught !== profile.programs[activeProg.id])
-      profile.programs[activeProg.id] = caught;
   }
   if (!activeWorkout && typeof restoreActiveWorkoutDraft === 'function') {
     const restored = restoreActiveWorkoutDraft(getActiveWorkoutDraftCache(), {
@@ -2095,19 +2157,15 @@ async function loadData(options) {
     });
     if (!restored) clearActiveWorkoutDraft();
   }
-  const profileChangedDuringLoad =
-    JSON.stringify(profile || {}) !== profileBeforeNormalization;
-  const scheduleChangedDuringLoad =
-    JSON.stringify(schedule || {}) !== scheduleBeforeNormalization;
-  if (normalizedWorkouts.changed) {
+  if (bootstrapResult.changed.workouts) {
     await saveWorkouts();
     if (currentUser && isCloudSyncEnabled())
       await upsertWorkoutRecords(workouts);
   }
-  if (scheduleChangedDuringLoad) {
+  if (bootstrapResult.changed.schedule) {
     await saveScheduleData({ touchSync: true, push: false });
   }
-  if (profileChangedDuringLoad) {
+  if (bootstrapResult.changed.profile) {
     await saveProfileData({ touchSync: true, push: false });
   }
   restDuration = profile.defaultRest || 120;
@@ -2225,7 +2283,8 @@ async function upsertProfileDocuments(
 function buildStateFromProfileDocuments(
   rows,
   fallbackProfile,
-  fallbackSchedule
+  fallbackSchedule,
+  workoutItems
 ) {
   const baseProfile = cloneJson(fallbackProfile || {}) || {};
   const nextProfile = {
@@ -2308,10 +2367,19 @@ function buildStateFromProfileDocuments(
       }
     }
   });
-  cleanupLegacyProfileFields(nextProfile);
-  normalizeBodyMetrics(nextProfile);
-  normalizeCoachingProfile(nextProfile);
-  return { profile: nextProfile, schedule: resolvedSchedule, rowsByKey };
+  const bootstrapResult = bootstrapProfileRuntimeState({
+    profile: nextProfile,
+    schedule: resolvedSchedule,
+    workouts: workoutItems || [],
+    applyToStore: false,
+    normalizeWorkouts: false,
+    applyProgramCatchUp: false,
+  });
+  return {
+    profile: bootstrapResult.profile,
+    schedule: bootstrapResult.schedule,
+    rowsByKey,
+  };
 }
 
 async function pullProfileDocuments(options) {
@@ -2337,7 +2405,8 @@ async function pullProfileDocuments(options) {
     const next = buildStateFromProfileDocuments(
       rows,
       fallbackProfile,
-      fallbackSchedule
+      fallbackSchedule,
+      workouts
     );
     profile = next.profile;
     schedule = next.schedule;
@@ -2559,11 +2628,38 @@ function applyLegacyProfileBlob(remoteProfile, remoteSchedule, options) {
     'scheduleUpdatedAt',
     options
   );
-  profile = {
+  const mergedProfile = {
     ...nextProfile,
     syncMeta: mergeSyncMeta(localProfile?.syncMeta, remoteProfile?.syncMeta),
   };
-  if (nextSchedule !== undefined) schedule = nextSchedule;
+  // This merge helper intentionally skips dateCatchUp and store publication.
+  // Callers outside loadData() must run a final bootstrap pass if they need
+  // active-program catch-up and typed store/runtime publication.
+  const bootstrapResult = bootstrapProfileRuntimeState({
+    profile: mergedProfile,
+    schedule: nextSchedule !== undefined ? nextSchedule : localSchedule,
+    workouts: [],
+    applyToStore: false,
+    normalizeWorkouts: false,
+    applyProgramCatchUp: false,
+  });
+  profile = bootstrapResult.profile;
+  schedule = bootstrapResult.schedule;
+}
+
+function finalizeProfileBootstrapAfterCloudPull() {
+  const bootstrapResult = bootstrapProfileRuntimeState({
+    profile,
+    schedule,
+    workouts,
+    applyToStore: true,
+    normalizeWorkouts: false,
+    applyProgramCatchUp: true,
+  });
+  profile = bootstrapResult.profile;
+  schedule = bootstrapResult.schedule;
+  workouts = bootstrapResult.workouts || workouts;
+  return bootstrapResult;
 }
 
 async function pushLegacyProfileBlob() {
@@ -2673,7 +2769,8 @@ async function flushPendingCloudSync() {
   return pushToCloud({ docKeys: dirtyDocKeys });
 }
 
-async function pullFromCloud() {
+async function pullFromCloud(options) {
+  const opts = options || {};
   if (!currentUser || !isCloudSyncEnabled()) return { usedCloud: false };
   setSyncStatus('syncing');
   const legacySnapshot = await fetchLegacyProfileBlob();
@@ -2683,7 +2780,7 @@ async function pullFromCloud() {
   });
   if (docsResult.usedDocs) {
     setSyncStatus('synced');
-    return { usedCloud: true, usedDocs: true };
+    return { usedCloud: true, usedDocs: true, requiresBootstrapFinalize: false };
   }
   if (legacySnapshot.usedCloud) {
     applyLegacyProfileBlob(legacySnapshot.profile, legacySnapshot.schedule, {
@@ -2699,10 +2796,18 @@ async function pullFromCloud() {
       );
     }
     setSyncStatus('synced');
-    return { usedCloud: true, usedDocs: false };
+    return {
+      usedCloud: true,
+      usedDocs: false,
+      requiresBootstrapFinalize: opts.finalizeBootstrap === true,
+    };
   }
   setSyncStatus(navigator.onLine ? 'synced' : 'offline');
-  return { usedCloud: false, usedDocs: false };
+  return {
+    usedCloud: false,
+    usedDocs: false,
+    requiresBootstrapFinalize: false,
+  };
 }
 
 async function resolveStaleProfileDocumentRejects(staleDocKeys) {
@@ -2718,7 +2823,10 @@ async function resolveStaleProfileDocumentRejects(staleDocKeys) {
   clearDocKeysDirty(nextStaleDocKeys);
   const beforeProfile = JSON.stringify(profile || {});
   const beforeSchedule = JSON.stringify(schedule || {});
-  const pullResult = await pullFromCloud();
+  const pullResult = await pullFromCloud({ finalizeBootstrap: true });
+  if (pullResult.requiresBootstrapFinalize) {
+    finalizeProfileBootstrapAfterCloudPull();
+  }
   const changed =
     beforeProfile !== JSON.stringify(profile || {}) ||
     beforeSchedule !== JSON.stringify(schedule || {});
@@ -2800,10 +2908,15 @@ async function applyRealtimeSync(reason) {
     const beforeProfile = JSON.stringify(profile || {});
     const beforeSchedule = JSON.stringify(schedule || {});
     const beforeWorkouts = JSON.stringify(workouts || []);
-    await pullFromCloud();
+    // Realtime fallback blob pulls do not get a later loadData() bootstrap pass,
+    // so they must request a final typed catch-up after workouts finish loading.
+    const pullResult = await pullFromCloud({ finalizeBootstrap: true });
     const tableResult = await pullWorkoutsFromTable(workouts);
     if (tableResult.usedTable || tableResult.didBackfill)
       workouts = tableResult.workouts || workouts;
+    if (pullResult.requiresBootstrapFinalize) {
+      finalizeProfileBootstrapAfterCloudPull();
+    }
     const changed =
       beforeProfile !== JSON.stringify(profile || {}) ||
       beforeSchedule !== JSON.stringify(schedule || {}) ||

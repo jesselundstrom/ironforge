@@ -99,6 +99,23 @@ declare global {
       buildSettingsBodyView?: () => Record<string, unknown>;
       getLegacyRuntimeState?: () => Record<string, unknown>;
       setLegacyRuntimeState?: (partial: Record<string, unknown>) => void;
+      bootstrapProfileRuntime?: (input?: {
+        profile?: Record<string, unknown> | null;
+        schedule?: Record<string, unknown> | null;
+        workouts?: Array<Record<string, unknown>> | null;
+        applyToStore?: boolean;
+        normalizeWorkouts?: boolean;
+        applyProgramCatchUp?: boolean;
+      }) => {
+        profile: Record<string, unknown>;
+        schedule: Record<string, unknown>;
+        workouts: Array<Record<string, unknown>>;
+        changed: {
+          profile: boolean;
+          schedule: boolean;
+          workouts: boolean;
+        };
+      };
       saveSchedule?: (nextValues?: Record<string, unknown>) => void;
       syncSettingsBridge?: () => void;
       syncSettingsAccountView?: () => void;
@@ -494,6 +511,15 @@ declare global {
         getState?: () => any;
         getActiveWorkoutDraftCache?: () => any;
       };
+      profile?: {
+        getState?: () => any;
+        updateProfile?: (patch: Record<string, unknown>) => any;
+        setActiveProgram?: (programId: string | null) => string | null;
+        setProgramState?: (
+          programId: string,
+          state: Record<string, unknown> | null
+        ) => Record<string, unknown> | null;
+      };
       workout?: {
         getState?: () => any;
         startWorkout?: () => void;
@@ -565,6 +591,11 @@ declare global {
       profile?: {
         update?: (
           patch: Record<string, unknown>
+        ) => Record<string, unknown> | null;
+        setActiveProgram?: (programId: string | null) => string | null;
+        setProgramState?: (
+          programId: string,
+          state: Record<string, unknown> | null
         ) => Record<string, unknown> | null;
         setSportReadinessCheckEnabled?: (enabled: boolean) => void;
       };

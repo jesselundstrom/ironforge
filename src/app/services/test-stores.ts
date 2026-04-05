@@ -286,10 +286,6 @@ export function installTestStoresBridge() {
           allowLegacyFallback: false,
           userId,
         });
-        testWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__?.({
-          profile: cloneJson(nextProfile),
-          schedule: cloneJson(nextSchedule),
-        });
         syncHarnessStores(testWindow, { syncDataFromLegacy: false });
       },
     },

@@ -11,6 +11,10 @@ type ProfileStoreState = {
   profile: Profile | null;
   schedule: SportSchedule | null;
   syncFromDataStore: () => { profile: Profile | null; schedule: SportSchedule | null };
+  hydrateProfileRuntime: (input: {
+    profile: Record<string, unknown> | null;
+    schedule: Record<string, unknown> | null;
+  }) => { profile: Profile | null; schedule: SportSchedule | null };
   setProfile: (profile: Record<string, unknown> | null) => Profile | null;
   setSchedule: (schedule: Record<string, unknown> | null) => SportSchedule | null;
   updateProfile: (patch: Record<string, unknown>) => Profile | null;
@@ -40,6 +44,10 @@ type ProfileWindow = Window & {
   };
   __IRONFORGE_PROFILE_STORE__?: {
     getState?: () => { profile: Profile | null; schedule: SportSchedule | null };
+    hydrateProfileRuntime?: (input: {
+      profile: Record<string, unknown> | null;
+      schedule: Record<string, unknown> | null;
+    }) => { profile: Profile | null; schedule: SportSchedule | null };
     setProfile?: (profile: Record<string, unknown> | null) => Profile | null;
     setSchedule?: (schedule: Record<string, unknown> | null) => SportSchedule | null;
     updateProfile?: (patch: Record<string, unknown>) => Profile | null;
@@ -114,6 +122,22 @@ function syncStoreFromDataStore() {
   return snapshot;
 }
 
+function hydrateProfileRuntimeState(input: {
+  profile: Record<string, unknown> | null;
+  schedule: Record<string, unknown> | null;
+}) {
+  const snapshot = {
+    profile: normalizeProfileForStore(input.profile),
+    schedule: normalizeScheduleForStore(input.schedule),
+  };
+  profileStoreRef?.setState((state) => ({
+    ...state,
+    ...snapshot,
+  }));
+  publishToLegacy(snapshot.profile, snapshot.schedule);
+  return snapshot;
+}
+
 function syncProfileDataStore(
   profile: Profile | null,
   schedule: SportSchedule | null
@@ -150,6 +174,7 @@ export const profileStore: StoreApi<ProfileStoreState> =
     profile: normalizeProfileForStore(dataStore.getState().profile),
     schedule: normalizeScheduleForStore(dataStore.getState().schedule),
     syncFromDataStore: () => syncStoreFromDataStore(),
+    hydrateProfileRuntime: (input) => hydrateProfileRuntimeState(input),
     setProfile: (profile) => {
       const nextProfile = normalizeProfileForStore(profile);
       const currentSchedule =
@@ -317,6 +342,8 @@ export function installLegacyProfileStoreBridge() {
         profile: cloneJson(profileStore.getState().profile),
         schedule: cloneJson(profileStore.getState().schedule),
       }),
+      hydrateProfileRuntime: (input) =>
+        profileStore.getState().hydrateProfileRuntime(input),
       setProfile: (profile) => profileStore.getState().setProfile(profile),
       setSchedule: (schedule) => profileStore.getState().setSchedule(schedule),
       updateProfile: (patch) => profileStore.getState().updateProfile(patch),

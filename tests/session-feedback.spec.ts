@@ -38,17 +38,19 @@ async function setupWorkoutState(page: Page, seedWorkouts: object[] = []) {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
 
-    workouts = structuredClone(seeds);
-    profile.activeProgram = 'forge';
-    profile.programs = {
-      ...(profile.programs || {}),
-      forge: structuredClone(forgeState),
-    };
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      workouts: structuredClone(seeds),
+    });
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(forgeState)
+    );
     buildExerciseIndex();
     upsertWorkoutRecord = async () => {};
     saveProfileData = async () => {};
 
-    activeWorkout = {
+    const nextActiveWorkout = {
       program: 'forge',
       type: 'forge',
       programOption: '1',
@@ -72,9 +74,12 @@ async function setupWorkoutState(page: Page, seedWorkouts: object[] = []) {
                 exerciseId: benchId,
                 sets: [{ weight: 80, reps: 5, done: true, rpe: 7 }],
               },
-            ],
+          ],
       startTime: Date.now() - 3600000,
     };
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      activeWorkout: nextActiveWorkout,
+    });
 
     window.showRPEPicker = (
       _name: string,
@@ -244,19 +249,26 @@ test('2-of-3 too_hard biases decision toward train_light', async ({ page }) => {
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    workouts = structuredClone(workoutSeeds);
-    profile.preferences = normalizeTrainingPreferences({
-      ...profile,
+    const currentProfile =
+      window.__IRONFORGE_STORES__?.profile?.getState?.().profile || {};
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      workouts: structuredClone(workoutSeeds),
+    });
+    window.__IRONFORGE_E2E__?.profile?.update?.({
+      preferences: normalizeTrainingPreferences({
+      ...currentProfile,
       preferences: {
-        ...profile.preferences,
+        ...(((currentProfile as Record<string, any>).preferences ||
+          {}) as Record<string, any>),
         trainingDaysPerWeek: 6,
       },
+    }),
     });
-    profile.activeProgram = 'forge';
-    profile.programs = {
-      ...(profile.programs || {}),
-      forge: structuredClone(forgeState),
-    };
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(forgeState)
+    );
   }, seeds);
 
   const result = await page.evaluate(() => {
@@ -280,12 +292,14 @@ test('one good session after too_hard streak clears the bias', async ({ page }) 
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    workouts = structuredClone(workoutSeeds);
-    profile.activeProgram = 'forge';
-    profile.programs = {
-      ...(profile.programs || {}),
-      forge: structuredClone(forgeState),
-    };
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      workouts: structuredClone(workoutSeeds),
+    });
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(forgeState)
+    );
   }, seeds);
 
   const result = await page.evaluate(() => {
@@ -309,12 +323,14 @@ test('duration friction biases decision toward shorten', async ({ page }) => {
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    workouts = structuredClone(workoutSeeds);
-    profile.activeProgram = 'forge';
-    profile.programs = {
-      ...(profile.programs || {}),
-      forge: structuredClone(forgeState),
-    };
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      workouts: structuredClone(workoutSeeds),
+    });
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(forgeState)
+    );
   }, seeds);
 
   const result = await page.evaluate(() => {
@@ -336,12 +352,14 @@ test('dashboard coach card renders reason chips when reasons exist', async ({ pa
   await page.evaluate((workoutSeeds) => {
     const forgeState =
       window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
-    workouts = structuredClone(workoutSeeds);
-    profile.activeProgram = 'forge';
-    profile.programs = {
-      ...(profile.programs || {}),
-      forge: structuredClone(forgeState),
-    };
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      workouts: structuredClone(workoutSeeds),
+    });
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(forgeState)
+    );
     updateDashboard();
   }, seeds);
 

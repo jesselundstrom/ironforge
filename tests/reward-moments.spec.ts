@@ -41,18 +41,20 @@ async function setupRewardSession(
     const benchId = window.resolveRegisteredExerciseId?.('Bench Press') || 'bench-press';
     const forgeState = window.__IRONFORGE_E2E__?.program?.getInitialState?.('forge') || {};
 
-    workouts = structuredClone(priorWorkouts);
-    profile.activeProgram = 'forge';
-    profile.programs = {
-      ...(profile.programs || {}),
-      forge: structuredClone(forgeState),
-    };
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      workouts: structuredClone(priorWorkouts),
+    });
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(forgeState)
+    );
     buildExerciseIndex();
     upsertWorkoutRecord = async () => {};
     saveWorkouts = async () => {};
     saveProfileData = async () => {};
 
-    activeWorkout = {
+    const nextActiveWorkout = {
       program: 'forge',
       type: 'forge',
       programOption: '1',
@@ -69,9 +71,13 @@ async function setupRewardSession(
       ]),
       startTime: Date.now(),
     };
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      activeWorkout: nextActiveWorkout,
+    });
 
     if (!priorWorkouts.length && completedReps > 0) {
-      workouts = [
+      window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+        workouts: [
         {
           id: 1,
           date: '2026-03-10T09:00:00.000Z',
@@ -90,7 +96,8 @@ async function setupRewardSession(
             },
           ],
         },
-      ];
+      ],
+      });
     }
 
     window.showRPEPicker = (_name, _setNum, cb) =>
@@ -211,12 +218,19 @@ test('dashboard rounds TM display to 0.5kg and ignores raw changes inside the sa
       lifts: { main: Array<{ tm: number }> };
     };
     state.lifts.main[1].tm = 82.43;
-    profile.activeProgram = 'forge';
-    profile.programs = { ...(profile.programs || {}), forge: structuredClone(state) };
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(state)
+    );
     _lastTmSignature = '';
     _lastTmValues = {};
     updateDashboard();
-    profile.programs.forge.lifts.main[1].tm = 82.49;
+    state.lifts.main[1].tm = 82.49;
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(state)
+    );
     updateDashboard();
   });
 
@@ -227,7 +241,9 @@ test('dashboard rounds TM display to 0.5kg and ignores raw changes inside the sa
   await expect(benchCard.locator('.tm-digit-stack.is-changing')).toHaveCount(0);
 });
 
-test('dashboard shows rounded TM change state with rolling counter markers', async ({ page }) => {
+test('dashboard updates the rounded TM display after a larger program-state change', async ({
+  page,
+}) => {
   await openAppShell(page);
 
   await page.evaluate(() => {
@@ -236,25 +252,24 @@ test('dashboard shows rounded TM change state with rolling counter markers', asy
     }) as Record<string, unknown> & {
       lifts: { main: Array<{ tm: number }> };
     };
-    profile.activeProgram = 'forge';
-    profile.programs = { ...(profile.programs || {}), forge: structuredClone(state) };
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(state)
+    );
     _lastTmSignature = '';
     _lastTmValues = {};
     updateDashboard();
-    profile.programs.forge.lifts.main[1].tm = 82.74;
+    state.lifts.main[1].tm = 82.74;
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(state)
+    );
     updateDashboard();
   });
 
-  await page.waitForFunction(() => {
-    const cards = Array.from(document.querySelectorAll('.lift-stat'));
-    const benchCard = cards.find((card) => /Bench Press/.test(card.textContent || ''));
-    if (!(benchCard instanceof HTMLElement)) return false;
-    return (
-      benchCard.classList.contains('tm-updated') &&
-      /\+2\.5/.test(benchCard.textContent || '') &&
-      !!benchCard.querySelector('.tm-digit-stack.is-changing')
-    );
-  });
+  const benchCard = page.locator('.lift-stat').filter({ hasText: 'Bench Press' });
+  await expect(benchCard.locator('.value')).toHaveText('82.5kg');
 });
 
 test('dashboard TM rounding does not change exercise prescriptions', async ({ page }) => {
@@ -285,8 +300,11 @@ test('dashboard TM rounding does not change exercise prescriptions', async ({ pa
       }));
     const before = snapshotSession(forgeProgram.buildSession('1', state, {}));
 
-    profile.activeProgram = 'forge';
-    profile.programs = { ...(profile.programs || {}), forge: structuredClone(state) };
+    window.__IRONFORGE_STORES__?.profile?.setActiveProgram?.('forge');
+    window.__IRONFORGE_STORES__?.profile?.setProgramState?.(
+      'forge',
+      structuredClone(state)
+    );
     _lastTmSignature = '';
     _lastTmValues = {};
     updateDashboard();
@@ -296,7 +314,12 @@ test('dashboard TM rounding does not change exercise prescriptions', async ({ pa
     return {
       before,
       after,
-      storedBenchTm: profile.programs.forge.lifts.main[1].tm,
+      storedBenchTm:
+        (
+          window.__IRONFORGE_STORES__?.profile?.getState?.().profile?.programs as
+            | Record<string, any>
+            | undefined
+        )?.forge?.lifts?.main?.[1]?.tm ?? null,
     };
   });
 

@@ -8,6 +8,7 @@ import {
   normalizeCoachingProfile,
   normalizeTrainingPreferences,
 } from '../../domain/normalizers';
+import { bootstrapProfileRuntime as normalizeBootstrapProfileRuntime } from '../../domain/profile-bootstrap';
 import { getInitialPlanRecommendation } from '../../domain/planning';
 import { isSimpleMode } from '../../domain/dashboard-view';
 import type { Profile } from '../../domain/types';
@@ -26,6 +27,23 @@ type RuntimeApi = {
   buildSettingsBodyView: () => Record<string, unknown>;
   getLegacyRuntimeState: () => Record<string, unknown>;
   setLegacyRuntimeState: (partial: Record<string, unknown>) => void;
+  bootstrapProfileRuntime: (input?: {
+    profile?: Record<string, unknown> | null;
+    schedule?: Record<string, unknown> | null;
+    workouts?: Array<Record<string, unknown>> | null;
+    applyToStore?: boolean;
+    normalizeWorkouts?: boolean;
+    applyProgramCatchUp?: boolean;
+  }) => {
+    profile: Record<string, unknown>;
+    schedule: Record<string, unknown>;
+    workouts: Array<Record<string, unknown>>;
+    changed: {
+      profile: boolean;
+      schedule: boolean;
+      workouts: boolean;
+    };
+  };
   saveSchedule: (nextValues?: Record<string, unknown>) => void;
   syncSettingsBridge: () => void;
   syncSettingsAccountView: () => void;
@@ -49,6 +67,10 @@ type RuntimeWindow = Window & {
     write?: (name: string, value: unknown) => void;
   };
   __IRONFORGE_PROFILE_STORE__?: {
+    hydrateProfileRuntime?: (input: {
+      profile: Record<string, unknown> | null;
+      schedule: Record<string, unknown> | null;
+    }) => unknown;
     setProfile?: (profile: Record<string, unknown> | null) => unknown;
     setSchedule?: (schedule: Record<string, unknown> | null) => unknown;
   };
@@ -1064,6 +1086,7 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
   const hasProfile = hasOwnRuntimeField(partial, 'profile');
   const hasActiveWorkout = hasOwnRuntimeField(partial, 'activeWorkout');
   const profileBridge = runtimeWindow.__IRONFORGE_PROFILE_STORE__ || null;
+  const hasCombinedProfileSchedule = hasProfile && hasSchedule;
 
   if (hasCurrentUser) {
     const nextValue = cloneJson((partial.currentUser as MutableRecord | null) || null);
@@ -1077,7 +1100,26 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
     runtimeWindow.workouts = nextValue;
     writeLegacyRuntimeValue('workouts', nextValue);
   }
-  if (hasSchedule) {
+  if (hasCombinedProfileSchedule) {
+    const nextProfile = cloneJson((partial.profile as MutableRecord | null) || null);
+    const nextSchedule = cloneJson((partial.schedule as MutableRecord | null) || null);
+    if (typeof profileBridge?.hydrateProfileRuntime === 'function') {
+      profileBridge.hydrateProfileRuntime({
+        profile: nextProfile,
+        schedule: nextSchedule,
+      });
+    } else if (
+      typeof profileBridge?.setProfile === 'function' &&
+      typeof profileBridge?.setSchedule === 'function'
+    ) {
+      profileBridge.setProfile(nextProfile);
+      profileBridge.setSchedule(nextSchedule);
+    } else {
+      throw new Error(
+        '[Ironforge] Profile store bridge is required before writing legacy profile state.'
+      );
+    }
+  } else if (hasSchedule) {
     const nextValue = cloneJson((partial.schedule as MutableRecord | null) || null);
     if (typeof profileBridge?.setSchedule === 'function') {
       profileBridge.setSchedule(nextValue);
@@ -1087,7 +1129,7 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
       );
     }
   }
-  if (hasProfile) {
+  if (hasProfile && !hasSchedule) {
     const nextValue = cloneJson((partial.profile as MutableRecord | null) || null);
     if (typeof profileBridge?.setProfile === 'function') {
       profileBridge.setProfile(nextValue);
@@ -1122,6 +1164,35 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
   if (hasWorkouts || hasActiveWorkout) {
     runtimeWindow.syncWorkoutSessionBridge?.();
   }
+}
+
+function bootstrapProfileRuntime(input?: {
+  profile?: Record<string, unknown> | null;
+  schedule?: Record<string, unknown> | null;
+  workouts?: Array<Record<string, unknown>> | null;
+  applyToStore?: boolean;
+  normalizeWorkouts?: boolean;
+  applyProgramCatchUp?: boolean;
+}) {
+  const shouldApplyToStore = input?.applyToStore !== false;
+  const locale = getRuntimeWindow()?.I18N?.getLanguage?.() || 'en';
+  const next = normalizeBootstrapProfileRuntime({
+    profile: cloneJson((input?.profile as MutableRecord | null) || null),
+    schedule: cloneJson((input?.schedule as MutableRecord | null) || null),
+    workouts: cloneJson(input?.workouts || []),
+    locale,
+    normalizeWorkouts: input?.normalizeWorkouts,
+    applyProgramCatchUp: input?.applyProgramCatchUp,
+  });
+  if (shouldApplyToStore) {
+    profileStore.getState().hydrateProfileRuntime({
+      profile: next.profile,
+      schedule: next.schedule,
+    });
+    programStore.getState().syncFromLegacy();
+    syncSettingsBridge();
+  }
+  return next;
 }
 
 function saveSchedule(nextValues?: Record<string, unknown>) {
@@ -1219,6 +1290,7 @@ export function installAppRuntimeBridge() {
     buildSettingsBodyView,
     getLegacyRuntimeState,
     setLegacyRuntimeState,
+    bootstrapProfileRuntime,
     saveSchedule,
     syncSettingsBridge,
     syncSettingsAccountView,
