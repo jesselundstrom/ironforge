@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRuntimeStore } from '../app/store/runtime-store.ts';
 import { saveBodyMetrics } from '../app/services/settings-actions.ts';
 
@@ -59,8 +59,26 @@ function SettingsBodyIsland() {
   const snapshot =
     useRuntimeStore((state) => state.pages.settingsBodyView) || getSnapshot();
   const [formValues, setFormValues] = useState(() => getFormValues(snapshot));
+  const lastSnapshotValuesRef = useRef(snapshot.values);
 
   useEffect(() => {
+    const v = snapshot.values;
+    const prev = lastSnapshotValuesRef.current;
+    // Only reset form when the stored values actually change (not just a new object
+    // reference from an unrelated store write or realtime sync). This prevents
+    // background operations from wiping out unsaved user edits.
+    if (
+      prev.sex === v.sex &&
+      prev.activityLevel === v.activityLevel &&
+      String(prev.weight) === String(v.weight) &&
+      String(prev.height) === String(v.height) &&
+      String(prev.age) === String(v.age) &&
+      String(prev.targetWeight) === String(v.targetWeight) &&
+      prev.bodyGoal === v.bodyGoal
+    ) {
+      return;
+    }
+    lastSnapshotValuesRef.current = v;
     setFormValues(getFormValues(snapshot));
   }, [snapshot]);
 
