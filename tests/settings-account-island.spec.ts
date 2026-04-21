@@ -92,6 +92,73 @@ test('settings account island keeps the danger-zone confirmation flow working', 
   await expect(page.locator('#danger-zone-delete-btn')).toBeEnabled();
 });
 
+test('settings account clear all resets workouts and core profile state', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      currentUser: { id: 'e2e-user', email: 'account@example.com' },
+      workouts: [
+        {
+          id: 'clear-me',
+          date: '2026-03-10T09:00:00.000Z',
+          type: 'forge',
+          program: 'forge',
+          exercises: [],
+        },
+      ],
+      schedule: {
+        sportName: 'Padel',
+        sportDays: [1, 3],
+        sportIntensity: 'moderate',
+        sportLegsHeavy: false,
+      },
+      profile: {
+        ...(window.profile || {}),
+        language: 'fi',
+        defaultRest: 180,
+        preferences: {
+          ...(window.profile?.preferences || {}),
+          goal: 'hypertrophy',
+        },
+      },
+    });
+    localStorage.setItem(
+      'ic_workouts::e2e-user',
+      JSON.stringify(window.workouts || [])
+    );
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
+  });
+
+  await page.locator('#danger-zone-trigger').click();
+  await page.locator('#danger-zone-input').fill('DELETE');
+  await page.locator('#danger-zone-delete-btn').click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        workouts: Array.isArray(window.workouts) ? window.workouts.length : -1,
+        localWorkouts: localStorage.getItem('ic_workouts::e2e-user'),
+        sportName: window.schedule?.sportName || '',
+        sportIntensity: window.schedule?.sportIntensity || '',
+        activeProgram: window.profile?.activeProgram || '',
+        defaultRest: window.profile?.defaultRest || 0,
+        language: window.profile?.language || '',
+      }))
+    )
+    .toEqual({
+      workouts: 0,
+      localWorkouts: '[]',
+      sportName: '',
+      sportIntensity: 'hard',
+      activeProgram: 'forge',
+      defaultRest: 120,
+      language: 'en',
+    });
+});
+
 test('settings account import keeps hostile workout labels inert after reload', async ({
   page,
 }) => {

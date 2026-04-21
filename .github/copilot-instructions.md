@@ -51,14 +51,14 @@
 - `core/ui-shell.js`, `window.showPage(...)`, `window.showToast(...)`, `window.showConfirm(...)`, and similar globals remain compatibility surfaces until their callers are fully migrated.
 - React-owned auth/session orchestration now lives in `src/app/services/auth-runtime.ts`.
 - Typed sync bootstrap/backfill ownership now lives in `src/app/services/sync-runtime.ts`.
-- Typed Settings/onboarding/language compatibility ownership now lives in `src/app/services/app-runtime.ts`.
+- Typed Settings/onboarding/language/account-data compatibility ownership now lives in `src/app/services/app-runtime.ts`.
 - Legacy auth globals such as `window.loginWithEmail`, `window.signUpWithEmail`, `window.logout`, `window.showLoginScreen`, and `window.hideLoginScreen` remain temporary compatibility delegates and should not regain primary auth ownership.
 - Legacy sync callers such as `window.loadData`, `window.pushToCloud`, `window.pullFromCloud`, and realtime sync wrappers must not silently no-op before `window.__IRONFORGE_SYNC_RUNTIME__` exists. Pre-bridge calls must either hand off safely after boot or fail with a guarded, user-safe error.
 - `window.PROGRAMS`, `window.EXERCISE_LIBRARY`, `window.workouts`, `window.profile`, `window.schedule`, and `window.activeWorkout` may remain temporarily for untouched legacy code and Playwright compatibility.
 - `window.renderHistory`, `window.switchHistoryTab`, `window.switchHistoryStatsRange`, and `window.toggleHeatmap` are provided by `src/stores/history-store.ts`.
 - `window.setSelectedNutritionAction`, `window.submitNutritionMessage`, `window.submitNutritionTextMessage`, `window.handleNutritionPhoto`, `window.retryLastNutritionMessage`, `window.clearNutritionHistory`, `window.clearNutritionLocalData`, and `window.setNutritionSessionContext` are provided by `src/stores/nutrition-store.ts`.
 - `window.computeFatigue` is a compatibility delegate installed from `src/app/services/planning-runtime.ts`.
-- `window.showSettingsTab`, `window.getSettingsAccountUiStateSnapshot`, `window.getOnboardingDefaultDraft`, `window.buildOnboardingRecommendation`, and `window.updateLanguageDependentUI` are app-runtime-owned compatibility delegates. Do not move primary ownership for those surfaces back into `app.js`.
+- `window.showSettingsTab`, `window.getSettingsAccountUiStateSnapshot`, `window.getOnboardingDefaultDraft`, `window.buildOnboardingRecommendation`, `window.updateLanguageDependentUI`, and the settings/account save-import-clear delegation path are app-runtime-owned compatibility delegates. Do not move primary ownership for those surfaces back into `app.js`.
 - `window.updateDashboard`, `window.toggleDayDetail`, `window.wasSportRecently`, and `window.wasHockeyRecently` are provided by `src/stores/dashboard-store.ts`.
 - Typed dashboard/history/nutrition surfaces should prefer the explicit legacy runtime setter/getter in `app.js` over `window.eval(...)` when a compatibility write is still required.
 - When migrating a surface, prefer thin delegators and compatibility writes over big-bang removal.
@@ -173,7 +173,7 @@
 - The current stabilization cycle is under a hard feature freeze.
 - Allowed work in this cycle: bug fixes, ownership-reduction migration work, tests required by migration, and minimal UX fixes needed to land a migration slice.
 - Not allowed in this cycle: new features, new `window.*` contracts, new program settings, new stores outside the active workout/runtime migration path, or wrapper-only convergence work.
-- `app.js` contraction is the current follow-up target. Settings tab ownership, settings danger-state snapshotting, onboarding defaults/recommendations, and language-refresh orchestration should stay in typed app-runtime ownership and should not regrow in `app.js`.
+- `app.js` contraction is the current follow-up target. Settings tab ownership, settings danger-state snapshotting, onboarding defaults/recommendations, language-refresh orchestration, and settings/account save-import-clear orchestration should stay in typed app-runtime ownership and should not regrow in `app.js`.
 - If adding a feature, update all affected layers, translations, and UI states.
 - Prefer finishing requested development work end-to-end instead of only listing suggested next steps. If the repo needs tooling, tests, config, or small supporting changes to make the solution real, add them directly unless the user explicitly wants planning only.
 - For meaningful behavior or UI changes, add or update automated tests when feasible. Prefer Playwright for user flows and Vitest for extracted pure logic, runtime contracts, and other deterministic validation paths. If you skip test coverage, say why.

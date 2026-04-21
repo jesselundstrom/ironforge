@@ -11,6 +11,7 @@ import {
 import { bootstrapProfileRuntime as normalizeBootstrapProfileRuntime } from '../../domain/profile-bootstrap';
 import { getInitialPlanRecommendation } from '../../domain/planning';
 import { isSimpleMode } from '../../domain/dashboard-view';
+import { getAllProfileDocumentKeys } from './profile-documents';
 import type { Profile } from '../../domain/types';
 import { useRuntimeStore } from '../store/runtime-store';
 import { isSettingsTab, type SettingsTab } from '../constants';
@@ -52,6 +53,13 @@ type RuntimeApi = {
       workouts: boolean;
     };
   };
+  saveTrainingPreferences: (options?: Record<string, unknown>) => Profile | null;
+  saveRestTimer: () => Profile | null;
+  saveBodyMetrics: () => Profile | null;
+  saveLanguageSetting: (nextLanguage?: string) => Profile | null;
+  exportData: () => void;
+  importData: (event?: Event | null) => void;
+  clearAllData: () => Promise<void>;
   saveSchedule: (nextValues?: Record<string, unknown>) => void;
   syncSettingsBridge: () => void;
   syncSettingsAccountView: () => void;
@@ -70,6 +78,12 @@ type RuntimeWindow = Window & {
   __IRONFORGE_APP_RUNTIME__?: RuntimeApi;
   __IRONFORGE_ACTIVE_SETTINGS_TAB__?: string;
   __IRONFORGE_APP_VERSION__?: string;
+  __IRONFORGE_WORKOUT_PERSISTENCE_RUNTIME__?: {
+    saveWorkouts?: (input?: Record<string, unknown> | null) => unknown;
+    replaceWorkoutTableSnapshot?: (
+      input?: Record<string, unknown> | null
+    ) => Promise<void>;
+  };
   __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
     read?: (name: string) => unknown;
     write?: (name: string, value: unknown) => void;
@@ -117,6 +131,22 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function readControlValue(id: string): string {
+  const element = document.getElementById(id) as
+    | { value?: string | number | null }
+    | null;
+  const value = element?.value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+  return '';
+}
+
+function readCheckboxValue(id: string, fallback = false): boolean {
+  const element = document.getElementById(id) as { checked?: boolean } | null;
+  return typeof element?.checked === 'boolean' ? element.checked : fallback;
+}
+
 function readLegacyRuntimeValue<T>(name: string): T | undefined {
   return getRuntimeWindow()?.__IRONFORGE_LEGACY_RUNTIME_ACCESS__?.read?.(
     name
@@ -128,6 +158,53 @@ function writeLegacyRuntimeValue(name: string, value: unknown) {
     name,
     cloneJson(value)
   );
+}
+
+function writeWorkoutsState(workouts: Array<Record<string, unknown>>) {
+  const nextWorkouts = cloneJson(Array.isArray(workouts) ? workouts : []);
+  writeLegacyRuntimeValue('workouts', nextWorkouts);
+  dataStore.setState((state) => ({
+    ...state,
+    workouts: nextWorkouts,
+  }));
+  return nextWorkouts;
+}
+
+function getWorkoutPersistenceRuntime() {
+  return getRuntimeWindow()?.__IRONFORGE_WORKOUT_PERSISTENCE_RUNTIME__ || null;
+}
+
+function persistWorkoutsState(workouts: Array<Record<string, unknown>>) {
+  const currentUser = getCurrentUserRecord();
+  const cloudSyncEnabled = dataStore.getState().cloudSyncEnabled !== false;
+  const runtime = getWorkoutPersistenceRuntime();
+  runtime?.saveWorkouts?.({
+    userId: String(currentUser?.id || ''),
+    currentUser,
+    workouts,
+    cloudSyncEnabled,
+  });
+  return runtime?.replaceWorkoutTableSnapshot?.({
+    userId: String(currentUser?.id || ''),
+    currentUser,
+    workouts,
+    cloudSyncEnabled,
+  });
+}
+
+function hasAccountPersistenceRuntime() {
+  return (
+    typeof getWorkoutPersistenceRuntime()?.replaceWorkoutTableSnapshot ===
+      'function' &&
+    typeof readLegacyWindowValue('saveScheduleData') === 'function' &&
+    typeof readLegacyWindowValue('saveProfileData') === 'function'
+  );
+}
+
+function ensureAccountPersistenceRuntime(actionKey: string, fallback: string) {
+  if (hasAccountPersistenceRuntime()) return true;
+  callLegacyWindowFunction('showToast', t(actionKey, fallback), 'var(--orange)');
+  return false;
 }
 
 function hasOwnRuntimeField(partial: Record<string, unknown>, key: string) {
@@ -284,6 +361,13 @@ function getTrainingSummary(profileLike: MutableRecord) {
     'Goal: {goal} · {days} · {minutes} · {equipment}',
     { goal, days, minutes, equipment }
   );
+}
+
+function showAutoSaveToast(text: string, color: string) {
+  if (callLegacyWindowFunction('_showAutoSaveToast', text, color) !== undefined) {
+    return;
+  }
+  callLegacyWindowFunction('showToast', text, color);
 }
 
 function isSimpleModeProfile(profileLike: MutableRecord) {
@@ -1317,6 +1401,366 @@ function saveSchedule(nextValues?: Record<string, unknown>) {
   );
 }
 
+function saveRestTimer() {
+  const nextDefaultRest = parseInt(readControlValue('default-rest'), 10) || 120;
+  const nextProfile = profileStore.getState().updateProfile({
+    defaultRest: nextDefaultRest,
+  });
+  writeLegacyRuntimeValue('restDuration', Number(nextProfile?.defaultRest || 120));
+  callLegacyWindowFunction('saveProfileData', { docKeys: ['profile_core'] });
+  syncSettingsBridge();
+  showAutoSaveToast(t('toast.rest_updated', 'Saved'), 'var(--blue)');
+  return nextProfile;
+}
+
+function saveBodyMetrics() {
+  const toNumber = (id: string, parser: (value: string) => number) => {
+    const value = readControlValue(id).trim();
+    return value ? parser(value) : null;
+  };
+
+  const profile = getProfileRecord();
+  const nextBodyMetrics = {
+    sex: readControlValue('body-sex') || null,
+    activityLevel: readControlValue('body-activity') || null,
+    weight: toNumber('body-weight', parseFloat),
+    height: toNumber('body-height', parseFloat),
+    age: toNumber('body-age', (value) => parseInt(value, 10)),
+    targetWeight: toNumber('body-target-weight', parseFloat),
+    bodyGoal: readControlValue('body-goal') || null,
+  };
+
+  const nextProfile = profileStore.getState().updateProfile({
+    bodyMetrics: {
+      ...((profile.bodyMetrics as MutableRecord | undefined) || {}),
+      ...nextBodyMetrics,
+    },
+  });
+  callLegacyWindowFunction('saveProfileData', { docKeys: ['profile_core'] });
+  syncSettingsBridge();
+  callLegacyWindowFunction(
+    'showToast',
+    t('settings.body.saved', 'Saved'),
+    'var(--green)'
+  );
+  return nextProfile;
+}
+
+function saveTrainingPreferences(options?: Record<string, unknown>) {
+  const opts = options || {};
+  const profile = getProfileRecord();
+  const prefs = normalizeTrainingPreferences(profile);
+  const goal = readControlValue('training-goal') || prefs.goal;
+  const trainingDaysPerWeek =
+    parseInt(readControlValue('training-days-per-week'), 10) ||
+    prefs.trainingDaysPerWeek;
+  const sessionMinutes =
+    parseInt(readControlValue('training-session-minutes'), 10) ||
+    prefs.sessionMinutes;
+  const equipmentAccess =
+    readControlValue('training-equipment') || prefs.equipmentAccess;
+  const sportReadinessCheckEnabled = hasOwnRuntimeField(
+    opts,
+    'sportReadinessCheckEnabledOverride'
+  )
+    ? opts.sportReadinessCheckEnabledOverride === true
+    : readCheckboxValue(
+        'training-sport-check',
+        prefs.sportReadinessCheckEnabled === true
+      );
+  const warmupSetsEnabled = hasOwnRuntimeField(opts, 'warmupSetsEnabledOverride')
+    ? opts.warmupSetsEnabledOverride === true
+    : readCheckboxValue('training-warmup-sets', prefs.warmupSetsEnabled === true);
+  const detailedView = hasOwnRuntimeField(opts, 'detailedViewOverride')
+    ? opts.detailedViewOverride === true
+    : prefs.detailedView;
+  const notes = readControlValue('training-preferences-notes');
+
+  const nextPreferences = normalizeTrainingPreferences({
+    ...profile,
+    preferences: {
+      ...prefs,
+      goal,
+      trainingDaysPerWeek,
+      sessionMinutes,
+      equipmentAccess,
+      sportReadinessCheckEnabled,
+      warmupSetsEnabled,
+      detailedView,
+      notes,
+    },
+  });
+
+  const nextProfile = profileStore.getState().updateProfile({
+    preferences: nextPreferences,
+  });
+  callLegacyWindowFunction('saveProfileData', { docKeys: ['profile_core'] });
+  syncSettingsBridge();
+  callLegacyWindowFunction('renderProgramBasics');
+  callLegacyWindowFunction('updateDashboard');
+  callLegacyWindowFunction('updateProgramDisplay');
+
+  const mismatch = callLegacyWindowFunction<{
+    prog?: { id?: string; name?: string };
+    effectiveLabel?: string;
+    requestedLabel?: string;
+  }>('getActiveProgramFrequencyMismatch', nextProfile || profile);
+  if (mismatch) {
+    callLegacyWindowFunction(
+      'showToast',
+      t(
+        'program.frequency_notice.toast',
+        '{name} now uses {effective}. Open Program to switch for {requested}.',
+        {
+          name: t(
+            `program.${String(mismatch.prog?.id || '')}.name`,
+            String(mismatch.prog?.name || '')
+          ),
+          effective: String(mismatch.effectiveLabel || ''),
+          requested: String(mismatch.requestedLabel || ''),
+        }
+      ),
+      'var(--orange)'
+    );
+    return nextProfile;
+  }
+
+  showAutoSaveToast(t('toast.preferences_saved', 'Saved'), 'var(--purple)');
+  return nextProfile;
+}
+
+function saveLanguageSetting(nextLanguage?: string) {
+  const lang =
+    typeof nextLanguage === 'string' && nextLanguage.trim()
+      ? nextLanguage.trim()
+      : readControlValue('app-language') || 'en';
+  getRuntimeWindow()?.I18N?.setLanguage?.(lang, { persist: true });
+  const nextProfile = profileStore.getState().updateProfile({ language: lang });
+  callLegacyWindowFunction('saveProfileData', { docKeys: ['profile_core'] });
+  syncSettingsBridge();
+  callLegacyWindowFunction(
+    'showToast',
+    t('settings.language.saved', 'Language updated'),
+    'var(--blue)'
+  );
+  return nextProfile;
+}
+
+function exportData() {
+  const payload = {
+    version: 1,
+    exported: new Date().toISOString(),
+    workouts: cloneJson(dataStore.getState().workouts || []),
+    schedule: cloneJson(getScheduleRecord()),
+    profile: cloneJson(getProfileRecord()),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: 'application/json',
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download =
+    'ironforge-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  anchor.click();
+  URL.revokeObjectURL(url);
+  callLegacyWindowFunction(
+    'showToast',
+    t('toast.backup_exported', 'Backup exported!'),
+    'var(--green)'
+  );
+}
+
+function importData(event?: Event | null) {
+  if (
+    !ensureAccountPersistenceRuntime(
+      'settings.account.runtime_unavailable',
+      'Settings runtime is still loading. Try again.'
+    )
+  ) {
+    return;
+  }
+  const target = (event?.target || null) as
+    | { files?: FileList | null; value?: string }
+    | null;
+  const file = target?.files?.[0];
+  if (!file) return;
+
+  const maxBackupBytes =
+    callLegacyWindowFunction<number>('getImportedBackupMaxBytes') ||
+    5 * 1024 * 1024;
+  if (Number(file.size) > maxBackupBytes) {
+    callLegacyWindowFunction(
+      'showToast',
+      t('import.file_too_large', 'Backup file is too large to import safely'),
+      'var(--orange)'
+    );
+    if (target) target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (loadEvent) => {
+    try {
+      const raw = loadEvent?.target?.result;
+      const data = JSON.parse(typeof raw === 'string' ? raw : '');
+      if (!data || typeof data !== 'object') {
+        callLegacyWindowFunction(
+          'showToast',
+          t('import.invalid_file', 'Invalid backup file'),
+          'var(--orange)'
+        );
+        return;
+      }
+
+      const validation =
+        callLegacyWindowFunction<{
+          ok?: boolean;
+          errorKey?: string;
+          fallback?: string;
+          value?: Record<string, unknown>;
+        }>('validateImportedBackup', data) || {
+          ok: false,
+          errorKey: 'import.invalid_file',
+          fallback: 'Invalid backup file',
+        };
+
+      if (!validation?.ok || !validation.value) {
+        callLegacyWindowFunction(
+          'showToast',
+          t(
+            validation?.errorKey || 'import.invalid_file',
+            validation?.fallback || 'Invalid backup file'
+          ),
+          'var(--orange)'
+        );
+        return;
+      }
+
+      const validated = validation.value;
+      callLegacyWindowFunction(
+        'showConfirm',
+        t('import.title', 'Import Data'),
+        t('import.replace_with_backup', 'Replace all data with backup from {date}?', {
+          date: validated.exported
+            ? new Date(String(validated.exported)).toLocaleDateString()
+            : 'unknown',
+        }),
+        async () => {
+          const nextWorkouts = Array.isArray(validated.workouts)
+            ? writeWorkoutsState(validated.workouts as Array<Record<string, unknown>>)
+            : cloneJson(dataStore.getState().workouts || []);
+          const nextSchedule = Object.prototype.hasOwnProperty.call(
+            validated,
+            'schedule'
+          )
+            ? profileStore.getState().setSchedule(
+                (validated.schedule as Record<string, unknown> | null) || null
+              )
+            : getScheduleRecord();
+          const nextProfile = Object.prototype.hasOwnProperty.call(
+            validated,
+            'profile'
+          )
+            ? profileStore.getState().setProfile(
+                (validated.profile as Record<string, unknown> | null) || null
+              )
+            : getProfileRecord();
+
+          programStore.getState().syncFromLegacy();
+          await persistWorkoutsState(nextWorkouts);
+          await Promise.resolve(callLegacyWindowFunction('saveScheduleData'));
+          await Promise.resolve(
+            callLegacyWindowFunction('saveProfileData', {
+              docKeys: getAllProfileDocumentKeys(nextProfile as MutableRecord),
+            })
+          );
+          syncSettingsBridge();
+          callLegacyWindowFunction(
+            'showToast',
+            t('toast.data_imported', 'Data imported! Reloading...'),
+            'var(--green)'
+          );
+          window.setTimeout(() => window.location.reload(), 1000);
+        }
+      );
+    } catch {
+      callLegacyWindowFunction(
+        'showToast',
+        t('toast.could_not_read_file', 'Could not read file'),
+        'var(--orange)'
+      );
+    }
+  };
+
+  reader.readAsText(file);
+  if (target) target.value = '';
+}
+
+async function clearAllData() {
+  if (
+    !ensureAccountPersistenceRuntime(
+      'settings.account.runtime_unavailable',
+      'Settings runtime is still loading. Try again.'
+    )
+  ) {
+    return;
+  }
+  dataStore.getState().clearLocalDataCache({
+    includeScoped: true,
+    includeLegacy: true,
+  });
+
+  writeWorkoutsState([]);
+  writeLegacyRuntimeValue('activeWorkout', null);
+  dataStore.setState((state) => ({
+    ...state,
+    activeWorkout: null,
+  }));
+  profileStore.getState().setSchedule({
+    sportName: '',
+    sportDays: [],
+    sportIntensity: 'hard',
+    sportLegsHeavy: true,
+  });
+  profileStore.getState().setProfile({
+    defaultRest: 120,
+    activeProgram: 'forge',
+    programs: {},
+    language: getRuntimeWindow()?.I18N?.getLanguage?.() || 'en',
+    preferences: getDefaultTrainingPreferences(),
+    coaching: getDefaultCoachingProfile(),
+  });
+  resetSettingsAccountUiState();
+
+  const programs = programStore.getState().programs || [];
+  programs.forEach((program) => {
+    if (typeof program?.getInitialState !== 'function') return;
+    profileStore
+      .getState()
+      .setProgramState(String(program.id || ''), program.getInitialState());
+  });
+
+  const nextProfile = profileStore.getState().profile || getProfileRecord();
+  programStore.getState().syncFromLegacy();
+  workoutStore.getState().syncFromLegacy();
+  await persistWorkoutsState([]);
+  await Promise.resolve(callLegacyWindowFunction('saveScheduleData'));
+  await Promise.resolve(
+    callLegacyWindowFunction('saveProfileData', {
+      docKeys: getAllProfileDocumentKeys(nextProfile as MutableRecord),
+    })
+  );
+  syncSettingsBridge();
+  callLegacyWindowFunction('updateDashboard');
+  callLegacyWindowFunction('maybeOpenOnboarding', { force: true });
+  callLegacyWindowFunction(
+    'showToast',
+    t('toast.all_data_cleared', 'All data cleared'),
+    'var(--accent)'
+  );
+}
+
 function updateLanguageDependentUI() {
   const runtimeWindow = getRuntimeWindow();
   runtimeWindow?.I18N?.applyTranslations?.(document);
@@ -1370,6 +1814,13 @@ export function installAppRuntimeBridge() {
     getLegacyRuntimeState,
     setLegacyRuntimeState,
     bootstrapProfileRuntime,
+    saveTrainingPreferences,
+    saveRestTimer,
+    saveBodyMetrics,
+    saveLanguageSetting,
+    exportData,
+    importData,
+    clearAllData,
     saveSchedule,
     syncSettingsBridge,
     syncSettingsAccountView,

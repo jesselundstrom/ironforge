@@ -327,28 +327,30 @@ function setRestBarActiveState(nextActive) {
 window.setRestBarActiveState = setRestBarActiveState;
 
 function buildLiveWorkoutSessionSnapshot() {
-  return getWorkoutRestRuntime()?.buildWorkoutSessionSnapshot?.({
-    activeWorkout,
-    restDuration,
-    restEndsAt,
-    restSecondsLeft,
-    restTotal,
-    currentUser,
-    restBarActive,
-    rpePrompt: pendingRPEPromptState,
-    summaryPrompt:
-      typeof window.getSessionSummaryPromptSnapshot === 'function'
-        ? window.getSessionSummaryPromptSnapshot()
-        : null,
-    sportCheckPrompt:
-      typeof window.getSportCheckPromptSnapshot === 'function'
-        ? window.getSportCheckPromptSnapshot()
-        : null,
-    exerciseGuidePrompt:
-      typeof window.getExerciseGuidePromptSnapshot === 'function'
-        ? window.getExerciseGuidePromptSnapshot()
-        : null,
-  }) || null;
+  return (
+    getWorkoutRestRuntime()?.buildWorkoutSessionSnapshot?.({
+      activeWorkout,
+      restDuration,
+      restEndsAt,
+      restSecondsLeft,
+      restTotal,
+      currentUser,
+      restBarActive,
+      rpePrompt: pendingRPEPromptState,
+      summaryPrompt:
+        typeof window.getSessionSummaryPromptSnapshot === 'function'
+          ? window.getSessionSummaryPromptSnapshot()
+          : null,
+      sportCheckPrompt:
+        typeof window.getSportCheckPromptSnapshot === 'function'
+          ? window.getSportCheckPromptSnapshot()
+          : null,
+      exerciseGuidePrompt:
+        typeof window.getExerciseGuidePromptSnapshot === 'function'
+          ? window.getExerciseGuidePromptSnapshot()
+          : null,
+    }) || null
+  );
 }
 
 function syncWorkoutSessionBridge() {
@@ -894,7 +896,6 @@ const FATIGUE_CONFIG = {
     extraSubtypeCnsMultiplier: 1.15,
   },
 };
-
 const MUSCLE_LOAD_CONFIG = {
   lookbackDays: 7,
   halfLifeDays: 3.5,
@@ -906,14 +907,18 @@ const MUSCLE_LOAD_CONFIG = {
   liftRpeScalePerPoint: 0.16,
   liftRpeScaleMax: 1.6,
 };
-window.FATIGUE_CONFIG = FATIGUE_CONFIG;
-window.MUSCLE_LOAD_CONFIG = MUSCLE_LOAD_CONFIG;
-
 const SPORT_RECENT_HOURS = {
   easy: 18,
   moderate: 24,
   hard: 30,
 };
+window.FATIGUE_CONFIG = FATIGUE_CONFIG;
+window.MUSCLE_LOAD_CONFIG = MUSCLE_LOAD_CONFIG;
+
+function getAppRuntime() {
+  return window.__IRONFORGE_APP_RUNTIME__ || null;
+}
+
 function getSportConfig() {
   return (
     FATIGUE_CONFIG.sport[schedule.sportIntensity || 'hard'] ||
@@ -959,18 +964,19 @@ function syncRestTimer() {
   ) {
     return window.syncRestTimer();
   }
-  const restLifecyclePlan = getWorkoutRestRuntime()?.buildWorkoutRestLifecyclePlan?.(
-    {
-      mode: 'sync',
-      restDuration,
-      restTotal,
-      restEndsAt,
-      restSecondsLeft,
-      profileDefaultRest: profile.defaultRest,
-      now: Date.now(),
-    },
-    {}
-  );
+  const restLifecyclePlan =
+    getWorkoutRestRuntime()?.buildWorkoutRestLifecyclePlan?.(
+      {
+        mode: 'sync',
+        restDuration,
+        restTotal,
+        restEndsAt,
+        restSecondsLeft,
+        profileDefaultRest: profile.defaultRest,
+        now: Date.now(),
+      },
+      {}
+    );
   if (!restLifecyclePlan?.timerState) return;
   restDuration = Number(restLifecyclePlan.timerState.restDuration || 0);
   restTotal = Number(restLifecyclePlan.timerState.restTotal || 0);
@@ -990,10 +996,7 @@ function startRestTimer() {
   }
 }
 function skipRest() {
-  if (
-    typeof window.skipRest === 'function' &&
-    window.skipRest !== skipRest
-  ) {
+  if (typeof window.skipRest === 'function' && window.skipRest !== skipRest) {
     return window.skipRest();
   }
 }
@@ -1096,37 +1099,37 @@ function showSettingsTab(name, el) {
   ].includes(name)
     ? name
     : 'schedule';
-  window.__IRONFORGE_APP_RUNTIME__?.showSettingsTab?.(nextTab);
+  getAppRuntime()?.showSettingsTab?.(nextTab);
 }
 function isSettingsAccountIslandActive() {
-  return typeof window.__IRONFORGE_APP_RUNTIME__?.syncSettingsAccountView === 'function';
+  return typeof getAppRuntime()?.syncSettingsAccountView === 'function';
 }
 function notifySettingsAccountIsland() {
-  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsAccountView?.();
+  getAppRuntime()?.syncSettingsAccountView?.();
 }
 function isSettingsScheduleIslandActive() {
-  return typeof window.__IRONFORGE_APP_RUNTIME__?.syncSettingsScheduleView === 'function';
+  return typeof getAppRuntime()?.syncSettingsScheduleView === 'function';
 }
 function notifySettingsScheduleIsland() {
-  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsScheduleView?.();
+  getAppRuntime()?.syncSettingsScheduleView?.();
 }
 function isSettingsProgramIslandActive() {
-  return typeof window.__IRONFORGE_APP_RUNTIME__?.syncSettingsProgramView === 'function';
+  return typeof getAppRuntime()?.syncSettingsProgramView === 'function';
 }
 function notifySettingsProgramIsland() {
-  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsProgramView?.();
+  getAppRuntime()?.syncSettingsProgramView?.();
 }
 function isSettingsPreferencesIslandActive() {
-  return typeof window.__IRONFORGE_APP_RUNTIME__?.syncSettingsPreferencesView === 'function';
+  return typeof getAppRuntime()?.syncSettingsPreferencesView === 'function';
 }
 function notifySettingsPreferencesIsland() {
-  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsPreferencesView?.();
+  getAppRuntime()?.syncSettingsPreferencesView?.();
 }
 function isSettingsBodyIslandActive() {
-  return typeof window.__IRONFORGE_APP_RUNTIME__?.syncSettingsBodyView === 'function';
+  return typeof getAppRuntime()?.syncSettingsBodyView === 'function';
 }
 function notifySettingsBodyIsland() {
-  window.__IRONFORGE_APP_RUNTIME__?.syncSettingsBodyView?.();
+  getAppRuntime()?.syncSettingsBodyView?.();
 }
 function openProgramSetupSheet() {
   const prog = getActiveProgram(),
@@ -1355,7 +1358,8 @@ function dismissOnboardingModal() {
 }
 
 async function completeOnboarding(draft) {
-  const d = draft || window.__IRONFORGE_APP_RUNTIME__?.getOnboardingDefaultDraft?.();
+  const d =
+    draft || window.__IRONFORGE_APP_RUNTIME__?.getOnboardingDefaultDraft?.();
   const recommendation =
     window.__IRONFORGE_APP_RUNTIME__?.buildOnboardingRecommendation?.(d) ||
     null;
@@ -1598,6 +1602,9 @@ function toggleDay(kind, dow, el) {
 }
 
 function saveRestTimer() {
+  if (typeof getAppRuntime()?.saveRestTimer === 'function') {
+    return getAppRuntime().saveRestTimer();
+  }
   profile = updateStoreOwnedProfile({
     defaultRest: parseInt(document.getElementById('default-rest').value) || 120,
   });
@@ -1607,6 +1614,9 @@ function saveRestTimer() {
   _showAutoSaveToast(tr('toast.rest_updated', 'Saved'), 'var(--blue)');
 }
 function saveBodyMetrics() {
+  if (typeof getAppRuntime()?.saveBodyMetrics === 'function') {
+    return getAppRuntime().saveBodyMetrics();
+  }
   const toNum = (id, parse) => {
     const v = document.getElementById(id)?.value;
     return v ? parse(v) : null;
@@ -1635,6 +1645,9 @@ function saveBodyMetrics() {
   showToast(tr('settings.body.saved', 'Saved'), 'var(--green)');
 }
 function saveTrainingPreferences(options) {
+  if (typeof getAppRuntime()?.saveTrainingPreferences === 'function') {
+    return getAppRuntime().saveTrainingPreferences(options);
+  }
   const opts = options || {};
   const prefs = normalizeTrainingPreferences(profile);
   const goal = document.getElementById('training-goal')?.value || prefs.goal;
@@ -1732,6 +1745,11 @@ function saveSimpleProgramSettings() {
   _showAutoSaveToast(tr('program.setup_saved', 'Saved'), 'var(--purple)');
 }
 function saveLanguageSetting() {
+  if (typeof getAppRuntime()?.saveLanguageSetting === 'function') {
+    return getAppRuntime().saveLanguageSetting(
+      arguments.length && typeof arguments[0] === 'string' ? arguments[0] : undefined
+    );
+  }
   const lang =
     arguments.length && typeof arguments[0] === 'string'
       ? arguments[0]
@@ -1754,6 +1772,9 @@ function _showAutoSaveToast(msg, color) {
   _autoSaveToastTimer = setTimeout(() => showToast(msg, color), 600);
 }
 function saveSchedule(nextValues) {
+  if (typeof getAppRuntime()?.saveSchedule === 'function') {
+    return getAppRuntime().saveSchedule(nextValues);
+  }
   const nextSchedule = { ...(schedule || {}) };
   if (nextValues && typeof nextValues === 'object') {
     if ('sportName' in nextValues)
@@ -1790,6 +1811,9 @@ function renderBackupContext() {
   return '';
 }
 function exportData() {
+  if (typeof getAppRuntime()?.exportData === 'function') {
+    return getAppRuntime().exportData();
+  }
   const data = {
     version: 1,
     exported: new Date().toISOString(),
@@ -1811,6 +1835,9 @@ function exportData() {
 }
 
 function importData(event) {
+  if (typeof getAppRuntime()?.importData === 'function') {
+    return getAppRuntime().importData(event);
+  }
   const file = event.target.files[0];
   if (!file) return;
   const maxBackupBytes =
@@ -1870,7 +1897,8 @@ function importData(event) {
           if (validated.workouts) workouts = validated.workouts;
           if (validated.schedule)
             schedule = setStoreOwnedSchedule(validated.schedule);
-          if (validated.profile) profile = setStoreOwnedProfile(validated.profile);
+          if (validated.profile)
+            profile = setStoreOwnedProfile(validated.profile);
           if (typeof normalizeScheduleState === 'function') {
             normalizeScheduleState(schedule);
           }
@@ -1918,6 +1946,9 @@ function checkDangerConfirm() {
   window.__IRONFORGE_APP_RUNTIME__?.checkDangerConfirm?.(nextValue);
 }
 async function clearAllData() {
+  if (typeof getAppRuntime()?.clearAllData === 'function') {
+    return getAppRuntime().clearAllData();
+  }
   if (typeof clearLocalDataCache === 'function')
     clearLocalDataCache({ includeScoped: true, includeLegacy: true });
   else {

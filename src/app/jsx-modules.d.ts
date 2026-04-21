@@ -357,6 +357,17 @@ declare global {
           workouts: boolean;
         };
       };
+      saveTrainingPreferences?: (
+        options?: Record<string, unknown>
+      ) => Record<string, unknown> | null;
+      saveRestTimer?: () => Record<string, unknown> | null;
+      saveBodyMetrics?: () => Record<string, unknown> | null;
+      saveLanguageSetting?: (
+        nextLanguage?: string
+      ) => Record<string, unknown> | null;
+      exportData?: () => void;
+      importData?: (event?: Event | null) => void;
+      clearAllData?: () => Promise<void>;
       saveSchedule?: (nextValues?: Record<string, unknown>) => void;
       syncSettingsBridge?: () => void;
       syncSettingsAccountView?: () => void;

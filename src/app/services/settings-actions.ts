@@ -7,10 +7,18 @@ function getAppRuntime() {
 }
 
 export function saveTrainingPreferences(options?: Record<string, unknown>) {
+  if (typeof getAppRuntime()?.saveTrainingPreferences === 'function') {
+    getAppRuntime()?.saveTrainingPreferences?.(options);
+    return;
+  }
   callLegacyWindowFunction('saveTrainingPreferences', options);
 }
 
 export function saveRestTimer() {
+  if (typeof getAppRuntime()?.saveRestTimer === 'function') {
+    getAppRuntime()?.saveRestTimer?.();
+    return;
+  }
   callLegacyWindowFunction('saveRestTimer');
 }
 
@@ -19,6 +27,10 @@ export function restartOnboarding() {
 }
 
 export function saveBodyMetrics() {
+  if (typeof getAppRuntime()?.saveBodyMetrics === 'function') {
+    getAppRuntime()?.saveBodyMetrics?.();
+    return;
+  }
   callLegacyWindowFunction('saveBodyMetrics');
 }
 
@@ -31,6 +43,10 @@ export function saveSchedule(nextValues?: Record<string, unknown>) {
 }
 
 export function saveLanguageSetting(nextLanguage: string) {
+  if (typeof getAppRuntime()?.saveLanguageSetting === 'function') {
+    getAppRuntime()?.saveLanguageSetting?.(nextLanguage);
+    return;
+  }
   callLegacyWindowFunction('saveLanguageSetting', nextLanguage);
 }
 
@@ -39,10 +55,18 @@ export function logout() {
 }
 
 export function exportData() {
+  if (typeof getAppRuntime()?.exportData === 'function') {
+    getAppRuntime()?.exportData?.();
+    return;
+  }
   callLegacyWindowFunction('exportData');
 }
 
 export function importData(event: Event) {
+  if (typeof getAppRuntime()?.importData === 'function') {
+    getAppRuntime()?.importData?.(event);
+    return;
+  }
   callLegacyWindowFunction('importData', event);
 }
 
@@ -55,6 +79,9 @@ export function checkDangerConfirm(nextValue: string) {
 }
 
 export function clearAllData() {
+  if (typeof getAppRuntime()?.clearAllData === 'function') {
+    return getAppRuntime()?.clearAllData?.();
+  }
   return callLegacyWindowFunction('clearAllData');
 }
 
