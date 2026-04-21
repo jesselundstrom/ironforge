@@ -855,6 +855,15 @@ function getSportRecentHours() {
 // Data/auth lifecycle functions moved to core/data-layer.js.
 
 // REST TIMER
+// Typed owner: src/stores/workout-store.ts (startRestTimer, skipRest, syncRestTimer,
+// updateRestDuration, playWorkoutRestBeep). Delegates installed by
+// installLegacyWorkoutStoreBridge() at boot via main.tsx.
+//
+// getSelectedRestDuration is kept here because core/workout-layer.js calls it as a
+// plain local function (not via window.*), so it cannot be replaced by a bridge delegate.
+// All other rest-timer functions below are pure compatibility guards — the typed store
+// implementation runs in every case.
+
 function getWorkoutRestRuntime() {
   return window.__IRONFORGE_WORKOUT_RUNTIME__ || null;
 }
@@ -877,6 +886,7 @@ function updateRestDuration(nextValue) {
   }
 }
 window.getSelectedRestDuration = getSelectedRestDuration;
+
 function syncRestTimer() {
   if (
     typeof window.syncRestTimer === 'function' &&
@@ -885,6 +895,7 @@ function syncRestTimer() {
     return window.syncRestTimer();
   }
 }
+
 function startRestTimer() {
   if (
     typeof window.startRestTimer === 'function' &&
@@ -893,31 +904,13 @@ function startRestTimer() {
     return window.startRestTimer();
   }
 }
+
 function skipRest() {
   if (typeof window.skipRest === 'function' && window.skipRest !== skipRest) {
     return window.skipRest();
   }
 }
-function playBeep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 150, 300].forEach((d) => {
-      const o = ctx.createOscillator(),
-        g = ctx.createGain();
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.frequency.value = 880;
-      o.type = 'sine';
-      g.gain.setValueAtTime(0.3, ctx.currentTime + d / 1000);
-      g.gain.exponentialRampToValueAtTime(
-        0.001,
-        ctx.currentTime + d / 1000 + 0.2
-      );
-      o.start(ctx.currentTime + d / 1000);
-      o.stop(ctx.currentTime + d / 1000 + 0.25);
-    });
-  } catch (e) {}
-}
+// playBeep removed — typed equivalent is playWorkoutRestBeep() in workout-store.ts.
 
 // FATIGUE ENGINE
 // Dashboard/fatigue/data helpers moved to core/dashboard-layer.js.
@@ -928,6 +921,11 @@ function playBeep() {
 // History/analytics helpers moved to core/history-layer.js.
 
 // SETTINGS
+// renderSportDayToggles, setSportIntensity, renderProgramBasics, renderTrainingProgramSummary,
+// renderSportStatusBar, renderTrainingStatusBar, renderProgramStatusBar, initSettings, toggleDay,
+// openProgramSetupSheet, runProgramSetupInlineAction, bindProgramSetupSheetActions, closeProgramSetupSheet
+// are legacy DOM render helpers still called by app-runtime.ts via callLegacyWindowFunction().
+// They remain here until the settings islands fully own their own rendering without DOM helpers.
 function renderSportDayToggles() {
   const grid = document.getElementById('sport-day-toggles');
   if (!grid) return;
