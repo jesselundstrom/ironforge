@@ -225,7 +225,7 @@ export const casualFullBodyProgram: ProgramPlugin<CasualFullBodyState> = {
   name: 'Gym Basics',
   description:
     'Easy gym program with rotating full-body sessions. No maxes or planning needed.',
-  icon: 'Target',
+  icon: '🎯',
   legLifts: LEG_LIFTS,
   getInitialState: () => createInitialState(),
   migrateState: (state) => migrateState(state),
@@ -337,7 +337,7 @@ export const casualFullBodyProgram: ProgramPlugin<CasualFullBodyState> = {
   },
   getSessionCharacter: () => ({
     tone: 'normal',
-    icon: 'Workout',
+    icon: '🏋️',
     labelKey: 'program.cfb.character.normal',
     labelFallback: trCFB(
       'program.cfb.character.normal',
