@@ -53,7 +53,9 @@ type RuntimeApi = {
       workouts: boolean;
     };
   };
-  saveTrainingPreferences: (options?: Record<string, unknown>) => Profile | null;
+  saveTrainingPreferences: (
+    options?: Record<string, unknown>
+  ) => Profile | null;
   saveRestTimer: () => Profile | null;
   saveBodyMetrics: () => Profile | null;
   saveLanguageSetting: (nextLanguage?: string) => Profile | null;
@@ -145,9 +147,9 @@ function cloneJson<T>(value: T): T {
 }
 
 function readControlValue(id: string): string {
-  const element = document.getElementById(id) as
-    | { value?: string | number | null }
-    | null;
+  const element = document.getElementById(id) as {
+    value?: string | number | null;
+  } | null;
   const value = element?.value;
   if (typeof value === 'string' || typeof value === 'number') {
     return String(value);
@@ -216,7 +218,11 @@ function hasAccountPersistenceRuntime() {
 
 function ensureAccountPersistenceRuntime(actionKey: string, fallback: string) {
   if (hasAccountPersistenceRuntime()) return true;
-  callLegacyWindowFunction('showToast', t(actionKey, fallback), 'var(--orange)');
+  callLegacyWindowFunction(
+    'showToast',
+    t(actionKey, fallback),
+    'var(--orange)'
+  );
   return false;
 }
 
@@ -256,7 +262,9 @@ function getDefaultSettingsTab(): SettingsTab {
   const runtimeWindow = getRuntimeWindow();
   const raw =
     String(runtimeWindow?.__IRONFORGE_ACTIVE_SETTINGS_TAB__ || '').trim() ||
-    String(useRuntimeStore.getState().navigation.activeSettingsTab || '').trim() ||
+    String(
+      useRuntimeStore.getState().navigation.activeSettingsTab || ''
+    ).trim() ||
     'schedule';
   return isSettingsTab(raw) ? raw : 'schedule';
 }
@@ -274,12 +282,10 @@ function getSettingsAccountUiStateSnapshot() {
 }
 
 function setSettingsAccountUiState(
-  patch?:
-    | Partial<{
-        dangerOpen: boolean;
-        dangerInput: string;
-      }>
-    | null
+  patch?: Partial<{
+    dangerOpen: boolean;
+    dangerInput: string;
+  }> | null
 ) {
   settingsAccountUiState = {
     ...settingsAccountUiState,
@@ -337,7 +343,10 @@ function getTrainingGoalLabel(goal: string): string {
   const map: Record<string, [string, string]> = {
     strength: ['settings.preferences.goal.strength', 'Strength'],
     hypertrophy: ['settings.preferences.goal.hypertrophy', 'Hypertrophy'],
-    general_fitness: ['settings.preferences.goal.general_fitness', 'General Fitness'],
+    general_fitness: [
+      'settings.preferences.goal.general_fitness',
+      'General Fitness',
+    ],
     sport_support: ['settings.preferences.goal.sport_support', 'Sport Support'],
   };
   const [key, fallback] = map[goal] || map.strength;
@@ -363,12 +372,12 @@ function getTrainingSummary(profileLike: MutableRecord) {
     '{count} sessions / week',
     { count: prefs.trainingDaysPerWeek }
   );
-  const minutes = t(
-    'settings.preferences.duration_value',
-    '{minutes} min',
-    { minutes: prefs.sessionMinutes }
+  const minutes = t('settings.preferences.duration_value', '{minutes} min', {
+    minutes: prefs.sessionMinutes,
+  });
+  const equipment = getEquipmentAccessLabel(
+    String(prefs.equipmentAccess || '')
   );
-  const equipment = getEquipmentAccessLabel(String(prefs.equipmentAccess || ''));
   return t(
     'dashboard.preferences_context',
     'Goal: {goal} · {days} · {minutes} · {equipment}',
@@ -377,7 +386,9 @@ function getTrainingSummary(profileLike: MutableRecord) {
 }
 
 function showAutoSaveToast(text: string, color: string) {
-  if (callLegacyWindowFunction('_showAutoSaveToast', text, color) !== undefined) {
+  if (
+    callLegacyWindowFunction('_showAutoSaveToast', text, color) !== undefined
+  ) {
     return;
   }
   callLegacyWindowFunction('showToast', text, color);
@@ -401,7 +412,10 @@ type ProgramSwitcherCard = {
   activeLabel: string;
 };
 
-function buildProgramSwitcherData(): { helper: string; cards: ProgramSwitcherCard[] } {
+function buildProgramSwitcherData(): {
+  helper: string;
+  cards: ProgramSwitcherCard[];
+} {
   const profile = getProfileRecord();
   const prefs = normalizeTrainingPreferences(profile);
   const requested = Number(prefs.trainingDaysPerWeek) || 3;
@@ -434,7 +448,10 @@ function buildProgramSwitcherData(): { helper: string; cards: ProgramSwitcherCar
       const caps = store.getProgramCapabilities(prog.id as string);
       const score =
         typeof caps.recommendationScore === 'function'
-          ? caps.recommendationScore(requested, prefs as Record<string, unknown>)
+          ? caps.recommendationScore(
+              requested,
+              prefs as Record<string, unknown>
+            )
           : 0;
       return { prog, score };
     })
@@ -462,10 +479,17 @@ function buildProgramSwitcherData(): { helper: string; cards: ProgramSwitcherCar
       id,
       icon: String(prog.icon || '🏋️'),
       name: t(`program.${id}.name`, String(prog.name || '')),
-      description: t(`program.${id}.description`, String(prog.description || '')),
+      description: t(
+        `program.${id}.description`,
+        String(prog.description || '')
+      ),
       fitLabel: supportsExact
-        ? t('program.frequency_card.fit', 'Fits {value}', { value: requestedLabel })
-        : t('program.frequency_card.fallback', 'Uses {value}', { value: effectiveLabel }),
+        ? t('program.frequency_card.fit', 'Fits {value}', {
+            value: requestedLabel,
+          })
+        : t('program.frequency_card.fallback', 'Uses {value}', {
+            value: effectiveLabel,
+          }),
       fitTone: supportsExact ? 'ok' : 'fallback',
       difficultyKey: difficultyMeta.key,
       difficultyTone: difficultyMeta.key,
@@ -521,7 +545,10 @@ function buildBackupContextText(): string {
   const workouts = dataStore.getState().workouts;
   const count = workouts.length;
   if (!count) return t('settings.backup_empty', 'No workouts recorded yet.');
-  const dates = workouts.map((w) => String(w.date || '')).filter(Boolean).sort();
+  const dates = workouts
+    .map((w) => String(w.date || ''))
+    .filter(Boolean)
+    .sort();
   const first = dates[0] || '';
   const firstFormatted = first
     ? new Date(first).toLocaleDateString(undefined, {
@@ -596,13 +623,17 @@ function buildSettingsAccountView() {
       dangerOpen: uiState.dangerOpen === true,
       dangerInput: String(uiState.dangerInput || ''),
       dangerDeleteDisabled:
-        String(uiState.dangerInput || '').trim().toUpperCase() !== 'DELETE',
+        String(uiState.dangerInput || '')
+          .trim()
+          .toUpperCase() !== 'DELETE',
     },
   };
 }
 
 function getAppVersionLabel() {
-  const version = String(getRuntimeWindow()?.__IRONFORGE_APP_VERSION__ || '').trim();
+  const version = String(
+    getRuntimeWindow()?.__IRONFORGE_APP_VERSION__ || ''
+  ).trim();
   return version ? `Ironforge v${version}` : 'Ironforge';
 }
 
@@ -614,8 +645,10 @@ function syncLegacyActiveSessionLanguage() {
 
   const activeProgram = programStore.getState().activeProgram;
   const activeProgramState =
-    (programStore.getState().activeProgramState as Record<string, unknown> | null) ||
-    null;
+    (programStore.getState().activeProgramState as Record<
+      string,
+      unknown
+    > | null) || null;
   const titleEl = document.getElementById('active-session-title');
   if (
     titleEl &&
@@ -632,7 +665,9 @@ function syncLegacyActiveSessionLanguage() {
   if (!descEl) return;
 
   const prefix = t('session.description', 'Session focus');
-  const sessionDescription = String(activeWorkout.sessionDescription || '').trim();
+  const sessionDescription = String(
+    activeWorkout.sessionDescription || ''
+  ).trim();
   descEl.textContent = sessionDescription
     ? `${prefix}: ${sessionDescription}`
     : '';
@@ -663,7 +698,9 @@ function buildSettingsScheduleView() {
 
   return {
     labels: {
-      statusBar: [statusName, intensityLabel, dayText].filter(Boolean).join(' · '),
+      statusBar: [statusName, intensityLabel, dayText]
+        .filter(Boolean)
+        .join(' · '),
       title: t('settings.sport_load.title', 'My Sport'),
       subtitle: t(
         'settings.sport_load.subtitle',
@@ -707,7 +744,12 @@ function buildSettingsScheduleView() {
 
 type SettingsTreeNode =
   | { type: 'text'; text: string }
-  | { type: 'element'; tag: string; attrs: Record<string, unknown>; children: SettingsTreeNode[] };
+  | {
+      type: 'element';
+      tag: string;
+      attrs: Record<string, unknown>;
+      children: SettingsTreeNode[];
+    };
 
 function parseInlineStyle(style: string): Record<string, string> {
   const result: Record<string, string> = {};
@@ -771,11 +813,17 @@ function buildProgramBasicsSnapshot(): {
   const store = programStore.getState();
   const program = store.activeProgram as
     | (Record<string, unknown> & {
-        renderSimpleSettings?: (state: Record<string, unknown> | null, container: HTMLElement) => void;
-        getSimpleSettingsSummary?: (state: Record<string, unknown> | null) => string;
+        renderSimpleSettings?: (
+          state: Record<string, unknown> | null,
+          container: HTMLElement
+        ) => void;
+        getSimpleSettingsSummary?: (
+          state: Record<string, unknown> | null
+        ) => string;
       })
     | null;
-  const state = (store.activeProgramState as Record<string, unknown> | null) || null;
+  const state =
+    (store.activeProgramState as Record<string, unknown> | null) || null;
 
   if (!program || typeof program.renderSimpleSettings !== 'function') {
     return { visible: false, summary: '', tree: [] };
@@ -798,7 +846,10 @@ function buildProgramBasicsSnapshot(): {
 
   // Apply i18n translations to the detached tree
   const runtimeWindow = getRuntimeWindow();
-  if (runtimeWindow?.I18N && typeof runtimeWindow.I18N.applyTranslations === 'function') {
+  if (
+    runtimeWindow?.I18N &&
+    typeof runtimeWindow.I18N.applyTranslations === 'function'
+  ) {
     runtimeWindow.I18N.applyTranslations(card);
   }
 
@@ -823,16 +874,25 @@ function buildSettingsProgramView() {
         id?: string;
         name?: string;
         description?: string;
-        getSimpleSettingsSummary?: (state?: Record<string, unknown> | null) => string;
+        getSimpleSettingsSummary?: (
+          state?: Record<string, unknown> | null
+        ) => string;
       })
     | null;
   const state =
-    (programStore.getState().activeProgramState as Record<string, unknown> | null) ||
-    null;
+    (programStore.getState().activeProgramState as Record<
+      string,
+      unknown
+    > | null) || null;
   const basics = buildProgramBasicsSnapshot();
   const switcher = buildProgramSwitcherData();
-  const programId = String(program?.id || programStore.getState().activeProgramId || '');
-  const programName = t(`program.${programId}.name`, String(program?.name || ''));
+  const programId = String(
+    program?.id || programStore.getState().activeProgramId || ''
+  );
+  const programName = t(
+    `program.${programId}.name`,
+    String(program?.name || '')
+  );
   const programDescription = t(
     `program.${programId}.description`,
     String(program?.description || '')
@@ -1017,8 +1077,7 @@ function buildSettingsPreferencesView() {
 
 function buildSettingsBodyView() {
   const profile = getProfileRecord();
-  const bodyMetrics =
-    (profile.bodyMetrics as MutableRecord | undefined) || {};
+  const bodyMetrics = (profile.bodyMetrics as MutableRecord | undefined) || {};
 
   return {
     labels: {
@@ -1042,10 +1101,7 @@ function buildSettingsBodyView() {
       age: t('settings.body.age', 'Age'),
       targetWeight: t('settings.body.target_weight', 'Target weight (kg)'),
       goalTitle: t('settings.body.goal_title', 'Body Composition Goal'),
-      goalLabel: t(
-        'settings.body.goal_label',
-        'What are you working towards?'
-      ),
+      goalLabel: t('settings.body.goal_label', 'What are you working towards?'),
       goalNone: t('settings.body.goal_none', '— select —'),
       goalLoseFat: t('settings.body.goal.lose_fat', 'Lose fat'),
       goalGainMuscle: t('settings.body.goal.gain_muscle', 'Gain muscle'),
@@ -1073,7 +1129,9 @@ function syncSettingsAccountView() {
 }
 
 function syncSettingsScheduleView() {
-  useRuntimeStore.getState().setSettingsScheduleView(buildSettingsScheduleView());
+  useRuntimeStore
+    .getState()
+    .setSettingsScheduleView(buildSettingsScheduleView());
 }
 
 function syncSettingsProgramView() {
@@ -1135,7 +1193,9 @@ function getOnboardingDefaultDraft() {
       (Array.isArray(schedule.sportDays) ? schedule.sportDays.length : 0),
     jointFlags: [...(coaching.limitations?.jointFlags || [])],
     avoidMovementTags: [...(coaching.limitations?.avoidMovementTags || [])],
-    avoidExercisesText: (coaching.limitations?.avoidExerciseIds || []).join(', '),
+    avoidExercisesText: (coaching.limitations?.avoidExerciseIds || []).join(
+      ', '
+    ),
     guidanceMode: coaching.guidanceMode,
   };
 }
@@ -1152,7 +1212,8 @@ function buildOnboardingRecommendation(draft?: Record<string, unknown>) {
       ...(((nextProfile.preferences as MutableRecord) ||
         getDefaultTrainingPreferences()) as MutableRecord),
       goal: nextDraft.goal,
-      trainingDaysPerWeek: parseInt(String(nextDraft.trainingDaysPerWeek), 10) || 3,
+      trainingDaysPerWeek:
+        parseInt(String(nextDraft.trainingDaysPerWeek), 10) || 3,
       sessionMinutes: parseInt(String(nextDraft.sessionMinutes), 10) || 60,
       equipmentAccess: nextDraft.equipmentAccess,
     },
@@ -1172,7 +1233,9 @@ function buildOnboardingRecommendation(draft?: Record<string, unknown>) {
           parseInt(String(nextDraft.sportSessionsPerWeek), 10) || 0,
       },
       limitations: {
-        jointFlags: [...(((nextDraft.jointFlags as string[]) || []) as string[])],
+        jointFlags: [
+          ...(((nextDraft.jointFlags as string[]) || []) as string[]),
+        ],
         avoidMovementTags: [
           ...(((nextDraft.avoidMovementTags as string[]) || []) as string[]),
         ],
@@ -1206,10 +1269,11 @@ function getLegacyRuntimeState() {
   const workoutState = workoutStore.getState();
   const profileState = profileStore.getState();
   const runtimeWindow = getRuntimeWindow();
-  const legacyCurrentUser = readLegacyRuntimeValue<MutableRecord | null>('currentUser');
-  const legacyWorkouts = readLegacyRuntimeValue<Array<Record<string, unknown>>>(
-    'workouts'
+  const legacyCurrentUser = readLegacyRuntimeValue<MutableRecord | null>(
+    'currentUser'
   );
+  const legacyWorkouts =
+    readLegacyRuntimeValue<Array<Record<string, unknown>>>('workouts');
   const legacyActiveWorkout = readLegacyRuntimeValue<MutableRecord | null>(
     'activeWorkout'
   );
@@ -1227,23 +1291,23 @@ function getLegacyRuntimeState() {
     ),
     schedule: cloneJson(
       (profileState.schedule as MutableRecord | null) ||
-          (dataState.schedule as MutableRecord | null) ||
-          runtimeWindow?.schedule ||
-          null
+        (dataState.schedule as MutableRecord | null) ||
+        runtimeWindow?.schedule ||
+        null
     ),
     profile: cloneJson(
       (profileState.profile as MutableRecord | null) ||
-          (dataState.profile as MutableRecord | null) ||
-          runtimeWindow?.profile ||
-          null
+        (dataState.profile as MutableRecord | null) ||
+        runtimeWindow?.profile ||
+        null
     ),
     activeWorkout: cloneJson(
       legacyActiveWorkout !== undefined
         ? legacyActiveWorkout
         : (workoutState.activeWorkout as MutableRecord | null) ||
-          (dataState.activeWorkout as MutableRecord | null) ||
-          runtimeWindow?.activeWorkout ||
-          null
+            (dataState.activeWorkout as MutableRecord | null) ||
+            runtimeWindow?.activeWorkout ||
+            null
     ),
   };
 }
@@ -1260,7 +1324,9 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
   const hasCombinedProfileSchedule = hasProfile && hasSchedule;
 
   if (hasCurrentUser) {
-    const nextValue = cloneJson((partial.currentUser as MutableRecord | null) || null);
+    const nextValue = cloneJson(
+      (partial.currentUser as MutableRecord | null) || null
+    );
     runtimeWindow.currentUser = nextValue;
     writeLegacyRuntimeValue('currentUser', nextValue);
   }
@@ -1272,8 +1338,12 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
     writeLegacyRuntimeValue('workouts', nextValue);
   }
   if (hasCombinedProfileSchedule) {
-    const nextProfile = cloneJson((partial.profile as MutableRecord | null) || null);
-    const nextSchedule = cloneJson((partial.schedule as MutableRecord | null) || null);
+    const nextProfile = cloneJson(
+      (partial.profile as MutableRecord | null) || null
+    );
+    const nextSchedule = cloneJson(
+      (partial.schedule as MutableRecord | null) || null
+    );
     if (typeof profileBridge?.hydrateProfileRuntime === 'function') {
       profileBridge.hydrateProfileRuntime({
         profile: nextProfile,
@@ -1291,7 +1361,9 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
       );
     }
   } else if (hasSchedule) {
-    const nextValue = cloneJson((partial.schedule as MutableRecord | null) || null);
+    const nextValue = cloneJson(
+      (partial.schedule as MutableRecord | null) || null
+    );
     if (typeof profileBridge?.setSchedule === 'function') {
       profileBridge.setSchedule(nextValue);
     } else {
@@ -1301,7 +1373,9 @@ function setLegacyRuntimeState(partial: Record<string, unknown>) {
     }
   }
   if (hasProfile && !hasSchedule) {
-    const nextValue = cloneJson((partial.profile as MutableRecord | null) || null);
+    const nextValue = cloneJson(
+      (partial.profile as MutableRecord | null) || null
+    );
     if (typeof profileBridge?.setProfile === 'function') {
       profileBridge.setProfile(nextValue);
     } else {
@@ -1419,7 +1493,10 @@ function saveRestTimer() {
   const nextProfile = profileStore.getState().updateProfile({
     defaultRest: nextDefaultRest,
   });
-  writeLegacyRuntimeValue('restDuration', Number(nextProfile?.defaultRest || 120));
+  writeLegacyRuntimeValue(
+    'restDuration',
+    Number(nextProfile?.defaultRest || 120)
+  );
   callLegacyWindowFunction('saveProfileData', { docKeys: ['profile_core'] });
   syncSettingsBridge();
   showAutoSaveToast(t('toast.rest_updated', 'Saved'), 'var(--blue)');
@@ -1481,9 +1558,15 @@ function saveTrainingPreferences(options?: Record<string, unknown>) {
         'training-sport-check',
         prefs.sportReadinessCheckEnabled === true
       );
-  const warmupSetsEnabled = hasOwnRuntimeField(opts, 'warmupSetsEnabledOverride')
+  const warmupSetsEnabled = hasOwnRuntimeField(
+    opts,
+    'warmupSetsEnabledOverride'
+  )
     ? opts.warmupSetsEnabledOverride === true
-    : readCheckboxValue('training-warmup-sets', prefs.warmupSetsEnabled === true);
+    : readCheckboxValue(
+        'training-warmup-sets',
+        prefs.warmupSetsEnabled === true
+      );
   const detailedView = hasOwnRuntimeField(opts, 'detailedViewOverride')
     ? opts.detailedViewOverride === true
     : prefs.detailedView;
@@ -1563,12 +1646,16 @@ function saveSimpleProgramSettings() {
   const program = programStore.getState().activeProgram as
     | (MutableRecord & {
         id?: string;
-        saveSimpleSettings?: (state?: Record<string, unknown> | null) => Record<string, unknown> | null;
+        saveSimpleSettings?: (
+          state?: Record<string, unknown> | null
+        ) => Record<string, unknown> | null;
       })
     | null;
   const state =
-    (programStore.getState().activeProgramState as Record<string, unknown> | null) ||
-    null;
+    (programStore.getState().activeProgramState as Record<
+      string,
+      unknown
+    > | null) || null;
   if (!program || typeof program.saveSimpleSettings !== 'function') return null;
 
   const nextState = program.saveSimpleSettings(state);
@@ -1620,9 +1707,10 @@ function importData(event?: Event | null) {
   ) {
     return;
   }
-  const target = (event?.target || null) as
-    | { files?: FileList | null; value?: string }
-    | null;
+  const target = (event?.target || null) as {
+    files?: FileList | null;
+    value?: string;
+  } | null;
   const file = target?.files?.[0];
   if (!file) return;
 
@@ -1653,17 +1741,16 @@ function importData(event?: Event | null) {
         return;
       }
 
-      const validation =
-        callLegacyWindowFunction<{
-          ok?: boolean;
-          errorKey?: string;
-          fallback?: string;
-          value?: Record<string, unknown>;
-        }>('validateImportedBackup', data) || {
-          ok: false,
-          errorKey: 'import.invalid_file',
-          fallback: 'Invalid backup file',
-        };
+      const validation = callLegacyWindowFunction<{
+        ok?: boolean;
+        errorKey?: string;
+        fallback?: string;
+        value?: Record<string, unknown>;
+      }>('validateImportedBackup', data) || {
+        ok: false,
+        errorKey: 'import.invalid_file',
+        fallback: 'Invalid backup file',
+      };
 
       if (!validation?.ok || !validation.value) {
         callLegacyWindowFunction(
@@ -1681,30 +1768,40 @@ function importData(event?: Event | null) {
       callLegacyWindowFunction(
         'showConfirm',
         t('import.title', 'Import Data'),
-        t('import.replace_with_backup', 'Replace all data with backup from {date}?', {
-          date: validated.exported
-            ? new Date(String(validated.exported)).toLocaleDateString()
-            : 'unknown',
-        }),
+        t(
+          'import.replace_with_backup',
+          'Replace all data with backup from {date}?',
+          {
+            date: validated.exported
+              ? new Date(String(validated.exported)).toLocaleDateString()
+              : 'unknown',
+          }
+        ),
         async () => {
           const nextWorkouts = Array.isArray(validated.workouts)
-            ? writeWorkoutsState(validated.workouts as Array<Record<string, unknown>>)
+            ? writeWorkoutsState(
+                validated.workouts as Array<Record<string, unknown>>
+              )
             : cloneJson(dataStore.getState().workouts || []);
           const nextSchedule = Object.prototype.hasOwnProperty.call(
             validated,
             'schedule'
           )
-            ? profileStore.getState().setSchedule(
-                (validated.schedule as Record<string, unknown> | null) || null
-              )
+            ? profileStore
+                .getState()
+                .setSchedule(
+                  (validated.schedule as Record<string, unknown> | null) || null
+                )
             : getScheduleRecord();
           const nextProfile = Object.prototype.hasOwnProperty.call(
             validated,
             'profile'
           )
-            ? profileStore.getState().setProfile(
-                (validated.profile as Record<string, unknown> | null) || null
-              )
+            ? profileStore
+                .getState()
+                .setProfile(
+                  (validated.profile as Record<string, unknown> | null) || null
+                )
             : getProfileRecord();
 
           programStore.getState().syncFromLegacy();
@@ -1818,7 +1915,8 @@ function updateLanguageDependentUI() {
   }
 
   const historyPageActive =
-    document.getElementById('page-history')?.classList.contains('active') === true;
+    document.getElementById('page-history')?.classList.contains('active') ===
+    true;
   const logPageActive =
     document.getElementById('page-log')?.classList.contains('active') === true;
 
@@ -1877,8 +1975,7 @@ async function completeOnboarding(draft?: Record<string, unknown>) {
       sportProfile: {
         name: String(d.sportName || '').trim(),
         inSeason: d.inSeason === true,
-        sessionsPerWeek:
-          parseInt(String(d.sportSessionsPerWeek || 0), 10) || 0,
+        sessionsPerWeek: parseInt(String(d.sportSessionsPerWeek || 0), 10) || 0,
       },
       limitations: {
         jointFlags: [...(((d.jointFlags as string[]) || []) as string[])],
@@ -1899,11 +1996,10 @@ async function completeOnboarding(draft?: Record<string, unknown>) {
   const recommendedProgramId = String(
     (recommendation as MutableRecord).programId || ''
   );
-  const recommendedProgramInitialState =
-    callLegacyWindowFunction<Record<string, unknown> | null>(
-      'getProgramInitialState',
-      recommendedProgramId
-    );
+  const recommendedProgramInitialState = callLegacyWindowFunction<Record<
+    string,
+    unknown
+  > | null>('getProgramInitialState', recommendedProgramId);
   const currentPrograms =
     (currentProfile.programs as Record<string, unknown> | null) || {};
   const nextPrograms = { ...currentPrograms };
@@ -1970,8 +2066,7 @@ function maybeOpenOnboarding(options?: Record<string, unknown>) {
     closeOnboardingModal();
     return;
   }
-  const hasRegs =
-    callLegacyWindowFunction<boolean>('hasRegisteredPrograms');
+  const hasRegs = callLegacyWindowFunction<boolean>('hasRegisteredPrograms');
   if (hasRegs === false) {
     _onboardingRetryTimer = setTimeout(() => maybeOpenOnboarding(opts), 120);
     return;
@@ -2059,7 +2154,8 @@ export function installAppRuntimeBridge() {
   runtimeWindow.__IRONFORGE_ACTIVE_SETTINGS_TAB__ = getDefaultSettingsTab();
   runtimeWindow.__IRONFORGE_GET_LEGACY_RUNTIME_STATE__ = getLegacyRuntimeState;
   runtimeWindow.__IRONFORGE_SET_LEGACY_RUNTIME_STATE__ = setLegacyRuntimeState;
-  runtimeWindow.getSettingsAccountUiStateSnapshot = getSettingsAccountUiStateSnapshot;
+  runtimeWindow.getSettingsAccountUiStateSnapshot =
+    getSettingsAccountUiStateSnapshot;
   runtimeWindow.showSettingsTab = showSettingsTab;
   runtimeWindow.syncSettingsBridge = syncSettingsBridge;
   runtimeWindow.getOnboardingDefaultDraft = getOnboardingDefaultDraft;
