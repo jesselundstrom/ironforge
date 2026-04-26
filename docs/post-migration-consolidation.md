@@ -13,6 +13,18 @@ This document tracks the cleanup that comes after the migration itself. The end-
 - legacy scripts provide only narrow compatibility adapters for untouched surfaces
 - Playwright targets the typed E2E/store harness by default instead of incidental globals
 
+## Ownership Anti-Drift Contract
+
+This document is the canonical ownership anti-drift contract for the current stabilization phase. The central risk is duplicate typed plus legacy ownership: adding a typed path while leaving the replaced legacy branch alive is not migration progress, it is runtime growth.
+
+Before changing runtime ownership:
+
+- identify the typed owner that will become authoritative
+- identify the legacy compatibility delegate that remains for untouched callers
+- remove the replaced legacy logic in the same slice
+- avoid new `window.*` contracts unless temporary compatibility truly requires them
+- update tests toward `window.__IRONFORGE_E2E__` or focused store harnesses instead of incidental globals
+
 ## Current Consolidation Direction
 
 ### 1. `app.js` should be a compat shell, not a runtime owner

@@ -49,6 +49,8 @@ Audit workflow:
 4. Prioritize issues by production impact and exploitability.
 5. Suggest the smallest exact fixes that materially reduce risk.
 
+For Ironforge migration or runtime changes, explicitly audit for duplicate typed plus legacy ownership, bridge regrowth, new or broadened `window.*` contracts, and legacy globals becoming primary owners again. Treat missing proof of single ownership as a data-integrity and reliability risk.
+
 Output every audit in this exact section order:
 
 - Summary

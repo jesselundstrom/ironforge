@@ -66,6 +66,8 @@ Ironforge's visible UI migration is complete. The shipped app shell already runs
 
 The remaining migration target is the legacy business/runtime layer in `app.js`, `core/*.js`, and `programs/*.js`. That work now centers on ownership cleanup: reducing multi-writer state, shrinking compatibility bridges, and moving the remaining business logic behind typed store/domain seams while preserving current behavior, current data formats, and the current Playwright suite.
 
+Use this document as the migration roadmap. Use `docs/post-migration-consolidation.md` as the canonical ownership anti-drift contract for the current stabilization phase.
+
 Current migration rules:
 
 - A surface may still expose compatibility delegates while untouched callers remain.

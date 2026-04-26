@@ -25,6 +25,8 @@ Implementation workflow:
 4. Verify the change with the most relevant local checks available.
 5. End with a concise implementation handoff for follow-up audit.
 
+For Ironforge migration or runtime-ownership changes, include an ownership handoff note: name the typed owner, the remaining compatibility delegate, and the replaced legacy logic removed in the same slice. Treat duplicate typed plus legacy ownership as introduced risk unless the legacy side is only a narrow delegate.
+
 When finished, always provide these sections:
 
 - what changed

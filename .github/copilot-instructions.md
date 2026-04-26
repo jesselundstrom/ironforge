@@ -45,7 +45,8 @@
 - Keep legacy runtime access behind explicit adapters and compatibility seams instead of importing legacy files deeply into React code.
 - Reuse existing state objects, helpers, and DOM patterns before creating new ones.
 - Keep changes small and compatible with the current file organization.
-- Use `docs/migration-ts-zustand.md` as the migration source of truth for the legacy runtime replacement.
+- Use `docs/migration-ts-zustand.md` as the migration roadmap for the legacy runtime replacement.
+- Use `docs/post-migration-consolidation.md` as the current ownership anti-drift contract for runtime cleanup.
 
 ## Runtime Compatibility Rules
 - `core/ui-shell.js`, `window.showPage(...)`, `window.showToast(...)`, `window.showConfirm(...)`, and similar globals remain compatibility surfaces until their callers are fully migrated.
@@ -69,6 +70,7 @@
 - Surface-level compatibility delegates may remain temporarily for untouched callers, but do not keep duplicate legacy logic after a slice has a typed owner.
 - Remove bridge/shim code only after the typed runtime owns that surface and the relevant tests no longer depend on the legacy contract.
 - Do not introduce new page-by-page React migration guidance; the visible-surface cutover is already complete.
+- Before changing runtime ownership, identify the typed owner, the remaining legacy compatibility delegate, and the replaced legacy branch that must be deleted in the same slice.
 
 ## UI And Behavior
 - Match the existing visual language and interaction patterns.
@@ -174,6 +176,7 @@
 - Fix root causes instead of layering on narrow patches when feasible.
 - Avoid unrelated refactors.
 - The current stabilization cycle is under a hard feature freeze.
+- The central stabilization risk is duplicate typed plus legacy ownership; prevent bridge regrowth and do not leave two owners for one migrated behavior.
 - Allowed work in this cycle: bug fixes, ownership-reduction migration work, tests required by migration, and minimal UX fixes needed to land a migration slice.
 - Not allowed in this cycle: new features, new `window.*` contracts, new program settings, new stores outside the active workout/runtime migration path, or wrapper-only convergence work.
 - `app.js` contraction is the current follow-up target. Settings tab ownership, settings danger-state snapshotting, onboarding defaults/recommendations, language-refresh orchestration, and settings/account/program-save/import/clear orchestration should stay in typed app-runtime ownership and should not regrow in `app.js`.

@@ -8,7 +8,7 @@
     "build": "vite build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "guard:migration": "node scripts/check-migrated-workout-surface.cjs && node scripts/check-migrated-data-sync-surface.cjs",
+    "guard:migration": "node scripts/check-migrated-workout-surface.cjs && node scripts/check-migrated-data-sync-surface.cjs && node scripts/check-agent-instruction-drift.cjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:unit": "vitest run",

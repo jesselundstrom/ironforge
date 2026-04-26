@@ -2,13 +2,15 @@
 
 - For project vision, working style, and architecture decisions, read `CLAUDE.md`.
 - For technical conventions, coding rules, and layer structure, read `.github/copilot-instructions.md`.
-- Treat both files as project constraints unless the user explicitly overrides them.
+- For the current stabilization phase ownership anti-drift contract, read `docs/post-migration-consolidation.md`.
+- Treat these files as project constraints unless the user explicitly overrides them.
 - Do not rewrite or duplicate those files by default. Use them as shared sources of truth.
 
 ## Project Context
 
 Ironforge is a personal coaching PWA with three pillars: Training, Nutrition, and Recovery. The shipped app already uses a React + Vite shell with a Zustand runtime foundation, while substantial business logic still lives in `app.js`, `core/*.js`, and `programs/*.js` during the ongoing TypeScript + Zustand migration. Nutrition coaching runs through the Supabase `nutrition-coach` edge function, and the app remains mobile-first with Capacitor as the near-term native wrapper path and React Native as a future option.
 The shipped styling pipeline now runs through Tailwind v4 in `src/styles/tailwind.css`, while `src/styles/legacy-ui.css` remains as a shrinking compatibility layer for untouched legacy surfaces.
+The biggest current migration risk is duplicate typed plus legacy ownership; completed slices must remove replaced legacy logic rather than leaving a second owner behind.
 
 ## Skills
 

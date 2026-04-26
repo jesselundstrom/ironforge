@@ -17,6 +17,7 @@ Use this skill for broad app decisions, not just code tasks. Stay grounded in th
    - iPhone-first PWA today
    - Capacitor as the near-term native path
    - gradual React migration inside an existing live codebase
+   - duplicate typed plus legacy ownership is the top architecture risk during stabilization
    - nutrition, workout, and recovery guidance must stay practical and safe
 4. State key assumptions if the repo does not fully answer the question.
 
