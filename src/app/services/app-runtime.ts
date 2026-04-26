@@ -12,6 +12,36 @@ import { bootstrapProfileRuntime as normalizeBootstrapProfileRuntime } from '../
 import { getInitialPlanRecommendation } from '../../domain/planning';
 import { isSimpleMode } from '../../domain/dashboard-view';
 import { getAllProfileDocumentKeys } from './profile-documents';
+import {
+  applyProgramDateCatchUp,
+  cleanProgramOptionLabel,
+  getActiveProgram,
+  getActiveProgramFrequencyMismatch,
+  getActiveProgramId,
+  getActiveProgramState,
+  getProgramById,
+  getProgramOptionDayNumber,
+  getProgramFrequencyCompatibility,
+  getProgramFrequencyNoticeHTML,
+  getProgramInitialState,
+  getProgramPreviewExerciseMeta,
+  getProgramPreviewHeaderChips,
+  getProgramTodayMuscleTags,
+  getRegisteredPrograms,
+  getSuggestedProgramsForTrainingDays,
+  hasRegisteredPrograms,
+  openProgramExercisePicker,
+  previewProgramSplit,
+  recomputeProgramStateFromWorkouts,
+  resolveProgramExerciseName,
+  saveProgramSetup,
+  setProgramState,
+  setSLNextWorkout,
+  switchProgram,
+  updateForgeModeSetting,
+  updateProgramLift,
+  updateSLLift,
+} from './program-runtime';
 import type { Profile } from '../../domain/types';
 import { useRuntimeStore } from '../store/runtime-store';
 import { isSettingsTab, type SettingsTab } from '../constants';
@@ -60,6 +90,75 @@ type RuntimeApi = {
   saveBodyMetrics: () => Profile | null;
   saveLanguageSetting: (nextLanguage?: string) => Profile | null;
   saveSimpleProgramSettings: () => Record<string, unknown> | null;
+  getRegisteredPrograms: () => Array<Record<string, unknown>>;
+  hasRegisteredPrograms: () => boolean;
+  getProgramById: (programId?: string | null) => Record<string, unknown> | null;
+  getProgramInitialState: (
+    programId?: string | null
+  ) => Record<string, unknown> | null;
+  getActiveProgramId: () => string | null;
+  getActiveProgram: () => Record<string, unknown> | null;
+  getActiveProgramState: () => Record<string, unknown>;
+  setProgramState: (
+    programId?: string | null,
+    state?: unknown
+  ) => Record<string, unknown> | null;
+  recomputeProgramStateFromWorkouts: (
+    programId?: string | null
+  ) => Record<string, unknown> | null;
+  applyProgramDateCatchUp: (programId?: string | null) => boolean;
+  switchProgram: (programId?: string | null) => Record<string, unknown>;
+  saveProgramSetup: () => Record<string, unknown> | null;
+  resolveProgramExerciseName: (input?: unknown) => string;
+  openProgramExercisePicker: (
+    config?: Record<string, unknown> | null
+  ) => unknown;
+  updateProgramLift: (
+    array?: string | null,
+    index?: number,
+    field?: string | null,
+    value?: unknown
+  ) => Record<string, unknown> | null;
+  updateSLLift: (
+    key?: string | null,
+    value?: unknown
+  ) => Record<string, unknown> | null;
+  setSLNextWorkout: (
+    workoutKey?: string | null
+  ) => Record<string, unknown> | null;
+  previewProgramSplit: () => boolean;
+  updateForgeModeSetting: () => boolean;
+  cleanProgramOptionLabel: (label?: unknown) => string;
+  getProgramOptionDayNumber: (
+    option?: Record<string, unknown> | null
+  ) => string;
+  getProgramPreviewExerciseMeta: (
+    exercise?: Record<string, unknown> | null
+  ) => Record<string, unknown>;
+  getProgramPreviewHeaderChips: (
+    prog?: Record<string, unknown> | null,
+    state?: Record<string, unknown> | null,
+    session?: Array<Record<string, unknown>> | null,
+    buildContext?: Record<string, unknown> | null
+  ) => string[];
+  getProgramTodayMuscleTags: (
+    planningContext?: Record<string, unknown> | null
+  ) => Array<Record<string, unknown>>;
+  getProgramFrequencyCompatibility: (
+    programId?: string | null,
+    profileLike?: Record<string, unknown> | null
+  ) => Record<string, unknown>;
+  getSuggestedProgramsForTrainingDays: (
+    days: number,
+    profileLike?: Record<string, unknown> | null
+  ) => Array<Record<string, unknown>>;
+  getActiveProgramFrequencyMismatch: (
+    profileLike?: Record<string, unknown> | null
+  ) => Record<string, unknown> | null;
+  getProgramFrequencyNoticeHTML: (
+    programId?: string | null,
+    profileLike?: Record<string, unknown> | null
+  ) => string;
   exportData: () => void;
   importData: (event?: Event | null) => void;
   clearAllData: () => Promise<void>;
@@ -131,6 +230,77 @@ type RuntimeWindow = Window & {
   completeOnboarding?: (draft?: Record<string, unknown>) => Promise<void>;
   maybeOpenOnboarding?: (options?: Record<string, unknown>) => void;
   restartOnboarding?: () => void;
+  getRegisteredPrograms?: () => Array<Record<string, unknown>>;
+  hasRegisteredPrograms?: () => boolean;
+  getProgramById?: (
+    programId?: string | null
+  ) => Record<string, unknown> | null;
+  getProgramInitialState?: (
+    programId?: string | null
+  ) => Record<string, unknown> | null;
+  getActiveProgramId?: () => string | null;
+  getActiveProgram?: () => Record<string, unknown> | null;
+  getActiveProgramState?: () => Record<string, unknown>;
+  setProgramState?: (
+    programId?: string | null,
+    state?: unknown
+  ) => Record<string, unknown> | null;
+  recomputeProgramStateFromWorkouts?: (
+    programId?: string | null
+  ) => Record<string, unknown> | null;
+  applyProgramDateCatchUp?: (programId?: string | null) => boolean;
+  switchProgram?: (programId?: string | null) => Record<string, unknown>;
+  saveProgramSetup?: () => Record<string, unknown> | null;
+  resolveProgramExerciseName?: (input?: unknown) => string;
+  openProgramExercisePicker?: (
+    config?: Record<string, unknown> | null
+  ) => unknown;
+  updateProgramLift?: (
+    array?: string | null,
+    index?: number,
+    field?: string | null,
+    value?: unknown
+  ) => Record<string, unknown> | null;
+  updateSLLift?: (
+    key?: string | null,
+    value?: unknown
+  ) => Record<string, unknown> | null;
+  setSLNextWorkout?: (
+    workoutKey?: string | null
+  ) => Record<string, unknown> | null;
+  previewProgramSplit?: () => boolean;
+  updateForgeModeSetting?: () => boolean;
+  cleanProgramOptionLabel?: (label?: unknown) => string;
+  getProgramOptionDayNumber?: (
+    option?: Record<string, unknown> | null
+  ) => string;
+  getProgramPreviewExerciseMeta?: (
+    exercise?: Record<string, unknown> | null
+  ) => Record<string, unknown>;
+  getProgramPreviewHeaderChips?: (
+    prog?: Record<string, unknown> | null,
+    state?: Record<string, unknown> | null,
+    session?: Array<Record<string, unknown>> | null,
+    buildContext?: Record<string, unknown> | null
+  ) => string[];
+  getProgramTodayMuscleTags?: (
+    planningContext?: Record<string, unknown> | null
+  ) => Array<Record<string, unknown>>;
+  getProgramFrequencyCompatibility?: (
+    programId?: string | null,
+    profileLike?: Record<string, unknown> | null
+  ) => Record<string, unknown>;
+  getSuggestedProgramsForTrainingDays?: (
+    days: number,
+    profileLike?: Record<string, unknown> | null
+  ) => Array<Record<string, unknown>>;
+  getActiveProgramFrequencyMismatch?: (
+    profileLike?: Record<string, unknown> | null
+  ) => Record<string, unknown> | null;
+  getProgramFrequencyNoticeHTML?: (
+    programId?: string | null,
+    profileLike?: Record<string, unknown> | null
+  ) => string;
   closeOnboardingModal?: () => void;
   dismissOnboardingModal?: () => void;
   notifyOnboardingIsland?: () => void;
@@ -426,51 +596,24 @@ function buildProgramSwitcherData(): {
   );
   const store = programStore.getState();
   const activeProgramId = store.activeProgramId || '';
-
-  // Build list: programs that support requested days, always include active, fallback to all
-  const matching = store.programs.filter((prog) => {
-    const range = store.getProgramTrainingDaysRange(prog.id as string);
-    return requested >= range.min && requested <= range.max;
-  });
+  const matching = getSuggestedProgramsForTrainingDays(requested, profile);
   const visible = matching.slice();
   if (
     activeProgramId &&
     !visible.some((prog) => (prog.id as string) === activeProgramId)
   ) {
     const activeProg = store.getProgramById(activeProgramId);
-    if (activeProg) visible.push(activeProg);
+    if (activeProg) visible.push(activeProg as Record<string, unknown>);
   }
   const source = visible.length ? visible : store.programs;
 
-  // Sort by recommendationScore desc, then name asc (mirrors legacy sort)
-  const sorted = source
-    .map((prog) => {
-      const caps = store.getProgramCapabilities(prog.id as string);
-      const score =
-        typeof caps.recommendationScore === 'function'
-          ? caps.recommendationScore(
-              requested,
-              prefs as Record<string, unknown>
-            )
-          : 0;
-      return { prog, score };
-    })
-    .sort(
-      (a, b) =>
-        b.score - a.score ||
-        String(a.prog.name || '').localeCompare(String(b.prog.name || ''))
-    )
-    .map((entry) => entry.prog);
-
-  const cards: ProgramSwitcherCard[] = sorted.map((prog) => {
+  const cards: ProgramSwitcherCard[] = source.map((prog) => {
     const id = String(prog.id || '');
-    const range = store.getProgramTrainingDaysRange(id);
-    const supportsExact = requested >= range.min && requested <= range.max;
-    const effective = store.getEffectiveProgramFrequency(id, profile);
+    const compatibility = getProgramFrequencyCompatibility(id, profile);
     const effectiveLabel = t(
       'settings.preferences.training_days_value',
       '{count} sessions / week',
-      { count: effective }
+      { count: compatibility.effective }
     );
     const difficultyMeta = store.getProgramDifficultyMeta(id);
     const isActive = id === activeProgramId;
@@ -483,14 +626,14 @@ function buildProgramSwitcherData(): {
         `program.${id}.description`,
         String(prog.description || '')
       ),
-      fitLabel: supportsExact
+      fitLabel: compatibility.supportsExact
         ? t('program.frequency_card.fit', 'Fits {value}', {
             value: requestedLabel,
           })
         : t('program.frequency_card.fallback', 'Uses {value}', {
             value: effectiveLabel,
           }),
-      fitTone: supportsExact ? 'ok' : 'fallback',
+      fitTone: compatibility.supportsExact ? 'ok' : 'fallback',
       difficultyKey: difficultyMeta.key,
       difficultyTone: difficultyMeta.key,
       difficultyLabel: t(difficultyMeta.labelKey, difficultyMeta.fallback),
@@ -837,8 +980,7 @@ function buildProgramBasicsSnapshot(): {
   program.renderSimpleSettings(state, container);
 
   // Inject frequency notice if active program doesn't match user's requested days
-  const noticeHtml = callLegacyWindowFunction<string>(
-    'getProgramFrequencyNoticeHTML',
+  const noticeHtml = getProgramFrequencyNoticeHTML(
     String(program.id || ''),
     cloneJson(getProfileRecord())
   );
@@ -1606,11 +1748,7 @@ function saveTrainingPreferences(options?: Record<string, unknown>) {
   callLegacyWindowFunction('updateDashboard');
   callLegacyWindowFunction('updateProgramDisplay');
 
-  const mismatch = callLegacyWindowFunction<{
-    prog?: { id?: string; name?: string };
-    effectiveLabel?: string;
-    requestedLabel?: string;
-  }>('getActiveProgramFrequencyMismatch', nextProfile || profile);
+  const mismatch = getActiveProgramFrequencyMismatch(nextProfile || profile);
   if (mismatch) {
     callLegacyWindowFunction(
       'showToast',
@@ -2139,6 +2277,34 @@ export function installAppRuntimeBridge() {
     saveBodyMetrics,
     saveLanguageSetting,
     saveSimpleProgramSettings,
+    getRegisteredPrograms,
+    hasRegisteredPrograms,
+    getProgramById,
+    getProgramInitialState,
+    getActiveProgramId,
+    getActiveProgram,
+    getActiveProgramState,
+    setProgramState,
+    recomputeProgramStateFromWorkouts,
+    applyProgramDateCatchUp,
+    switchProgram,
+    saveProgramSetup,
+    resolveProgramExerciseName,
+    openProgramExercisePicker,
+    updateProgramLift,
+    updateSLLift,
+    setSLNextWorkout,
+    previewProgramSplit,
+    updateForgeModeSetting,
+    cleanProgramOptionLabel,
+    getProgramOptionDayNumber,
+    getProgramPreviewExerciseMeta,
+    getProgramPreviewHeaderChips,
+    getProgramTodayMuscleTags,
+    getProgramFrequencyCompatibility,
+    getSuggestedProgramsForTrainingDays,
+    getActiveProgramFrequencyMismatch,
+    getProgramFrequencyNoticeHTML,
     exportData,
     importData,
     clearAllData,
@@ -2174,6 +2340,38 @@ export function installAppRuntimeBridge() {
   runtimeWindow.completeOnboarding = completeOnboarding;
   runtimeWindow.maybeOpenOnboarding = maybeOpenOnboarding;
   runtimeWindow.restartOnboarding = restartOnboarding;
+  runtimeWindow.getRegisteredPrograms = getRegisteredPrograms;
+  runtimeWindow.hasRegisteredPrograms = hasRegisteredPrograms;
+  runtimeWindow.getProgramById = getProgramById;
+  runtimeWindow.getProgramInitialState = getProgramInitialState;
+  runtimeWindow.getActiveProgramId = getActiveProgramId;
+  runtimeWindow.getActiveProgram = getActiveProgram;
+  runtimeWindow.getActiveProgramState = getActiveProgramState;
+  runtimeWindow.setProgramState = setProgramState;
+  runtimeWindow.recomputeProgramStateFromWorkouts =
+    recomputeProgramStateFromWorkouts;
+  runtimeWindow.applyProgramDateCatchUp = applyProgramDateCatchUp;
+  runtimeWindow.switchProgram = switchProgram;
+  runtimeWindow.saveProgramSetup = saveProgramSetup;
+  runtimeWindow.resolveProgramExerciseName = resolveProgramExerciseName;
+  runtimeWindow.openProgramExercisePicker = openProgramExercisePicker;
+  runtimeWindow.updateProgramLift = updateProgramLift;
+  runtimeWindow.updateSLLift = updateSLLift;
+  runtimeWindow.setSLNextWorkout = setSLNextWorkout;
+  runtimeWindow.previewProgramSplit = previewProgramSplit;
+  runtimeWindow.updateForgeModeSetting = updateForgeModeSetting;
+  runtimeWindow.cleanProgramOptionLabel = cleanProgramOptionLabel;
+  runtimeWindow.getProgramOptionDayNumber = getProgramOptionDayNumber;
+  runtimeWindow.getProgramPreviewExerciseMeta = getProgramPreviewExerciseMeta;
+  runtimeWindow.getProgramPreviewHeaderChips = getProgramPreviewHeaderChips;
+  runtimeWindow.getProgramTodayMuscleTags = getProgramTodayMuscleTags;
+  runtimeWindow.getProgramFrequencyCompatibility =
+    getProgramFrequencyCompatibility;
+  runtimeWindow.getSuggestedProgramsForTrainingDays =
+    getSuggestedProgramsForTrainingDays;
+  runtimeWindow.getActiveProgramFrequencyMismatch =
+    getActiveProgramFrequencyMismatch;
+  runtimeWindow.getProgramFrequencyNoticeHTML = getProgramFrequencyNoticeHTML;
   runtimeWindow.closeOnboardingModal = closeOnboardingModal;
   runtimeWindow.dismissOnboardingModal = dismissOnboardingModal;
   runtimeWindow.notifyOnboardingIsland = notifyOnboardingIsland;

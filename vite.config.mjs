@@ -62,7 +62,13 @@ function preserveClassicScripts(buildStamp) {
 }
 
 function copyLegacyRuntime() {
-  const files = ['app.js', 'manifest.json', 'sw.js', 'icon-180.png', 'icon-512.png'];
+  const files = [
+    'app.js',
+    'manifest.json',
+    'sw.js',
+    'icon-180.png',
+    'icon-512.png',
+  ];
   const directories = ['core', 'programs'];
 
   return {
@@ -72,13 +78,20 @@ function copyLegacyRuntime() {
       const distDir = path.resolve(rootDir, 'dist');
 
       directories.forEach((directory) => {
-        fs.cpSync(path.resolve(rootDir, directory), path.resolve(distDir, directory), {
-          recursive: true,
-        });
+        fs.cpSync(
+          path.resolve(rootDir, directory),
+          path.resolve(distDir, directory),
+          {
+            recursive: true,
+          }
+        );
       });
 
       files.forEach((file) => {
-        fs.copyFileSync(path.resolve(rootDir, file), path.resolve(distDir, file));
+        fs.copyFileSync(
+          path.resolve(rootDir, file),
+          path.resolve(distDir, file)
+        );
       });
     },
   };
@@ -100,7 +113,26 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
+          const normalizedId = id.split(path.sep).join('/');
+          if (!normalizedId.includes('node_modules')) {
+            if (
+              normalizedId.includes('/src/programs/') ||
+              normalizedId.includes('/src/stores/') ||
+              normalizedId.includes('/src/domain/') ||
+              normalizedId.includes('/src/app/services/')
+            ) {
+              return 'runtime-core';
+            }
+            if (
+              normalizedId.includes('/src/settings-') ||
+              normalizedId.includes('/src/log-') ||
+              normalizedId.includes('/src/history-') ||
+              normalizedId.includes('/src/nutrition-')
+            ) {
+              return 'feature-islands';
+            }
+            return undefined;
+          }
           if (id.includes('react-router')) return 'router-vendor';
           if (id.includes('react-dom') || id.includes('react')) {
             return 'react-vendor';

@@ -101,6 +101,10 @@ export function saveSimpleProgramSettings() {
 }
 
 export function switchProgram(programId: string) {
+  if (typeof getAppRuntime()?.switchProgram === 'function') {
+    getAppRuntime()?.switchProgram?.(programId);
+    return;
+  }
   callLegacyWindowFunction('switchProgram', programId);
 }
 

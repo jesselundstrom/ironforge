@@ -25,6 +25,11 @@ function setElementValueById(elementId: string, value: string) {
   element.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function getAppRuntime() {
+  if (typeof window === 'undefined') return null;
+  return window.__IRONFORGE_APP_RUNTIME__ || null;
+}
+
 function runAllowedLegacyCall(
   code: string,
   event?: ProgramSettingsInlineEvent
@@ -38,6 +43,10 @@ function runAllowedLegacyCall(
     {
       matcher: /^saveProgramSetup\(\)$/,
       execute: () => {
+        if (getAppRuntime()?.saveProgramSetup) {
+          getAppRuntime()?.saveProgramSetup?.();
+          return;
+        }
         callLegacyWindowFunction('saveProgramSetup');
       },
     },
@@ -108,24 +117,46 @@ function runAllowedLegacyCall(
     {
       matcher: /^updateForgeModeSetting\(\)$/,
       execute: () => {
+        if (getAppRuntime()?.updateForgeModeSetting) {
+          getAppRuntime()?.updateForgeModeSetting?.();
+          return;
+        }
         callLegacyWindowFunction('updateForgeModeSetting');
       },
     },
     {
       matcher: /^setSLNextWorkout\('([AB])'\)$/,
       execute: (match) => {
+        if (getAppRuntime()?.setSLNextWorkout) {
+          getAppRuntime()?.setSLNextWorkout?.(match[1]);
+          return;
+        }
         callLegacyWindowFunction('setSLNextWorkout', match[1]);
       },
     },
     {
       matcher: /^updateSLLift\('([^']+)',parseFloat\(this\.value\)\|\|0\)$/,
       execute: (match) => {
+        if (getAppRuntime()?.updateSLLift) {
+          getAppRuntime()?.updateSLLift?.(match[1], targetValue);
+          return;
+        }
         callLegacyWindowFunction('updateSLLift', match[1], targetValue);
       },
     },
     {
-      matcher: /^updateProgramLift\('([^']+)',(\d+),'([^']+)',parseFloat\(this\.value\)\|\|0\)$/,
+      matcher:
+        /^updateProgramLift\('([^']+)',(\d+),'([^']+)',parseFloat\(this\.value\)\|\|0\)$/,
       execute: (match) => {
+        if (getAppRuntime()?.updateProgramLift) {
+          getAppRuntime()?.updateProgramLift?.(
+            match[1],
+            Number(match[2]),
+            match[3],
+            targetValue
+          );
+          return;
+        }
         callLegacyWindowFunction(
           'updateProgramLift',
           match[1],

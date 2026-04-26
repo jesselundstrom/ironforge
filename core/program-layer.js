@@ -53,9 +53,7 @@ function getPlannedSessionDisplayMuscleLoad(session) {
   )
     return totals;
   (Array.isArray(session) ? session : []).forEach((ex) => {
-    const meta = window.getExerciseMetadata(
-      ex?.exerciseId || ex?.name || ex
-    );
+    const meta = window.getExerciseMetadata(ex?.exerciseId || ex?.name || ex);
     if (!meta) return;
     const setCount = Array.isArray(ex?.sets) ? ex.sets.length : 0;
     if (!setCount) return;
@@ -380,6 +378,8 @@ function getProgramRegistry() {
   return PROGRAMS;
 }
 function getRegisteredPrograms() {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getRegisteredPrograms) return runtime.getRegisteredPrograms();
   return Object.values(PROGRAMS);
 }
 function getCanonicalProgramRef(programId) {
@@ -388,13 +388,21 @@ function getCanonicalProgramRef(programId) {
     : programId;
 }
 function getProgramById(programId) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramById) return runtime.getProgramById(programId);
   const canonicalId = getCanonicalProgramRef(programId);
   return PROGRAMS[canonicalId] || null;
 }
 function hasRegisteredPrograms() {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.hasRegisteredPrograms) return runtime.hasRegisteredPrograms();
   return getRegisteredPrograms().length > 0;
 }
 function getProgramInitialState(programId) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramInitialState) {
+    return runtime.getProgramInitialState(programId);
+  }
   const prog = getProgramById(programId);
   if (!prog || typeof prog.getInitialState !== 'function') return null;
   return cloneJson(prog.getInitialState()) || {};
@@ -414,9 +422,13 @@ function requireProfileStoreBridgeMethod(methodName) {
   );
 }
 function getActiveProgramId() {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getActiveProgramId) return runtime.getActiveProgramId();
   return getCanonicalProgramRef(profile.activeProgram || 'forge') || 'forge';
 }
 function getActiveProgram() {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getActiveProgram) return runtime.getActiveProgram();
   return (
     getProgramById(getActiveProgramId()) ||
     getProgramById('forge') ||
@@ -425,6 +437,8 @@ function getActiveProgram() {
   );
 }
 function getActiveProgramState() {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getActiveProgramState) return runtime.getActiveProgramState();
   const activeProgramId = getActiveProgramId();
   const currentState = profile.programs?.[activeProgramId];
   if (currentState && typeof currentState === 'object') return currentState;
@@ -434,137 +448,26 @@ function getActiveProgramState() {
   return {};
 }
 function setProgramState(id, state) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.setProgramState) return runtime.setProgramState(id, state);
   const canonicalId = getCanonicalProgramRef(id);
   if (!canonicalId) return null;
   return requireProfileStoreBridgeMethod('setProgramState')(canonicalId, state);
 }
-function getWorkoutProgramId(w) {
-  if (!w) return null;
-  if (w.program) return getCanonicalProgramRef(w.program);
-  if (!w.type || w.type === 'sport' || w.type === 'hockey') return null;
-  return getCanonicalProgramRef(w.type);
-}
 function recomputeProgramStateFromWorkouts(programId) {
-  const canonicalId = getCanonicalProgramRef(programId);
-  const prog = getProgramById(canonicalId);
-  if (!prog) return null;
-
-  const programWorkouts = workouts
-    .filter((w) => getWorkoutProgramId(w) === canonicalId)
-    .sort((a, b) => {
-      const d = new Date(a.date) - new Date(b.date);
-      if (d !== 0) return d;
-      return (a.id || 0) - (b.id || 0);
-    });
-
-  let state = programWorkouts[0]?.programStateUsedForBuild
-    ? JSON.parse(JSON.stringify(programWorkouts[0].programStateUsedForBuild))
-    : programWorkouts[0]?.programStateBefore
-      ? JSON.parse(JSON.stringify(programWorkouts[0].programStateBefore))
-      : prog.getInitialState
-        ? prog.getInitialState()
-        : {};
-  const buildReplayContext = (workout, stateForContext) => {
-    const savedContext =
-      workout?.sessionSnapshot &&
-      typeof workout.sessionSnapshot === 'object' &&
-      workout.sessionSnapshot.buildContext &&
-      typeof workout.sessionSnapshot.buildContext === 'object'
-        ? JSON.parse(JSON.stringify(workout.sessionSnapshot.buildContext))
-        : null;
-    const runtime = {
-      ...(savedContext?.programRuntime &&
-      typeof savedContext.programRuntime === 'object'
-        ? savedContext.programRuntime
-        : {}),
-    };
-    const savedDaysPerWeek = Number(
-      runtime.daysPerWeek ??
-        workout?.programMeta?.daysPerWeek ??
-        workout?.programStateUsedForBuild?.daysPerWeek ??
-        workout?.programStateBefore?.daysPerWeek
-    );
-    if (Number.isFinite(savedDaysPerWeek) && savedDaysPerWeek > 0) {
-      runtime.daysPerWeek = savedDaysPerWeek;
-    }
-    const workoutWeekStart =
-      typeof getWeekStart === 'function' && workout?.date
-        ? getWeekStart(new Date(workout.date))
-        : null;
-    if (
-      workoutWeekStart &&
-      Number.isFinite(workoutWeekStart.getTime()) &&
-      !runtime.weekStartDate
-    ) {
-      runtime.weekStartDate = workoutWeekStart.toISOString();
-    }
-    if (savedContext) {
-      savedContext.programRuntime = runtime;
-      return savedContext;
-    }
-    return typeof getProgramSessionBuildContext === 'function'
-      ? getProgramSessionBuildContext({
-          prog,
-          state: stateForContext,
-          sessionModeBundle: {
-            selectedSessionMode:
-              workout?.runnerState?.selectedSessionMode || 'auto',
-            effectiveSessionMode:
-              workout?.runnerState?.effectiveSessionMode || 'normal',
-          },
-          preview: false,
-          programRuntime: runtime,
-        })
-      : { programRuntime: runtime };
-  };
-  const initialContext = buildReplayContext(programWorkouts[0] || null, state);
-  if (prog.migrateState) state = prog.migrateState(state, initialContext);
-
-  programWorkouts.forEach((w, idx) => {
-    const progressionContext = buildReplayContext(w, state);
-    const exercises = stripWarmupSetsFromExercises(
-      Array.isArray(w.exercises) ? w.exercises : []
-    );
-    if (prog.adjustAfterSession)
-      state = prog.adjustAfterSession(
-        exercises,
-        state,
-        w.programOption,
-        progressionContext
-      );
-    if (prog.advanceState) {
-      const wd = new Date(w.date);
-      const runtimeWeekStart = progressionContext?.programRuntime?.weekStartDate
-        ? new Date(progressionContext.programRuntime.weekStartDate)
-        : null;
-      const sow =
-        runtimeWeekStart && Number.isFinite(runtimeWeekStart.getTime())
-          ? runtimeWeekStart
-          : getWeekStart(wd);
-      const sessionsThisWeek = programWorkouts
-        .slice(0, idx + 1)
-        .filter((sw) => new Date(sw.date) >= sow).length;
-      state = prog.advanceState(state, sessionsThisWeek, progressionContext);
-    }
-  });
-
-  return setProgramState(canonicalId, state);
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.recomputeProgramStateFromWorkouts) {
+    return runtime.recomputeProgramStateFromWorkouts(programId);
+  }
+  return null;
 }
 
 function applyProgramDateCatchUp(programId) {
-  const canonicalId = getCanonicalProgramRef(programId);
-  const prog = getProgramById(canonicalId);
-  if (!prog || !prog.dateCatchUp || !profile.programs?.[canonicalId])
-    return false;
-  const currentState = profile.programs[canonicalId];
-  const caughtState = prog.dateCatchUp(currentState);
-  if (
-    !caughtState ||
-    JSON.stringify(caughtState) === JSON.stringify(currentState)
-  )
-    return false;
-  setProgramState(canonicalId, caughtState);
-  return true;
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.applyProgramDateCatchUp) {
+    return runtime.applyProgramDateCatchUp(programId);
+  }
+  return false;
 }
 
 function buildProgramSwitcherMarkup() {
@@ -640,425 +543,115 @@ function renderProgramSwitcher(targetContainer) {
 }
 
 function getProgramFrequencyCompatibility(programId, profileLike) {
-  const requested =
-    typeof getPreferredTrainingDaysPerWeek === 'function'
-      ? getPreferredTrainingDaysPerWeek(profileLike)
-      : 3;
-  const effective =
-    typeof getEffectiveProgramFrequency === 'function'
-      ? getEffectiveProgramFrequency(programId, profileLike)
-      : requested;
-  const range =
-    typeof getProgramTrainingDaysRange === 'function'
-      ? getProgramTrainingDaysRange(programId)
-      : { min: 2, max: 6 };
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramFrequencyCompatibility) {
+    return runtime.getProgramFrequencyCompatibility(programId, profileLike);
+  }
   return {
-    requested,
-    effective,
-    range,
-    supportsExact: requested >= range.min && requested <= range.max,
+    requested: 3,
+    effective: 3,
+    range: { min: 2, max: 6 },
+    supportsExact: true,
   };
 }
 
 function getProgramsSupportingTrainingDays(days) {
-  return getRegisteredPrograms().filter((prog) => {
-    if (typeof getProgramTrainingDaysRange !== 'function') return false;
-    const { min, max } = getProgramTrainingDaysRange(prog.id);
-    return days >= min && days <= max;
-  });
-}
-
-function scoreProgramForTrainingDays(prog, days, prefs) {
-  if (typeof getProgramCapabilities === 'function') {
-    const capabilities = getProgramCapabilities(prog.id);
-    if (typeof capabilities.recommendationScore === 'function') {
-      return capabilities.recommendationScore(days, prefs);
-    }
-  }
-  return 0;
-}
-
-function getSuggestedProgramsForTrainingDays(days, profileLike) {
-  const prefs = normalizeTrainingPreferences(profileLike || profile || {});
-  return getProgramsSupportingTrainingDays(days)
-    .map((prog) => ({
-      prog,
-      score: scoreProgramForTrainingDays(prog, days, prefs),
-    }))
-    .sort((a, b) => b.score - a.score || a.prog.name.localeCompare(b.prog.name))
-    .map((entry) => entry.prog);
-}
-
-function getActiveProgramFrequencyMismatch(profileLike) {
-  const activeId = getCanonicalProgramRef(
-    profileLike?.activeProgram || profile.activeProgram || 'forge'
-  );
-  const prog = getProgramById(activeId);
-  if (!prog) return null;
-  const compatibility = getProgramFrequencyCompatibility(activeId, profileLike);
-  if (compatibility.supportsExact) return null;
-  const requestedLabel =
-    typeof getTrainingDaysPerWeekLabel === 'function'
-      ? getTrainingDaysPerWeekLabel(compatibility.requested)
-      : compatibility.requested + ' sessions / week';
-  const effectiveLabel =
-    typeof getTrainingDaysPerWeekLabel === 'function'
-      ? getTrainingDaysPerWeekLabel(compatibility.effective)
-      : compatibility.effective + ' sessions / week';
-  const suggestions = getSuggestedProgramsForTrainingDays(
-    compatibility.requested,
-    profileLike
-  ).filter((candidate) => candidate.id !== activeId);
-  return {
-    prog,
-    ...compatibility,
-    requestedLabel,
-    effectiveLabel,
-    suggestions,
-  };
-}
-
-function getProgramFrequencyNoticeHTML(programId, profileLike) {
-  const mismatch = getActiveProgramFrequencyMismatch(profileLike);
-  if (!mismatch || mismatch.prog.id !== programId) return '';
-  const currentName = trProg(
-    'program.' + mismatch.prog.id + '.name',
-    mismatch.prog.name
-  );
-  const body = trProg(
-    'program.frequency_notice.body',
-    '{name} does not support {requested}. It is currently using {effective}.',
-    {
-      name: currentName,
-      requested: mismatch.requestedLabel,
-      effective: mismatch.effectiveLabel,
-    }
-  );
-  const suggestionLine = mismatch.suggestions.length
-    ? `<div class="program-frequency-note">${escapeHtml(trProg('program.frequency_notice.suggestion', 'For {requested}, switch to a program that supports it directly.', { requested: mismatch.requestedLabel }))}</div>`
-    : '';
-  const actions = mismatch.suggestions
-    .slice(0, 3)
-    .map((candidate) => {
-      const name = trProg('program.' + candidate.id + '.name', candidate.name);
-      return `<button type="button" class="btn btn-secondary program-frequency-action" onclick="switchProgram('${escapeHtml(candidate.id)}')">${escapeHtml(name)}</button>`;
-    })
-    .join('');
-  return `
-    <div class="program-frequency-notice">
-      <div class="program-frequency-kicker">${escapeHtml(trProg('program.frequency_notice.kicker', 'Program fit'))}</div>
-      <div class="program-frequency-title">${escapeHtml(trProg('program.frequency_notice.title', 'Selected weekly frequency no longer fits this program'))}</div>
-      <div class="program-frequency-body">${escapeHtml(body)}</div>
-      ${suggestionLine}
-      ${actions ? `<div class="program-frequency-actions">${actions}</div>` : ''}
-    </div>
-  `;
-}
-
-function normalizeEstimateExerciseName(input) {
-  const raw = String(
-    typeof input === 'object' ? input?.name || '' : input || ''
-  ).trim();
-  if (!raw) return '';
-  if (typeof window.resolveExerciseSelection === 'function') {
-    const resolved = window.resolveExerciseSelection(raw);
-    return String(resolved?.name || raw).trim().toLowerCase();
-  }
-  return raw.toLowerCase();
-}
-
-function parseEstimateRepCount(value) {
-  if (typeof parseLoggedRepCount === 'function') {
-    const parsed = parseLoggedRepCount(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  const raw = parseFloat(String(value ?? '').replace(/[^0-9.]/g, ''));
-  return Number.isFinite(raw) ? raw : 0;
-}
-
-function formatEstimatedWeight(value) {
-  const rounded = Math.round((Number(value) || 0) * 100) / 100;
-  if (!Number.isFinite(rounded)) return '0';
-  return String(rounded)
-    .replace(/\.00$/, '')
-    .replace(/(\.\d)0$/, '$1');
-}
-
-function roundEstimatedWeight(value, increment) {
-  const step = Number(increment) > 0 ? Number(increment) : 2.5;
-  return Math.round(value / step) * step;
-}
-
-function getProgramEstimateTargets(targetProgramId) {
-  const canonicalId = getCanonicalProgramRef(targetProgramId);
-  const prog = getProgramById(canonicalId);
-  const initialState = prog?.getInitialState ? prog.getInitialState() : {};
-  const rounding = initialState?.rounding || 2.5;
-  if (Array.isArray(initialState?.lifts?.main)) {
-    return initialState.lifts.main.map((lift) => ({
-      key: lift.name,
-      label: lift.name,
-      rounding,
-    }));
-  }
-  if (initialState?.lifts && typeof initialState.lifts === 'object') {
-    return Object.keys(initialState.lifts).map((key) => ({
-      key,
-      label:
-        prog?._names?.[key] ||
-        key.charAt(0).toUpperCase() + key.slice(1),
-      rounding,
-    }));
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getSuggestedProgramsForTrainingDays) {
+    return runtime.getSuggestedProgramsForTrainingDays(days, profile);
   }
   return [];
 }
 
-function estimateTMsFromHistory(targetProgramId, workouts, profile) {
-  void profile;
-  const targets = getProgramEstimateTargets(targetProgramId);
-  if (!targets.length) return {};
-  const now = Date.now();
-  const lookbackMs = 60 * 864e5;
-  const recentWorkouts = (Array.isArray(workouts) ? workouts : []).filter(
-    (workout) =>
-      workout &&
-      workout.type !== 'sport' &&
-      workout.type !== 'hockey' &&
-      Array.isArray(workout.exercises) &&
-      now - new Date(workout.date).getTime() <= lookbackMs
-  );
-  const estimates = {};
+function getSuggestedProgramsForTrainingDays(days, profileLike) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getSuggestedProgramsForTrainingDays) {
+    return runtime.getSuggestedProgramsForTrainingDays(days, profileLike);
+  }
+  return [];
+}
 
-  targets.forEach((target) => {
-    const targetName = normalizeEstimateExerciseName(target.label || target.key);
-    if (!targetName) return;
-    const matchedSessions = new Set();
-    let bestWeight = 0;
-    let bestReps = 0;
+function getActiveProgramFrequencyMismatch(profileLike) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getActiveProgramFrequencyMismatch) {
+    return runtime.getActiveProgramFrequencyMismatch(profileLike);
+  }
+  return null;
+}
 
-    recentWorkouts.forEach((workout, workoutIndex) => {
-      const workoutTag = String(
-        workout.id || `${workout.date || ''}:${workoutIndex}`
-      );
-      workout.exercises.forEach((exercise) => {
-        if (normalizeEstimateExerciseName(exercise) !== targetName) return;
-        let matchedInWorkout = false;
-        (Array.isArray(exercise?.sets) ? exercise.sets : []).forEach((set) => {
-          if (!set?.done || set?.isWarmup) return;
-          const weight = Number(set.weight);
-          const reps = parseEstimateRepCount(set.reps);
-          if (!Number.isFinite(weight) || weight <= 0 || reps <= 0) return;
-          matchedInWorkout = true;
-          if (
-            weight > bestWeight ||
-            (weight === bestWeight && reps > bestReps)
-          ) {
-            bestWeight = weight;
-            bestReps = reps;
-          }
-        });
-        if (matchedInWorkout) matchedSessions.add(workoutTag);
-      });
-    });
-
-    if (matchedSessions.size < 2 || bestWeight <= 0 || bestReps <= 0) return;
-    const estimatedOneRepMax = bestWeight * (1 + bestReps / 30);
-    const cappedTrainingMax = Math.min(bestWeight, estimatedOneRepMax * 0.85);
-    const rounded = roundEstimatedWeight(cappedTrainingMax, target.rounding);
-    const finalValue = Math.min(bestWeight, rounded);
-    if (finalValue > 0) estimates[target.key] = finalValue;
-  });
-
-  return Object.keys(estimates).length >= 2 ? estimates : {};
+function getProgramFrequencyNoticeHTML(programId, profileLike) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramFrequencyNoticeHTML) {
+    return runtime.getProgramFrequencyNoticeHTML(programId, profileLike);
+  }
+  return '';
 }
 
 function switchProgram(id) {
-  const canonicalId = getCanonicalProgramRef(id);
-  if (canonicalId === getActiveProgramId()) return;
-  const prog = getProgramById(canonicalId);
-  if (!prog) return;
-  const progName = trProg('program.' + prog.id + '.name', prog.name);
-  showConfirm(
-    trProg('program.switch_to', 'Switch to {name}', { name: progName }),
-    trProg(
-      'program.switch_msg',
-      'Your current program is paused. {name} will start where you left off.',
-      { name: progName }
-    ),
-    () => {
-      requireProfileStoreBridgeMethod('setActiveProgram')(canonicalId);
-      let estimatedLoads = [];
-      if (!profile.programs?.[canonicalId]) {
-        let nextState = cloneJson(prog.getInitialState()) || {};
-        const estimates = estimateTMsFromHistory(canonicalId, workouts, profile);
-        if (Object.keys(estimates).length) {
-          if (Array.isArray(nextState?.lifts?.main)) {
-            nextState.lifts.main.forEach((lift) => {
-              if (estimates[lift.name] !== undefined) lift.tm = estimates[lift.name];
-            });
-            estimatedLoads = nextState.lifts.main
-              .filter((lift) => estimates[lift.name] !== undefined)
-              .map((lift) => ({
-                lift: lift.name,
-                value: estimates[lift.name],
-              }));
-          } else if (nextState?.lifts && typeof nextState.lifts === 'object') {
-            Object.keys(nextState.lifts).forEach((key) => {
-              if (estimates[key] !== undefined) nextState.lifts[key].weight = estimates[key];
-            });
-            estimatedLoads = Object.keys(nextState.lifts)
-              .filter((key) => estimates[key] !== undefined)
-              .map((key) => ({
-                lift:
-                  prog._names?.[key] ||
-                  key.charAt(0).toUpperCase() + key.slice(1),
-                value: estimates[key],
-              }));
-          }
-        }
-        setProgramState(canonicalId, nextState);
-      }
-      applyProgramDateCatchUp(canonicalId);
-      saveProfileData({
-        docKeys: [PROFILE_CORE_DOC_KEY, programDocKey(canonicalId)],
-      });
-      initSettings();
-      updateDashboard();
-      showToast(
-        trProg('program.switched', 'Switched to {name}', { name: progName }),
-        'var(--purple)'
-      );
-      if (estimatedLoads.length) {
-        const changes = estimatedLoads
-          .map((item) => `${item.lift} ${formatEstimatedWeight(item.value)} kg`)
-          .join(', ');
-        setTimeout(
-          () =>
-            showToast(
-              trProg(
-                'program.switch_estimated_loads',
-                'Starting loads estimated from your recent training: {changes}. Adjust in Settings if needed.',
-                { changes }
-              ),
-              'var(--blue)'
-            ),
-          500
-        );
-      }
-    }
-  );
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.switchProgram) return runtime.switchProgram(id);
+  return null;
 }
 
 function saveProgramSetup() {
-  const prog = getActiveProgram(),
-    state = getActiveProgramState();
-  const newState = prog.saveSettings ? prog.saveSettings(state) : state;
-  setProgramState(prog.id, newState);
-  saveProfileData({ programIds: [prog.id] });
-  closeProgramSetupSheet();
-  showToast(
-    trProg('program.setup_saved', 'Program setup saved!'),
-    'var(--purple)'
-  );
-  updateProgramDisplay();
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.saveProgramSetup) return runtime.saveProgramSetup();
+  return null;
 }
 
 function resolveProgramExerciseName(input) {
-  if (typeof window.resolveExerciseSelection === 'function') {
-    const resolved = window.resolveExerciseSelection(input);
-    return String(resolved?.name || '').trim();
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.resolveProgramExerciseName) {
+    return runtime.resolveProgramExerciseName(input);
   }
-  return String(
-    typeof input === 'object' ? input?.name || '' : input || ''
-  ).trim();
+  return '';
 }
 
 function openProgramExercisePicker(config) {
-  const next = config || {};
-  if (typeof window.openExerciseCatalogForSettings !== 'function') return false;
-  const currentName = resolveProgramExerciseName(
-    next.currentName || next.exercise?.name || ''
-  );
-  const swapInfo = {
-    category: next.category || '',
-    filters: { ...(next.filters || {}) },
-    options: Array.isArray(next.options) ? next.options.slice() : [],
-  };
-  return window.openExerciseCatalogForSettings({
-    exercise: {
-      name: currentName || next.fallbackName || swapInfo.options[0] || '',
-    },
-    swapInfo,
-    title: next.title || trProg('catalog.title.settings', 'Choose Exercise'),
-    subtitle:
-      next.subtitle ||
-      trProg(
-        'catalog.sub.settings',
-        'Choose the exercise variant this program should use.'
-      ),
-    titleParams: next.titleParams || null,
-    onSelect: (exercise) => {
-      const resolvedName = resolveProgramExerciseName(exercise);
-      if (next.onSelect) next.onSelect(resolvedName, exercise);
-    },
-  });
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.openProgramExercisePicker) {
+    return runtime.openProgramExercisePicker(config);
+  }
+  return false;
 }
 
 function updateProgramLift(array, idx, field, val) {
-  const prog = getActiveProgram(),
-    state = getActiveProgramState();
-  if (!state.lifts || !state.lifts[array] || !state.lifts[array][idx]) return;
-  const newState = JSON.parse(JSON.stringify(state));
-  if (field === 'tm' || field === 'weight') {
-    const n = parseFloat(val);
-    val = isNaN(n) ? 0 : Math.max(0, Math.min(999, Math.round(n * 10) / 10));
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.updateProgramLift) {
+    return runtime.updateProgramLift(array, idx, field, val);
   }
-  newState.lifts[array][idx][field] = val;
-  setProgramState(prog.id, newState);
+  return null;
 }
 
 function updateSLLift(key, val) {
-  const prog = getActiveProgram(),
-    state = getActiveProgramState();
-  const newState = JSON.parse(JSON.stringify(state));
-  if (newState.lifts && newState.lifts[key]) {
-    const n = parseFloat(val);
-    newState.lifts[key].weight = isNaN(n)
-      ? 0
-      : Math.max(0, Math.min(999, Math.round(n * 10) / 10));
-  }
-  setProgramState(prog.id, newState);
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.updateSLLift) return runtime.updateSLLift(key, val);
+  return null;
 }
 
 function setSLNextWorkout(wk) {
-  const prog = getActiveProgram(),
-    state = getActiveProgramState();
-  setProgramState(prog.id, { ...state, nextWorkout: wk });
-  initSettings();
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.setSLNextWorkout) return runtime.setSLNextWorkout(wk);
+  return null;
 }
 
 function previewProgramSplit() {
-  const prog = getActiveProgram(),
-    state = getActiveProgramState();
-  if (prog._previewSplit) {
-    const freq =
-      parseInt(document.getElementById('prog-days')?.value, 10) ||
-      (typeof getEffectiveProgramFrequency === 'function'
-        ? getEffectiveProgramFrequency(prog.id, profile)
-        : 0) ||
-      state.daysPerWeek ||
-      3;
-    prog._previewSplit(freq, state.lifts);
-  }
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.previewProgramSplit) return runtime.previewProgramSplit();
+  return false;
 }
 
 function updateForgeModeSetting() {
-  const prog = getActiveProgram();
-  const mode = document.getElementById('prog-mode')?.value || 'sets';
-  if (prog._updateModeDesc) prog._updateModeDesc(mode);
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.updateForgeModeSetting) return runtime.updateForgeModeSetting();
+  return false;
 }
 
 function cleanProgramOptionLabel(label) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.cleanProgramOptionLabel) {
+    return runtime.cleanProgramOptionLabel(label);
+  }
   return String(label || '')
     .replace(/^([⭐✅🏃⚠️]+\s*)+/u, '')
     .trim();
@@ -1075,6 +668,10 @@ function setProgramDayOption(value) {
 }
 
 function getProgramOptionDayNumber(option) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramOptionDayNumber) {
+    return runtime.getProgramOptionDayNumber(option);
+  }
   const fromValue = String(option?.value || '').match(/\d+/);
   if (fromValue) return fromValue[0];
   const fromLabel = String(cleanProgramOptionLabel(option?.label || '')).match(
@@ -1083,68 +680,11 @@ function getProgramOptionDayNumber(option) {
   return fromLabel ? fromLabel[0] : '';
 }
 
-function getProgramPreviewSession(
-  prog,
-  optionValue,
-  state,
-  sportContext,
-  planningContext,
-  sessionModeBundle
-) {
-  if (!prog || !prog.buildSession) return [];
-  const effectiveDecision =
-    sessionModeBundle?.effectiveDecision ||
-    sessionModeBundle?.trainingDecision ||
-    null;
-  const buildContext =
-    typeof getProgramSessionBuildContext === 'function'
-      ? getProgramSessionBuildContext({
-          prog,
-          state,
-          preview: true,
-          sessionModeBundle,
-        })
-      : { preview: true };
-  const buildState =
-    typeof getProgramSessionStateForBuild === 'function'
-      ? getProgramSessionStateForBuild(prog, state, buildContext)
-      : state;
-  let preview = cloneProgramSession(
-    prog.buildSession(optionValue, buildState, buildContext) || []
-  );
-  if (typeof withResolvedExerciseId === 'function')
-    preview = preview.map(withResolvedExerciseId);
-  if (typeof applyTrainingPreferencesToExercises === 'function') {
-    const adjusted = applyTrainingPreferencesToExercises(
-      preview,
-      sportContext,
-      {
-        planningContext,
-        decision: effectiveDecision,
-        effectiveSessionMode: sessionModeBundle?.effectiveSessionMode,
-      }
-    );
-    preview = adjusted?.exercises || preview;
-  }
-  return preview;
-}
-
-function getProgramPreviewBuildState(prog, state, sessionModeBundle) {
-  const buildContext =
-    typeof getProgramSessionBuildContext === 'function'
-      ? getProgramSessionBuildContext({
-          prog,
-          state,
-          preview: true,
-          sessionModeBundle,
-        })
-      : { preview: true };
-  return typeof getProgramSessionStateForBuild === 'function'
-    ? getProgramSessionStateForBuild(prog, state, buildContext)
-    : state;
-}
-
 function getProgramPreviewExerciseMeta(exercise) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramPreviewExerciseMeta) {
+    return runtime.getProgramPreviewExerciseMeta(exercise);
+  }
   const workSets = (exercise?.sets || []).filter((set) => !set.isWarmup);
   const reps = workSets.map((set) => String(set.reps ?? '')).filter(Boolean);
   const sameReps =
@@ -1166,13 +706,24 @@ function getProgramPreviewExerciseMeta(exercise) {
 }
 
 function getProgramPreviewHeaderChips(prog, state, session, buildContext) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramPreviewHeaderChips) {
+    return runtime.getProgramPreviewHeaderChips(
+      prog,
+      state,
+      session,
+      buildContext
+    );
+  }
   const chips = [];
   const previewContext =
     buildContext ||
     (typeof getProgramSessionBuildContext === 'function'
       ? getProgramSessionBuildContext({ prog, state, preview: true })
       : null);
-  const bi = prog.getBlockInfo ? prog.getBlockInfo(state, previewContext) : null;
+  const bi = prog.getBlockInfo
+    ? prog.getBlockInfo(state, previewContext)
+    : null;
   if (bi?.pct) chips.push(`${bi.pct}% 1RM`);
   const primary = (session || []).find((ex) => !ex.isAccessory) || session?.[0];
   if (primary) {
@@ -1235,6 +786,10 @@ function renderProgramSessionPreview(prog, selectedOption, snapshot) {
 }
 
 function getProgramTodayMuscleTags(planningContext) {
+  const runtime = window.__IRONFORGE_APP_RUNTIME__;
+  if (runtime?.getProgramTodayMuscleTags) {
+    return runtime.getProgramTodayMuscleTags(planningContext);
+  }
   const loadMap = planningContext?.recentMuscleLoad || {};
   return Object.entries(loadMap)
     .map(([name, load]) => {
@@ -1381,7 +936,11 @@ function updateProgramDisplay() {
         };
   const programBuildContext =
     typeof getProgramSessionBuildContext === 'function'
-      ? getProgramSessionBuildContext({ prog, state, sessionModeBundle: decisionBundle })
+      ? getProgramSessionBuildContext({
+          prog,
+          state,
+          sessionModeBundle: decisionBundle,
+        })
       : null;
   const rawOptions = prog.getSessionOptions
     ? prog.getSessionOptions(state, workouts, schedule, programBuildContext)

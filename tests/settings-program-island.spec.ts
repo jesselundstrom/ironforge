@@ -12,13 +12,27 @@ test('settings program island renders program basics and switcher through the le
 
   await expect(page.locator('#settings-program-legacy-shell')).toHaveCount(0);
   await expect(
-    page.locator('#settings-program-react-root [data-ui="program-card"]').first()
+    page
+      .locator('#settings-program-react-root [data-ui="program-card"]')
+      .first()
   ).toBeVisible();
   await expect(
-    page.locator('#settings-program-react-root [data-ui="program-card"][data-state="active"]')
+    page.locator(
+      '#settings-program-react-root [data-ui="program-card"][data-state="active"]'
+    )
   ).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          typeof (window as Window & { switchProgram?: unknown }).switchProgram
+      )
+    )
+    .toBe('function');
   await expect(
-    page.locator('#settings-program-react-root [data-ui="program-advanced-trigger"]')
+    page.locator(
+      '#settings-program-react-root [data-ui="program-advanced-trigger"]'
+    )
   ).toBeVisible();
   await expect
     .poll(
@@ -31,14 +45,20 @@ test('settings program island renders program basics and switcher through the le
     .not.toEqual('');
 });
 
-test('settings program island still opens the advanced setup sheet', async ({ page }) => {
+test('settings program island still opens the advanced setup sheet', async ({
+  page,
+}) => {
   await openAppShell(page);
 
   await page.evaluate(() => {
     window.__IRONFORGE_E2E__?.settings?.openProgramTab?.('forge');
   });
 
-  await page.locator('#settings-program-react-root [data-ui="program-advanced-trigger"]').click();
+  await page
+    .locator(
+      '#settings-program-react-root [data-ui="program-advanced-trigger"]'
+    )
+    .click();
 
   await expect(page.locator('#program-setup-sheet')).toHaveClass(/active/);
   await expect(page.locator('#program-settings-container')).not.toBeEmpty();
@@ -76,12 +96,18 @@ test('settings program advanced forge controls keep working under strict CSP', a
     )
     .toBe('forge');
 
-  await page.locator('#settings-program-react-root [data-ui="program-advanced-trigger"]').click();
+  await page
+    .locator(
+      '#settings-program-react-root [data-ui="program-advanced-trigger"]'
+    )
+    .click();
   await expect(page.locator('#program-setup-sheet')).toHaveClass(/active/);
 
   await page.locator('#prog-week').fill('7');
   await page.locator('#prog-mode').selectOption('rir');
-  await page.locator('#program-settings-container .program-setup-save-btn').click();
+  await page
+    .locator('#program-settings-container .program-setup-save-btn')
+    .click();
 
   await expect(page.locator('#program-setup-sheet')).not.toHaveClass(/active/);
   await expect
@@ -135,13 +161,22 @@ test('settings program advanced stronglifts controls keep working under strict C
       })
     )
     .toBe('stronglifts5x5');
-  await page.locator('#settings-program-react-root [data-ui="program-advanced-trigger"]').click();
+  await page
+    .locator(
+      '#settings-program-react-root [data-ui="program-advanced-trigger"]'
+    )
+    .click();
   await expect(page.locator('#program-setup-sheet')).toHaveClass(/active/);
 
-  const firstWeightInput = page.locator('#program-settings-container input[type="number"]').first();
+  const firstWeightInput = page
+    .locator('#program-settings-container input[type="number"]')
+    .first();
   await firstWeightInput.fill('92.5');
   await firstWeightInput.blur();
-  await page.locator('#program-settings-container').getByRole('button', { name: /save program setup/i }).click();
+  await page
+    .locator('#program-settings-container')
+    .getByRole('button', { name: /save program setup/i })
+    .click();
 
   await expect(page.locator('#program-setup-sheet')).not.toHaveClass(/active/);
   await expect

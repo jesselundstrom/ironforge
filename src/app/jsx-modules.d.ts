@@ -366,6 +366,77 @@ declare global {
         nextLanguage?: string
       ) => Record<string, unknown> | null;
       saveSimpleProgramSettings?: () => Record<string, unknown> | null;
+      getRegisteredPrograms?: () => Array<Record<string, unknown>>;
+      hasRegisteredPrograms?: () => boolean;
+      getProgramById?: (
+        programId?: string | null
+      ) => Record<string, unknown> | null;
+      getProgramInitialState?: (
+        programId?: string | null
+      ) => Record<string, unknown> | null;
+      getActiveProgramId?: () => string | null;
+      getActiveProgram?: () => Record<string, unknown> | null;
+      getActiveProgramState?: () => Record<string, unknown>;
+      setProgramState?: (
+        programId?: string | null,
+        state?: unknown
+      ) => Record<string, unknown> | null;
+      recomputeProgramStateFromWorkouts?: (
+        programId?: string | null
+      ) => Record<string, unknown> | null;
+      applyProgramDateCatchUp?: (programId?: string | null) => boolean;
+      switchProgram?: (programId?: string | null) => Record<string, unknown>;
+      saveProgramSetup?: () => Record<string, unknown> | null;
+      resolveProgramExerciseName?: (input?: unknown) => string;
+      openProgramExercisePicker?: (
+        config?: Record<string, unknown> | null
+      ) => unknown;
+      updateProgramLift?: (
+        array?: string | null,
+        index?: number,
+        field?: string | null,
+        value?: unknown
+      ) => Record<string, unknown> | null;
+      updateSLLift?: (
+        key?: string | null,
+        value?: unknown
+      ) => Record<string, unknown> | null;
+      setSLNextWorkout?: (
+        workoutKey?: string | null
+      ) => Record<string, unknown> | null;
+      previewProgramSplit?: () => boolean;
+      updateForgeModeSetting?: () => boolean;
+      cleanProgramOptionLabel?: (label?: unknown) => string;
+      getProgramOptionDayNumber?: (
+        option?: Record<string, unknown> | null
+      ) => string;
+      getProgramPreviewExerciseMeta?: (
+        exercise?: Record<string, unknown> | null
+      ) => Record<string, unknown>;
+      getProgramPreviewHeaderChips?: (
+        prog?: Record<string, unknown> | null,
+        state?: Record<string, unknown> | null,
+        session?: Array<Record<string, unknown>> | null,
+        buildContext?: Record<string, unknown> | null
+      ) => string[];
+      getProgramTodayMuscleTags?: (
+        planningContext?: Record<string, unknown> | null
+      ) => Array<Record<string, unknown>>;
+      getProgramFrequencyCompatibility?: (
+        programId?: string | null,
+        profileLike?: Record<string, unknown> | null
+      ) => Record<string, unknown>;
+      getSuggestedProgramsForTrainingDays?: (
+        days: number,
+        profileLike?: Record<string, unknown> | null
+      ) => Array<Record<string, unknown>>;
+      getActiveProgramFrequencyMismatch?: (
+        profileLike?: Record<string, unknown> | null
+      ) => Record<string, unknown> | null;
+      getProgramFrequencyNoticeHTML?: (
+        programId?: string | null,
+        profileLike?: Record<string, unknown> | null
+      ) => string;
       exportData?: () => void;
       importData?: (event?: Event | null) => void;
       clearAllData?: () => Promise<void>;
