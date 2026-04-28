@@ -31,6 +31,16 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+function boundedNumber(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number
+) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? clamp(parsed, min, max) : fallback;
+}
+
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
@@ -74,6 +84,17 @@ export function playForgeBurst(
     palette: null,
     ...(options || {}),
   };
+  const densityMultiplier = boundedNumber(
+    config.densityMultiplier,
+    1,
+    0.25,
+    2.5
+  );
+  const durationMs = boundedNumber(config.duration, 980, 120, 2000);
+  const originXRatio = boundedNumber(config.originX, 0.5, 0, 1);
+  const originYRatio = boundedNumber(config.originY, 0.84, 0, 1);
+  const glowFrom = boundedNumber(config.glowFrom, 0.18, 0, 1);
+  const glowTo = boundedNumber(config.glowTo, 0.4, 0, 1);
   const emberColor = (t: number, alpha: number) => {
     const palette =
       Array.isArray(config.palette) && config.palette.length >= 2
@@ -104,12 +125,9 @@ export function playForgeBurst(
   }
 
   function buildEmbers() {
-    const total = Math.max(
-      18,
-      Math.round(32 * (parseFloat(String(config.densityMultiplier)) || 1))
-    );
-    const originX = width * (parseFloat(String(config.originX)) || 0.5);
-    const originY = height * (parseFloat(String(config.originY)) || 0.84);
+    const total = Math.max(18, Math.round(32 * densityMultiplier));
+    const originX = width * originXRatio;
+    const originY = height * originYRatio;
     embers = Array.from({ length: total }, (_, index) => {
       const spread = Math.PI * (0.65 + Math.random() * 0.4);
       const baseAngle =
@@ -147,20 +165,16 @@ export function playForgeBurst(
     const dt = Math.min((ts - lastTs) / 1000, 0.033);
     lastTs = ts;
     const elapsed = ts - startTs;
-    const progress = clamp(
-      elapsed / (parseFloat(String(config.duration)) || 980),
-      0,
-      1
-    );
+    const progress = clamp(elapsed / durationMs, 0, 1);
     const glowStrength = lerp(
-      config.glowFrom,
-      config.glowTo,
+      glowFrom,
+      glowTo,
       easeOutCubic(Math.min(1, elapsed / 600))
     );
 
     context.clearRect(0, 0, width, height);
-    const originX = width * (parseFloat(String(config.originX)) || 0.5);
-    const originY = height * (parseFloat(String(config.originY)) || 0.84);
+    const originX = width * originXRatio;
+    const originY = height * originYRatio;
     const glow = context.createRadialGradient(
       originX,
       originY,
@@ -221,5 +235,8 @@ export function playForgeBurst(
   buildEmbers();
   rafId = requestAnimationFrame(draw);
   window.addEventListener('resize', resize, { once: true });
-  return cleanup;
+  return () => {
+    window.removeEventListener('resize', resize);
+    cleanup();
+  };
 }
