@@ -55,6 +55,10 @@ type TestWindow = Window & {
     code: string,
     params?: Record<string, unknown>
   ) => Record<string, unknown> | null;
+  applyWorkoutTeardownPlan?: ReturnType<typeof vi.fn>;
+  __IRONFORGE_WORKOUT_RUNTIME__?: Partial<
+    NonNullable<Window['__IRONFORGE_WORKOUT_RUNTIME__']>
+  >;
   __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
     read?: (name: string) => unknown;
     write?: ReturnType<typeof vi.fn>;
@@ -150,6 +154,7 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
       code,
       params: params || {},
     }),
+    applyWorkoutTeardownPlan: vi.fn(),
     __IRONFORGE_LEGACY_RUNTIME_ACCESS__: {
       read: (name: string) =>
         name === 'activeWorkout' ? activeWorkout : undefined,
@@ -477,6 +482,43 @@ describe('workout store start boundary', () => {
         Record<string, unknown>
       >)[0].weight)
     ).toBe(95);
+  });
+
+  it('owns cancel workout teardown planning', () => {
+    const activeWorkout = {
+      exercises: [{ name: 'Bench', sets: [{ weight: 60, reps: 5, done: false }] }],
+    };
+    const runtimeWindow = installWorkoutWindow(activeWorkout);
+    installTestDocument();
+    const buildWorkoutTeardownPlan = vi.fn(() => ({
+      showNotStarted: true,
+      hideActive: true,
+      resetNotStartedView: true,
+      notifyLogActive: true,
+      updateDashboard: true,
+      discardToast: 'Workout discarded',
+    }));
+    runtimeWindow.__IRONFORGE_WORKOUT_RUNTIME__ = {
+      buildWorkoutTeardownPlan,
+    };
+
+    workoutStore.getState().cancelWorkout();
+
+    expect(buildWorkoutTeardownPlan).toHaveBeenCalledWith(
+      { mode: 'cancel' },
+      { t: expect.any(Function) }
+    );
+    expect(runtimeWindow.applyWorkoutTeardownPlan).toHaveBeenCalledWith(
+      {
+        showNotStarted: true,
+        hideActive: true,
+        resetNotStartedView: true,
+        notifyLogActive: true,
+        updateDashboard: true,
+        discardToast: 'Workout discarded',
+      },
+      { showDiscardToast: true }
+    );
   });
 
 });

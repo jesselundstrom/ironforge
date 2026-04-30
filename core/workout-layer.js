@@ -4728,15 +4728,8 @@ async function finishWorkout() {
 }
 
 function cancelWorkout() {
-  const cancelTeardownPlan = getWorkoutRuntime().buildWorkoutTeardownPlan(
-    {
-      mode: 'cancel',
-    },
-    {
-      t: i18nText,
-    }
-  );
-  applyWorkoutTeardownPlan(cancelTeardownPlan, {
-    showDiscardToast: true,
-  });
+  const delegate = window.cancelWorkout;
+  if (typeof delegate === 'function' && delegate !== cancelWorkout) {
+    return delegate();
+  }
 }

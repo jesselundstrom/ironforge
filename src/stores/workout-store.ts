@@ -130,6 +130,10 @@ type LegacyWorkoutWindow = Window & {
   removeEx?: (exerciseIndex: number) => void;
   finishWorkout?: () => Promise<unknown> | unknown;
   cancelWorkout?: () => void;
+  applyWorkoutTeardownPlan?: (
+    teardownPlan?: Record<string, unknown> | null,
+    options?: Record<string, unknown>
+  ) => void;
   persistActiveWorkoutDraft?: (...args: unknown[]) => unknown;
   clearActiveWorkoutDraft?: (...args: unknown[]) => unknown;
   syncWorkoutSessionBridge?: (...args: unknown[]) => unknown;
@@ -226,7 +230,6 @@ const DELEGATED_WORKOUT_ACTIONS = [
   'resumeActiveWorkoutUI',
   'selectExerciseCatalogExercise',
   'finishWorkout',
-  'cancelWorkout',
 ] as const;
 
 type DelegatedWorkoutActionName = (typeof DELEGATED_WORKOUT_ACTIONS)[number];
@@ -900,6 +903,24 @@ function undoQuickWorkoutAdjustmentFromStore() {
       translateWorkoutText('workout.runner.undo_toast', 'Last adjustment undone'),
     'var(--blue)'
   );
+}
+
+function cancelWorkoutFromStore() {
+  const runtime = getWorkoutRuntime();
+  const runtimeWindow = getLegacyWindow();
+  const cancelTeardownPlan =
+    runtime?.buildWorkoutTeardownPlan?.(
+      {
+        mode: 'cancel',
+      },
+      {
+        t: translateWorkoutText,
+      }
+    ) || null;
+  runtimeWindow?.applyWorkoutTeardownPlan?.(cancelTeardownPlan, {
+    showDiscardToast: true,
+  });
+  syncStoreFromLegacy();
 }
 
 function ensureLegacyExerciseUiKey(exercise: Record<string, unknown>) {
@@ -1609,8 +1630,7 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
       return result;
     },
     cancelWorkout: () => {
-      getCapturedLegacyAction('cancelWorkout')?.();
-      syncStoreFromLegacy();
+      cancelWorkoutFromStore();
     },
   }));
 
