@@ -287,11 +287,11 @@ export function setSelectedBonusDuration(value: string) {
 }
 
 export function swapAuxExercise(exerciseIndex: number) {
-  callLegacyWindowFunction('swapAuxExercise', exerciseIndex);
+  workoutStore.getState().swapAuxExercise(exerciseIndex);
 }
 
 export function swapBackExercise(exerciseIndex: number) {
-  callLegacyWindowFunction('swapBackExercise', exerciseIndex);
+  workoutStore.getState().swapBackExercise(exerciseIndex);
 }
 
 export function collapseCompletedExercise(exerciseUiKey: string) {

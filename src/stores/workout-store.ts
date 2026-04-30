@@ -38,6 +38,8 @@ type LegacyWorkoutStoreState = {
   skipRest: () => void;
   setRestBarActiveState: (active: boolean) => void;
   addExerciseByName: (name: string) => void;
+  swapAuxExercise: (exerciseIndex: number) => void;
+  swapBackExercise: (exerciseIndex: number) => void;
   applyQuickWorkoutAdjustment: (mode: string, detailLevel?: string) => void;
   undoQuickWorkoutAdjustment: () => void;
   showSetRIRPrompt: (exerciseIndex: number, setIndex: number) => void;
@@ -73,6 +75,8 @@ type LegacyWorkoutSnapshot = Omit<
   | 'skipRest'
   | 'setRestBarActiveState'
   | 'addExerciseByName'
+  | 'swapAuxExercise'
+  | 'swapBackExercise'
   | 'applyQuickWorkoutAdjustment'
   | 'undoQuickWorkoutAdjustment'
   | 'showSetRIRPrompt'
@@ -108,6 +112,8 @@ type LegacyWorkoutWindow = Window & {
   skipRest?: () => void;
   setRestBarActiveState?: (active: boolean) => void;
   addExerciseByName?: (name: string) => void;
+  swapAuxExercise?: (exerciseIndex: number) => void;
+  swapBackExercise?: (exerciseIndex: number) => void;
   applyQuickWorkoutAdjustment?: (mode: string, detailLevel?: string) => void;
   undoQuickWorkoutAdjustment?: () => void;
   showSetRIRPrompt?: (exerciseIndex: number, setIndex: number) => void;
@@ -132,6 +138,7 @@ type LegacyWorkoutWindow = Window & {
     options?: Record<string, unknown>
   ) => void;
   getActiveProgram?: () => Record<string, unknown> | null;
+  getActiveProgramState?: () => Record<string, unknown> | null;
   setProgramState?: (
     programId: string,
     state: Record<string, unknown>
@@ -182,6 +189,7 @@ type LegacyWorkoutWindow = Window & {
   getActiveWorkoutSession?: () => Record<string, unknown> | null;
   ensureExerciseUiKey?: (exercise: Record<string, unknown>) => string | null;
   getExerciseByUiKey?: (uiKey: string) => Record<string, unknown> | null;
+  openExerciseCatalogForSwap?: (config: Record<string, unknown>) => unknown;
   isExerciseComplete?: (exercise: Record<string, unknown>) => boolean;
   setExerciseCardCollapsed?: (
     exercise: Record<string, unknown>,
@@ -228,7 +236,6 @@ type LegacyWorkoutWindow = Window & {
     definition: Record<string, unknown>
   ) => Record<string, unknown> | null;
   getSuggested?: (exercise: Record<string, unknown>) => number | string | null;
-  getActiveProgramState?: () => Record<string, unknown> | null;
   buildTrainingCommentaryState?: (
     input?: Record<string, unknown>
   ) => Record<string, unknown> | null;
@@ -505,6 +512,119 @@ function addExerciseByNameFromStore(name: string) {
   persistCurrentWorkoutDraft();
   runtimeWindow?.insertExerciseCard?.(exercises.length - 1, exercise);
   refreshActiveWorkoutViews(ensureLegacyExerciseUiKey(exercise));
+}
+
+function getWorkoutExerciseIndexByUiKey(uiKey: string) {
+  const workout = getActiveWorkoutSession();
+  const exercises = Array.isArray(workout?.exercises)
+    ? (workout.exercises as Array<Record<string, unknown>>)
+    : [];
+  return exercises.findIndex((exercise) => String(exercise.uiKey || '') === uiKey);
+}
+
+function applyWorkoutExerciseSwap(
+  exerciseUiKey: string,
+  selectedName: unknown,
+  programUpdater?: (
+    program: Record<string, unknown>,
+    state: Record<string, unknown>,
+    resolvedName: string
+  ) => Record<string, unknown>
+) {
+  const runtimeWindow = getLegacyWindow();
+  const exerciseIndex = getWorkoutExerciseIndexByUiKey(exerciseUiKey);
+  const workout = getActiveWorkoutSession();
+  const exercise = getWorkoutExercise(workout, exerciseIndex);
+  if (!exercise) return;
+  const resolved = resolveExerciseSelection(selectedName);
+  if (!resolved.name) return;
+  exercise.name = resolved.name;
+  exercise.exerciseId = resolved.exerciseId;
+  persistCurrentWorkoutDraft();
+
+  const program = runtimeWindow?.getActiveProgram?.();
+  const state = runtimeWindow?.getActiveProgramState?.() || {};
+  if (program?.id) {
+    const nextState = programUpdater
+      ? programUpdater(program, state, resolved.name)
+      : state;
+    runtimeWindow?.setProgramState?.(String(program.id), nextState);
+    void Promise.resolve(
+      runtimeWindow?.saveProfileData?.({ programIds: [program.id] })
+    );
+  }
+
+  refreshActiveWorkoutViews(exerciseUiKey);
+  runtimeWindow?.showToast?.(
+    translateWorkoutText('workout.swapped_to', 'Swapped to {name}', {
+      name: displayWorkoutExerciseName(resolved.name),
+    }),
+    'var(--purple)'
+  );
+}
+
+function swapAuxExerciseFromStore(exerciseIndex: number) {
+  const runtimeWindow = getLegacyWindow();
+  const exercise = getWorkoutExercise(getActiveWorkoutSession(), exerciseIndex);
+  if (!exercise || Number(exercise.auxSlotIdx) < 0) return;
+  const exerciseUiKey = ensureLegacyExerciseUiKey(exercise);
+  const program = runtimeWindow?.getActiveProgram?.();
+  const getAuxSwapOptions = program?.getAuxSwapOptions;
+  const swapInfo =
+    typeof getAuxSwapOptions === 'function' ? getAuxSwapOptions(exercise) : null;
+  if (!swapInfo || typeof swapInfo !== 'object') return;
+  const category = String((swapInfo as Record<string, unknown>).category || '');
+  const title = category
+    ? translateWorkoutText('workout.swap_aux_category', 'Swap {cat} auxiliary', {
+        cat: category.charAt(0).toUpperCase() + category.slice(1),
+      })
+    : translateWorkoutText('workout.swap_exercise', 'Swap exercise');
+  runtimeWindow?.openExerciseCatalogForSwap?.({
+    exerciseIndex,
+    exercise,
+    swapInfo,
+    title,
+    onSelect: (selected: Record<string, unknown>) =>
+      applyWorkoutExerciseSwap(
+        exerciseUiKey,
+        selected.name,
+        (nextProgram, state, resolvedName) => {
+          const onAuxSwap = nextProgram.onAuxSwap;
+          return typeof onAuxSwap === 'function'
+            ? onAuxSwap(exercise.auxSlotIdx, resolvedName, state)
+            : state;
+        }
+      ),
+  });
+}
+
+function swapBackExerciseFromStore(exerciseIndex: number) {
+  const runtimeWindow = getLegacyWindow();
+  const exercise = getWorkoutExercise(getActiveWorkoutSession(), exerciseIndex);
+  if (!exercise) return;
+  const exerciseUiKey = ensureLegacyExerciseUiKey(exercise);
+  const program = runtimeWindow?.getActiveProgram?.();
+  const getBackSwapOptions = program?.getBackSwapOptions;
+  const swapInfo =
+    typeof getBackSwapOptions === 'function' ? getBackSwapOptions(exercise) : [];
+  if (!swapInfo) return;
+  runtimeWindow?.openExerciseCatalogForSwap?.({
+    exerciseIndex,
+    exercise,
+    swapInfo,
+    title: translateWorkoutText('workout.swap_back_title', 'Swap Back Exercise'),
+    onSelect: (selected: Record<string, unknown>) =>
+      applyWorkoutExerciseSwap(
+        exerciseUiKey,
+        selected.name,
+        (nextProgram, state, resolvedName) => {
+          const onBackSwap = nextProgram.onBackSwap;
+          return typeof onBackSwap === 'function'
+            ? onBackSwap(resolvedName, state)
+            : state;
+        }
+      ),
+  });
 }
 
 function cloneJsonValue<T>(value: T): T {
@@ -1850,6 +1970,12 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
     addExerciseByName: (name) => {
       addExerciseByNameFromStore(name);
     },
+    swapAuxExercise: (exerciseIndex) => {
+      swapAuxExerciseFromStore(exerciseIndex);
+    },
+    swapBackExercise: (exerciseIndex) => {
+      swapBackExerciseFromStore(exerciseIndex);
+    },
     applyQuickWorkoutAdjustment: (mode, detailLevel) => {
       applyQuickWorkoutAdjustmentFromStore(mode, detailLevel);
     },
@@ -1948,6 +2074,12 @@ export function installLegacyWorkoutStoreBridge() {
   );
   installStoreDelegator('addExerciseByName', (name) =>
     workoutStore.getState().addExerciseByName(String(name ?? ''))
+  );
+  installStoreDelegator('swapAuxExercise', (exerciseIndex) =>
+    workoutStore.getState().swapAuxExercise(Number(exerciseIndex))
+  );
+  installStoreDelegator('swapBackExercise', (exerciseIndex) =>
+    workoutStore.getState().swapBackExercise(Number(exerciseIndex))
   );
   installStoreDelegator('applyQuickWorkoutAdjustment', (mode, detailLevel) =>
     workoutStore

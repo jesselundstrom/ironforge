@@ -3634,94 +3634,17 @@ function removeEx(ei) {
 }
 
 function swapAuxExercise(ei) {
-  const exercise = activeWorkout.exercises[ei];
-  if (!exercise || exercise.auxSlotIdx < 0) return;
-  const exerciseUiKey = ensureExerciseUiKey(exercise);
-  const prog = getActiveProgram();
-  const swapInfo = prog.getAuxSwapOptions
-    ? prog.getAuxSwapOptions(exercise)
-    : null;
-  if (!swapInfo) return;
-  const cat = swapInfo.category || '';
-  const title = cat
-    ? i18nText('workout.swap_aux_category', 'Swap {cat} auxiliary', {
-        cat: cat.charAt(0).toUpperCase() + cat.slice(1),
-      })
-    : i18nText('workout.swap_exercise', 'Swap exercise');
-  openExerciseCatalogForSwap({
-    exerciseIndex: ei,
-    exercise,
-    swapInfo,
-    title,
-    onSelect: (selected) =>
-      doAuxSwap(exerciseUiKey, selected.name, exercise.auxSlotIdx),
-  });
-}
-
-function doAuxSwap(exerciseUiKey, newName, slotIdx) {
-  const exerciseIndex = getExerciseIndexByUiKey(exerciseUiKey);
-  if (exerciseIndex < 0) return;
-  const resolved = resolveExerciseSelection(newName);
-  activeWorkout.exercises[exerciseIndex].name = resolved.name;
-  activeWorkout.exercises[exerciseIndex].exerciseId = resolved.exerciseId;
-  persistCurrentWorkoutDraft();
-  const prog = getActiveProgram(),
-    state = getActiveProgramState();
-  const newState = prog.onAuxSwap
-    ? prog.onAuxSwap(slotIdx, resolved.name, state)
-    : state;
-  setProgramState(prog.id, newState);
-  saveProfileData({ programIds: [prog.id] });
-  updateExerciseCard(exerciseUiKey);
-  renderActiveWorkoutPlanPanel();
-  showToast(
-    i18nText('workout.swapped_to', 'Swapped to {name}', {
-      name: displayExerciseName(resolved.name),
-    }),
-    'var(--purple)'
-  );
+  const delegate = window.swapAuxExercise;
+  if (typeof delegate === 'function' && delegate !== swapAuxExercise) {
+    return delegate(ei);
+  }
 }
 
 function swapBackExercise(ei) {
-  const exercise = activeWorkout.exercises[ei];
-  if (!exercise) return;
-  const exerciseUiKey = ensureExerciseUiKey(exercise);
-  const prog = getActiveProgram();
-  const swapInfo = prog.getBackSwapOptions
-    ? prog.getBackSwapOptions(exercise)
-    : [];
-  if (!swapInfo) return;
-  openExerciseCatalogForSwap({
-    exerciseIndex: ei,
-    exercise,
-    swapInfo,
-    title: i18nText('workout.swap_back_title', 'Swap Back Exercise'),
-    onSelect: (selected) => doBackSwap(exerciseUiKey, selected.name),
-  });
-}
-
-function doBackSwap(exerciseUiKey, newName) {
-  const exerciseIndex = getExerciseIndexByUiKey(exerciseUiKey);
-  if (exerciseIndex < 0) return;
-  const resolved = resolveExerciseSelection(newName);
-  activeWorkout.exercises[exerciseIndex].name = resolved.name;
-  activeWorkout.exercises[exerciseIndex].exerciseId = resolved.exerciseId;
-  persistCurrentWorkoutDraft();
-  const prog = getActiveProgram(),
-    state = getActiveProgramState();
-  const newState = prog.onBackSwap
-    ? prog.onBackSwap(resolved.name, state)
-    : state;
-  setProgramState(prog.id, newState);
-  saveProfileData({ programIds: [prog.id] });
-  updateExerciseCard(exerciseUiKey);
-  renderActiveWorkoutPlanPanel();
-  showToast(
-    i18nText('workout.swapped_to', 'Swapped to {name}', {
-      name: displayExerciseName(resolved.name),
-    }),
-    'var(--purple)'
-  );
+  const delegate = window.swapBackExercise;
+  if (typeof delegate === 'function' && delegate !== swapBackExercise) {
+    return delegate(ei);
+  }
 }
 
 function showCustomModal(title, bodyHtml) {

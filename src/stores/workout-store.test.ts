@@ -22,6 +22,7 @@ type TestWindow = Window & {
   addEventListener?: typeof vi.fn;
   removeEventListener?: typeof vi.fn;
   getActiveWorkoutSession?: () => Record<string, unknown> | null;
+  openExerciseCatalogForSwap?: ReturnType<typeof vi.fn>;
   persistActiveWorkoutDraft?: ReturnType<typeof vi.fn>;
   renderActiveWorkoutPlanPanel?: ReturnType<typeof vi.fn>;
   renderExercises?: ReturnType<typeof vi.fn>;
@@ -101,6 +102,7 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     getActiveWorkoutSession: () => activeWorkout,
+    openExerciseCatalogForSwap: vi.fn(),
     persistActiveWorkoutDraft,
     renderActiveWorkoutPlanPanel,
     renderExercises,
@@ -130,7 +132,15 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
     clearSetPr: vi.fn((_exercise, set) => {
       if (set) set.isPr = false;
     }),
-    i18nText: (_key: string, fallback: string) => fallback,
+    i18nText: (
+      _key: string,
+      fallback: string,
+      params?: Record<string, unknown>
+    ) =>
+      Object.entries(params || {}).reduce(
+        (text, [key, value]) => text.replace(`{${key}}`, String(value)),
+        fallback
+      ),
     displayExerciseName: (input: unknown) => String(input || ''),
     getRegisteredExercise: (input: unknown) => {
       const key =
@@ -401,6 +411,86 @@ describe('workout store start boundary', () => {
     expect(runtimeWindow.insertExerciseCard).toHaveBeenCalledWith(
       1,
       activeWorkout.exercises[1]
+    );
+  });
+
+  it('owns auxiliary and back exercise swaps selected from the typed catalog', () => {
+    const activeWorkout = {
+      exercises: [
+        {
+          name: 'Cable Row',
+          exerciseId: 'cable_row',
+          isAux: true,
+          auxSlotIdx: 0,
+          sets: [{ weight: 40, reps: 10, done: false }],
+        },
+        {
+          name: 'Lat Pulldown',
+          exerciseId: 'lat_pulldown',
+          sets: [{ weight: 50, reps: 8, done: false }],
+        },
+      ],
+    };
+    const onAuxSwap = vi.fn((_slotIdx, selectedName, state) => ({
+      ...state,
+      auxName: selectedName,
+    }));
+    const onBackSwap = vi.fn((selectedName, state) => ({
+      ...state,
+      backName: selectedName,
+    }));
+    const runtimeWindow = installWorkoutWindow(activeWorkout);
+    runtimeWindow.getActiveProgram = () => ({
+      id: 'forge',
+      name: 'Forge',
+      getAuxSwapOptions: vi.fn(() => ({
+        category: 'back',
+        options: ['Dumbbell Row'],
+      })),
+      getBackSwapOptions: vi.fn(() => ['Dumbbell Row']),
+      onAuxSwap,
+      onBackSwap,
+    });
+    runtimeWindow.openExerciseCatalogForSwap = vi.fn((config) => {
+      const onSelect = (config as Record<string, unknown>).onSelect as (
+        selected: Record<string, unknown>
+      ) => void;
+      onSelect({ id: 'dumbbell_row', name: 'Dumbbell Row' });
+      return true;
+    });
+    installTestDocument();
+
+    workoutStore.getState().swapAuxExercise(0);
+
+    expect(activeWorkout.exercises[0].name).toBe('Dumbbell Row');
+    expect(activeWorkout.exercises[0].exerciseId).toBe('dumbbell_row');
+    expect(onAuxSwap).toHaveBeenCalledWith(
+      0,
+      'Dumbbell Row',
+      expect.objectContaining({ rounding: 2.5 })
+    );
+    expect(runtimeWindow.setProgramState).toHaveBeenCalledWith(
+      'forge',
+      expect.objectContaining({ auxName: 'Dumbbell Row' })
+    );
+    expect(runtimeWindow.saveProfileData).toHaveBeenCalledWith({
+      programIds: ['forge'],
+    });
+    expect(runtimeWindow.showToast).toHaveBeenCalledWith(
+      'Swapped to Dumbbell Row',
+      'var(--purple)'
+    );
+
+    workoutStore.getState().swapBackExercise(1);
+
+    expect(activeWorkout.exercises[1].name).toBe('Dumbbell Row');
+    expect(onBackSwap).toHaveBeenCalledWith(
+      'Dumbbell Row',
+      expect.objectContaining({ rounding: 2.5 })
+    );
+    expect(runtimeWindow.setProgramState).toHaveBeenLastCalledWith(
+      'forge',
+      expect.objectContaining({ backName: 'Dumbbell Row' })
     );
   });
 
