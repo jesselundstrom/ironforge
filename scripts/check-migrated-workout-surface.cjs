@@ -14,6 +14,8 @@ const forbiddenPatterns = [
   'window.addExerciseByName',
   'window.applyQuickWorkoutAdjustment',
   'window.undoQuickWorkoutAdjustment',
+  'window.openExerciseGuide',
+  'window.closeExerciseGuide',
   'window.showSetRIRPrompt',
   'window.applySetRIR',
   'window.resumeActiveWorkoutUI',

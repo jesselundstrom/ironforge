@@ -42,6 +42,7 @@ let pendingSportReadinessCallback:
   | null = null;
 let pendingSummaryResolve: ((result: SummaryResult | null) => void) | null =
   null;
+let activeGuideExerciseKey: string | null = null;
 
 function setWorkoutSessionState(partial: Record<string, unknown>) {
   const current = useRuntimeStore.getState().workoutSession.session;
@@ -68,6 +69,106 @@ function getSummaryPromptSnapshot() {
   return prompt && typeof prompt === 'object' ? { ...prompt } : null;
 }
 
+function getRuntimeWindow() {
+  if (typeof window === 'undefined') return null;
+  return window as Window & {
+    activeWorkout?: Record<string, unknown> | null;
+    I18N?: {
+      getLanguage?: () => string;
+    };
+    getExerciseByUiKey?: (uiKey: string) => Record<string, unknown> | null;
+    ensureExerciseUiKey?: (exercise: Record<string, unknown>) => string | null;
+    getExerciseGuidanceFor?: (
+      input: unknown,
+      locale?: string
+    ) => Record<string, unknown> | null;
+    getExerciseDisplayName?: (input: unknown, locale?: string) => string;
+    syncWorkoutSessionBridge?: () => void;
+    getExerciseGuidePromptSnapshot?: () => Record<string, unknown> | null;
+    refreshExerciseGuideModal?: () => void;
+    openExerciseGuide?: typeof openExerciseGuide;
+    closeExerciseGuide?: typeof closeExerciseGuide;
+  };
+}
+
+function getExerciseGuideLocale() {
+  return getRuntimeWindow()?.I18N?.getLanguage?.() || 'en';
+}
+
+function displayExerciseName(input: unknown) {
+  const locale = getExerciseGuideLocale();
+  return (
+    getRuntimeWindow()?.getExerciseDisplayName?.(input, locale) ||
+    String(input || '')
+  );
+}
+
+function getExerciseByRef(exerciseRef: string | number) {
+  const runtimeWindow = getRuntimeWindow();
+  if (typeof exerciseRef === 'string') {
+    return runtimeWindow?.getExerciseByUiKey?.(exerciseRef) || null;
+  }
+  const snapshot = workoutStore.getState().syncFromLegacy();
+  const activeWorkout =
+    (snapshot.activeWorkout as unknown as Record<string, unknown> | null) ||
+    runtimeWindow?.activeWorkout ||
+    null;
+  const exercises = Array.isArray(activeWorkout?.exercises)
+    ? (activeWorkout.exercises as Array<Record<string, unknown>>)
+    : [];
+  return exercises[exerciseRef] || null;
+}
+
+function getExerciseGuide(exercise: Record<string, unknown> | null) {
+  if (!exercise) return null;
+  return (
+    getRuntimeWindow()?.getExerciseGuidanceFor?.(
+      exercise.exerciseId || exercise.name,
+      getExerciseGuideLocale()
+    ) || null
+  );
+}
+
+function getExerciseGuidePromptSnapshot() {
+  const exercise = activeGuideExerciseKey
+    ? getRuntimeWindow()?.getExerciseByUiKey?.(activeGuideExerciseKey) || null
+    : null;
+  const guide = getExerciseGuide(exercise);
+  if (!exercise || !guide) return null;
+  const media = guide.media as Record<string, unknown> | undefined;
+  const mediaLinks: Array<{ href: string; label: string }> = [];
+  if (media?.videoUrl) {
+    mediaLinks.push({
+      href: String(media.videoUrl),
+      label: t('guidance.media.video', 'Open video'),
+    });
+  }
+  if (media?.imageUrl) {
+    mediaLinks.push({
+      href: String(media.imageUrl),
+      label: t('guidance.media.image', 'Open image'),
+    });
+  }
+  return {
+    open: true,
+    title: displayExerciseName(exercise.name),
+    subtitle: t('guidance.title', 'Movement Guide'),
+    setup: String(guide.setup || ''),
+    execution: Array.isArray(guide.execution) ? [...guide.execution] : [],
+    cues: Array.isArray(guide.cues) ? [...guide.cues] : [],
+    safety: String(guide.safety || ''),
+    mediaLinks,
+  };
+}
+
+function syncExerciseGuidePrompt() {
+  const prompt = getExerciseGuidePromptSnapshot();
+  setWorkoutSessionState({
+    exerciseGuideOpen: prompt?.open === true,
+    exerciseGuidePrompt: prompt,
+  });
+}
+
 function readSportReadinessContext() {
   const getter = readLegacyWindowValue<() => Record<string, unknown> | null>(
     'getPendingSportReadinessContext'
@@ -80,6 +181,7 @@ export function getWorkoutOverlaySnapshot() {
     rpePrompt: getRpePromptSnapshot(),
     summaryPrompt: getSummaryPromptSnapshot(),
     sportCheckPrompt: getSportCheckPromptSnapshot(),
+    exerciseGuidePrompt: getExerciseGuidePromptSnapshot(),
   };
 }
 
@@ -97,6 +199,10 @@ export function installWorkoutOverlayBridge() {
     closeSummaryModal?: typeof closeSummaryModal;
     setSummaryFeedback?: typeof setSummaryFeedback;
     updateSummaryNotes?: typeof updateSummaryNotes;
+    getExerciseGuidePromptSnapshot?: typeof getExerciseGuidePromptSnapshot;
+    refreshExerciseGuideModal?: typeof refreshExerciseGuideModal;
+    openExerciseGuide?: typeof openExerciseGuide;
+    closeExerciseGuide?: typeof closeExerciseGuide;
     _summaryCleanup?: (() => void) | null;
   };
   const legacyGetWorkoutOverlaySnapshot =
@@ -111,6 +217,10 @@ export function installWorkoutOverlayBridge() {
       getSportCheckPromptSnapshot() ||
       legacyGetWorkoutOverlaySnapshot?.()?.sportCheckPrompt ||
       null,
+    exerciseGuidePrompt:
+      getExerciseGuidePromptSnapshot() ||
+      legacyGetWorkoutOverlaySnapshot?.()?.exerciseGuidePrompt ||
+      null,
   });
   runtimeWindow.showRPEPicker = showRPEPicker;
   runtimeWindow.selectRPE = selectRPE;
@@ -122,6 +232,10 @@ export function installWorkoutOverlayBridge() {
   runtimeWindow.closeSummaryModal = closeSummaryModal;
   runtimeWindow.setSummaryFeedback = setSummaryFeedback;
   runtimeWindow.updateSummaryNotes = updateSummaryNotes;
+  runtimeWindow.getExerciseGuidePromptSnapshot = getExerciseGuidePromptSnapshot;
+  runtimeWindow.refreshExerciseGuideModal = refreshExerciseGuideModal;
+  runtimeWindow.openExerciseGuide = openExerciseGuide;
+  runtimeWindow.closeExerciseGuide = closeExerciseGuide;
 }
 
 export function openExerciseCatalogForAdd() {
@@ -186,15 +300,36 @@ export function expandCompletedExercise(exerciseUiKey: string) {
   callLegacyWindowFunction('expandCompletedExercise', exerciseUiKey);
 }
 
-export function openExerciseGuide(exerciseRef: string) {
-  callLegacyWindowFunction('openExerciseGuide', exerciseRef);
+export function openExerciseGuide(exerciseRef: string | number) {
+  const exercise = getExerciseByRef(exerciseRef);
+  const guide = getExerciseGuide(exercise);
+  if (!exercise || !guide) return;
+  activeGuideExerciseKey =
+    getRuntimeWindow()?.ensureExerciseUiKey?.(exercise) ||
+    String(exercise.uiKey || '');
+  syncExerciseGuidePrompt();
 }
 
 export function closeExerciseGuide(event?: EventLike) {
-  callLegacyWindowFunction(
-    'closeExerciseGuide',
-    event && 'nativeEvent' in event ? event.nativeEvent : event
-  );
+  const nativeEvent = event && 'nativeEvent' in event ? event.nativeEvent : event;
+  if (
+    nativeEvent &&
+    'target' in nativeEvent &&
+    nativeEvent.target !== nativeEvent.currentTarget
+  ) {
+    return;
+  }
+  activeGuideExerciseKey = null;
+  syncExerciseGuidePrompt();
+}
+
+export function refreshExerciseGuideModal() {
+  if (!activeGuideExerciseKey) return;
+  if (!getExerciseGuidePromptSnapshot()) {
+    closeExerciseGuide();
+    return;
+  }
+  syncExerciseGuidePrompt();
 }
 
 export function handleSetInputKey(

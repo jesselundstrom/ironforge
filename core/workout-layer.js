@@ -1188,7 +1188,6 @@ window.syncWorkoutSessionBridge = function syncWorkoutSessionBridge() {
 };
 
 let collapsedExerciseCardState = {};
-let activeGuideExerciseKey = null;
 let exerciseUiKeyCounter = 0;
 let exerciseListInteractionsBound = false;
 
@@ -1484,8 +1483,9 @@ function getExerciseByUiKey(uiKey) {
 
 function resetActiveWorkoutUIState() {
   collapsedExerciseCardState = {};
-  activeGuideExerciseKey = null;
-  document.getElementById('exercise-guide-modal')?.classList.remove('active');
+  if (typeof window.closeExerciseGuide === 'function') {
+    window.closeExerciseGuide();
+  }
 }
 
 function isExerciseComplete(exercise) {
@@ -2815,76 +2815,19 @@ function getExerciseGuide(ex) {
   return guide;
 }
 
-function getExerciseGuidePromptSnapshot() {
-  const exercise = activeGuideExerciseKey
-    ? getExerciseByUiKey(activeGuideExerciseKey)
-    : null;
-  const guide = getExerciseGuide(exercise);
-  if (!exercise || !guide) return null;
-  const mediaLinks = [];
-  if (guide.media?.videoUrl) {
-    mediaLinks.push(
-      {
-        href: guide.media.videoUrl,
-        label: i18nText('guidance.media.video', 'Open video'),
-      }
-    );
-  }
-  if (guide.media?.imageUrl) {
-    mediaLinks.push(
-      {
-        href: guide.media.imageUrl,
-        label: i18nText('guidance.media.image', 'Open image'),
-      }
-    );
-  }
-  return {
-    open: true,
-    title: displayExerciseName(exercise.name),
-    subtitle: i18nText('guidance.title', 'Movement Guide'),
-    setup: guide.setup || '',
-    execution: Array.isArray(guide.execution) ? guide.execution.slice() : [],
-    cues: Array.isArray(guide.cues) ? guide.cues.slice() : [],
-    safety: guide.safety || '',
-    mediaLinks,
-  };
-}
-
-function refreshExerciseGuideModal() {
-  const exercise = activeGuideExerciseKey
-    ? getExerciseByUiKey(activeGuideExerciseKey)
-    : null;
-  if (!exercise || !getExerciseGuide(exercise)) {
-    closeExerciseGuide();
-    return;
-  }
-  if (typeof window.syncWorkoutSessionBridge === 'function') {
-    window.syncWorkoutSessionBridge();
-  }
-}
-
 function openExerciseGuide(exerciseRef) {
-  const exercise =
-    typeof exerciseRef === 'string'
-      ? getExerciseByUiKey(exerciseRef)
-      : activeWorkout?.exercises?.[exerciseRef];
-  const guide = getExerciseGuide(exercise);
-  if (!exercise || !guide) return;
-  activeGuideExerciseKey = ensureExerciseUiKey(exercise);
-  if (typeof window.syncWorkoutSessionBridge === 'function') {
-    window.syncWorkoutSessionBridge();
+  const delegate = window.openExerciseGuide;
+  if (typeof delegate === 'function' && delegate !== openExerciseGuide) {
+    return delegate(exerciseRef);
   }
 }
 
 function closeExerciseGuide(event) {
-  if (event && event.target !== event.currentTarget) return;
-  activeGuideExerciseKey = null;
-  if (typeof window.syncWorkoutSessionBridge === 'function') {
-    window.syncWorkoutSessionBridge();
+  const delegate = window.closeExerciseGuide;
+  if (typeof delegate === 'function' && delegate !== closeExerciseGuide) {
+    return delegate(event);
   }
 }
-
-window.getExerciseGuidePromptSnapshot = getExerciseGuidePromptSnapshot;
 
 function renderExerciseGuideButton(exercise) {
   if (!getExerciseGuide(exercise)) return '';
@@ -3123,13 +3066,13 @@ function renderExercises() {
   container.replaceChildren(fragment);
   syncExerciseCardIndexes();
   renderActiveWorkoutPlanPanel();
-  refreshExerciseGuideModal();
+  window.refreshExerciseGuideModal?.();
 }
 
 function updateExerciseCard(uiKey) {
   if (isLogActiveIslandActive()) {
     notifyLogActiveIsland();
-    refreshExerciseGuideModal();
+    window.refreshExerciseGuideModal?.();
     return getExerciseCardElement(uiKey);
   }
   const exercise = getExerciseByUiKey(uiKey);
@@ -3144,14 +3087,14 @@ function updateExerciseCard(uiKey) {
     container.insertBefore(nextCard, beforeNode);
   }
   syncExerciseCardIndexes();
-  refreshExerciseGuideModal();
+  window.refreshExerciseGuideModal?.();
   return nextCard;
 }
 
 function appendExerciseCard(exercise) {
   if (isLogActiveIslandActive()) {
     notifyLogActiveIsland();
-    refreshExerciseGuideModal();
+    window.refreshExerciseGuideModal?.();
     return getExerciseCardElement(ensureExerciseUiKey(exercise));
   }
   const container = getExercisesContainer();
@@ -3162,14 +3105,14 @@ function appendExerciseCard(exercise) {
   );
   container.appendChild(card);
   syncExerciseCardIndexes();
-  refreshExerciseGuideModal();
+  window.refreshExerciseGuideModal?.();
   return card;
 }
 
 function insertExerciseCard(exerciseIndex, exercise) {
   if (isLogActiveIslandActive()) {
     notifyLogActiveIsland();
-    refreshExerciseGuideModal();
+    window.refreshExerciseGuideModal?.();
     return getExerciseCardElement(ensureExerciseUiKey(exercise));
   }
   const container = getExercisesContainer();
@@ -3178,20 +3121,20 @@ function insertExerciseCard(exerciseIndex, exercise) {
   const beforeNode = container.children[exerciseIndex] || null;
   container.insertBefore(card, beforeNode);
   syncExerciseCardIndexes();
-  refreshExerciseGuideModal();
+  window.refreshExerciseGuideModal?.();
   return card;
 }
 
 function removeExerciseCard(uiKey) {
   if (isLogActiveIslandActive()) {
-    if (activeGuideExerciseKey === uiKey) closeExerciseGuide();
     notifyLogActiveIsland();
+    window.refreshExerciseGuideModal?.();
     return;
   }
   const card = getExerciseCardElement(uiKey);
   if (card) card.remove();
   syncExerciseCardIndexes();
-  if (activeGuideExerciseKey === uiKey) closeExerciseGuide();
+  window.refreshExerciseGuideModal?.();
 }
 
 function getExerciseActionContext(target) {
