@@ -40,6 +40,9 @@ type TestWindow = Window & {
   clearSetPr?: ReturnType<typeof vi.fn>;
   i18nText?: (key: string, fallback: string) => string;
   displayExerciseName?: (input: unknown) => string;
+  getRegisteredExercise?: (input: unknown) => Record<string, unknown> | null;
+  resolveRegisteredExerciseId?: (input: unknown) => string | null;
+  getSuggested?: ReturnType<typeof vi.fn>;
   __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
     read?: (name: string) => unknown;
     write?: ReturnType<typeof vi.fn>;
@@ -98,6 +101,23 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
     }),
     i18nText: (_key: string, fallback: string) => fallback,
     displayExerciseName: (input: unknown) => String(input || ''),
+    getRegisteredExercise: (input: unknown) => {
+      const key =
+        typeof input === 'object'
+          ? String((input as Record<string, unknown>).exerciseId || '')
+          : String(input || '').toLowerCase();
+      if (key === 'dumbbell_row' || key === 'dumbbell row') {
+        return { id: 'dumbbell_row', name: 'Dumbbell Row' };
+      }
+      return null;
+    },
+    resolveRegisteredExerciseId: (input: unknown) => {
+      const value = String(input || '').toLowerCase();
+      return value === 'dumbbell row' || value === 'dumbbell_row'
+        ? 'dumbbell_row'
+        : null;
+    },
+    getSuggested: vi.fn(() => 42.5),
     __IRONFORGE_LEGACY_RUNTIME_ACCESS__: {
       read: (name: string) =>
         name === 'activeWorkout' ? activeWorkout : undefined,
@@ -303,4 +323,30 @@ describe('workout store start boundary', () => {
       'var(--blue)'
     );
   });
+
+  it('owns adding an exercise to the active workout from a catalog name', () => {
+    const activeWorkout = {
+      exercises: [{ name: 'Bench', sets: [{ weight: 60, reps: 5, done: false }] }],
+    };
+    const runtimeWindow = installWorkoutWindow(activeWorkout);
+    installTestDocument();
+
+    workoutStore.getState().addExerciseByName('Dumbbell Row');
+
+    expect(activeWorkout.exercises).toHaveLength(2);
+    expect((activeWorkout.exercises[1] as Record<string, unknown>).name).toBe(
+      'Dumbbell Row'
+    );
+    expect(
+      ((activeWorkout.exercises[1] as Record<string, unknown>).sets as Array<
+        Record<string, unknown>
+      >)[0].weight
+    ).toBe(42.5);
+    expect(runtimeWindow.persistActiveWorkoutDraft).toHaveBeenCalled();
+    expect(runtimeWindow.insertExerciseCard).toHaveBeenCalledWith(
+      1,
+      activeWorkout.exercises[1]
+    );
+  });
+
 });

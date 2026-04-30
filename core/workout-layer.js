@@ -4357,28 +4357,10 @@ function submitExerciseCatalogSelection() {
 }
 
 function addExerciseByName(name) {
-  if (!activeWorkout) return;
-  const resolved = resolveExerciseSelection(name);
-  const exerciseId = resolved.exerciseId;
-  const canonicalName = resolved.name;
-  const suggested = getSuggested({ name: canonicalName, exerciseId });
-  const exercise = ensureWorkoutExerciseUiKeys([
-    {
-      id: Date.now() + Math.random(),
-      exerciseId,
-      name: canonicalName,
-      note: '',
-      sets: [
-        { weight: suggested || '', reps: 5, done: false, rpe: null },
-        { weight: suggested || '', reps: 5, done: false, rpe: null },
-        { weight: suggested || '', reps: 5, done: false, rpe: null },
-      ],
-    },
-  ])[0];
-  activeWorkout.exercises.push(exercise);
-  persistCurrentWorkoutDraft();
-  appendExerciseCard(exercise);
-  renderActiveWorkoutPlanPanel();
+  const delegate = window.addExerciseByName;
+  if (typeof delegate === 'function' && delegate !== addExerciseByName) {
+    return delegate(name);
+  }
 }
 
 function sanitizeSetValue(field, raw) {

@@ -176,6 +176,12 @@ type LegacyWorkoutWindow = Window & {
   ) => string;
   displayExerciseName?: (input: unknown) => string;
   formatWorkoutWeight?: (value: unknown) => string;
+  getRegisteredExercise?: (input: unknown) => Record<string, unknown> | null;
+  resolveRegisteredExerciseId?: (input: unknown) => string | null;
+  registerCustomExercise?: (
+    definition: Record<string, unknown>
+  ) => Record<string, unknown> | null;
+  getSuggested?: (exercise: Record<string, unknown>) => number | string | null;
   i18nText?: (
     key: string,
     fallback: string,
@@ -193,7 +199,6 @@ const DELEGATOR_MARK = '__ironforgeWorkoutStoreDelegator';
 const DELEGATED_WORKOUT_ACTIONS = [
   'startWorkout',
   'resumeActiveWorkoutUI',
-  'addExerciseByName',
   'selectExerciseCatalogExercise',
   'finishWorkout',
   'cancelWorkout',
@@ -377,6 +382,59 @@ function getWorkoutSet(
     ? (exercise.sets as Array<Record<string, unknown>>)
     : [];
   return sets[setIndex] || null;
+}
+
+function resolveExerciseSelection(input: unknown) {
+  const runtimeWindow = getLegacyWindow();
+  const raw =
+    input && typeof input === 'object'
+      ? (input as Record<string, unknown>).name ||
+        (input as Record<string, unknown>).exerciseId ||
+        ''
+      : input;
+  const resolved =
+    runtimeWindow?.getRegisteredExercise?.(input) ||
+    runtimeWindow?.getRegisteredExercise?.(
+      runtimeWindow?.resolveRegisteredExerciseId?.(raw) || raw
+    ) ||
+    null;
+  return {
+    exerciseId:
+      String(resolved?.id || runtimeWindow?.resolveRegisteredExerciseId?.(raw) || '')
+        .trim() || null,
+    name: String(resolved?.name || raw || '').trim(),
+  };
+}
+
+function addExerciseByNameFromStore(name: string) {
+  const runtimeWindow = getLegacyWindow();
+  const workout = getActiveWorkoutSession();
+  const exercises = Array.isArray(workout?.exercises)
+    ? (workout.exercises as Array<Record<string, unknown>>)
+    : null;
+  if (!workout || !exercises) return;
+  const resolved = resolveExerciseSelection(name);
+  const exerciseId = resolved.exerciseId;
+  const canonicalName = resolved.name;
+  if (!canonicalName) return;
+  const suggested =
+    runtimeWindow?.getSuggested?.({ name: canonicalName, exerciseId }) || '';
+  const exercise: Record<string, unknown> = {
+    id: Date.now() + Math.random(),
+    exerciseId,
+    name: canonicalName,
+    note: '',
+    sets: [
+      { weight: suggested, reps: 5, done: false, rpe: null },
+      { weight: suggested, reps: 5, done: false, rpe: null },
+      { weight: suggested, reps: 5, done: false, rpe: null },
+    ],
+  };
+  ensureLegacyExerciseUiKey(exercise);
+  exercises.push(exercise);
+  persistCurrentWorkoutDraft();
+  runtimeWindow?.insertExerciseCard?.(exercises.length - 1, exercise);
+  refreshActiveWorkoutViews(ensureLegacyExerciseUiKey(exercise));
 }
 
 function ensureLegacyExerciseUiKey(exercise: Record<string, unknown>) {
@@ -1045,8 +1103,7 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
       syncStoreFromLegacy();
     },
     addExerciseByName: (name) => {
-      getCapturedLegacyAction('addExerciseByName')?.(name);
-      syncStoreFromLegacy();
+      addExerciseByNameFromStore(name);
     },
     selectExerciseCatalogExercise: (exerciseId) => {
       getCapturedLegacyAction('selectExerciseCatalogExercise')?.(exerciseId);
