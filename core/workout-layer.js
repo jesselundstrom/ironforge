@@ -3409,774 +3409,85 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pageshow', renderWorkoutTimer);
 
-const EXERCISE_CATALOG_FILTERS = {
-  movement: [
-    {
-      value: 'squat',
-      labelKey: 'catalog.filter.movement.squat',
-      fallback: 'Squat',
-    },
-    {
-      value: 'hinge',
-      labelKey: 'catalog.filter.movement.hinge',
-      fallback: 'Hinge',
-    },
-    {
-      value: 'horizontal_press',
-      labelKey: 'catalog.filter.movement.horizontal_press',
-      fallback: 'Horizontal Press',
-    },
-    {
-      value: 'vertical_press',
-      labelKey: 'catalog.filter.movement.vertical_press',
-      fallback: 'Vertical Press',
-    },
-    {
-      value: 'horizontal_pull',
-      labelKey: 'catalog.filter.movement.horizontal_pull',
-      fallback: 'Horizontal Pull',
-    },
-    {
-      value: 'vertical_pull',
-      labelKey: 'catalog.filter.movement.vertical_pull',
-      fallback: 'Vertical Pull',
-    },
-    {
-      value: 'single_leg',
-      labelKey: 'catalog.filter.movement.single_leg',
-      fallback: 'Single-Leg',
-    },
-    {
-      value: 'core',
-      labelKey: 'catalog.filter.movement.core',
-      fallback: 'Core',
-    },
-  ],
-  muscle: [
-    {
-      value: 'chest',
-      labelKey: 'dashboard.muscle_group.chest',
-      fallback: 'Chest',
-    },
-    {
-      value: 'back',
-      labelKey: 'dashboard.muscle_group.back',
-      fallback: 'Back',
-    },
-    {
-      value: 'shoulders',
-      labelKey: 'dashboard.muscle_group.shoulders',
-      fallback: 'Shoulders',
-    },
-    {
-      value: 'biceps',
-      labelKey: 'dashboard.muscle_group.biceps',
-      fallback: 'Biceps',
-    },
-    {
-      value: 'triceps',
-      labelKey: 'dashboard.muscle_group.triceps',
-      fallback: 'Triceps',
-    },
-    {
-      value: 'quads',
-      labelKey: 'dashboard.muscle_group.quads',
-      fallback: 'Quads',
-    },
-    {
-      value: 'hamstrings',
-      labelKey: 'dashboard.muscle_group.hamstrings',
-      fallback: 'Hamstrings',
-    },
-    {
-      value: 'glutes',
-      labelKey: 'dashboard.muscle_group.glutes',
-      fallback: 'Glutes',
-    },
-    {
-      value: 'core',
-      labelKey: 'dashboard.muscle_group.core',
-      fallback: 'Core',
-    },
-  ],
-  equipment: [
-    {
-      value: 'barbell',
-      labelKey: 'catalog.filter.equipment.barbell',
-      fallback: 'Barbell',
-    },
-    {
-      value: 'dumbbell',
-      labelKey: 'catalog.filter.equipment.dumbbell',
-      fallback: 'Dumbbell',
-    },
-    {
-      value: 'machine',
-      labelKey: 'catalog.filter.equipment.machine',
-      fallback: 'Machine',
-    },
-    {
-      value: 'cable',
-      labelKey: 'catalog.filter.equipment.cable',
-      fallback: 'Cable',
-    },
-    {
-      value: 'bodyweight',
-      labelKey: 'catalog.filter.equipment.bodyweight',
-      fallback: 'Bodyweight',
-    },
-    {
-      value: 'pullup_bar',
-      labelKey: 'catalog.filter.equipment.pullup_bar',
-      fallback: 'Pull-up Bar',
-    },
-    {
-      value: 'band',
-      labelKey: 'catalog.filter.equipment.band',
-      fallback: 'Band',
-    },
-    {
-      value: 'trap_bar',
-      labelKey: 'catalog.filter.equipment.trap_bar',
-      fallback: 'Trap Bar',
-    },
-  ],
-};
-
-let exerciseCatalogState = null;
-let exerciseCatalogListenersBound = false;
-
-function getExerciseCatalogRuntimeBridge() {
-  return window.__IRONFORGE_RUNTIME_BRIDGE__ || null;
-}
-
-function mergeExerciseCatalogFilterGroup(baseValues, selectedValue) {
-  const base = arrayify(baseValues).filter(Boolean);
-  if (!selectedValue) return base;
-  if (!base.length) return [selectedValue];
-  return base.includes(selectedValue) ? [selectedValue] : ['__no_match__'];
-}
-
-function getExerciseCatalogUserFilters() {
-  return {
-    movementTags: exerciseCatalogState?.movementTag
-      ? [exerciseCatalogState.movementTag]
-      : [],
-    muscleGroups: exerciseCatalogState?.muscleGroup
-      ? [exerciseCatalogState.muscleGroup]
-      : [],
-    equipmentTags: exerciseCatalogState?.equipmentTag
-      ? [exerciseCatalogState.equipmentTag]
-      : [],
-  };
-}
-
-function getExerciseCatalogFilterPayload() {
-  const base = exerciseCatalogState?.baseFilters || {};
-  const ui = getExerciseCatalogUserFilters();
-  return {
-    categories: arrayify(base.categories),
-    includeIds: arrayify(base.includeIds),
-    excludeIds: arrayify(base.excludeIds),
-    movementTags: mergeExerciseCatalogFilterGroup(
-      base.movementTags,
-      ui.movementTags[0] || ''
-    ),
-    muscleGroups: mergeExerciseCatalogFilterGroup(
-      base.muscleGroups,
-      ui.muscleGroups[0] || ''
-    ),
-    equipmentTags: mergeExerciseCatalogFilterGroup(
-      base.equipmentTags,
-      ui.equipmentTags[0] || ''
-    ),
-  };
-}
-
-function hasExerciseCatalogFilters() {
-  return !!(
-    exerciseCatalogState?.movementTag ||
-    exerciseCatalogState?.muscleGroup ||
-    exerciseCatalogState?.equipmentTag
-  );
-}
-
-function isExerciseCatalogSwapMode() {
-  return (
-    exerciseCatalogState?.mode === 'swap' ||
-    exerciseCatalogState?.mode === 'settings'
-  );
-}
-
-function mergeExerciseCatalogLists(primary, extra) {
-  const seen = new Set();
-  return [...(primary || []), ...(extra || [])].filter((ex) => {
-    const id = ex?.id;
-    if (!id || seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
-}
-
-function getExerciseCatalogCandidateExercises(filters) {
-  const candidateIds = arrayify(exerciseCatalogState?.candidateIds);
-  if (!candidateIds.length) return [];
-  return getWorkoutExerciseList({
-    sort: 'featured',
-    filters: {
-      ...filters,
-      includeIds: candidateIds,
-      excludeIds: arrayify(exerciseCatalogState?.baseFilters?.excludeIds),
-    },
-  });
-}
-
-function getExerciseCatalogRecent(limit) {
-  const ids = [];
-  const seen = new Set();
-  workouts
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .forEach((workout) => {
-      (workout?.exercises || []).forEach((ex) => {
-        const resolved = exerciseIdForName(ex.exerciseId || ex.name);
-        if (!resolved || seen.has(resolved)) return;
-        seen.add(resolved);
-        ids.push(resolved);
-      });
-    });
-  return ids
-    .slice(0, limit)
-    .map((id) => getWorkoutExercise(id))
-    .filter(Boolean);
-}
-
-function getExerciseCatalogFeatured(limit, filters) {
-  return getWorkoutExerciseList({
-    sort: 'featured',
-    filters: { ...filters, featuredOnly: true },
-  }).slice(0, limit);
-}
-
-function getExerciseCatalogAll(filters) {
-  return getWorkoutExerciseList({ sort: 'name', filters });
-}
-
-function getExerciseCatalogResults() {
-  const search = exerciseCatalogState?.search || '';
-  const filters = getExerciseCatalogFilterPayload();
-  const userFilters = getExerciseCatalogUserFilters();
-  if (search) {
-    const baseResults = searchWorkoutExercises(search, {
-      ...filters,
-      limit: 120,
-    });
-    const candidateResults = getExerciseCatalogCandidateExercises({
-      ...userFilters,
-      limit: 120,
-    });
-    const searchedCandidates = search
-      ? searchWorkoutExercises(search, {
-          ...userFilters,
-          includeIds: candidateResults.map((ex) => ex.id),
-          excludeIds: arrayify(exerciseCatalogState?.baseFilters?.excludeIds),
-          limit: 120,
-        })
-      : candidateResults;
-    return mergeExerciseCatalogLists(baseResults, searchedCandidates).slice(
-      0,
-      120
-    );
-  }
-  return mergeExerciseCatalogLists(
-    getExerciseCatalogAll(filters),
-    getExerciseCatalogCandidateExercises(userFilters)
-  );
-}
-
-function getExerciseCatalogMetaLine(exercise) {
-  const parts = [];
-  const firstMovement = exercise?.movementTags?.[0];
-  const firstMuscle = exercise?.displayMuscleGroups?.[0];
-  const firstEquipment = exercise?.equipmentTags?.[0];
-  if (firstMovement)
-    parts.push(
-      i18nText('catalog.filter.movement.' + firstMovement, firstMovement)
-    );
-  if (firstMuscle)
-    parts.push(i18nText('dashboard.muscle_group.' + firstMuscle, firstMuscle));
-  if (firstEquipment)
-    parts.push(
-      i18nText('catalog.filter.equipment.' + firstEquipment, firstEquipment)
-    );
-  return parts.join(' · ');
-}
-
-function renderExerciseCatalogSection(titleKey, fallback, items, emptyCopy) {
-  if (!items.length && emptyCopy === false) return '';
-  const body = items.length
-    ? items
-        .map(
-          (ex) =>
-            `<button type="button" class="catalog-item" data-exercise-id="${escapeHtml(ex.id)}" onclick="selectExerciseCatalogExercise(this.dataset.exerciseId||'')"><span class="catalog-item-main">${escapeHtml(displayExerciseName(ex.name))}</span><span class="catalog-item-meta">${escapeHtml(getExerciseCatalogMetaLine(ex))}</span></button>`
-        )
-        .join('')
-    : `<div class="catalog-section-empty">${escapeHtml(emptyCopy || i18nText('catalog.section.empty', 'No exercises in this section yet.'))}</div>`;
-  return `<section class="catalog-section"><div class="catalog-section-title">${escapeHtml(i18nText(titleKey, fallback))}</div>${body}</section>`;
-}
-
-function buildExerciseCatalogFilterGroups() {
-  const groups = [
-    {
-      id: 'movement',
-      labelKey: 'catalog.filter_group.movement',
-      fallback: 'Movement',
-      active: exerciseCatalogState?.movementTag || '',
-      options: EXERCISE_CATALOG_FILTERS.movement,
-    },
-    {
-      id: 'muscle',
-      labelKey: 'catalog.filter_group.muscle',
-      fallback: 'Muscle',
-      active: exerciseCatalogState?.muscleGroup || '',
-      options: EXERCISE_CATALOG_FILTERS.muscle,
-    },
-    {
-      id: 'equipment',
-      labelKey: 'catalog.filter_group.equipment',
-      fallback: 'Equipment',
-      active: exerciseCatalogState?.equipmentTag || '',
-      options: EXERCISE_CATALOG_FILTERS.equipment,
-    },
-  ];
-  return groups.map((group) => ({
-    id: group.id,
-    label: i18nText(group.labelKey, group.fallback),
-    activeValue: group.active,
-    options: [
-      {
-        value: '',
-        label: i18nText('catalog.filter.all', 'All'),
-      },
-      ...group.options.map((option) => ({
-        value: option.value,
-        label: i18nText(option.labelKey, option.fallback),
-      })),
-    ],
-  }));
-}
-
-function toExerciseCatalogItems(items) {
-  return arrayify(items).map((ex) => ({
-    id: ex.id,
-    name: displayExerciseName(ex.name),
-    meta: getExerciseCatalogMetaLine(ex),
-  }));
-}
-
-function buildExerciseCatalogView() {
-  if (!exerciseCatalogState) {
-    return {
-      open: false,
-      mode: 'add',
-      title: '',
-      subtitle: '',
-      search: '',
-      clearVisible: false,
-      emptyVisible: false,
-      emptyCopy: i18nText(
-        'catalog.empty',
-        'No exercises matched your filters.'
-      ),
-      filters: [],
-      sections: [],
-    };
-  }
-
-  const title = i18nText(
-    exerciseCatalogState?.titleKey || 'catalog.title.add',
-    exerciseCatalogState?.titleFallback || 'Add Exercise',
-    exerciseCatalogState?.titleParams
-  );
-  const subtitle = i18nText(
-    exerciseCatalogState?.subtitleKey || 'catalog.sub',
-    exerciseCatalogState?.subtitleFallback ||
-      'Pick an exercise from the library or search by name.',
-    exerciseCatalogState?.subtitleParams
-  );
-  const search = exerciseCatalogState?.search || '';
-  const filters = buildExerciseCatalogFilterGroups();
-  const clearVisible = !!(search || hasExerciseCatalogFilters());
-  const emptyCopy = i18nText(
-    'catalog.empty',
-    'No exercises matched your filters.'
-  );
-  const payloadFilters = getExerciseCatalogFilterPayload();
-  const userFilters = getExerciseCatalogUserFilters();
-  let sections = [];
-  let emptyVisible = false;
-
-  if (search || hasExerciseCatalogFilters()) {
-    const results = search
-      ? getExerciseCatalogResults()
-      : mergeExerciseCatalogLists(
-          getExerciseCatalogAll(payloadFilters),
-          getExerciseCatalogCandidateExercises(userFilters)
-        );
-    sections = results.length
-      ? [
-          {
-            id: 'results',
-            title: i18nText('catalog.section.results', 'Results'),
-            items: toExerciseCatalogItems(results),
-          },
-        ]
-      : [];
-    emptyVisible = !results.length;
-  } else if (isExerciseCatalogSwapMode()) {
-    const results = getExerciseCatalogResults();
-    sections = results.length
-      ? [
-          {
-            id: 'swap',
-            title: i18nText('catalog.section.swap', 'Available options'),
-            items: toExerciseCatalogItems(results),
-          },
-        ]
-      : [];
-    emptyVisible = !results.length;
-  } else {
-    const recent = getExerciseCatalogRecent(8);
-    const featured = getExerciseCatalogFeatured(10, {});
-    const all = getExerciseCatalogAll({});
-    sections = [
-      {
-        id: 'recent',
-        title: i18nText('catalog.section.recent', 'Recently used'),
-        items: toExerciseCatalogItems(recent),
-        emptyCopy: i18nText(
-          'catalog.section.recent_empty',
-          'Log a few workouts and your recent exercises will show up here.'
-        ),
-      },
-      {
-        id: 'featured',
-        title: i18nText('catalog.section.featured', 'Popular basics'),
-        items: toExerciseCatalogItems(featured),
-      },
-      {
-        id: 'all',
-        title: i18nText('catalog.section.all', 'All exercises'),
-        items: toExerciseCatalogItems(all),
-      },
-    ];
-  }
-
-  return {
-    open: true,
-    mode: exerciseCatalogState?.mode || 'add',
-    title,
-    subtitle,
-    search,
-    clearVisible,
-    emptyVisible,
-    emptyCopy,
-    filters,
-    sections,
-  };
-}
-
-function pushExerciseCatalogView() {
-  const bridge = getExerciseCatalogRuntimeBridge();
-  if (!bridge || typeof bridge.setExerciseCatalogView !== 'function') return;
-  bridge.setExerciseCatalogView(buildExerciseCatalogView());
-}
-
-function refreshExerciseCatalogCopy() {
-  const titleEl = document.getElementById('name-modal-title');
-  const subEl = document.getElementById('exercise-catalog-sub');
-  if (titleEl)
-    titleEl.textContent = i18nText(
-      exerciseCatalogState?.titleKey || 'catalog.title.add',
-      exerciseCatalogState?.titleFallback || 'Add Exercise',
-      exerciseCatalogState?.titleParams
-    );
-  if (subEl)
-    subEl.textContent = i18nText(
-      exerciseCatalogState?.subtitleKey || 'catalog.sub',
-      exerciseCatalogState?.subtitleFallback ||
-        'Pick an exercise from the library or search by name.',
-      exerciseCatalogState?.subtitleParams
-    );
-}
-
-function renderExerciseCatalog() {
-  pushExerciseCatalogView();
-}
-
-function ensureExerciseCatalogListeners() {
-  if (exerciseCatalogListenersBound) return;
-  exerciseCatalogListenersBound = true;
-}
-
-function resolveExerciseSelection(input) {
-  const raw =
-    typeof input === 'object' ? input?.name || input?.exerciseId || '' : input;
-  const resolved =
-    getWorkoutExercise(input) || getWorkoutExercise(exerciseIdForName(raw));
-  return {
-    exerciseId: resolved?.id || exerciseIdForName(raw),
-    name: resolved?.name || String(raw || '').trim(),
-  };
-}
-
-function inferExerciseCatalogSwapFilters(exercise, category) {
-  const meta = getWorkoutExerciseMeta(
-    exercise?.exerciseId || exercise?.name || exercise
-  );
-  const categoryFilters = {
-    squat: {
-      movementTags: ['squat'],
-      equipmentTags: ['barbell', 'dumbbell', 'machine', 'bodyweight'],
-      muscleGroups: ['quads', 'glutes'],
-    },
-    bench: {
-      movementTags: ['horizontal_press'],
-      equipmentTags: ['barbell', 'dumbbell', 'machine', 'bodyweight'],
-      muscleGroups: ['chest', 'triceps', 'shoulders'],
-    },
-    deadlift: {
-      movementTags: ['hinge'],
-      equipmentTags: [
-        'barbell',
-        'trap_bar',
-        'dumbbell',
-        'machine',
-        'bodyweight',
-      ],
-      muscleGroups: ['hamstrings', 'glutes', 'back'],
-    },
-    ohp: {
-      movementTags: ['vertical_press'],
-      equipmentTags: ['barbell', 'dumbbell', 'machine', 'bodyweight'],
-      muscleGroups: ['shoulders', 'triceps'],
-    },
-    back: {
-      movementTags: ['horizontal_pull', 'vertical_pull'],
-      equipmentTags: [
-        'barbell',
-        'dumbbell',
-        'cable',
-        'machine',
-        'pullup_bar',
-        'bodyweight',
-      ],
-      muscleGroups: ['back', 'biceps'],
-    },
-    core: {
-      movementTags: ['core'],
-      equipmentTags: ['bodyweight', 'cable', 'band', 'pullup_bar'],
-      muscleGroups: ['core'],
-    },
-    pressing: {
-      movementTags: ['horizontal_press', 'vertical_press'],
-      equipmentTags: ['barbell', 'dumbbell', 'machine', 'bodyweight', 'cable'],
-      muscleGroups: ['chest', 'shoulders', 'triceps'],
-    },
-    triceps: {
-      movementTags: ['isolation', 'horizontal_press', 'vertical_press'],
-      equipmentTags: ['bodyweight', 'cable', 'dumbbell', 'barbell'],
-      muscleGroups: ['triceps'],
-    },
-    'single-leg': {
-      movementTags: ['single_leg', 'squat'],
-      equipmentTags: ['dumbbell', 'bodyweight', 'machine'],
-      muscleGroups: ['quads', 'glutes'],
-    },
-    'upper back': {
-      movementTags: ['horizontal_pull'],
-      equipmentTags: ['barbell', 'dumbbell', 'cable', 'machine'],
-      muscleGroups: ['back', 'biceps'],
-    },
-    'posterior chain': {
-      movementTags: ['hinge'],
-      equipmentTags: ['barbell', 'machine', 'bodyweight'],
-      muscleGroups: ['hamstrings', 'glutes', 'back'],
-    },
-    'vertical pull': {
-      movementTags: ['vertical_pull'],
-      equipmentTags: ['pullup_bar', 'bodyweight', 'cable', 'machine'],
-      muscleGroups: ['back', 'biceps'],
-    },
-  };
-  if (categoryFilters[category]) return categoryFilters[category];
-  return {
-    movementTags: (meta?.movementTags || []).slice(0, 2),
-    equipmentTags: (meta?.equipmentTags || []).slice(0, 3),
-    muscleGroups: (meta?.displayMuscleGroups || []).slice(0, 2),
-  };
-}
-
-function getResolvedCatalogOptionExercises(options) {
-  const seen = new Set();
-  return arrayify(options)
-    .map((option) => {
-      const resolved =
-        getWorkoutExercise(option) ||
-        getWorkoutExercise(exerciseIdForName(option)) ||
-        registerWorkoutExercise({ name: option });
-      if (!resolved || seen.has(resolved.id)) return null;
-      seen.add(resolved.id);
-      return resolved;
-    })
-    .filter(Boolean);
-}
-
 function openExerciseCatalogPicker(config) {
-  const next = config || {};
-  ensureExerciseCatalogListeners();
-  const intent = next.intent || 'add';
-  if (intent === 'add') {
-    nameModalCallback =
-      next.onSubmit || next.callback || nameModalCallback || addExerciseByName;
-    exerciseCatalogState = {
-      mode: 'add',
-      search: '',
-      movementTag: '',
-      muscleGroup: '',
-      equipmentTag: '',
-      baseFilters: {},
-      candidateIds: [],
-      titleKey: 'catalog.title.add',
-      titleFallback: next.title || 'Add Exercise',
-      titleParams: next.titleParams || null,
-      subtitleKey: 'catalog.sub',
-      subtitleFallback:
-        next.subtitle || 'Pick an exercise from the library or search by name.',
-      subtitleParams: next.subtitleParams || null,
-      onSelect: null,
-    };
-    renderExerciseCatalog();
-    setTimeout(() => document.getElementById('name-modal-input')?.focus(), 80);
-    return true;
+  const delegate = window.openExerciseCatalogPicker;
+  if (typeof delegate === 'function' && delegate !== openExerciseCatalogPicker) {
+    return delegate(config);
   }
-
-  const exercise =
-    next.exercise || activeWorkout?.exercises?.[next.exerciseIndex];
-  if (!exercise) return false;
-  const info = Array.isArray(next.swapInfo)
-    ? { options: next.swapInfo }
-    : next.swapInfo || {};
-  const current = resolveExerciseSelection(exercise);
-  const fallbackOptions = getResolvedCatalogOptionExercises(
-    next.options || info.options || []
-  );
-  const configuredFilters = next.filters || info.filters || null;
-  const baseFilters = {
-    ...(configuredFilters ||
-      inferExerciseCatalogSwapFilters(
-        exercise,
-        info.category || next.category || ''
-      )),
-  };
-  const excludeIds = arrayify(info.excludeIds);
-  if (intent === 'swap' && current.exerciseId)
-    excludeIds.push(current.exerciseId);
-  baseFilters.excludeIds = uniqueList(excludeIds);
-  const candidateIds = uniqueList([
-    ...arrayify(info.includeIds),
-    ...fallbackOptions.map((ex) => ex.id),
-  ]);
-  const defaultSubtitle =
-    intent === 'settings'
-      ? 'Choose the exercise variant this program should use.'
-      : 'Showing options limited by the current exercise and program rules.';
-  exerciseCatalogState = {
-    mode: intent,
-    search: '',
-    movementTag: '',
-    muscleGroup: '',
-    equipmentTag: '',
-    baseFilters,
-    candidateIds,
-    titleKey:
-      intent === 'settings' ? 'catalog.title.settings' : 'catalog.title.swap',
-    titleFallback:
-      next.title ||
-      (intent === 'settings' ? 'Choose Exercise' : 'Swap Exercise'),
-    titleParams: next.titleParams || null,
-    subtitleKey:
-      intent === 'settings' ? 'catalog.sub.settings' : 'catalog.sub.swap',
-    subtitleFallback: next.subtitle || defaultSubtitle,
-    subtitleParams:
-      next.subtitleParams ||
-      (intent === 'swap' ? { name: displayExerciseName(current.name) } : null),
-    onSelect: next.onSelect || null,
-  };
-  renderExerciseCatalog();
-  setTimeout(() => document.getElementById('name-modal-input')?.focus(), 80);
-  return true;
+  return false;
 }
 
 function openExerciseCatalogForAdd(title, cb) {
+  const delegate = window.openExerciseCatalogForAdd;
+  if (typeof delegate === 'function' && delegate !== openExerciseCatalogForAdd) {
+    return delegate(title, cb);
+  }
   return openExerciseCatalogPicker({ intent: 'add', title, callback: cb });
 }
 
 function openExerciseCatalogForSwap(config) {
-  return openExerciseCatalogPicker({ ...config, intent: 'swap' });
+  const delegate = window.openExerciseCatalogForSwap;
+  if (typeof delegate === 'function' && delegate !== openExerciseCatalogForSwap) {
+    return delegate(config);
+  }
+  return openExerciseCatalogPicker({ ...(config || {}), intent: 'swap' });
 }
 
 function openExerciseCatalogForSettings(config) {
-  return openExerciseCatalogPicker({ ...config, intent: 'settings' });
+  const delegate = window.openExerciseCatalogForSettings;
+  if (typeof delegate === 'function' && delegate !== openExerciseCatalogForSettings) {
+    return delegate(config);
+  }
+  return openExerciseCatalogPicker({ ...(config || {}), intent: 'settings' });
+}
+
+function renderExerciseCatalog() {
+  const delegate = window.renderExerciseCatalog;
+  if (typeof delegate === 'function' && delegate !== renderExerciseCatalog) {
+    return delegate();
+  }
 }
 
 function setExerciseCatalogFilter(group, value) {
-  if (!exerciseCatalogState) return;
-  if (group === 'movement') exerciseCatalogState.movementTag = value || '';
-  if (group === 'muscle') exerciseCatalogState.muscleGroup = value || '';
-  if (group === 'equipment') exerciseCatalogState.equipmentTag = value || '';
-  renderExerciseCatalog();
+  const delegate = window.setExerciseCatalogFilter;
+  if (typeof delegate === 'function' && delegate !== setExerciseCatalogFilter) {
+    return delegate(group, value);
+  }
 }
 
 function setExerciseCatalogSearch(value) {
-  if (!exerciseCatalogState) return;
-  exerciseCatalogState.search = value || '';
-  renderExerciseCatalog();
+  const delegate = window.setExerciseCatalogSearch;
+  if (typeof delegate === 'function' && delegate !== setExerciseCatalogSearch) {
+    return delegate(value);
+  }
 }
 
 function clearExerciseCatalogFilters() {
-  if (!exerciseCatalogState) return;
-  exerciseCatalogState.search = '';
-  exerciseCatalogState.movementTag = '';
-  exerciseCatalogState.muscleGroup = '';
-  exerciseCatalogState.equipmentTag = '';
-  renderExerciseCatalog();
-  document.getElementById('name-modal-input')?.focus();
+  const delegate = window.clearExerciseCatalogFilters;
+  if (typeof delegate === 'function' && delegate !== clearExerciseCatalogFilters) {
+    return delegate();
+  }
 }
 
 function resetExerciseCatalogState() {
-  exerciseCatalogState = null;
-  renderExerciseCatalog();
+  const delegate = window.resetExerciseCatalogState;
+  if (typeof delegate === 'function' && delegate !== resetExerciseCatalogState) {
+    return delegate();
+  }
 }
 
 function selectExerciseCatalogExercise(exerciseId) {
-  const exercise = getWorkoutExercise(exerciseId);
-  if (!exercise) return;
-  const onSelect = exerciseCatalogState?.onSelect || null;
-  const cb = nameModalCallback;
-  nameModalCallback = null;
-  exerciseCatalogState = null;
-  renderExerciseCatalog();
-  if (onSelect) {
-    onSelect(exercise);
-    return;
+  const delegate = window.selectExerciseCatalogExercise;
+  if (typeof delegate === 'function' && delegate !== selectExerciseCatalogExercise) {
+    return delegate(exerciseId);
   }
-  if (cb) cb(exercise.name);
 }
 
 function submitExerciseCatalogSelection() {
-  const first = getExerciseCatalogResults()[0];
-  if (first) selectExerciseCatalogExercise(first.id);
+  const delegate = window.submitExerciseCatalogSelection;
+  if (typeof delegate === 'function' && delegate !== submitExerciseCatalogSelection) {
+    return delegate();
+  }
 }
 
 function addExerciseByName(name) {

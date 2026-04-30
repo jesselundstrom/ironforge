@@ -16,6 +16,7 @@ import { installSyncRuntimeBridge } from './services/sync-runtime';
 import { installWorkoutPersistenceRuntimeBridge } from './services/workout-persistence-runtime';
 import { installWorkoutRuntimeBridge } from './services/workout-runtime';
 import { installWorkoutOverlayBridge } from './services/workout-ui-actions';
+import { installExerciseCatalogBridge } from './services/exercise-catalog';
 import { useRuntimeStore } from './store/runtime-store';
 import { installLegacyI18nStoreBridge } from '../stores/i18n-store';
 import { installLegacyDataStoreBridge } from '../stores/data-store';
@@ -91,6 +92,7 @@ if (mountNode) {
   installWorkoutPersistenceRuntimeBridge();
   installWorkoutRuntimeBridge();
   installWorkoutOverlayBridge();
+  installExerciseCatalogBridge();
   installDashboardStore();
   installHistoryStore();
   installNutritionStore();

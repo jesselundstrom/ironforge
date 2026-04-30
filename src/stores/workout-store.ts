@@ -40,7 +40,6 @@ type LegacyWorkoutStoreState = {
   addExerciseByName: (name: string) => void;
   applyQuickWorkoutAdjustment: (mode: string, detailLevel?: string) => void;
   undoQuickWorkoutAdjustment: () => void;
-  selectExerciseCatalogExercise: (exerciseId: string) => void;
   showSetRIRPrompt: (exerciseIndex: number, setIndex: number) => void;
   applySetRIR: (
     exerciseIndex: number,
@@ -76,7 +75,6 @@ type LegacyWorkoutSnapshot = Omit<
   | 'addExerciseByName'
   | 'applyQuickWorkoutAdjustment'
   | 'undoQuickWorkoutAdjustment'
-  | 'selectExerciseCatalogExercise'
   | 'showSetRIRPrompt'
   | 'applySetRIR'
   | 'toggleSet'
@@ -112,7 +110,6 @@ type LegacyWorkoutWindow = Window & {
   addExerciseByName?: (name: string) => void;
   applyQuickWorkoutAdjustment?: (mode: string, detailLevel?: string) => void;
   undoQuickWorkoutAdjustment?: () => void;
-  selectExerciseCatalogExercise?: (exerciseId: string) => void;
   showSetRIRPrompt?: (exerciseIndex: number, setIndex: number) => void;
   applySetRIR?: (
     exerciseIndex: number,
@@ -260,7 +257,6 @@ const DELEGATOR_MARK = '__ironforgeWorkoutStoreDelegator';
 const DELEGATED_WORKOUT_ACTIONS = [
   'startWorkout',
   'resumeActiveWorkoutUI',
-  'selectExerciseCatalogExercise',
 ] as const;
 
 type DelegatedWorkoutActionName = (typeof DELEGATED_WORKOUT_ACTIONS)[number];
@@ -1860,10 +1856,6 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
     undoQuickWorkoutAdjustment: () => {
       undoQuickWorkoutAdjustmentFromStore();
     },
-    selectExerciseCatalogExercise: (exerciseId) => {
-      getCapturedLegacyAction('selectExerciseCatalogExercise')?.(exerciseId);
-      syncStoreFromLegacy();
-    },
     showSetRIRPrompt: (exerciseIndex, setIndex) => {
       showSetRIRPromptFromStore(exerciseIndex, setIndex);
     },
@@ -1964,9 +1956,6 @@ export function installLegacyWorkoutStoreBridge() {
   );
   installStoreDelegator('undoQuickWorkoutAdjustment', () =>
     workoutStore.getState().undoQuickWorkoutAdjustment()
-  );
-  installStoreDelegator('selectExerciseCatalogExercise', (exerciseId) =>
-    workoutStore.getState().selectExerciseCatalogExercise(String(exerciseId ?? ''))
   );
   installStoreDelegator('showSetRIRPrompt', (exerciseIndex, setIndex) =>
     workoutStore
