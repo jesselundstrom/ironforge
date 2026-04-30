@@ -38,6 +38,8 @@ type LegacyWorkoutStoreState = {
   skipRest: () => void;
   setRestBarActiveState: (active: boolean) => void;
   addExerciseByName: (name: string) => void;
+  applyQuickWorkoutAdjustment: (mode: string, detailLevel?: string) => void;
+  undoQuickWorkoutAdjustment: () => void;
   selectExerciseCatalogExercise: (exerciseId: string) => void;
   showSetRIRPrompt: (exerciseIndex: number, setIndex: number) => void;
   applySetRIR: (
@@ -72,6 +74,8 @@ type LegacyWorkoutSnapshot = Omit<
   | 'skipRest'
   | 'setRestBarActiveState'
   | 'addExerciseByName'
+  | 'applyQuickWorkoutAdjustment'
+  | 'undoQuickWorkoutAdjustment'
   | 'selectExerciseCatalogExercise'
   | 'showSetRIRPrompt'
   | 'applySetRIR'
@@ -106,6 +110,8 @@ type LegacyWorkoutWindow = Window & {
   skipRest?: () => void;
   setRestBarActiveState?: (active: boolean) => void;
   addExerciseByName?: (name: string) => void;
+  applyQuickWorkoutAdjustment?: (mode: string, detailLevel?: string) => void;
+  undoQuickWorkoutAdjustment?: () => void;
   selectExerciseCatalogExercise?: (exerciseId: string) => void;
   showSetRIRPrompt?: (exerciseIndex: number, setIndex: number) => void;
   applySetRIR?: (
@@ -128,6 +134,12 @@ type LegacyWorkoutWindow = Window & {
   clearActiveWorkoutDraft?: (...args: unknown[]) => unknown;
   syncWorkoutSessionBridge?: (...args: unknown[]) => unknown;
   showCustomModal?: (title: string, bodyHtml: string) => void;
+  showShortenAdjustmentOptions?: () => void;
+  showConfirm?: (
+    title: string,
+    message: string,
+    onConfirm: () => void
+  ) => void;
   closeCustomModal?: () => void;
   showToast?: (
     message: string,
@@ -163,6 +175,7 @@ type LegacyWorkoutWindow = Window & {
   notifyLogActiveIsland?: () => void;
   isLogActiveIslandActive?: () => boolean;
   updateExerciseCard?: (uiKey: string) => Element | null;
+  renderExercises?: () => void;
   renderActiveWorkoutPlanPanel?: () => void;
   insertExerciseCard?: (
     exerciseIndex: number,
@@ -182,6 +195,18 @@ type LegacyWorkoutWindow = Window & {
     definition: Record<string, unknown>
   ) => Record<string, unknown> | null;
   getSuggested?: (exercise: Record<string, unknown>) => number | string | null;
+  getActiveProgramState?: () => Record<string, unknown> | null;
+  buildTrainingCommentaryState?: (
+    input?: Record<string, unknown>
+  ) => Record<string, unknown> | null;
+  presentTrainingCommentary?: (
+    state?: Record<string, unknown> | null,
+    surface?: string
+  ) => Record<string, unknown> | null;
+  createTrainingCommentaryEvent?: (
+    code: string,
+    params?: Record<string, unknown>
+  ) => Record<string, unknown> | null;
   i18nText?: (
     key: string,
     fallback: string,
@@ -435,6 +460,446 @@ function addExerciseByNameFromStore(name: string) {
   persistCurrentWorkoutDraft();
   runtimeWindow?.insertExerciseCard?.(exercises.length - 1, exercise);
   refreshActiveWorkoutViews(ensureLegacyExerciseUiKey(exercise));
+}
+
+function cloneJsonValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function getWorkoutExerciseSets(exercise: Record<string, unknown> | null) {
+  return Array.isArray(exercise?.sets)
+    ? (exercise.sets as Array<Record<string, unknown>>)
+    : [];
+}
+
+function getCompletedWorkSetCount(exercise: Record<string, unknown>) {
+  return getWorkoutExerciseSets(exercise).filter(
+    (set) => set.done === true && set.isWarmup !== true
+  ).length;
+}
+
+function getRemainingWorkSetCount(exercise: Record<string, unknown>) {
+  return getWorkoutExerciseSets(exercise).filter(
+    (set) => set.done !== true && set.isWarmup !== true
+  ).length;
+}
+
+function trimExerciseRemainingSets(
+  exercise: Record<string, unknown>,
+  keepUndoneCount: number
+) {
+  const sets = getWorkoutExerciseSets(exercise);
+  if (!sets.length) return false;
+  const nextSets: Array<Record<string, unknown>> = [];
+  let keptUndone = 0;
+  let changed = false;
+  sets.forEach((set) => {
+    if (set.done === true || set.isWarmup === true) {
+      nextSets.push(set);
+      return;
+    }
+    if (keptUndone < keepUndoneCount) {
+      nextSets.push(set);
+      keptUndone += 1;
+      return;
+    }
+    changed = true;
+  });
+  if (changed) exercise.sets = nextSets;
+  return changed;
+}
+
+function parseLoggedRepCount(raw: unknown) {
+  const reps = parseInt(String(raw ?? ''), 10);
+  return Number.isFinite(reps) && reps >= 0 ? reps : null;
+}
+
+function getCurrentWorkoutRounding() {
+  const state = getLegacyWindow()?.getActiveProgramState?.() || null;
+  const rounding = parseFloat(String(state?.rounding ?? ''));
+  return Number.isFinite(rounding) && rounding > 0 ? rounding : 2.5;
+}
+
+function reduceRemainingSetTarget(set: Record<string, unknown>) {
+  if (!set || set.done === true || set.isWarmup === true) return false;
+  const numericReps = parseLoggedRepCount(set.reps);
+  let changed = false;
+  if (Number.isFinite(numericReps) && Number(numericReps) > 3) {
+    set.reps = Math.max(3, Number(numericReps) - 1);
+    changed = true;
+  }
+  const numericWeight = parseFloat(String(set.weight ?? ''));
+  if (Number.isFinite(numericWeight) && numericWeight > 0) {
+    const rounding = getCurrentWorkoutRounding();
+    set.weight = Math.max(
+      0,
+      Math.round((numericWeight * 0.95) / rounding) * rounding
+    );
+    changed = true;
+  }
+  return changed;
+}
+
+function dropTrailingUnstartedExercise(exercises: Array<Record<string, unknown>>) {
+  if (exercises.length <= 1) return false;
+  for (let index = exercises.length - 1; index >= 0; index -= 1) {
+    const sets = getWorkoutExerciseSets(exercises[index]);
+    const hasDoneWork = sets.some(
+      (set) => set.done === true && set.isWarmup !== true
+    );
+    const hasUndoneWork = sets.some(
+      (set) => set.done !== true && set.isWarmup !== true
+    );
+    if (hasDoneWork || !hasUndoneWork) continue;
+    exercises.splice(index, 1);
+    return true;
+  }
+  return false;
+}
+
+function cleanupAdjustedWorkoutExercises(
+  exercises: Array<Record<string, unknown>>
+) {
+  return exercises.filter((exercise) => {
+    const sets = getWorkoutExerciseSets(exercise);
+    if (!sets.length) return false;
+    const hasUndoneWork = sets.some(
+      (set) => set.done !== true && set.isWarmup !== true
+    );
+    const hasCompletedWork = sets.some(
+      (set) => set.done === true && set.isWarmup !== true
+    );
+    const hasWarmupsOnly = sets.every((set) => set.isWarmup === true);
+    if (hasWarmupsOnly) return false;
+    return hasUndoneWork || hasCompletedWork;
+  });
+}
+
+function getExerciseMinimumWorkSetTarget(
+  exercise: Record<string, unknown>,
+  mode: string
+) {
+  if (mode === 'lighten') {
+    if (exercise.isAccessory === true) return 1;
+    if (exercise.isAux === true) return 1;
+    return 2;
+  }
+  return 0;
+}
+
+function trimOneExtraRemainingSet(
+  exercise: Record<string, unknown>,
+  mode: string
+) {
+  const minimumTotal = getExerciseMinimumWorkSetTarget(exercise, mode);
+  const completed = getCompletedWorkSetCount(exercise);
+  const remaining = getRemainingWorkSetCount(exercise);
+  if (remaining <= 0) return false;
+  const minimumRemaining = Math.max(0, minimumTotal - completed);
+  if (remaining <= minimumRemaining) return false;
+  return trimExerciseRemainingSets(exercise, remaining - 1);
+}
+
+function getRunnerAdjustmentLabel(mode: string) {
+  return translateWorkoutText(
+    mode === 'shorten'
+      ? 'workout.runner.shorten'
+      : mode === 'lighten'
+        ? 'workout.runner.lighten'
+        : 'workout.runner.adjusted',
+    mode === 'shorten'
+      ? 'Shortened session'
+      : mode === 'lighten'
+        ? 'Lightened session'
+        : 'Adjusted session'
+  );
+}
+
+function getQuickAdjustmentPreview(mode: string) {
+  if (mode === 'shorten') {
+    return {
+      title: translateWorkoutText(
+        'workout.runner.shorten_confirm_title',
+        'Shorten this session?'
+      ),
+      body: translateWorkoutText(
+        'workout.runner.shorten_confirm_body',
+        'Choose how aggressively to trim the remaining work based on how much time you need to save.'
+      ),
+    };
+  }
+  return {
+    title: translateWorkoutText(
+      'workout.runner.light_confirm_title',
+      'Go lighter this session?'
+    ),
+    body: translateWorkoutText(
+      'workout.runner.light_confirm_body',
+      'This keeps the session structure mostly intact, but lowers the remaining load and trims a little volume when useful. Use this when recovery feels off.'
+    ),
+  };
+}
+
+function ensureWorkoutCommentaryRecord(workout: Record<string, unknown>) {
+  const existing = workout.commentary;
+  if (existing && typeof existing === 'object') {
+    const commentary = existing as Record<string, unknown>;
+    commentary.version = 1;
+    commentary.adaptationEvents = Array.isArray(commentary.adaptationEvents)
+      ? commentary.adaptationEvents
+      : [];
+    commentary.runnerEvents = Array.isArray(commentary.runnerEvents)
+      ? commentary.runnerEvents
+      : [];
+    return commentary;
+  }
+  const state = getLegacyWindow()?.buildTrainingCommentaryState?.({ workout });
+  workout.commentary = {
+    version: 1,
+    decisionCode: state?.decisionCode || 'train',
+    reasonCodes: Array.isArray(state?.reasonCodes) ? [...state.reasonCodes] : [],
+    restrictionFlags: Array.isArray(state?.restrictionFlags)
+      ? [...state.restrictionFlags]
+      : [],
+    adaptationEvents: [],
+    equipmentHint: state?.equipmentHint || null,
+    runnerEvents: [],
+  };
+  return workout.commentary as Record<string, unknown>;
+}
+
+function createWorkoutCommentaryEvent(
+  code: string,
+  params?: Record<string, unknown>
+) {
+  return (
+    getLegacyWindow()?.createTrainingCommentaryEvent?.(code, params) || {
+      code,
+      params: params ? cloneJsonValue(params) : {},
+    }
+  );
+}
+
+function appendWorkoutRunnerEvent(workout: Record<string, unknown>, code: string) {
+  const commentary = ensureWorkoutCommentaryRecord(workout);
+  commentary.runnerEvents = Array.isArray(commentary.runnerEvents)
+    ? [...commentary.runnerEvents, createWorkoutCommentaryEvent(code)]
+    : [createWorkoutCommentaryEvent(code)];
+}
+
+function appendWorkoutAdaptationEvent(
+  workout: Record<string, unknown>,
+  code: string
+) {
+  const commentary = ensureWorkoutCommentaryRecord(workout);
+  commentary.adaptationEvents = Array.isArray(commentary.adaptationEvents)
+    ? [...commentary.adaptationEvents, createWorkoutCommentaryEvent(code)]
+    : [createWorkoutCommentaryEvent(code)];
+}
+
+function getWorkoutCommentaryState(workout: Record<string, unknown>) {
+  return (
+    getLegacyWindow()?.buildTrainingCommentaryState?.({ workout }) || {
+      workout,
+      runnerEvents: [],
+    }
+  );
+}
+
+function getRunnerToastText(workout: Record<string, unknown>, mode: string) {
+  const runnerToast =
+    getLegacyWindow()?.presentTrainingCommentary?.(
+      getWorkoutCommentaryState(workout),
+      'runner_toast'
+    ) || null;
+  return (
+    String(runnerToast?.text || '') ||
+    translateWorkoutText(
+      mode === 'shorten'
+        ? 'workout.runner.shorten_toast'
+        : 'workout.runner.light_toast',
+      mode === 'shorten'
+        ? 'Session shortened to the essential work'
+        : 'Remaining work lightened'
+    )
+  );
+}
+
+function showNoQuickAdjustmentChangeToast(workout: Record<string, unknown>) {
+  const currentState = getWorkoutCommentaryState(workout);
+  const emptyToast =
+    getLegacyWindow()?.presentTrainingCommentary?.(
+      {
+        ...currentState,
+        runnerEvents: [{ code: 'runner_no_change', params: {} }],
+      },
+      'runner_toast'
+    ) || null;
+  getLegacyWindow()?.showToast?.(
+    String(emptyToast?.text || '') ||
+      translateWorkoutText(
+        'workout.runner.no_change',
+        'No remaining work needed adjustment'
+      ),
+    'var(--muted)'
+  );
+}
+
+function refreshQuickWorkoutAdjustmentViews() {
+  const runtimeWindow = getLegacyWindow();
+  if (isReactLogActive()) runtimeWindow?.notifyLogActiveIsland?.();
+  else runtimeWindow?.renderExercises?.();
+  syncLegacyWorkoutSessionBridge();
+  syncStoreFromLegacy();
+}
+
+function executeQuickWorkoutAdjustmentFromStore(
+  mode: string,
+  detailLevel?: string
+) {
+  const workout = getActiveWorkoutSession();
+  const exercises = Array.isArray(workout?.exercises)
+    ? (workout.exercises as Array<Record<string, unknown>>)
+    : null;
+  if (!workout || !exercises?.length) return;
+  ensureWorkoutCommentaryRecord(workout);
+  const runnerState =
+    workout.runnerState && typeof workout.runnerState === 'object'
+      ? (workout.runnerState as Record<string, unknown>)
+      : {};
+  const previousSnapshot = {
+    exercises: cloneJsonValue(exercises),
+    mode:
+      String(runnerState.mode || '') ||
+      String((workout.planningDecision as Record<string, unknown> | undefined)?.action || '') ||
+      'train',
+    adjustments: Array.isArray(runnerState.adjustments)
+      ? cloneJsonValue(runnerState.adjustments)
+      : [],
+    commentary: workout.commentary ? cloneJsonValue(workout.commentary) : null,
+  };
+  const nextExercises = cloneJsonValue(exercises);
+  let changed = false;
+  if (mode === 'shorten') {
+    const level = detailLevel || 'medium';
+    if (level === 'light') {
+      nextExercises.forEach((exercise) => {
+        if (exercise.isAccessory === true && trimExerciseRemainingSets(exercise, 0)) {
+          changed = true;
+        }
+      });
+    } else {
+      nextExercises.forEach((exercise) => {
+        if (exercise.isAccessory === true) {
+          if (trimExerciseRemainingSets(exercise, 0)) changed = true;
+          return;
+        }
+        if (
+          trimExerciseRemainingSets(
+            exercise,
+            Math.max(0, 2 - getCompletedWorkSetCount(exercise))
+          )
+        ) {
+          changed = true;
+        }
+      });
+      if (level === 'hard' && dropTrailingUnstartedExercise(nextExercises)) {
+        changed = true;
+      }
+    }
+  } else if (mode === 'lighten') {
+    nextExercises.forEach((exercise) => {
+      if (trimOneExtraRemainingSet(exercise, 'lighten')) changed = true;
+      getWorkoutExerciseSets(exercise).forEach((set) => {
+        if (reduceRemainingSetTarget(set)) changed = true;
+      });
+    });
+  }
+  if (!changed) {
+    showNoQuickAdjustmentChangeToast(workout);
+    syncStoreFromLegacy();
+    return;
+  }
+  workout.exercises = cleanupAdjustedWorkoutExercises(nextExercises);
+  const nextRunnerState =
+    workout.runnerState && typeof workout.runnerState === 'object'
+      ? (workout.runnerState as Record<string, unknown>)
+      : {};
+  workout.runnerState = nextRunnerState;
+  nextRunnerState.mode = mode === 'lighten' ? 'lighten' : 'shorten';
+  nextRunnerState.undoSnapshot = previousSnapshot;
+  nextRunnerState.adjustments = Array.isArray(nextRunnerState.adjustments)
+    ? nextRunnerState.adjustments
+    : [];
+  (nextRunnerState.adjustments as Array<Record<string, unknown>>).push({
+    type: mode,
+    at: new Date().toISOString(),
+    detailLevel: detailLevel || undefined,
+    label: getRunnerAdjustmentLabel(mode),
+  });
+  const eventCode = mode === 'shorten' ? 'runner_shorten' : 'runner_lighten';
+  appendWorkoutAdaptationEvent(workout, eventCode);
+  appendWorkoutRunnerEvent(workout, eventCode);
+  getLegacyWindow()?.showToast?.(getRunnerToastText(workout, mode), 'var(--blue)');
+  persistCurrentWorkoutDraft();
+  refreshQuickWorkoutAdjustmentViews();
+}
+
+function applyQuickWorkoutAdjustmentFromStore(
+  mode: string,
+  detailLevel?: string
+) {
+  const normalizedMode = mode === 'shorten' ? 'shorten' : 'lighten';
+  if (normalizedMode === 'shorten' && !detailLevel) {
+    getLegacyWindow()?.showShortenAdjustmentOptions?.();
+    return;
+  }
+  if (normalizedMode === 'lighten' && !detailLevel) {
+    const preview = getQuickAdjustmentPreview(normalizedMode);
+    getLegacyWindow()?.showConfirm?.(preview.title, preview.body, () => {
+      executeQuickWorkoutAdjustmentFromStore(normalizedMode);
+    });
+    return;
+  }
+  executeQuickWorkoutAdjustmentFromStore(normalizedMode, detailLevel);
+}
+
+function undoQuickWorkoutAdjustmentFromStore() {
+  const workout = getActiveWorkoutSession();
+  const runnerState =
+    workout?.runnerState && typeof workout.runnerState === 'object'
+      ? (workout.runnerState as Record<string, unknown>)
+      : null;
+  const snapshot =
+    runnerState?.undoSnapshot && typeof runnerState.undoSnapshot === 'object'
+      ? (runnerState.undoSnapshot as Record<string, unknown>)
+      : null;
+  if (!workout || !runnerState || !snapshot) return;
+  workout.exercises = cloneJsonValue(snapshot.exercises || []);
+  if (snapshot.commentary) {
+    workout.commentary = cloneJsonValue(snapshot.commentary);
+  }
+  runnerState.mode =
+    String(snapshot.mode || '') ||
+    String((workout.planningDecision as Record<string, unknown> | undefined)?.action || '') ||
+    'train';
+  runnerState.adjustments = Array.isArray(snapshot.adjustments)
+    ? cloneJsonValue(snapshot.adjustments)
+    : [];
+  delete runnerState.undoSnapshot;
+  appendWorkoutRunnerEvent(workout, 'runner_undo');
+  persistCurrentWorkoutDraft();
+  refreshQuickWorkoutAdjustmentViews();
+  const undoToast =
+    getLegacyWindow()?.presentTrainingCommentary?.(
+      getWorkoutCommentaryState(workout),
+      'runner_toast'
+    ) || null;
+  getLegacyWindow()?.showToast?.(
+    String(undoToast?.text || '') ||
+      translateWorkoutText('workout.runner.undo_toast', 'Last adjustment undone'),
+    'var(--blue)'
+  );
 }
 
 function ensureLegacyExerciseUiKey(exercise: Record<string, unknown>) {
@@ -1105,6 +1570,12 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
     addExerciseByName: (name) => {
       addExerciseByNameFromStore(name);
     },
+    applyQuickWorkoutAdjustment: (mode, detailLevel) => {
+      applyQuickWorkoutAdjustmentFromStore(mode, detailLevel);
+    },
+    undoQuickWorkoutAdjustment: () => {
+      undoQuickWorkoutAdjustmentFromStore();
+    },
     selectExerciseCatalogExercise: (exerciseId) => {
       getCapturedLegacyAction('selectExerciseCatalogExercise')?.(exerciseId);
       syncStoreFromLegacy();
@@ -1209,6 +1680,14 @@ export function installLegacyWorkoutStoreBridge() {
   );
   installStoreDelegator('addExerciseByName', (name) =>
     workoutStore.getState().addExerciseByName(String(name ?? ''))
+  );
+  installStoreDelegator('applyQuickWorkoutAdjustment', (mode, detailLevel) =>
+    workoutStore
+      .getState()
+      .applyQuickWorkoutAdjustment(String(mode ?? ''), String(detailLevel ?? ''))
+  );
+  installStoreDelegator('undoQuickWorkoutAdjustment', () =>
+    workoutStore.getState().undoQuickWorkoutAdjustment()
   );
   installStoreDelegator('selectExerciseCatalogExercise', (exerciseId) =>
     workoutStore.getState().selectExerciseCatalogExercise(String(exerciseId ?? ''))

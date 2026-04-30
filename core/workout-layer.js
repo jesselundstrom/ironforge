@@ -2168,100 +2168,6 @@ function getActiveWorkoutFinishPoint(workoutLike) {
   };
 }
 
-function trimExerciseRemainingSets(exercise, keepUndoneCount) {
-  if (!Array.isArray(exercise?.sets)) return false;
-  const nextSets = [];
-  let keptUndone = 0;
-  let changed = false;
-  exercise.sets.forEach((set) => {
-    if (set.done || set.isWarmup) {
-      nextSets.push(set);
-      return;
-    }
-    if (keptUndone < keepUndoneCount) {
-      nextSets.push(set);
-      keptUndone++;
-      return;
-    }
-    changed = true;
-  });
-  if (changed) exercise.sets = nextSets;
-  return changed;
-}
-
-function reduceRemainingSetTarget(set) {
-  if (!set || set.done || set.isWarmup) return false;
-  const numericReps = parseLoggedRepCount(set.reps);
-  if (Number.isFinite(numericReps) && numericReps > 3) {
-    set.reps = Math.max(3, numericReps - 1);
-  }
-  const numericWeight = parseFloat(set.weight);
-  if (Number.isFinite(numericWeight) && numericWeight > 0) {
-    const rounding = getCurrentWorkoutRounding();
-    set.weight = Math.max(
-      0,
-      Math.round((numericWeight * 0.95) / rounding) * rounding
-    );
-    return true;
-  }
-  return Number.isFinite(numericReps) && numericReps > 3;
-}
-
-function dropTrailingUnstartedExercise(exercises) {
-  if (!Array.isArray(exercises) || exercises.length <= 1) return false;
-  for (let index = exercises.length - 1; index >= 0; index--) {
-    const exercise = exercises[index];
-    const hasDoneWork =
-      Array.isArray(exercise?.sets) &&
-      exercise.sets.some((set) => set.done && !set.isWarmup);
-    const hasUndoneWork =
-      Array.isArray(exercise?.sets) &&
-      exercise.sets.some((set) => !set.done && !set.isWarmup);
-    if (hasDoneWork || !hasUndoneWork) continue;
-    exercises.splice(index, 1);
-    return true;
-  }
-  return false;
-}
-
-function cleanupAdjustedWorkoutExercises(exercises) {
-  return (exercises || []).filter((exercise) => {
-    const sets = Array.isArray(exercise?.sets) ? exercise.sets : [];
-    if (!sets.length) return false;
-    const hasUndoneWork = sets.some((set) => !set.done && !set.isWarmup);
-    const hasCompletedWork = sets.some((set) => set.done && !set.isWarmup);
-    const hasWarmupsOnly = sets.every((set) => set.isWarmup);
-    if (hasWarmupsOnly) return false;
-    return hasUndoneWork || hasCompletedWork;
-  });
-}
-
-function getExerciseMinimumWorkSetTarget(exercise, mode) {
-  if (mode === 'lighten') {
-    if (exercise.isAccessory) return 1;
-    if (exercise.isAux) return 1;
-    return 2;
-  }
-  return 0;
-}
-
-function trimExerciseToWorkSetFloor(exercise, mode) {
-  const minimumTotal = getExerciseMinimumWorkSetTarget(exercise, mode);
-  const completed = getCompletedSetCount(exercise);
-  const keepUndone = Math.max(0, minimumTotal - completed);
-  return trimExerciseRemainingSets(exercise, keepUndone);
-}
-
-function trimOneExtraRemainingSet(exercise, mode) {
-  const minimumTotal = getExerciseMinimumWorkSetTarget(exercise, mode);
-  const completed = getCompletedSetCount(exercise);
-  const remaining = getRemainingSetCount(exercise);
-  if (remaining <= 0) return false;
-  const minimumRemaining = Math.max(0, minimumTotal - completed);
-  if (remaining <= minimumRemaining) return false;
-  return trimExerciseRemainingSets(exercise, remaining - 1);
-}
-
 function getRunnerAdjustmentLabel(adjustment) {
   const map = {
     shorten: i18nText('workout.runner.shorten', 'Shortened session'),
@@ -2320,7 +2226,9 @@ function showShortenAdjustmentOptions() {
 
 function selectShortenAdjustment(level) {
   closeCustomModal();
-  executeQuickWorkoutAdjustment('shorten', level || 'medium');
+  if (typeof window.applyQuickWorkoutAdjustment === 'function') {
+    window.applyQuickWorkoutAdjustment('shorten', level || 'medium');
+  }
 }
 
 function getRunnerPlanSummary(activeLike) {
@@ -4690,165 +4598,18 @@ function buildTmAdjustmentToast(adjustments) {
   });
 }
 
-function applyQuickWorkoutAdjustment(mode) {
-  if (mode === 'shorten') {
-    showShortenAdjustmentOptions();
-    return;
+function applyQuickWorkoutAdjustment(mode, detailLevel) {
+  const delegate = window.applyQuickWorkoutAdjustment;
+  if (typeof delegate === 'function' && delegate !== applyQuickWorkoutAdjustment) {
+    return delegate(mode, detailLevel);
   }
-  const preview = getQuickAdjustmentPreview(mode);
-  showConfirm(preview.title, preview.body, () =>
-    executeQuickWorkoutAdjustment(mode)
-  );
-}
-
-function executeQuickWorkoutAdjustment(mode, detailLevel) {
-  if (!activeWorkout?.exercises?.length) return;
-  ensureWorkoutCommentaryRecord(activeWorkout);
-  const previousSnapshot = {
-    exercises: cloneWorkoutExercises(activeWorkout.exercises),
-    mode:
-      activeWorkout.runnerState?.mode ||
-      activeWorkout.planningDecision?.action ||
-      'train',
-    adjustments: (activeWorkout.runnerState?.adjustments || []).map((item) => ({
-      ...item,
-    })),
-    commentary: activeWorkout.commentary
-      ? JSON.parse(JSON.stringify(activeWorkout.commentary))
-      : null,
-  };
-  const exercises = cloneWorkoutExercises(activeWorkout.exercises);
-  let changed = false;
-  if (mode === 'shorten') {
-    const level = detailLevel || 'medium';
-    if (level === 'light') {
-      exercises.forEach((exercise) => {
-        if (exercise.isAccessory && trimExerciseRemainingSets(exercise, 0))
-          changed = true;
-      });
-    } else {
-      exercises.forEach((exercise) => {
-        if (exercise.isAccessory) {
-          if (trimExerciseRemainingSets(exercise, 0)) changed = true;
-          return;
-        }
-        if (
-          trimExerciseRemainingSets(
-            exercise,
-            Math.max(0, 2 - getCompletedSetCount(exercise))
-          )
-        )
-          changed = true;
-      });
-      if (level === 'hard' && dropTrailingUnstartedExercise(exercises))
-        changed = true;
-    }
-  } else if (mode === 'lighten') {
-    exercises.forEach((exercise) => {
-      if (trimOneExtraRemainingSet(exercise, 'lighten')) changed = true;
-      (exercise.sets || []).forEach((set) => {
-        if (reduceRemainingSetTarget(set)) changed = true;
-      });
-    });
-  }
-  const cleanedExercises = cleanupAdjustedWorkoutExercises(exercises);
-  if (changed) {
-    activeWorkout.exercises = cleanedExercises;
-    activeWorkout.runnerState = activeWorkout.runnerState || {
-      mode: 'train',
-      adjustments: [],
-    };
-    activeWorkout.runnerState.mode = mode === 'lighten' ? 'lighten' : 'shorten';
-    activeWorkout.runnerState.undoSnapshot = previousSnapshot;
-    activeWorkout.runnerState.adjustments.push({
-      type: mode,
-      at: new Date().toISOString(),
-      detailLevel: detailLevel || undefined,
-      label: getRunnerAdjustmentLabel({ type: mode }),
-    });
-    ensureWorkoutCommentaryRecord(activeWorkout);
-    if (mode === 'shorten') {
-      appendWorkoutAdaptationEvent(activeWorkout, 'runner_shorten');
-      appendWorkoutRunnerEvent(activeWorkout, 'runner_shorten');
-    } else {
-      appendWorkoutAdaptationEvent(activeWorkout, 'runner_lighten');
-      appendWorkoutRunnerEvent(activeWorkout, 'runner_lighten');
-    }
-    const runnerToast =
-      typeof presentTrainingCommentary === 'function'
-        ? presentTrainingCommentary(
-            getWorkoutCommentaryState(activeWorkout),
-            'runner_toast'
-          )
-        : null;
-    showToast(
-      runnerToast?.text ||
-        i18nText(
-          mode === 'shorten'
-            ? 'workout.runner.shorten_toast'
-            : 'workout.runner.light_toast',
-          mode === 'shorten'
-            ? 'Session shortened to the essential work'
-            : 'Remaining work lightened'
-        ),
-      'var(--blue)'
-    );
-    persistCurrentWorkoutDraft();
-    if (isLogActiveIslandActive()) notifyLogActiveIsland();
-    else renderExercises();
-    return;
-  }
-  const currentState = getWorkoutCommentaryState(activeWorkout) || {};
-  const emptyToast =
-    typeof presentTrainingCommentary === 'function'
-      ? presentTrainingCommentary(
-          {
-            ...currentState,
-            runnerEvents: [{ code: 'runner_no_change', params: {} }],
-          },
-          'runner_toast'
-        )
-      : null;
-  showToast(
-    emptyToast?.text ||
-      i18nText(
-        'workout.runner.no_change',
-        'No remaining work needed adjustment'
-      ),
-    'var(--muted)'
-  );
 }
 
 function undoQuickWorkoutAdjustment() {
-  const snapshot = activeWorkout?.runnerState?.undoSnapshot;
-  if (!snapshot || !activeWorkout) return;
-  activeWorkout.exercises = cloneWorkoutExercises(snapshot.exercises);
-  activeWorkout.commentary = snapshot.commentary
-    ? JSON.parse(JSON.stringify(snapshot.commentary))
-    : activeWorkout.commentary;
-  activeWorkout.runnerState = activeWorkout.runnerState || {};
-  activeWorkout.runnerState.mode =
-    snapshot.mode || activeWorkout.planningDecision?.action || 'train';
-  activeWorkout.runnerState.adjustments = (snapshot.adjustments || []).map(
-    (item) => ({ ...item })
-  );
-  delete activeWorkout.runnerState.undoSnapshot;
-  appendWorkoutRunnerEvent(activeWorkout, 'runner_undo');
-  persistCurrentWorkoutDraft();
-  if (isLogActiveIslandActive()) notifyLogActiveIsland();
-  else renderExercises();
-  const undoToast =
-    typeof presentTrainingCommentary === 'function'
-      ? presentTrainingCommentary(
-          getWorkoutCommentaryState(activeWorkout),
-          'runner_toast'
-        )
-      : null;
-  showToast(
-    undoToast?.text ||
-      i18nText('workout.runner.undo_toast', 'Last adjustment undone'),
-    'var(--blue)'
-  );
+  const delegate = window.undoQuickWorkoutAdjustment;
+  if (typeof delegate === 'function' && delegate !== undoQuickWorkoutAdjustment) {
+    return delegate();
+  }
 }
 
 function diffProgramTMs(prog, stateBefore, stateAfter) {

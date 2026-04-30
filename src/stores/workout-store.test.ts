@@ -22,7 +22,10 @@ type TestWindow = Window & {
   getActiveWorkoutSession?: () => Record<string, unknown> | null;
   persistActiveWorkoutDraft?: ReturnType<typeof vi.fn>;
   renderActiveWorkoutPlanPanel?: ReturnType<typeof vi.fn>;
+  renderExercises?: ReturnType<typeof vi.fn>;
   showCustomModal?: ReturnType<typeof vi.fn>;
+  showShortenAdjustmentOptions?: ReturnType<typeof vi.fn>;
+  showConfirm?: ReturnType<typeof vi.fn>;
   closeCustomModal?: ReturnType<typeof vi.fn>;
   ensureExerciseUiKey?: (exercise: Record<string, unknown>) => string | null;
   getSetInputId?: (
@@ -43,6 +46,15 @@ type TestWindow = Window & {
   getRegisteredExercise?: (input: unknown) => Record<string, unknown> | null;
   resolveRegisteredExerciseId?: (input: unknown) => string | null;
   getSuggested?: ReturnType<typeof vi.fn>;
+  getActiveProgramState?: () => Record<string, unknown> | null;
+  buildTrainingCommentaryState?: (
+    input?: Record<string, unknown>
+  ) => Record<string, unknown> | null;
+  presentTrainingCommentary?: ReturnType<typeof vi.fn>;
+  createTrainingCommentaryEvent?: (
+    code: string,
+    params?: Record<string, unknown>
+  ) => Record<string, unknown> | null;
   __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
     read?: (name: string) => unknown;
     write?: ReturnType<typeof vi.fn>;
@@ -67,6 +79,7 @@ function installTestWindow(overrides: Partial<TestWindow> = {}) {
 function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
   const persistActiveWorkoutDraft = vi.fn();
   const renderActiveWorkoutPlanPanel = vi.fn();
+  const renderExercises = vi.fn();
   const showToast = vi.fn();
   return installTestWindow({
     activeWorkout,
@@ -77,8 +90,11 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
     getActiveWorkoutSession: () => activeWorkout,
     persistActiveWorkoutDraft,
     renderActiveWorkoutPlanPanel,
+    renderExercises,
     showToast,
     showCustomModal: vi.fn(),
+    showShortenAdjustmentOptions: vi.fn(),
+    showConfirm: vi.fn((_title, _message, onConfirm) => onConfirm()),
     closeCustomModal: vi.fn(),
     ensureExerciseUiKey: (exercise: Record<string, unknown>) => {
       exercise.uiKey = exercise.uiKey || `ui-${String(exercise.name || 'ex')}`;
@@ -118,6 +134,22 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
         : null;
     },
     getSuggested: vi.fn(() => 42.5),
+    getActiveProgramState: () => ({ rounding: 2.5 }),
+    buildTrainingCommentaryState: (input?: Record<string, unknown>) => ({
+      version: 1,
+      decisionCode: 'train',
+      reasonCodes: [],
+      restrictionFlags: [],
+      adaptationEvents: [],
+      equipmentHint: null,
+      runnerEvents: [],
+      ...(input || {}),
+    }),
+    presentTrainingCommentary: vi.fn(() => null),
+    createTrainingCommentaryEvent: (code, params) => ({
+      code,
+      params: params || {},
+    }),
     __IRONFORGE_LEGACY_RUNTIME_ACCESS__: {
       read: (name: string) =>
         name === 'activeWorkout' ? activeWorkout : undefined,
@@ -347,6 +379,104 @@ describe('workout store start boundary', () => {
       1,
       activeWorkout.exercises[1]
     );
+  });
+
+  it('owns quick workout shorten mutations and undo', () => {
+    const activeWorkout = {
+      planningDecision: { action: 'train' },
+      runnerState: { mode: 'train', adjustments: [] },
+      exercises: [
+        {
+          name: 'Bench',
+          sets: [
+            { weight: 100, reps: 5, done: true },
+            { weight: 100, reps: 5, done: false },
+            { weight: 100, reps: 5, done: false },
+            { weight: 100, reps: 5, done: false },
+          ],
+        },
+        {
+          name: 'Curls',
+          isAccessory: true,
+          sets: [
+            { weight: 20, reps: 10, done: false },
+            { weight: 20, reps: 10, done: false },
+          ],
+        },
+      ],
+    };
+    const runtimeWindow = installWorkoutWindow(activeWorkout);
+    installTestDocument();
+
+    workoutStore
+      .getState()
+      .applyQuickWorkoutAdjustment('shorten', 'medium');
+
+    expect(activeWorkout.exercises).toHaveLength(1);
+    expect(
+      ((activeWorkout.exercises[0] as Record<string, unknown>).sets as Array<
+        Record<string, unknown>
+      >)
+    ).toHaveLength(2);
+    expect(
+      (activeWorkout.runnerState as Record<string, unknown>).mode
+    ).toBe('shorten');
+    expect(
+      (activeWorkout.runnerState as Record<string, unknown>).undoSnapshot
+    ).toBeTruthy();
+    expect(runtimeWindow.persistActiveWorkoutDraft).toHaveBeenCalled();
+    expect(runtimeWindow.renderExercises).toHaveBeenCalled();
+    expect(runtimeWindow.showToast).toHaveBeenCalledWith(
+      'Session shortened to the essential work',
+      'var(--blue)'
+    );
+
+    workoutStore.getState().undoQuickWorkoutAdjustment();
+
+    expect(activeWorkout.exercises).toHaveLength(2);
+    expect(
+      (activeWorkout.runnerState as Record<string, unknown>).undoSnapshot
+    ).toBeUndefined();
+    expect(
+      ((activeWorkout.runnerState as Record<string, unknown>)
+        .adjustments as Array<unknown>)
+    ).toHaveLength(0);
+    expect(runtimeWindow.showToast).toHaveBeenLastCalledWith(
+      'Last adjustment undone',
+      'var(--blue)'
+    );
+  });
+
+  it('keeps quick adjustment modal and confirmation UI as delegates', () => {
+    const activeWorkout = {
+      exercises: [
+        {
+          name: 'Bench',
+          sets: [
+            { weight: 100, reps: 5, done: false },
+            { weight: 100, reps: 5, done: false },
+            { weight: 100, reps: 5, done: false },
+          ],
+        },
+      ],
+    };
+    const runtimeWindow = installWorkoutWindow(activeWorkout);
+    installTestDocument();
+
+    workoutStore.getState().applyQuickWorkoutAdjustment('shorten');
+    expect(runtimeWindow.showShortenAdjustmentOptions).toHaveBeenCalled();
+
+    workoutStore.getState().applyQuickWorkoutAdjustment('lighten');
+    expect(runtimeWindow.showConfirm).toHaveBeenCalledWith(
+      'Go lighter this session?',
+      expect.stringContaining('lowers the remaining load'),
+      expect.any(Function)
+    );
+    expect(
+      (((activeWorkout.exercises[0] as Record<string, unknown>).sets as Array<
+        Record<string, unknown>
+      >)[0].weight)
+    ).toBe(95);
   });
 
 });

@@ -39,6 +39,8 @@ const knownOwners = new Map([
   ['skipRest', 'src/stores/workout-store.ts'],
   ['setRestBarActiveState', 'src/stores/workout-store.ts'],
   ['addExerciseByName', 'src/stores/workout-store.ts'],
+  ['applyQuickWorkoutAdjustment', 'src/stores/workout-store.ts'],
+  ['undoQuickWorkoutAdjustment', 'src/stores/workout-store.ts'],
   ['showSetRIRPrompt', 'src/stores/workout-store.ts'],
   ['applySetRIR', 'src/stores/workout-store.ts'],
   ['finishWorkout', 'src/stores/workout-store.ts'],

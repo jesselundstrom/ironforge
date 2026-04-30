@@ -225,11 +225,11 @@ export function clearLogActiveCollapseSignal(token: number) {
 }
 
 export function applyQuickWorkoutAdjustment(mode: string) {
-  callLegacyWindowFunction('applyQuickWorkoutAdjustment', mode);
+  workoutStore.getState().applyQuickWorkoutAdjustment(mode);
 }
 
 export function undoQuickWorkoutAdjustment() {
-  callLegacyWindowFunction('undoQuickWorkoutAdjustment');
+  workoutStore.getState().undoQuickWorkoutAdjustment();
 }
 
 export function showRPEPicker(
