@@ -189,6 +189,7 @@ export function installWorkoutOverlayBridge() {
   if (typeof window === 'undefined') return;
   const runtimeWindow = window as Window & {
     getWorkoutOverlaySnapshot?: () => WorkoutOverlaySnapshot;
+    getSportCheckPromptSnapshot?: () => Record<string, unknown> | null;
     showRPEPicker?: typeof showRPEPicker;
     selectRPE?: typeof selectRPE;
     skipRPE?: typeof skipRPE;
@@ -222,6 +223,7 @@ export function installWorkoutOverlayBridge() {
       legacyGetWorkoutOverlaySnapshot?.()?.exerciseGuidePrompt ||
       null,
   });
+  runtimeWindow.getSportCheckPromptSnapshot = getSportCheckPromptSnapshot;
   runtimeWindow.showRPEPicker = showRPEPicker;
   runtimeWindow.selectRPE = selectRPE;
   runtimeWindow.skipRPE = skipRPE;

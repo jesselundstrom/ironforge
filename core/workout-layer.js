@@ -1098,8 +1098,6 @@ function normalizeEnergyLevel(value) {
   return value === 'low' || value === 'strong' ? value : 'normal';
 }
 
-let pendingSportReadinessCallback = null;
-let pendingSportCheckPromptState = null;
 let pendingSportReadinessLevel = 'none';
 let pendingSportReadinessTiming = 'none';
 let pendingSportReadinessTimingTouched = false;
@@ -1156,23 +1154,10 @@ function setSelectedBonusDuration(value) {
   if (isLogStartIslandActive() && !activeWorkout) notifyLogStartIsland();
 }
 
-function notifySportCheckOverlayShell() {
-  if (typeof window.syncWorkoutSessionBridge === 'function') {
-    window.syncWorkoutSessionBridge();
-  }
-}
-
-function getSportCheckPromptSnapshot() {
-  return pendingSportCheckPromptState
-    ? { ...pendingSportCheckPromptState }
-    : null;
-}
-
 window.getSelectedWorkoutStartOption = getSelectedWorkoutStartOption;
 window.setSelectedWorkoutStartOption = setSelectedWorkoutStartOption;
 window.getSelectedBonusDuration = getSelectedBonusDuration;
 window.setSelectedBonusDuration = setSelectedBonusDuration;
-window.getSportCheckPromptSnapshot = getSportCheckPromptSnapshot;
 
 const baseWorkoutSessionBridgeSync =
   typeof window.syncWorkoutSessionBridge === 'function'
@@ -1902,36 +1887,27 @@ function setPendingWorkoutStartOverride(mode) {
 }
 
 function showSportReadinessCheck(callback) {
-  pendingSportReadinessCallback = callback;
-  const sportLabel = displaySportName(
-    (schedule?.sportName || getDefaultSportName()).trim() ||
-      getDefaultSportName()
-  );
-  pendingSportCheckPromptState = {
-    open: true,
-    title: i18nText('workout.sport_check.title', 'Sport check-in'),
-    subtitle: i18nText(
-      'workout.sport_check.sub',
-      'Have you had a leg-heavy {sport} session yesterday, or do you have one tomorrow?',
-      { sport: sportLabel.toLowerCase() }
-    ),
-  };
-  notifySportCheckOverlayShell();
+  const delegate = window.showSportReadinessCheck;
+  if (typeof delegate === 'function' && delegate !== showSportReadinessCheck) {
+    return delegate(callback);
+  }
 }
 
 function selectSportReadiness(signal) {
-  pendingSportCheckPromptState = null;
-  notifySportCheckOverlayShell();
-  setPendingSportReadiness(signal);
-  const cb = pendingSportReadinessCallback;
-  pendingSportReadinessCallback = null;
-  if (cb) cb(getPendingSportReadinessContext());
+  const delegate = window.selectSportReadiness;
+  if (typeof delegate === 'function' && delegate !== selectSportReadiness) {
+    return delegate(signal);
+  }
 }
 
 function cancelSportReadinessCheck() {
-  pendingSportCheckPromptState = null;
-  notifySportCheckOverlayShell();
-  pendingSportReadinessCallback = null;
+  const delegate = window.cancelSportReadinessCheck;
+  if (
+    typeof delegate === 'function' &&
+    delegate !== cancelSportReadinessCheck
+  ) {
+    return delegate();
+  }
 }
 
 function cloneWorkoutExercises(exercises) {
