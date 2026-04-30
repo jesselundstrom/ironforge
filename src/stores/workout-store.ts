@@ -134,6 +134,38 @@ type LegacyWorkoutWindow = Window & {
     teardownPlan?: Record<string, unknown> | null,
     options?: Record<string, unknown>
   ) => void;
+  getActiveProgram?: () => Record<string, unknown> | null;
+  setProgramState?: (
+    programId: string,
+    state: Record<string, unknown>
+  ) => void;
+  saveProfileData?: (
+    input?: Record<string, unknown>
+  ) => Promise<unknown> | unknown;
+  upsertWorkoutRecord?: (
+    workout: Record<string, unknown>
+  ) => Promise<unknown> | unknown;
+  saveWorkouts?: () => Promise<unknown> | unknown;
+  buildExerciseIndex?: () => void;
+  showRPEPicker?: (
+    exerciseName: string,
+    setNumber: number,
+    callback: (value: number | null) => void
+  ) => void;
+  showSessionSummary?: (
+    summaryData: Record<string, unknown>
+  ) => Promise<Record<string, unknown> | null> | Record<string, unknown> | null;
+  setNutritionSessionContext?: (
+    value?: Record<string, unknown> | null
+  ) => void;
+  getRuntimeBridge?: () => Record<string, unknown> | null;
+  showPage?: (page: string) => void;
+  logWarn?: (scope: string, error: unknown) => void;
+  getWeekStart?: (date?: Date | string | number | null) => Date;
+  stripWarmupSetsFromExercises?: (
+    exercises: Array<Record<string, unknown>>
+  ) => Array<Record<string, unknown>>;
+  inferDurationSignal?: (workout?: Record<string, unknown> | null) => string;
   persistActiveWorkoutDraft?: (...args: unknown[]) => unknown;
   clearActiveWorkoutDraft?: (...args: unknown[]) => unknown;
   syncWorkoutSessionBridge?: (...args: unknown[]) => unknown;
@@ -229,7 +261,6 @@ const DELEGATED_WORKOUT_ACTIONS = [
   'startWorkout',
   'resumeActiveWorkoutUI',
   'selectExerciseCatalogExercise',
-  'finishWorkout',
 ] as const;
 
 type DelegatedWorkoutActionName = (typeof DELEGATED_WORKOUT_ACTIONS)[number];
@@ -241,6 +272,7 @@ let unsubscribeDataStore: (() => void) | null = null;
 let unsubscribeRuntimeStore: (() => void) | null = null;
 let removeRestVisibilityListener: (() => void) | null = null;
 let removeRestPageShowListener: (() => void) | null = null;
+let finishWorkoutInProgress = false;
 const legacyWorkoutActions: Partial<
   Record<DelegatedWorkoutActionName, LegacyWorkoutAction>
 > = {};
@@ -312,6 +344,20 @@ function showWorkoutStartFailure(error?: unknown) {
     translateLegacyText(
       'workout.start_error',
       'Workout could not be started. Please reload and try again.'
+    ),
+    'var(--orange)'
+  );
+}
+
+function showWorkoutFinishFailure(error?: unknown) {
+  const runtimeWindow = getLegacyWindow();
+  if (error) {
+    (runtimeWindow?.logWarn || console.warn)?.('finishWorkout', error);
+  }
+  runtimeWindow?.showToast?.(
+    translateLegacyText(
+      'workout.finish_error',
+      'Session could not be finalized. Please try again.'
     ),
     'var(--orange)'
   );
@@ -921,6 +967,223 @@ function cancelWorkoutFromStore() {
     showDiscardToast: true,
   });
   syncStoreFromLegacy();
+}
+
+function getWorkoutElapsedSeconds(workout: Record<string, unknown>) {
+  const startTime = Number(workout.startTime || 0);
+  if (!startTime) return 0;
+  return Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+}
+
+function getWorkoutPrCount(workout: Record<string, unknown>) {
+  const rewardState =
+    workout.rewardState && typeof workout.rewardState === 'object'
+      ? (workout.rewardState as Record<string, unknown>)
+      : null;
+  return Array.isArray(rewardState?.detectedPrs)
+    ? rewardState.detectedPrs.length
+    : 0;
+}
+
+function cloneTrainingDecision(decision: unknown) {
+  return decision && typeof decision === 'object'
+    ? cloneJsonValue(decision as Record<string, unknown>)
+    : null;
+}
+
+function stripWarmupSetsFromExercises(
+  exercises: Array<Record<string, unknown>>
+) {
+  return exercises.map((exercise) => ({
+    ...exercise,
+    sets: getWorkoutExerciseSets(exercise).filter(
+      (set) => set.isWarmup !== true
+    ),
+  }));
+}
+
+function getWeekStartFallback(date?: Date | string | number | null) {
+  const nextDate = new Date(date || new Date());
+  nextDate.setDate(nextDate.getDate() - ((nextDate.getDay() + 6) % 7));
+  nextDate.setHours(0, 0, 0, 0);
+  return nextDate;
+}
+
+function requestSessionRpe() {
+  const runtimeWindow = getLegacyWindow();
+  return new Promise<number>((resolve) => {
+    if (typeof runtimeWindow?.showRPEPicker !== 'function') {
+      resolve(7);
+      return;
+    }
+    runtimeWindow.showRPEPicker(
+      translateWorkoutText('common.session', 'Session'),
+      -1,
+      (value) => resolve(Number(value) || 7)
+    );
+  });
+}
+
+async function finishWorkoutFromStore() {
+  const runtime = getWorkoutRuntime();
+  const runtimeWindow = getLegacyWindow();
+  const workout = getActiveWorkoutSession();
+  if (finishWorkoutInProgress) return undefined;
+  if (!runtime || !workout || !Array.isArray(workout.exercises)) {
+    showWorkoutFinishFailure();
+    return false;
+  }
+  const exercises = workout.exercises as Array<Record<string, unknown>>;
+  if (!exercises.length) {
+    runtimeWindow?.showToast?.(
+      translateWorkoutText('workout.add_at_least_one', 'Add at least one exercise!'),
+      'var(--orange)'
+    );
+    return false;
+  }
+
+  finishWorkoutInProgress = true;
+  try {
+    workout.exercises = runtime.sanitizeWorkoutExercisesForSave({
+      exercises,
+      withResolvedExerciseId: (exercise: unknown) => {
+        if (!exercise || typeof exercise !== 'object') return exercise;
+        const nextExercise = exercise as Record<string, unknown>;
+        const exerciseId =
+          nextExercise.exerciseId ||
+          runtimeWindow?.resolveRegisteredExerciseId?.(nextExercise.name) ||
+          null;
+        return {
+          ...nextExercise,
+          exerciseId,
+        };
+      },
+    });
+
+    const sessionRPE = await requestSessionRpe();
+    const activeWorkout = getActiveWorkoutSession();
+    if (!activeWorkout || !Array.isArray(activeWorkout.exercises)) {
+      throw new Error('Active workout disappeared during finish flow.');
+    }
+
+    const prog = runtimeWindow?.getActiveProgram?.();
+    if (!prog) {
+      showWorkoutFinishFailure();
+      return false;
+    }
+    const programId = String(prog.id || '');
+    const programName =
+      runtimeWindow?.I18N?.t?.(
+        `program.${programId}.name`,
+        null,
+        String(prog.name || 'Training')
+      ) || String(prog.name || 'Training');
+    const state = runtimeWindow?.getActiveProgramState?.() || {};
+    activeWorkout.finishWorkoutId = activeWorkout.finishWorkoutId || Date.now();
+    const workoutId = activeWorkout.finishWorkoutId;
+    const workoutDate = new Date().toISOString();
+    ensureWorkoutCommentaryRecord(activeWorkout);
+    const legacyWorkouts =
+      readLegacyRuntimeValue<Array<Record<string, unknown>>>('workouts') || [];
+    const workouts = Array.isArray(legacyWorkouts) ? legacyWorkouts : [];
+    const finishPlan = runtime.buildWorkoutFinishPlan(
+      {
+        prog,
+        workoutId,
+        workoutDate,
+        activeWorkout,
+        state,
+        workouts,
+        programName,
+        prCount: getWorkoutPrCount(activeWorkout),
+        duration: getWorkoutElapsedSeconds(activeWorkout),
+        sessionRPE,
+      },
+      {
+        cloneTrainingDecision,
+        stripWarmupSetsFromExercises:
+          runtimeWindow?.stripWarmupSetsFromExercises ||
+          stripWarmupSetsFromExercises,
+        getWeekStart: runtimeWindow?.getWeekStart || getWeekStartFallback,
+        parseLoggedRepCount,
+        t: translateWorkoutText,
+      }
+    );
+    if (!finishPlan) {
+      showWorkoutFinishFailure();
+      return false;
+    }
+    const saveWorkoutsWithLegacySync = async () => {
+      writeLegacyRuntimeValue('workouts', workouts);
+      await Promise.resolve(runtimeWindow?.saveWorkouts?.());
+    };
+    await runtime.commitWorkoutFinishPersistence(
+      {
+        prog,
+        finishPlan,
+        workouts,
+      },
+      {
+        logWarn: runtimeWindow?.logWarn || console.warn,
+        showToast: runtimeWindow?.showToast,
+        setTimer: (callback: () => void, delay?: number) =>
+          window.setTimeout(callback, delay),
+        t: translateWorkoutText,
+        setProgramState: runtimeWindow?.setProgramState,
+        saveProfileData: runtimeWindow?.saveProfileData,
+        upsertWorkoutRecord: runtimeWindow?.upsertWorkoutRecord,
+        saveWorkouts: saveWorkoutsWithLegacySync,
+        buildExerciseIndex: () => {
+          writeLegacyRuntimeValue('workouts', workouts);
+          runtimeWindow?.buildExerciseIndex?.();
+        },
+      }
+    );
+    writeLegacyRuntimeValue('workouts', workouts);
+    runtimeWindow?.applyWorkoutTeardownPlan?.(finishPlan.finishTeardownPlan, {
+      renderTimer: true,
+    });
+    const summaryResult = await Promise.resolve(
+      runtimeWindow?.showSessionSummary?.(finishPlan.summaryData || {}) || null
+    );
+    const postWorkoutOutcome = runtime.buildPostWorkoutOutcome(
+      {
+        savedWorkout: finishPlan.savedWorkout,
+        summaryResult,
+        summaryData: finishPlan.summaryData || {},
+      },
+      {
+        inferDurationSignal:
+          runtimeWindow?.inferDurationSignal ||
+          ((value?: Record<string, unknown> | null) =>
+            String(value?.durationSignal || '')),
+        t: translateWorkoutText,
+        formatWorkoutWeight: formatWorkoutWeightForToast,
+      }
+    );
+    await runtime.applyPostWorkoutOutcomeEffects(
+      {
+        postWorkoutOutcome,
+        summaryData: finishPlan.summaryData || {},
+      },
+      {
+        saveWorkouts: saveWorkoutsWithLegacySync,
+        showToast: runtimeWindow?.showToast,
+        setTimer: (callback: () => void, delay?: number) =>
+          window.setTimeout(callback, delay),
+        setNutritionSessionContext: runtimeWindow?.setNutritionSessionContext,
+        getRuntimeBridge: runtimeWindow?.getRuntimeBridge,
+        showPage: runtimeWindow?.showPage,
+      }
+    );
+    syncStoreFromLegacy();
+    return true;
+  } catch (error) {
+    showWorkoutFinishFailure(error);
+    return false;
+  } finally {
+    finishWorkoutInProgress = false;
+  }
 }
 
 function ensureLegacyExerciseUiKey(exercise: Record<string, unknown>) {
@@ -1620,14 +1883,7 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
       removeActiveWorkoutExercise(exerciseIndex);
     },
     finishWorkout: () => {
-      const result = getCapturedLegacyAction('finishWorkout')?.();
-      if (isPromiseLike(result)) {
-        return result.finally(() => {
-          syncStoreFromLegacy();
-        });
-      }
-      syncStoreFromLegacy();
-      return result;
+      return finishWorkoutFromStore();
     },
     cancelWorkout: () => {
       cancelWorkoutFromStore();

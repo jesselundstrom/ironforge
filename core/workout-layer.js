@@ -1311,10 +1311,6 @@ function rebuildActiveWorkoutRewardState() {
   return rewardState;
 }
 
-function getWorkoutPrCount(workout) {
-  return (workout?.rewardState?.detectedPrs || []).length;
-}
-
 function formatWorkoutWeight(value) {
   const rounded = Math.round((parseFloat(value) || 0) * 10) / 10;
   return Number.isInteger(rounded)
@@ -4460,63 +4456,6 @@ function closeCustomModal() {
   if (m) m.remove();
 }
 
-function buildCoachNote(
-  summaryData,
-  stateBeforeSession,
-  advancedState,
-  workout
-) {
-  return getWorkoutRuntime().buildCoachNote(
-    {
-      summaryData,
-      stateBeforeSession,
-      advancedState,
-      workout,
-    },
-    {
-      t: i18nText,
-      formatWorkoutWeight,
-    }
-  );
-}
-
-function formatWorkoutWeight(value) {
-  const rounded = Math.round((Number(value) || 0) * 100) / 100;
-  if (!Number.isFinite(rounded)) return '0';
-  return String(rounded)
-    .replace(/\.00$/, '')
-    .replace(/(\.\d)0$/, '$1');
-}
-
-function buildTmAdjustmentCoachSummary(adjustments) {
-  const items = Array.isArray(adjustments) ? adjustments.slice(0, 2) : [];
-  if (!items.length) return '';
-  return items
-    .map((adj) =>
-      i18nText(
-        adj.direction === 'up'
-          ? 'workout.coach_note.tm_adjustment_up'
-          : 'workout.coach_note.tm_adjustment_down',
-        adj.direction === 'up'
-          ? '{lift} TM ↑ {tm} kg (+{delta})'
-          : '{lift} TM ↓ {tm} kg (-{delta})',
-        {
-          lift: adj.lift,
-          tm: formatWorkoutWeight(adj.newTM),
-          delta: formatWorkoutWeight(Math.abs(adj.delta)),
-        }
-      )
-    )
-    .join(' · ');
-}
-
-function buildTmAdjustmentToast(adjustments) {
-  return getWorkoutRuntime().buildTmAdjustmentToast(adjustments, {
-    t: i18nText,
-    formatWorkoutWeight,
-  });
-}
-
 function applyQuickWorkoutAdjustment(mode, detailLevel) {
   const delegate = window.applyQuickWorkoutAdjustment;
   if (typeof delegate === 'function' && delegate !== applyQuickWorkoutAdjustment) {
@@ -4529,10 +4468,6 @@ function undoQuickWorkoutAdjustment() {
   if (typeof delegate === 'function' && delegate !== undoQuickWorkoutAdjustment) {
     return delegate();
   }
-}
-
-function diffProgramTMs(prog, stateBefore, stateAfter) {
-  return getWorkoutRuntime().buildProgramTmAdjustments(stateBefore, stateAfter);
 }
 
 function applyWorkoutTeardownPlan(teardownPlan, options) {
@@ -4576,154 +4511,10 @@ function applyWorkoutTeardownPlan(teardownPlan, options) {
   }
 }
 
-let finishWorkoutInProgress = false;
-
 async function finishWorkout() {
-  if (finishWorkoutInProgress) return;
-  if (!activeWorkout || !Array.isArray(activeWorkout.exercises)) {
-    showToast(
-      i18nText(
-        'workout.finish_error',
-        'Session could not be finalized. Please try again.'
-      ),
-      'var(--orange)'
-    );
-    return;
-  }
-  if (!activeWorkout.exercises.length) {
-    showToast(
-      i18nText('workout.add_at_least_one', 'Add at least one exercise!'),
-      'var(--orange)'
-    );
-    return;
-  }
-
-  finishWorkoutInProgress = true;
-  try {
-    activeWorkout.exercises = getWorkoutRuntime().sanitizeWorkoutExercisesForSave({
-      exercises: activeWorkout.exercises,
-      withResolvedExerciseId,
-    });
-
-    const sessionRPE = await new Promise((resolve) => {
-      showRPEPicker(i18nText('common.session', 'Session'), -1, (val) =>
-        resolve(val || 7)
-      );
-    });
-
-    if (!activeWorkout || !Array.isArray(activeWorkout.exercises)) {
-      throw new Error('Active workout disappeared during finish flow.');
-    }
-
-    const prog = getActiveProgram();
-    const programName =
-      window.I18N && I18N.t
-        ? I18N.t('program.' + prog.id + '.name', null, prog.name || 'Training')
-        : prog.name || 'Training';
-    const state = getActiveProgramState();
-    activeWorkout.finishWorkoutId =
-      activeWorkout.finishWorkoutId || Date.now();
-    const workoutId = activeWorkout.finishWorkoutId;
-    const workoutDate = new Date().toISOString();
-    ensureWorkoutCommentaryRecord(activeWorkout);
-    const sessionPrCount = getWorkoutPrCount(activeWorkout);
-    const finishPlan = getWorkoutRuntime().buildWorkoutFinishPlan(
-      {
-        prog,
-        workoutId,
-        workoutDate,
-        activeWorkout,
-        state,
-        workouts,
-        programName,
-        prCount: sessionPrCount,
-        duration: getWorkoutElapsedSeconds(),
-        sessionRPE,
-      },
-      {
-        cloneTrainingDecision,
-        stripWarmupSetsFromExercises,
-        getWeekStart,
-        parseLoggedRepCount,
-        t: i18nText,
-      }
-    );
-    if (!finishPlan) {
-      showToast(
-        i18nText(
-          'workout.finish_error',
-          'Session could not be finalized. Please try again.'
-        ),
-        'var(--orange)'
-      );
-      return;
-    }
-    const savedWorkout = finishPlan.savedWorkout;
-    const summaryData = finishPlan.summaryData || {};
-    const finishTeardownPlan = finishPlan.finishTeardownPlan;
-    await getWorkoutRuntime().commitWorkoutFinishPersistence(
-      {
-        prog,
-        finishPlan,
-        workouts,
-      },
-      {
-        logWarn,
-        showToast,
-        setTimer: setTimeout,
-        t: i18nText,
-        setProgramState,
-        saveProfileData,
-        upsertWorkoutRecord,
-        saveWorkouts,
-        buildExerciseIndex,
-      }
-    );
-    applyWorkoutTeardownPlan(finishTeardownPlan, {
-      renderTimer: true,
-    });
-    const summaryResult = await window.showSessionSummary(summaryData);
-    const postWorkoutOutcome = getWorkoutRuntime().buildPostWorkoutOutcome(
-      {
-        savedWorkout,
-        summaryResult,
-        summaryData,
-      },
-      {
-        inferDurationSignal,
-        t: i18nText,
-        formatWorkoutWeight,
-      }
-    );
-    await getWorkoutRuntime().applyPostWorkoutOutcomeEffects(
-      {
-        postWorkoutOutcome,
-        summaryData,
-      },
-      {
-        saveWorkouts,
-        showToast,
-        setTimer: setTimeout,
-        setNutritionSessionContext:
-          typeof window.setNutritionSessionContext === 'function'
-            ? window.setNutritionSessionContext
-            : null,
-        getRuntimeBridge:
-          typeof getRuntimeBridge === 'function' ? getRuntimeBridge : null,
-        showPage: typeof window.showPage === 'function' ? window.showPage : null,
-      }
-    );
-  } catch (error) {
-    logWarn('finishWorkout', error);
-    showToast(
-      i18nText(
-        'workout.finish_error',
-        'Session could not be finalized. Please try again.'
-      ),
-      'var(--orange)'
-    );
-  } finally {
-    finishWorkoutInProgress = false;
+  const delegate = window.finishWorkout;
+  if (typeof delegate === 'function' && delegate !== finishWorkout) {
+    return delegate();
   }
 }
 

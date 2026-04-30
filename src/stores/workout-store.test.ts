@@ -8,6 +8,8 @@ type TestWindow = Window & {
   startWorkout?: () => unknown;
   resumeActiveWorkoutUI?: (options?: Record<string, unknown>) => unknown;
   showToast?: ReturnType<typeof vi.fn>;
+  showRPEPicker?: ReturnType<typeof vi.fn>;
+  showSessionSummary?: ReturnType<typeof vi.fn>;
   I18N?: {
     t?: (
       key: string,
@@ -47,6 +49,13 @@ type TestWindow = Window & {
   resolveRegisteredExerciseId?: (input: unknown) => string | null;
   getSuggested?: ReturnType<typeof vi.fn>;
   getActiveProgramState?: () => Record<string, unknown> | null;
+  getActiveProgram?: () => Record<string, unknown> | null;
+  setProgramState?: ReturnType<typeof vi.fn>;
+  saveProfileData?: ReturnType<typeof vi.fn>;
+  upsertWorkoutRecord?: ReturnType<typeof vi.fn>;
+  saveWorkouts?: ReturnType<typeof vi.fn>;
+  buildExerciseIndex?: ReturnType<typeof vi.fn>;
+  inferDurationSignal?: ReturnType<typeof vi.fn>;
   buildTrainingCommentaryState?: (
     input?: Record<string, unknown>
   ) => Record<string, unknown> | null;
@@ -96,6 +105,8 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
     renderActiveWorkoutPlanPanel,
     renderExercises,
     showToast,
+    showRPEPicker: vi.fn((_exerciseName, _setNumber, callback) => callback(7)),
+    showSessionSummary: vi.fn(async () => null),
     showCustomModal: vi.fn(),
     showShortenAdjustmentOptions: vi.fn(),
     showConfirm: vi.fn((_title, _message, onConfirm) => onConfirm()),
@@ -138,7 +149,14 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
         : null;
     },
     getSuggested: vi.fn(() => 42.5),
+    getActiveProgram: () => ({ id: 'forge', name: 'Forge' }),
     getActiveProgramState: () => ({ rounding: 2.5 }),
+    setProgramState: vi.fn(),
+    saveProfileData: vi.fn(async () => {}),
+    upsertWorkoutRecord: vi.fn(async () => {}),
+    saveWorkouts: vi.fn(async () => {}),
+    buildExerciseIndex: vi.fn(),
+    inferDurationSignal: vi.fn(() => ''),
     buildTrainingCommentaryState: (input?: Record<string, unknown>) => ({
       version: 1,
       decisionCode: 'train',
@@ -519,6 +537,137 @@ describe('workout store start boundary', () => {
       },
       { showDiscardToast: true }
     );
+  });
+
+  it('owns finish workout orchestration through the typed runtime', async () => {
+    const activeWorkout = {
+      startTime: Date.now() - 90000,
+      programLabel: 'Forge',
+      exercises: [
+        {
+          name: 'Bench',
+          exerciseId: 'bench',
+          sets: [{ weight: 80, reps: 5, done: true }],
+        },
+      ],
+      rewardState: {
+        detectedPrs: [{ setKey: 'bench-0' }],
+      },
+    };
+    const workouts: Array<Record<string, unknown>> = [];
+    const runtimeWindow = installWorkoutWindow(activeWorkout);
+    installTestDocument();
+    const savedWorkout = { id: 'saved-1', date: '2026-04-30' };
+    const finishPlan = {
+      savedWorkout,
+      summaryData: { duration: 90 },
+      finishTeardownPlan: {
+        showNotStarted: true,
+        hideActive: true,
+        resetNotStartedView: true,
+        notifyLogActive: true,
+        updateDashboard: true,
+        discardToast: '',
+      },
+      advancedState: { week: 2 },
+      newState: { week: 2 },
+      progressionResult: {},
+      progressionToast: null,
+      programHookFailed: false,
+      tmAdjustments: [],
+      totalSets: 1,
+      stateBeforeSession: {},
+      progressionSourceState: {},
+    };
+    const sanitizeWorkoutExercisesForSave = vi.fn(
+      (input?: Record<string, unknown>) =>
+        (input?.exercises as Array<Record<string, unknown>>) || []
+    );
+    const buildWorkoutFinishPlan = vi.fn(() => finishPlan);
+    const commitWorkoutFinishPersistence = vi.fn(
+      async (
+        input?: { workouts?: Array<Record<string, unknown>> | null },
+        deps?: Record<string, unknown>
+      ) => {
+        input?.workouts?.push(savedWorkout);
+        await (deps?.saveWorkouts as () => Promise<unknown>)?.();
+        (deps?.buildExerciseIndex as () => void)?.();
+      }
+    );
+    const buildPostWorkoutOutcome = vi.fn(() => ({
+      shouldSaveWorkouts: false,
+      tmAdjustmentToast: '',
+      goToNutrition: false,
+      nutritionContext: null,
+      durationSignal: '',
+    }));
+    const applyPostWorkoutOutcomeEffects = vi.fn(async () => {});
+    const writeLegacy = vi.fn((name: string, value: unknown) => {
+      if (name === 'workouts') {
+        workouts.splice(
+          0,
+          workouts.length,
+          ...((value as Array<Record<string, unknown>>) || [])
+        );
+      }
+    });
+    runtimeWindow.__IRONFORGE_LEGACY_RUNTIME_ACCESS__ = {
+      read: (name: string) => {
+        if (name === 'activeWorkout') return activeWorkout;
+        if (name === 'workouts') return workouts;
+        return undefined;
+      },
+      write: writeLegacy,
+    };
+    runtimeWindow.__IRONFORGE_WORKOUT_RUNTIME__ = {
+      sanitizeWorkoutExercisesForSave,
+      buildWorkoutFinishPlan,
+      commitWorkoutFinishPersistence,
+      buildPostWorkoutOutcome,
+      applyPostWorkoutOutcomeEffects,
+    };
+    runtimeWindow.showRPEPicker = vi.fn((_name, _set, callback) => callback(8));
+    runtimeWindow.showSessionSummary = vi.fn(async () => ({
+      feedback: 'good',
+      notes: '',
+      goToNutrition: false,
+    }));
+
+    const result = await workoutStore.getState().finishWorkout();
+
+    expect(result).toBe(true);
+    expect(sanitizeWorkoutExercisesForSave).toHaveBeenCalled();
+    expect(buildWorkoutFinishPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activeWorkout,
+        sessionRPE: 8,
+        prCount: 1,
+      }),
+      expect.objectContaining({
+        parseLoggedRepCount: expect.any(Function),
+      })
+    );
+    expect(commitWorkoutFinishPersistence).toHaveBeenCalled();
+    expect(runtimeWindow.applyWorkoutTeardownPlan).toHaveBeenCalledWith(
+      finishPlan.finishTeardownPlan,
+      { renderTimer: true }
+    );
+    expect(runtimeWindow.showSessionSummary).toHaveBeenCalledWith(
+      finishPlan.summaryData
+    );
+    expect(buildPostWorkoutOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        savedWorkout,
+        summaryData: finishPlan.summaryData,
+      }),
+      expect.objectContaining({
+        t: expect.any(Function),
+      })
+    );
+    expect(applyPostWorkoutOutcomeEffects).toHaveBeenCalled();
+    expect(runtimeWindow.saveWorkouts).toHaveBeenCalled();
+    expect(runtimeWindow.buildExerciseIndex).toHaveBeenCalled();
+    expect(workouts).toEqual([savedWorkout]);
   });
 
 });
