@@ -12,6 +12,7 @@ const forbiddenPatterns = [
   'window.addSet',
   'window.updateSet',
   'window.addExerciseByName',
+  'window.showSetRIRPrompt',
   'window.applySetRIR',
   'window.resumeActiveWorkoutUI',
   'window.updateRestDuration',

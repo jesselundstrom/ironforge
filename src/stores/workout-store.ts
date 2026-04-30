@@ -127,6 +127,7 @@ type LegacyWorkoutWindow = Window & {
   persistActiveWorkoutDraft?: (...args: unknown[]) => unknown;
   clearActiveWorkoutDraft?: (...args: unknown[]) => unknown;
   syncWorkoutSessionBridge?: (...args: unknown[]) => unknown;
+  showCustomModal?: (title: string, bodyHtml: string) => void;
   closeCustomModal?: () => void;
   showToast?: (
     message: string,
@@ -152,10 +153,6 @@ type LegacyWorkoutWindow = Window & {
     set: Record<string, unknown>,
     setIndex: number
   ) => void;
-  shouldPromptForSetRIR?: (
-    exercise: Record<string, unknown>,
-    setIndex: number
-  ) => boolean;
   queueLogActiveFocusTarget?: (inputId: string) => void;
   queueLogActiveSetSignal?: (
     exerciseUiKey: string,
@@ -198,8 +195,6 @@ const DELEGATED_WORKOUT_ACTIONS = [
   'resumeActiveWorkoutUI',
   'addExerciseByName',
   'selectExerciseCatalogExercise',
-  'showSetRIRPrompt',
-  'applySetRIR',
   'finishWorkout',
   'cancelWorkout',
 ] as const;
@@ -434,6 +429,15 @@ function displayWorkoutExerciseName(value: unknown) {
   return getLegacyWindow()?.displayExerciseName?.(value) || String(value || '');
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function showPrToast(prEvent: Record<string, unknown>) {
   getLegacyWindow()?.showToast?.(
     translateWorkoutText(
@@ -447,6 +451,81 @@ function showPrToast(prEvent: Record<string, unknown>) {
     ),
     'var(--yellow)'
   );
+}
+
+function getLastWorkSetIndex(exercise: Record<string, unknown>) {
+  const sets = Array.isArray(exercise?.sets)
+    ? (exercise.sets as Array<Record<string, unknown>>)
+    : [];
+  for (let index = sets.length - 1; index >= 0; index -= 1) {
+    if (sets[index]?.isWarmup !== true) return index;
+  }
+  return -1;
+}
+
+function shouldPromptForSetRIR(
+  workout: Record<string, unknown> | null | undefined,
+  exercise: Record<string, unknown> | null | undefined,
+  setIndex: number
+) {
+  if ((workout?.programMode || 'sets') !== 'rir') return false;
+  if (!exercise || exercise.isAccessory === true) return false;
+  return setIndex === getLastWorkSetIndex(exercise);
+}
+
+function showSetRIRPromptFromStore(exerciseIndex: number, setIndex: number) {
+  const runtimeWindow = getLegacyWindow();
+  const workout = getActiveWorkoutSession();
+  const exercise = getWorkoutExercise(workout, exerciseIndex);
+  const set = getWorkoutSet(exercise, setIndex);
+  if (!workout || !exercise || !set) return;
+  const currentValue =
+    set.rir !== undefined && set.rir !== null && set.rir !== ''
+      ? String(set.rir)
+      : '';
+  const options = ['0', '1', '2', '3', '4', '5+'];
+  const buttons = options
+    .map((value) => {
+      const normalizedValue = value === '5+' ? '5' : value;
+      const isActive = currentValue === normalizedValue;
+      return `<button class="btn btn-secondary${isActive ? ' active' : ''}" type="button" data-custom-modal-action="apply-set-rir" data-exercise-index="${exerciseIndex}" data-set-index="${setIndex}" data-rir-value="${escapeHtml(normalizedValue)}">${escapeHtml(value)}</button>`;
+    })
+    .join('');
+
+  runtimeWindow?.showCustomModal?.(
+    escapeHtml(translateWorkoutText('workout.rir_prompt_title', 'Last set check-in')),
+    `<div style="font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:12px">${escapeHtml(
+      translateWorkoutText(
+        'workout.rir_prompt_body',
+        'How many reps did you still have left after the last work set of {exercise}?',
+        { exercise: displayWorkoutExerciseName(exercise.name) }
+      )
+    )}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${buttons}</div>
+    <button class="btn btn-secondary" style="margin-top:12px;width:100%" type="button" data-custom-modal-action="skip-set-rir">${escapeHtml(
+      translateWorkoutText('workout.rir_prompt_skip', 'Skip for now')
+    )}</button>`
+  );
+  syncStoreFromLegacy();
+}
+
+function applySetRIRFromStore(
+  exerciseIndex: number,
+  setIndex: number,
+  rirValue: string | number
+) {
+  const exercise = getWorkoutExercise(getActiveWorkoutSession(), exerciseIndex);
+  const set = getWorkoutSet(exercise, setIndex);
+  if (!set) return;
+  set.rir = String(rirValue ?? '').trim();
+  persistCurrentWorkoutDraft();
+  syncLegacyWorkoutSessionBridge();
+  getLegacyWindow()?.closeCustomModal?.();
+  getLegacyWindow()?.showToast?.(
+    translateWorkoutText('workout.rir_saved', 'RIR saved'),
+    'var(--blue)'
+  );
+  syncStoreFromLegacy();
 }
 
 function scheduleCompletedExerciseCollapse(
@@ -476,13 +555,14 @@ function scheduleSetRirPrompt(
   prEvent: Record<string, unknown> | null
 ) {
   const runtimeWindow = getLegacyWindow();
-  if (runtimeWindow?.shouldPromptForSetRIR?.(exercise, setIndex) !== true) {
+  const workout = getActiveWorkoutSession();
+  if (shouldPromptForSetRIR(workout, exercise, setIndex) !== true) {
     return;
   }
   const isComplete = runtimeWindow?.isExerciseComplete?.(exercise) === true;
   const rirDelay = isComplete ? (prEvent ? 1250 : 900) : prEvent ? 900 : 550;
   window.setTimeout(() => {
-    getCapturedLegacyAction('showSetRIRPrompt')?.(exerciseIndex, setIndex);
+    workoutStore.getState().showSetRIRPrompt(exerciseIndex, setIndex);
   }, rirDelay);
 }
 
@@ -973,12 +1053,10 @@ export const workoutStore: StoreApi<LegacyWorkoutStoreState> =
       syncStoreFromLegacy();
     },
     showSetRIRPrompt: (exerciseIndex, setIndex) => {
-      getCapturedLegacyAction('showSetRIRPrompt')?.(exerciseIndex, setIndex);
-      syncStoreFromLegacy();
+      showSetRIRPromptFromStore(exerciseIndex, setIndex);
     },
     applySetRIR: (exerciseIndex, setIndex, rirValue) => {
-      getCapturedLegacyAction('applySetRIR')?.(exerciseIndex, setIndex, rirValue);
-      syncStoreFromLegacy();
+      applySetRIRFromStore(exerciseIndex, setIndex, rirValue);
     },
     toggleSet: (exerciseIndex, setIndex) => {
       toggleActiveWorkoutSet(exerciseIndex, setIndex);

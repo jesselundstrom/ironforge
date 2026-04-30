@@ -22,6 +22,8 @@ type TestWindow = Window & {
   getActiveWorkoutSession?: () => Record<string, unknown> | null;
   persistActiveWorkoutDraft?: ReturnType<typeof vi.fn>;
   renderActiveWorkoutPlanPanel?: ReturnType<typeof vi.fn>;
+  showCustomModal?: ReturnType<typeof vi.fn>;
+  closeCustomModal?: ReturnType<typeof vi.fn>;
   ensureExerciseUiKey?: (exercise: Record<string, unknown>) => string | null;
   getSetInputId?: (
     uiKey: string,
@@ -36,7 +38,6 @@ type TestWindow = Window & {
   isExerciseComplete?: (exercise: Record<string, unknown>) => boolean;
   detectSetPr?: ReturnType<typeof vi.fn>;
   clearSetPr?: ReturnType<typeof vi.fn>;
-  shouldPromptForSetRIR?: () => boolean;
   i18nText?: (key: string, fallback: string) => string;
   displayExerciseName?: (input: unknown) => string;
   __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
@@ -74,6 +75,8 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
     persistActiveWorkoutDraft,
     renderActiveWorkoutPlanPanel,
     showToast,
+    showCustomModal: vi.fn(),
+    closeCustomModal: vi.fn(),
     ensureExerciseUiKey: (exercise: Record<string, unknown>) => {
       exercise.uiKey = exercise.uiKey || `ui-${String(exercise.name || 'ex')}`;
       return String(exercise.uiKey);
@@ -93,7 +96,6 @@ function installWorkoutWindow(activeWorkout: Record<string, unknown>) {
     clearSetPr: vi.fn((_exercise, set) => {
       if (set) set.isPr = false;
     }),
-    shouldPromptForSetRIR: () => false,
     i18nText: (_key: string, fallback: string) => fallback,
     displayExerciseName: (input: unknown) => String(input || ''),
     __IRONFORGE_LEGACY_RUNTIME_ACCESS__: {
@@ -264,6 +266,41 @@ describe('workout store start boundary', () => {
     expect(activeWorkout.exercises).toHaveLength(2);
     expect((activeWorkout.exercises[1] as Record<string, unknown>).name).toBe(
       'Row'
+    );
+  });
+
+  it('owns set RIR prompt rendering and save mutation', () => {
+    const activeWorkout = {
+      programMode: 'rir',
+      exercises: [
+        {
+          name: 'Squat',
+          sets: [{ weight: 100, reps: 5, done: true }],
+        },
+      ],
+    };
+    const runtimeWindow = installWorkoutWindow(activeWorkout);
+    installTestDocument();
+
+    workoutStore.getState().showSetRIRPrompt(0, 0);
+
+    expect(runtimeWindow.showCustomModal).toHaveBeenCalledWith(
+      'Last set check-in',
+      expect.stringContaining('data-rir-value="2"')
+    );
+
+    workoutStore.getState().applySetRIR(0, 0, '2');
+
+    expect(
+      ((activeWorkout.exercises[0] as Record<string, unknown>).sets as Array<
+        Record<string, unknown>
+      >)[0].rir
+    ).toBe('2');
+    expect(runtimeWindow.persistActiveWorkoutDraft).toHaveBeenCalled();
+    expect(runtimeWindow.closeCustomModal).toHaveBeenCalled();
+    expect(runtimeWindow.showToast).toHaveBeenCalledWith(
+      'RIR saved',
+      'var(--blue)'
     );
   });
 });

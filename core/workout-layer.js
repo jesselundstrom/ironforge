@@ -2168,63 +2168,6 @@ function getActiveWorkoutFinishPoint(workoutLike) {
   };
 }
 
-function getLastWorkSetIndex(exercise) {
-  if (!exercise?.sets?.length) return -1;
-  for (let index = exercise.sets.length - 1; index >= 0; index--) {
-    if (!exercise.sets[index]?.isWarmup) return index;
-  }
-  return -1;
-}
-
-function shouldPromptForSetRIR(exercise, setIndex) {
-  if ((activeWorkout?.programMode || 'sets') !== 'rir') return false;
-  if (!exercise || exercise.isAccessory) return false;
-  return setIndex === getLastWorkSetIndex(exercise);
-}
-
-function showSetRIRPrompt(exerciseIndex, setIndex) {
-  const exercise = activeWorkout?.exercises?.[exerciseIndex];
-  const set = exercise?.sets?.[setIndex];
-  if (!exercise || !set) return;
-  const exerciseName = displayExerciseName(exercise.name);
-  const currentValue =
-    set.rir !== undefined && set.rir !== null && set.rir !== ''
-      ? String(set.rir)
-      : '';
-  const options = ['0', '1', '2', '3', '4', '5+'];
-  const buttons = options
-    .map((value) => {
-      const normalizedValue = value === '5+' ? '5' : value;
-      const isActive = currentValue === normalizedValue;
-      return `<button class="btn btn-secondary${isActive ? ' active' : ''}" type="button" data-custom-modal-action="apply-set-rir" data-exercise-index="${exerciseIndex}" data-set-index="${setIndex}" data-rir-value="${escapeHtml(normalizedValue)}">${escapeHtml(value)}</button>`;
-    })
-    .join('');
-  showCustomModal(
-    escapeHtml(i18nText('workout.rir_prompt_title', 'Last set check-in')),
-    `<div style="font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:12px">${escapeHtml(i18nText('workout.rir_prompt_body', 'How many reps did you still have left after the last work set of {exercise}?', { exercise: exerciseName }))}</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${buttons}</div>
-    <button class="btn btn-secondary" style="margin-top:12px;width:100%" type="button" data-custom-modal-action="skip-set-rir">${escapeHtml(i18nText('workout.rir_prompt_skip', 'Skip for now'))}</button>`
-  );
-}
-
-function applySetRIR(exerciseIndex, setIndex, rirValue) {
-  const set = activeWorkout?.exercises?.[exerciseIndex]?.sets?.[setIndex];
-  if (!set) return;
-  set.rir = rirValue;
-  if (typeof persistActiveWorkoutDraft === 'function') {
-    persistActiveWorkoutDraft();
-  }
-  if (typeof window.syncWorkoutSessionBridge === 'function') {
-    window.syncWorkoutSessionBridge();
-  }
-  closeCustomModal();
-  showToast(i18nText('workout.rir_saved', 'RIR saved'), 'var(--blue)');
-}
-
-function skipSetRIRPrompt() {
-  closeCustomModal();
-}
-
 function trimExerciseRemainingSets(exercise, keepUndoneCount) {
   if (!Array.isArray(exercise?.sets)) return false;
   const nextSets = [];
@@ -4689,7 +4632,7 @@ function showCustomModal(title, bodyHtml) {
       return;
     }
     if (action === 'apply-set-rir') {
-      applySetRIR(
+      window.applySetRIR?.(
         Number(actionTarget.dataset.exerciseIndex),
         Number(actionTarget.dataset.setIndex),
         actionTarget.dataset.rirValue || ''
