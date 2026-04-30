@@ -2,7 +2,7 @@
 
 ## Status
 
-The visible-shell migration is complete, but runtime ownership consolidation is still in progress as of 2026-04-05.
+The visible-shell migration is complete, but runtime ownership consolidation is still in progress as of 2026-04-30.
 
 All seven planned phases for the React + Vite shell are delivered and verified. The remaining work is no longer "page shell migration", but it is also not ordinary cleanup: profile/program/runtime ownership is still being consolidated out of the bidirectional legacy sync layer.
 
@@ -24,6 +24,9 @@ Closeout checkpoints completed:
 - load/bootstrap cloud pull-push orchestration, profile-document save/pull/merge sequencing, and realtime sync subscription flow now route through a typed sync runtime bridge.
 - the live profile sync path no longer falls back to the legacy `profiles` blob table; `profile_documents` is now the only live profile/schedule sync source.
 - CI now includes a second migration guardrail that blocks new typed `src/` regressions back to `profiles` blob reads/writes and blob-era helper names.
+- `core/program-layer.js` is no longer the runtime owner of program orchestration; the typed program-runtime now owns active-program lookup, state get/set, session option/build/advance dispatch, and adjust-after-session sequencing, with legacy globals delegating into it.
+- Workout mutation lifecycle (start, set logging, set toggles, rest timer, RPE prompt, set RIR, finish, cancel/discard, exercise add/swap, quick adjustments, exercise catalog) is now owned by `workoutStore` typed actions; legacy entry points delegate.
+- Workout overlay runtime ownership (RPE, sport check, sport readiness, session summary, exercise guide, set RIR prompt, rest timer) is now typed; legacy overlay globals are compatibility delegators.
 
 ## Visible Shell Complete
 
@@ -74,7 +77,7 @@ Current migration rules:
 - A migration slice is only complete when the legacy logic it replaced is deleted in the same change.
 - Wrapper-only convergence does not count as migration progress.
 - Hybrid testing is now required: Playwright for user flows, Vitest for extracted pure logic and runtime-contract behavior.
-- For the current workout finish-flow extraction, `showRPEPicker(...)` and `showSessionSummary(...)` remain deliberate UI orchestration deferrals. Slice 3 closes when typed runtime code owns finish persistence sequencing and the replaced legacy sequencing is deleted.
+- The workout finish-flow extraction is closed: typed runtime code now owns finish persistence sequencing, and `showRPEPicker(...)` / `showSessionSummary(...)` are migrated overlays rather than deferred UI orchestration.
 - For Slice 5 program-workout integration, migrated workout/preview/progression callers must pass explicit program runtime context into program hooks. Training frequency, current-week boundary, and per-session readiness should not be reintroduced as hidden ambient inputs on migrated execution paths.
 
 Recent consolidation progress:
@@ -88,6 +91,10 @@ Recent consolidation progress:
 - guarded pre-bridge sync failures now replace silent no-op behavior for migrated sync callers, with deterministic error handling instead of invisible state loss.
 - Forge and Wendler session build/progression hooks now accept explicit runtime context from the workout/program callers, and migrated start/preview/finish flows no longer rely on ambient training-frequency or session-readiness globals during active execution.
 - `src/app/services/app-runtime.ts` now owns settings-tab selection, settings account danger-state snapshotting, onboarding default/recommendation globals, and language-refresh orchestration, while `app.js` keeps only thin compatibility delegators for untouched callers.
+- `workoutStore` now owns workout set logging, set toggles, set RIR prompt state, rest timer state, quick adjustments, add-exercise, exercise swap mutations, exercise catalog access, cancel/discard, and finish persistence sequencing as typed actions; legacy `core/workout-layer.js` callers delegate through these instead of owning the mutations.
+- Workout overlay runtime (RPE picker, sport check, sport readiness, session summary, exercise guide, set RIR prompt, rest timer) is now typed; the corresponding legacy globals are compatibility delegators only.
+- `core/program-layer.js` is no longer the live runtime owner: typed program-runtime now dispatches active program lookup, session option/build/advance, and adjust-after-session sequencing.
+- A migration guardrail now blocks instruction drift on the runtime ownership anti-drift contract.
 
 Recent hardening and contraction notes:
 
@@ -97,9 +104,7 @@ Recent hardening and contraction notes:
 
 Explicit deferrals for the current `app.js` contraction phase:
 
-- workout overlay/session bridge ownership
 - service worker / PWA update logic
-- `core/program-layer.js` contraction
 
 Current migration sequencing for the remaining `core/data-layer.js` ownership work:
 
@@ -298,27 +303,14 @@ Gate:
 
 ### Phase 5: workout mutations
 
-Goal: move workout lifecycle logic into typed store actions.
+Status: closed. Typed `workoutStore` actions now own the full workout lifecycle — start, set logging, set toggles and field updates, rest timer, RPE prompt, set RIR prompt, finish/discard, cancel, exercise add/swap, quick adjustments, and exercise catalog access. Legacy `core/workout-layer.js` and `app.js` entry points are compatibility delegators into the typed store, and the replaced legacy mutation branches have been deleted in their respective slices. Workout overlay runtime ownership (RPE, sport check, sport readiness, session summary, exercise guide, set RIR prompt, rest timer) is also typed.
 
-Creates:
+Created:
 
 - `src/stores/workout-store.ts`
 - `src/domain/workout-helpers.ts`
 
-Migration order:
-
-1. start workout
-2. set toggles and field updates
-3. rest timer state
-4. RPE prompt state
-5. finish/discard flow
-
-Responsibilities:
-
-- Keep legacy global entry points as thin delegators until tests and remaining runtime callers are migrated
-- Preserve draft persistence, finish/discard semantics, overlays, and current stored workout payloads
-
-Gate:
+Gate (verified at slice boundaries):
 
 - `npm run typecheck`
 - `npm run build`
