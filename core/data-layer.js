@@ -26,6 +26,10 @@ function createDefaultSyncStateCache() {
     dirtyDocKeys: [],
     serverUpdatedAtByDocKey: {},
     pendingBackfillDocKeys: [],
+    pendingWorkoutUpsertIds: [],
+    pendingWorkoutDeleteIds: [],
+    lastSyncError: null,
+    lastCloudSyncAt: null,
   };
 }
 
@@ -41,7 +45,25 @@ function normalizeSyncStateCache(value) {
       ? { ...next.serverUpdatedAtByDocKey }
       : {};
   next.pendingBackfillDocKeys = uniqueDocKeys(next.pendingBackfillDocKeys);
+  next.pendingWorkoutUpsertIds = uniqueDocKeys(next.pendingWorkoutUpsertIds);
+  next.pendingWorkoutDeleteIds = uniqueDocKeys(next.pendingWorkoutDeleteIds);
+  next.lastSyncError =
+    next.lastSyncError && typeof next.lastSyncError === 'object'
+      ? {
+          context: sanitizeSyncDiagnosticText(next.lastSyncError.context, 120),
+          code: sanitizeSyncDiagnosticText(next.lastSyncError.code, 64),
+          message: sanitizeSyncDiagnosticText(next.lastSyncError.message, 180),
+          at: sanitizeSyncDiagnosticText(next.lastSyncError.at, 40),
+        }
+      : null;
+  next.lastCloudSyncAt = sanitizeSyncDiagnosticText(next.lastCloudSyncAt, 40);
   return next;
+}
+
+function sanitizeSyncDiagnosticText(value, maxLength) {
+  const text = String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
+  if (!text) return '';
+  return text.slice(0, maxLength || 160);
 }
 
 function getSyncStateCache() {
@@ -254,6 +276,15 @@ function getSyncRuntimeDeps() {
     getPendingBackfillDocKeys,
     markPendingBackfillDocKeys,
     clearPendingBackfillDocKeys,
+    getPendingWorkoutUpsertIds,
+    getPendingWorkoutDeleteIds,
+    markPendingWorkoutUpsertIds,
+    markPendingWorkoutDeleteIds,
+    clearPendingWorkoutUpsertIds,
+    clearPendingWorkoutDeleteIds,
+    replayPendingWorkoutSync,
+    recordCloudSyncSuccess,
+    runCloudSyncHealthCheck,
     updateServerDocStamp,
     isDocKeyDirty,
     runSupabaseWrite,
@@ -298,6 +329,10 @@ function resetRuntimeState() {
 function setSyncStatus(state) {
   syncStatusState = { state, updatedAt: new Date().toISOString() };
   renderSyncStatus();
+}
+
+function getSyncStatusState() {
+  return { ...syncStatusState };
 }
 
 function getSyncStatusLabel() {
@@ -349,6 +384,7 @@ window.addEventListener('online', () => {
   setSyncStatus('synced');
   if (currentUser) {
     setupRealtimeSync();
+    void flushPendingCloudSync();
     scheduleRealtimeSync('online');
   }
 });
@@ -386,12 +422,21 @@ async function runSupabaseWrite(operationPromise, context, options) {
     const error = getSupabaseError(result);
     if (error) {
       logWarn(context, error);
+      recordCloudSyncError(context, error);
       notifyCloudSyncError(opts);
       return { ok: false, error, data: result?.data };
+    }
+    recordCloudSyncSuccess();
+    if (Array.isArray(opts.pendingWorkoutUpsertIds)) {
+      clearPendingWorkoutUpsertIds(opts.pendingWorkoutUpsertIds);
+    }
+    if (Array.isArray(opts.pendingWorkoutDeleteIds)) {
+      clearPendingWorkoutDeleteIds(opts.pendingWorkoutDeleteIds);
     }
     return { ok: true, error: null, data: result?.data };
   } catch (error) {
     logWarn(context, error);
+    recordCloudSyncError(context, error);
     notifyCloudSyncError(opts);
     return { ok: false, error, data: null };
   }
@@ -629,6 +674,106 @@ function clearPendingBackfillDocKeys(docKeys) {
       (docKey) => !cleared.has(docKey)
     );
   }
+  syncStateCache = state;
+  persistSyncStateCache();
+}
+
+function getPendingWorkoutUpsertIds() {
+  return uniqueDocKeys(getSyncStateCache().pendingWorkoutUpsertIds || []);
+}
+
+function getPendingWorkoutDeleteIds() {
+  return uniqueDocKeys(getSyncStateCache().pendingWorkoutDeleteIds || []);
+}
+
+function markPendingWorkoutUpsertIds(ids) {
+  const nextIds = uniqueDocKeys(ids);
+  if (!nextIds.length) return;
+  const state = getSyncStateCache();
+  const pending = new Set(state.pendingWorkoutUpsertIds || []);
+  nextIds.forEach((id) => pending.add(id));
+  state.pendingWorkoutUpsertIds = [...pending];
+  syncStateCache = state;
+  persistSyncStateCache();
+}
+
+function markPendingWorkoutDeleteIds(ids) {
+  const nextIds = uniqueDocKeys(ids);
+  if (!nextIds.length) return;
+  const state = getSyncStateCache();
+  const pending = new Set(state.pendingWorkoutDeleteIds || []);
+  nextIds.forEach((id) => pending.add(id));
+  state.pendingWorkoutDeleteIds = [...pending];
+  syncStateCache = state;
+  persistSyncStateCache();
+}
+
+function clearPendingWorkoutUpsertIds(ids) {
+  const state = getSyncStateCache();
+  if (!Array.isArray(ids) || !ids.length) {
+    state.pendingWorkoutUpsertIds = [];
+  } else {
+    const cleared = new Set(uniqueDocKeys(ids));
+    state.pendingWorkoutUpsertIds = (state.pendingWorkoutUpsertIds || []).filter(
+      (id) => !cleared.has(id)
+    );
+  }
+  syncStateCache = state;
+  persistSyncStateCache();
+}
+
+function clearPendingWorkoutDeleteIds(ids) {
+  const state = getSyncStateCache();
+  if (!Array.isArray(ids) || !ids.length) {
+    state.pendingWorkoutDeleteIds = [];
+  } else {
+    const cleared = new Set(uniqueDocKeys(ids));
+    state.pendingWorkoutDeleteIds = (state.pendingWorkoutDeleteIds || []).filter(
+      (id) => !cleared.has(id)
+    );
+  }
+  syncStateCache = state;
+  persistSyncStateCache();
+}
+
+function getLastSyncDiagnostics() {
+  const state = getSyncStateCache();
+  return {
+    lastSyncError: state.lastSyncError ? { ...state.lastSyncError } : null,
+    lastCloudSyncAt: state.lastCloudSyncAt || null,
+    pendingDocKeys: getDirtyDocKeys(),
+    pendingBackfillDocKeys: getPendingBackfillDocKeys(),
+    pendingWorkoutUpsertIds: getPendingWorkoutUpsertIds(),
+    pendingWorkoutDeleteIds: getPendingWorkoutDeleteIds(),
+  };
+}
+
+function recordCloudSyncSuccess() {
+  const state = getSyncStateCache();
+  state.lastCloudSyncAt = new Date().toISOString();
+  state.lastSyncError = null;
+  syncStateCache = state;
+  persistSyncStateCache();
+}
+
+function recordCloudSyncError(context, error) {
+  const state = getSyncStateCache();
+  const rawCode =
+    error && typeof error === 'object'
+      ? error.code || error.status || error.name
+      : '';
+  const rawMessage =
+    error && typeof error === 'object'
+      ? error.message || error.error_description || error.error || ''
+      : error;
+  state.lastSyncError = {
+    context: sanitizeSyncDiagnosticText(context, 120),
+    code: sanitizeSyncDiagnosticText(rawCode, 64),
+    message:
+      sanitizeSyncDiagnosticText(rawMessage, 180) ||
+      i18nText('settings.sync.unknown_error', 'Unknown sync error'),
+    at: new Date().toISOString(),
+  };
   syncStateCache = state;
   persistSyncStateCache();
 }
@@ -1903,6 +2048,15 @@ function toWorkoutRow(workout) {
 }
 
 async function upsertWorkoutRecord(workout, options) {
+  const pendingIds = uniqueDocKeys([workoutClientId(workout)]);
+  if (pendingIds.length) markPendingWorkoutUpsertIds(pendingIds);
+  const opts = {
+    ...(options || {}),
+    pendingWorkoutUpsertIds: uniqueDocKeys([
+      ...((options || {}).pendingWorkoutUpsertIds || []),
+      ...pendingIds,
+    ]),
+  };
   const runtime = getWorkoutPersistenceRuntime();
   if (typeof runtime?.upsertWorkoutRecord === 'function') {
     await runtime.upsertWorkoutRecord(
@@ -1910,12 +2064,14 @@ async function upsertWorkoutRecord(workout, options) {
         workout,
         currentUser,
         cloudSyncEnabled: isCloudSyncEnabled(),
-        options,
+        options: opts,
       },
       {
         supabaseClient: _SB,
         runSupabaseWrite,
         logWarn,
+        markPendingWorkoutUpsertIds,
+        clearPendingWorkoutUpsertIds,
       }
     );
     return;
@@ -1926,11 +2082,22 @@ async function upsertWorkoutRecord(workout, options) {
       onConflict: 'user_id,client_workout_id',
     }),
     'Failed to upsert workout row',
-    options
+    opts
   );
 }
 
 async function upsertWorkoutRecords(items, options) {
+  const pendingIds = uniqueDocKeys(
+    (Array.isArray(items) ? items : []).map(workoutClientId)
+  );
+  if (pendingIds.length) markPendingWorkoutUpsertIds(pendingIds);
+  const opts = {
+    ...(options || {}),
+    pendingWorkoutUpsertIds: uniqueDocKeys([
+      ...((options || {}).pendingWorkoutUpsertIds || []),
+      ...pendingIds,
+    ]),
+  };
   const runtime = getWorkoutPersistenceRuntime();
   if (typeof runtime?.upsertWorkoutRecords === 'function') {
     await runtime.upsertWorkoutRecords(
@@ -1938,12 +2105,14 @@ async function upsertWorkoutRecords(items, options) {
         workouts: items,
         currentUser,
         cloudSyncEnabled: isCloudSyncEnabled(),
-        options,
+        options: opts,
       },
       {
         supabaseClient: _SB,
         runSupabaseWrite,
         logWarn,
+        markPendingWorkoutUpsertIds,
+        clearPendingWorkoutUpsertIds,
       }
     );
     return;
@@ -1962,11 +2131,20 @@ async function upsertWorkoutRecords(items, options) {
       .from('workouts')
       .upsert(rows, { onConflict: 'user_id,client_workout_id' }),
     'Failed to upsert workout rows',
-    options
+    opts
   );
 }
 
 async function softDeleteWorkoutRecord(workoutId, options) {
+  const pendingIds = uniqueDocKeys([workoutId]);
+  if (pendingIds.length) markPendingWorkoutDeleteIds(pendingIds);
+  const opts = {
+    ...(options || {}),
+    pendingWorkoutDeleteIds: uniqueDocKeys([
+      ...((options || {}).pendingWorkoutDeleteIds || []),
+      ...pendingIds,
+    ]),
+  };
   const runtime = getWorkoutPersistenceRuntime();
   if (typeof runtime?.softDeleteWorkoutRecord === 'function') {
     await runtime.softDeleteWorkoutRecord(
@@ -1974,12 +2152,14 @@ async function softDeleteWorkoutRecord(workoutId, options) {
         workoutId,
         currentUser,
         cloudSyncEnabled: isCloudSyncEnabled(),
-        options,
+        options: opts,
       },
       {
         supabaseClient: _SB,
         runSupabaseWrite,
         logWarn,
+        markPendingWorkoutDeleteIds,
+        clearPendingWorkoutDeleteIds,
       }
     );
     return;
@@ -1998,7 +2178,7 @@ async function softDeleteWorkoutRecord(workoutId, options) {
       .eq('user_id', currentUser.id)
       .eq('client_workout_id', String(workoutId)),
     'Failed to soft-delete workout row',
-    options
+    opts
   );
 }
 
@@ -2016,6 +2196,10 @@ async function replaceWorkoutTableSnapshot(items, options) {
         supabaseClient: _SB,
         runSupabaseWrite,
         logWarn,
+        markPendingWorkoutUpsertIds,
+        markPendingWorkoutDeleteIds,
+        clearPendingWorkoutUpsertIds,
+        clearPendingWorkoutDeleteIds,
       }
     );
     return;
@@ -2041,6 +2225,7 @@ async function replaceWorkoutTableSnapshot(items, options) {
       )
       .map((row) => String(row.client_workout_id));
     if (!staleIds.length) return;
+    markPendingWorkoutDeleteIds(staleIds);
     await runSupabaseWrite(
       _SB
         .from('workouts')
@@ -2048,7 +2233,13 @@ async function replaceWorkoutTableSnapshot(items, options) {
         .eq('user_id', currentUser.id)
         .in('client_workout_id', staleIds),
       'Failed to prune workout rows during snapshot replace',
-      opts
+      {
+        ...opts,
+        pendingWorkoutDeleteIds: uniqueDocKeys([
+          ...(opts.pendingWorkoutDeleteIds || []),
+          ...staleIds,
+        ]),
+      }
     );
   } catch (e) {
     logWarn('Failed to replace workout table snapshot', e);
@@ -2177,6 +2368,204 @@ async function pullFromCloud(options) {
   } catch (_error) {
     return { usedCloud: false, usedDocs: false, requiresBootstrapFinalize: false };
   }
+}
+
+async function runCloudSyncHealthCheck(options) {
+  const opts = options || {};
+  const checkedAt = new Date().toISOString();
+  const checks = [];
+  function done(name, ok, error) {
+    const entry = {
+      name,
+      ok: ok === true,
+      code:
+        error && typeof error === 'object'
+          ? sanitizeSyncDiagnosticText(error.code || error.status || error.name, 64)
+          : '',
+      message:
+        error === undefined || error === null
+          ? ''
+          : sanitizeSyncDiagnosticText(
+              error && typeof error === 'object'
+                ? error.message || error.error_description || error.error || error
+                : error,
+              160
+            ),
+    };
+    checks.push(entry);
+    return entry;
+  }
+  function finish(ok, reason) {
+    const result = {
+      ok: ok === true,
+      reason: sanitizeSyncDiagnosticText(reason, 80),
+      checkedAt,
+      checks,
+    };
+    if (result.ok) recordCloudSyncSuccess();
+    else recordCloudSyncError('Cloud sync health check', {
+      code: result.reason,
+      message:
+        checks.find((check) => check.ok === false)?.message ||
+        result.reason ||
+        'Cloud health check failed',
+    });
+    return result;
+  }
+
+  if (!currentUser || !currentUser.id) {
+    done('session', false, { code: 'missing_user', message: 'No signed-in user' });
+    return finish(false, 'missing_user');
+  }
+
+  try {
+    const sessionResult =
+      typeof _SB.auth?.getSession === 'function'
+        ? await _SB.auth.getSession()
+        : { data: { session: null }, error: null };
+    if (sessionResult?.error) {
+      done('session', false, sessionResult.error);
+      return finish(false, 'session_error');
+    }
+    const sessionUserId = sessionResult?.data?.session?.user?.id || '';
+    if (!sessionUserId) {
+      done('session', false, {
+        code: 'missing_session',
+        message: 'No active Supabase session',
+      });
+      return finish(false, 'missing_session');
+    }
+    done('session', true);
+  } catch (error) {
+    done('session', false, error);
+    return finish(false, 'session_error');
+  }
+
+  async function readTable(tableName, columns) {
+    try {
+      let query = _SB.from(tableName).select(columns).eq('user_id', currentUser.id);
+      if (typeof query.limit === 'function') query = query.limit(1);
+      const result = await query;
+      if (result?.error) {
+        done(tableName, false, result.error);
+        return false;
+      }
+      done(tableName, true);
+      return true;
+    } catch (error) {
+      done(tableName, false, error);
+      return false;
+    }
+  }
+
+  const docsOk = await readTable('profile_documents', 'doc_key');
+  const workoutsOk = await readTable('workouts', 'client_workout_id');
+
+  let rpcOk = false;
+  try {
+    const result =
+      typeof _SB.rpc === 'function'
+        ? await _SB.rpc('upsert_profile_documents_if_newer', { _docs: [] })
+        : { error: { code: 'missing_rpc', message: 'Supabase RPC is unavailable' } };
+    if (result?.error) {
+      done('upsert_profile_documents_if_newer', false, result.error);
+    } else {
+      done('upsert_profile_documents_if_newer', true);
+      rpcOk = true;
+    }
+  } catch (error) {
+    done('upsert_profile_documents_if_newer', false, error);
+  }
+
+  if (opts.notifyUser !== false && typeof showToast === 'function') {
+    showToast(
+      docsOk && workoutsOk && rpcOk
+        ? i18nText('settings.sync.health_ok', 'Cloud connection looks healthy.')
+        : i18nText(
+            'settings.sync.health_failed',
+            'Cloud sync still needs attention.'
+          ),
+      docsOk && workoutsOk && rpcOk ? 'var(--blue)' : 'var(--orange)'
+    );
+  }
+
+  return finish(docsOk && workoutsOk && rpcOk, 'checked');
+}
+
+async function replayPendingWorkoutSync(options) {
+  const opts = { ...(options || {}), notifyUser: false };
+  if (!currentUser || !isCloudSyncEnabled() || isBrowserOffline()) return false;
+  const upsertIds = getPendingWorkoutUpsertIds();
+  const deleteIds = getPendingWorkoutDeleteIds();
+  let ok = true;
+
+  if (upsertIds.length) {
+    const wanted = new Set(upsertIds);
+    const pendingWorkouts = (Array.isArray(workouts) ? workouts : []).filter(
+      (workout) => wanted.has(workoutClientId(workout))
+    );
+    const foundIds = new Set(pendingWorkouts.map(workoutClientId));
+    const missingIds = upsertIds.filter((id) => !foundIds.has(id));
+    if (missingIds.length) clearPendingWorkoutUpsertIds(missingIds);
+    if (pendingWorkouts.length) {
+      await upsertWorkoutRecords(pendingWorkouts, {
+        ...opts,
+        pendingWorkoutUpsertIds: pendingWorkouts.map(workoutClientId),
+      });
+      ok = getPendingWorkoutUpsertIds().length === 0 && ok;
+    }
+  }
+
+  for (const workoutId of deleteIds) {
+    await softDeleteWorkoutRecord(workoutId, {
+      ...opts,
+      pendingWorkoutDeleteIds: [workoutId],
+    });
+  }
+  ok = getPendingWorkoutDeleteIds().length === 0 && ok;
+  return ok;
+}
+
+async function retryCloudSync(options) {
+  const opts = options || {};
+  if (!currentUser || !isCloudSyncEnabled()) {
+    setSyncStatus(isBrowserOffline() ? 'offline' : 'idle');
+    return { ok: false, reason: 'not_signed_in' };
+  }
+  if (isBrowserOffline()) {
+    setSyncStatus('offline');
+    return { ok: false, reason: 'offline' };
+  }
+  setSyncStatus('syncing');
+  const health = await runCloudSyncHealthCheck({ notifyUser: false });
+  if (!health.ok) {
+    setSyncStatus('error');
+    if (opts.notifyUser !== false && typeof showToast === 'function') {
+      showToast(
+        i18nText(
+          'settings.sync.retry_failed',
+          'Cloud sync is still failing. Local changes are safe on this device.'
+        ),
+        'var(--orange)'
+      );
+    }
+    return { ok: false, reason: health.reason || 'health_failed', health };
+  }
+  const flushed = await flushPendingCloudSync();
+  if (!flushed) {
+    setSyncStatus('error');
+    return { ok: false, reason: 'flush_failed', health };
+  }
+  setSyncStatus('synced');
+  recordCloudSyncSuccess();
+  refreshSyncedUI({ toast: false });
+  if (opts.notifyUser !== false && typeof showToast === 'function') {
+    showToast(
+      i18nText('settings.sync.retry_ok', 'Cloud sync is back up to date.'),
+      'var(--blue)'
+    );
+  }
+  return { ok: true, reason: 'synced', health };
 }
 
 async function resolveStaleProfileDocumentRejects(staleDocKeys) {
@@ -2401,7 +2790,13 @@ async function logout() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) void flushPendingCloudSync();
+  if (document.hidden) {
+    void flushPendingCloudSync();
+    return;
+  }
+  if (currentUser && !isBrowserOffline()) {
+    void flushPendingCloudSync();
+  }
 });
 window.addEventListener('pagehide', () => {
   void flushPendingCloudSync();
@@ -2412,3 +2807,7 @@ window.addEventListener('pagehide', () => {
 window.setupRealtimeSync = setupRealtimeSync;
 window.teardownRealtimeSync = teardownRealtimeSync;
 window.resetRuntimeState = resetRuntimeState;
+window.retryCloudSync = retryCloudSync;
+window.runCloudSyncHealthCheck = runCloudSyncHealthCheck;
+window.getLastSyncDiagnostics = getLastSyncDiagnostics;
+window.getSyncStatusState = getSyncStatusState;

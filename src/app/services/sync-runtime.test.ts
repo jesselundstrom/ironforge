@@ -302,4 +302,26 @@ describe('sync-runtime profile document ownership', () => {
     ]);
     expect(deps.runSupabaseWrite).not.toHaveBeenCalled();
   });
+
+  it('flushes pending workout replay markers even when profile docs are clean', async () => {
+    const runtime = installSyncRuntimeBridge();
+    expect(runtime).toBeTruthy();
+
+    const replayPendingWorkoutSync = vi.fn().mockResolvedValue(true);
+    const recordCloudSyncSuccess = vi.fn();
+    const { deps } = createDeps({
+      getDirtyDocKeys: vi.fn(() => []),
+      getPendingBackfillDocKeys: vi.fn(() => []),
+      getPendingWorkoutUpsertIds: vi.fn(() => ['workout-1']),
+      getPendingWorkoutDeleteIds: vi.fn(() => []),
+      replayPendingWorkoutSync,
+      recordCloudSyncSuccess,
+    });
+
+    const result = await runtime!.flushPendingCloudSync?.(deps as never);
+
+    expect(result).toBe(true);
+    expect(replayPendingWorkoutSync).toHaveBeenCalledWith({ notifyUser: false });
+    expect(recordCloudSyncSuccess).toHaveBeenCalled();
+  });
 });

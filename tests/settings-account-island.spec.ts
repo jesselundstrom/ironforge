@@ -71,6 +71,117 @@ test('settings account island shows signed-out nutrition coach copy without key 
   ).toHaveCount(0);
 });
 
+test('settings account retry sync button replays the recovery path', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  await page.evaluate(() => {
+    let retryCalls = 0;
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      currentUser: { id: 'e2e-user', email: 'account@example.com' },
+    });
+    window.getLastSyncDiagnostics = () => ({
+      lastSyncError: {
+        context: 'Failed to upsert workout rows',
+        code: '42501',
+        message: 'permission denied',
+        at: '2026-04-01T10:00:00.000Z',
+      },
+      lastCloudSyncAt: null,
+      pendingDocKeys: ['profile_core'],
+      pendingWorkoutUpsertIds: ['workout-1'],
+      pendingWorkoutDeleteIds: [],
+    });
+    window.retryCloudSync = async () => {
+      retryCalls += 1;
+      window.__IRONFORGE_SYNC_RETRY_CALLS__ = retryCalls;
+      window.setSyncStatus?.('synced');
+      window.__IRONFORGE_APP_RUNTIME__?.syncSettingsAccountView?.();
+      return { ok: true, reason: 'synced' };
+    };
+    window.setSyncStatus?.('error');
+    window.__IRONFORGE_E2E__?.settings?.openTab?.('account');
+  });
+
+  await expect(page.locator('[data-ui="retry-sync"]')).toBeVisible();
+  await expect(page.locator('[data-ui="sync-detail"]')).toContainText(
+    /permission denied/i
+  );
+
+  await page.locator('[data-ui="retry-sync"]').click();
+
+  await expect(page.locator('#sync-status')).toContainText(/synced/i);
+  await expect(page.locator('[data-ui="retry-sync"]')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => Number(window.__IRONFORGE_SYNC_RETRY_CALLS__ || 0))
+    )
+    .toBe(1);
+});
+
+test('cloud sync health check distinguishes missing session from healthy cloud', async ({
+  page,
+}) => {
+  await openAppShell(page);
+
+  const result = await page.evaluate(async () => {
+    window.__IRONFORGE_E2E__?.app?.setLegacyRuntimeState?.({
+      currentUser: { id: 'e2e-user', email: 'account@example.com' },
+    });
+
+    window.__IRONFORGE_SUPABASE__ = {
+      auth: {
+        getSession: async () => ({
+          data: { session: null },
+          error: null,
+        }),
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            limit: async () => ({ data: [], error: null }),
+          }),
+        }),
+      }),
+      rpc: async () => ({ data: [], error: null }),
+    };
+    const missingSession = await window.runCloudSyncHealthCheck?.({
+      notifyUser: false,
+    });
+
+    window.__IRONFORGE_SUPABASE__.auth!.getSession = async () => ({
+      data: { session: { user: { id: 'e2e-user' } } },
+      error: null,
+    });
+    const healthy = await window.runCloudSyncHealthCheck?.({
+      notifyUser: false,
+    });
+
+    return {
+      missingSession,
+      healthy,
+      diagnostics: window.getLastSyncDiagnostics?.(),
+    };
+  });
+
+  expect(result.missingSession?.ok).toBe(false);
+  expect(result.missingSession?.reason).toBe('missing_session');
+  expect(result.healthy?.ok).toBe(true);
+  const healthyChecks = Array.isArray(result.healthy?.checks)
+    ? (result.healthy.checks as Array<{ name: string }>)
+    : [];
+  expect(healthyChecks.map((check) => check.name)).toEqual(
+    expect.arrayContaining([
+      'session',
+      'profile_documents',
+      'workouts',
+      'upsert_profile_documents_if_newer',
+    ])
+  );
+  expect(result.diagnostics?.lastSyncError).toBeNull();
+});
+
 test('settings account island keeps the danger-zone confirmation flow working', async ({
   page,
 }) => {

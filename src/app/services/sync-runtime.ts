@@ -125,6 +125,13 @@ type SyncRuntimeDeps = {
   getPendingBackfillDocKeys: () => string[];
   markPendingBackfillDocKeys: (docKeys: string[]) => void;
   clearPendingBackfillDocKeys: (docKeys?: string[]) => void;
+  getPendingWorkoutUpsertIds?: () => string[];
+  getPendingWorkoutDeleteIds?: () => string[];
+  replayPendingWorkoutSync?: (options?: Record<string, unknown>) => Promise<boolean>;
+  recordCloudSyncSuccess?: () => void;
+  runCloudSyncHealthCheck?: (
+    options?: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
   updateServerDocStamp: (docKey: string, updatedAt?: string | null) => void;
   isDocKeyDirty: (docKey: string) => boolean;
   runSupabaseWrite: (
@@ -546,6 +553,7 @@ async function pullFromCloudInternal(
   deps.setSyncStatus('syncing');
   const docsResult = await pullProfileDocumentsInternal(undefined, deps);
   if (docsResult.usedDocs) {
+    deps.recordCloudSyncSuccess?.();
     deps.setSyncStatus('synced');
     return {
       usedCloud: true,
@@ -561,6 +569,9 @@ async function pullFromCloudInternal(
         ? 'error'
         : 'synced'
   );
+  if (docsResult.supported !== false && !deps.isBrowserOffline()) {
+    deps.recordCloudSyncSuccess?.();
+  }
   return {
     usedCloud: false,
     usedDocs: false,
@@ -661,8 +672,18 @@ async function flushPendingCloudSyncInternal(deps?: SyncRuntimeDeps) {
     ...dirtyDocKeys,
     ...(deps.getPendingBackfillDocKeys?.() || []),
   ]);
-  if (!docKeys.length) return true;
-  return await pushToCloudInternal({ docKeys }, deps);
+  let ok = true;
+  if (docKeys.length) {
+    ok = (await pushToCloudInternal({ docKeys }, deps)) && ok;
+  }
+  const pendingWorkoutCount =
+    (deps.getPendingWorkoutUpsertIds?.() || []).length +
+    (deps.getPendingWorkoutDeleteIds?.() || []).length;
+  if (pendingWorkoutCount && typeof deps.replayPendingWorkoutSync === 'function') {
+    ok = (await deps.replayPendingWorkoutSync({ notifyUser: false })) && ok;
+  }
+  if (ok) deps.recordCloudSyncSuccess?.();
+  return ok;
 }
 
 async function loadDataInternal(
@@ -760,6 +781,14 @@ async function loadDataInternal(
     if (bootstrapResult.changed.profile) {
       await saveProfileDataInternal({ touchSync: true, push: false }, deps);
     }
+  }
+
+  if (
+    getState(deps).currentUser &&
+    deps.isCloudSyncEnabled() &&
+    !deps.isBrowserOffline()
+  ) {
+    await flushPendingCloudSyncInternal(deps);
   }
 
   const finalState = getState(deps);

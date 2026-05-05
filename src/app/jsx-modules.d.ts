@@ -425,6 +425,7 @@ declare global {
       ) => string;
       exportData?: () => void;
       importData?: (event?: Event | null) => void;
+      retryCloudSync?: () => Promise<Record<string, unknown> | undefined>;
       clearAllData?: () => Promise<void>;
       saveSchedule?: (nextValues?: Record<string, unknown>) => Promise<void>;
       syncSettingsBridge?: () => void;
@@ -693,6 +694,8 @@ declare global {
         }) => Promise<unknown>;
         signOut?: () => Promise<unknown>;
       };
+      from?: (table: string) => unknown;
+      rpc?: (fn: string, args?: Record<string, unknown>) => Promise<unknown>;
     };
     __IRONFORGE_GET_SUPABASE_CLIENT__?: () => {
       auth?: {

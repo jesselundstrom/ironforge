@@ -32,6 +32,10 @@ type WorkoutPersistenceDeps = {
     options?: Record<string, unknown>
   ) => Promise<{ ok: boolean; error?: unknown; data?: unknown }>;
   logWarn?: (context: string, error: unknown) => void;
+  markPendingWorkoutUpsertIds?: (ids: string[]) => void;
+  markPendingWorkoutDeleteIds?: (ids: string[]) => void;
+  clearPendingWorkoutUpsertIds?: (ids: string[]) => void;
+  clearPendingWorkoutDeleteIds?: (ids: string[]) => void;
 };
 
 type WorkoutPersistenceInput = {
@@ -162,6 +166,10 @@ function workoutClientId(workout: Record<string, unknown> | null | undefined) {
   return String(workout.id);
 }
 
+function uniqueIds(ids?: Array<string | null | undefined>) {
+  return [...new Set((ids || []).filter(Boolean) as string[])];
+}
+
 function mergeWorkoutLists(
   primary: Array<Record<string, unknown>> | null | undefined,
   fallback: Array<Record<string, unknown>> | null | undefined,
@@ -235,14 +243,25 @@ async function upsertWorkoutRecords(
   if (!supabase?.from) return;
   const rows = items.map((workout) => toWorkoutRow(workout, userId)).filter(Boolean);
   if (!rows.length) return;
-  await runSupabaseWrite(
+  const pendingIds = uniqueIds(items.map(workoutClientId));
+  deps?.markPendingWorkoutUpsertIds?.(pendingIds);
+  const result = await runSupabaseWrite(
     supabase
       .from('workouts')
       .upsert?.(rows, { onConflict: 'user_id,client_workout_id' }) || Promise.resolve(),
     'Failed to upsert workout rows',
-    input?.options,
+    {
+      ...(input?.options || {}),
+      pendingWorkoutUpsertIds: uniqueIds([
+        ...((Array.isArray(input?.options?.pendingWorkoutUpsertIds)
+          ? (input?.options?.pendingWorkoutUpsertIds as string[])
+          : []) || []),
+        ...pendingIds,
+      ]),
+    },
     deps
   );
+  if (result.ok) deps?.clearPendingWorkoutUpsertIds?.(pendingIds);
 }
 
 async function upsertWorkoutRecord(
@@ -276,12 +295,23 @@ async function softDeleteWorkoutRecord(
     ?.eq?.('user_id', userId)
     ?.eq?.('client_workout_id', workoutId);
   if (!operation || typeof (operation as Promise<unknown>).then !== 'function') return;
-  await runSupabaseWrite(
+  const pendingIds = uniqueIds([workoutId]);
+  deps?.markPendingWorkoutDeleteIds?.(pendingIds);
+  const result = await runSupabaseWrite(
     operation as Promise<unknown>,
     'Failed to soft-delete workout row',
-    input?.options,
+    {
+      ...(input?.options || {}),
+      pendingWorkoutDeleteIds: uniqueIds([
+        ...((Array.isArray(input?.options?.pendingWorkoutDeleteIds)
+          ? (input?.options?.pendingWorkoutDeleteIds as string[])
+          : []) || []),
+        ...pendingIds,
+      ]),
+    },
     deps
   );
+  if (result.ok) deps?.clearPendingWorkoutDeleteIds?.(pendingIds);
 }
 
 async function replaceWorkoutTableSnapshot(
@@ -314,18 +344,28 @@ async function replaceWorkoutTableSnapshot(
       .map((row) => String(row.client_workout_id || ''))
       .filter(Boolean);
     if (!staleIds.length) return;
+    deps?.markPendingWorkoutDeleteIds?.(staleIds);
     const pruneOperation = supabase
       .from('workouts')
       .update?.({ deleted_at: new Date().toISOString() })
       ?.eq?.('user_id', userId)
       ?.in?.('client_workout_id', staleIds);
     if (!pruneOperation) return;
-    await runSupabaseWrite(
+    const pruneResult = await runSupabaseWrite(
       pruneOperation,
       'Failed to prune workout rows during snapshot replace',
-      input?.options,
+      {
+        ...(input?.options || {}),
+        pendingWorkoutDeleteIds: uniqueIds([
+          ...((Array.isArray(input?.options?.pendingWorkoutDeleteIds)
+            ? (input?.options?.pendingWorkoutDeleteIds as string[])
+            : []) || []),
+          ...staleIds,
+        ]),
+      },
       deps
     );
+    if (pruneResult.ok) deps?.clearPendingWorkoutDeleteIds?.(staleIds);
   } catch (error) {
     deps?.logWarn?.('Failed to replace workout table snapshot', error);
   }

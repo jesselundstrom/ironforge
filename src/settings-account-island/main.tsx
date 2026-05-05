@@ -6,6 +6,7 @@ import {
   exportData,
   importData,
   logout,
+  retryCloudSync,
   saveLanguageSetting,
   showDangerConfirm,
 } from '../app/services/settings-actions.ts';
@@ -16,6 +17,8 @@ type SettingsAccountLabels = {
   optionEn: string;
   optionFi: string;
   signOut: string;
+  retrySync: string;
+  syncRetrying: string;
   dataBackup: string;
   export: string;
   import: string;
@@ -33,6 +36,9 @@ type SettingsAccountValues = {
   email: string;
   syncLabel: string;
   syncClassName: string;
+  syncDetail: string;
+  showSyncRetry: boolean;
+  syncRetryDisabled: boolean;
   language: string;
   backupContext: string;
   nutritionReady: boolean;
@@ -64,6 +70,8 @@ function getSnapshot(): SettingsAccountSnapshot {
       optionEn: 'English',
       optionFi: 'Finnish',
       signOut: 'Sign Out',
+      retrySync: 'Retry sync',
+      syncRetrying: 'Retrying...',
       dataBackup: 'Data Backup',
       export: 'Export',
       import: 'Import',
@@ -83,6 +91,9 @@ function getSnapshot(): SettingsAccountSnapshot {
       email: '',
       syncLabel: 'Synced to cloud',
       syncClassName: 'sync-status synced',
+      syncDetail: '',
+      showSyncRetry: false,
+      syncRetryDisabled: false,
       language: 'en',
       backupContext: '',
       nutritionReady: false,
@@ -159,6 +170,24 @@ function SettingsAccountIsland() {
         <div className={values.syncClassName} id="sync-status">
           {values.syncLabel}
         </div>
+        {values.syncDetail ? (
+          <div className="settings-note settings-note-tight" data-ui="sync-detail">
+            {values.syncDetail}
+          </div>
+        ) : null}
+        {values.showSyncRetry ? (
+          <button
+            className="btn btn-secondary settings-row-button"
+            type="button"
+            data-ui="retry-sync"
+            disabled={values.syncRetryDisabled}
+            onClick={() => {
+              void retryCloudSync();
+            }}
+          >
+            {values.syncRetryDisabled ? labels.syncRetrying : labels.retrySync}
+          </button>
+        ) : null}
         <div className="account-field">
           <label htmlFor="app-language">{labels.languageLabel}</label>
           <select

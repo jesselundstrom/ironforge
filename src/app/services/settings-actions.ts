@@ -69,6 +69,13 @@ export function importData(event: Event) {
   callLegacyWindowFunction('importData', event);
 }
 
+export function retryCloudSync() {
+  if (typeof getAppRuntime()?.retryCloudSync === 'function') {
+    return getAppRuntime()?.retryCloudSync?.();
+  }
+  return callLegacyWindowFunction('retryCloudSync', { notifyUser: true });
+}
+
 export function checkDangerConfirm(nextValue: string) {
   if (typeof getAppRuntime()?.checkDangerConfirm === 'function') {
     getAppRuntime()?.checkDangerConfirm?.(nextValue);

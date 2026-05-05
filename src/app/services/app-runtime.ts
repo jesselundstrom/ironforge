@@ -161,6 +161,7 @@ type RuntimeApi = {
   ) => string;
   exportData: () => void;
   importData: (event?: Event | null) => void;
+  retryCloudSync: () => Promise<Record<string, unknown> | undefined>;
   clearAllData: () => Promise<void>;
   saveSchedule: (nextValues?: Record<string, unknown>) => Promise<void>;
   syncSettingsBridge: () => void;
@@ -191,6 +192,9 @@ type RuntimeWindow = Window & {
     replaceWorkoutTableSnapshot?: (
       input?: Record<string, unknown> | null
     ) => Promise<void>;
+  };
+  __IRONFORGE_PWA_UPDATE_RUNTIME__?: {
+    applyUpdate?: () => void;
   };
   __IRONFORGE_LEGACY_RUNTIME_ACCESS__?: {
     read?: (name: string) => unknown;
@@ -230,6 +234,8 @@ type RuntimeWindow = Window & {
   completeOnboarding?: (draft?: Record<string, unknown>) => Promise<void>;
   maybeOpenOnboarding?: (options?: Record<string, unknown>) => void;
   restartOnboarding?: () => void;
+  getLastSyncDiagnostics?: () => Record<string, unknown>;
+  getSyncStatusState?: () => Record<string, unknown>;
   getRegisteredPrograms?: () => Array<Record<string, unknown>>;
   hasRegisteredPrograms?: () => boolean;
   getProgramById?: (
@@ -662,7 +668,12 @@ function buildSyncStatusLabel(): { label: string; className: string } {
       className: 'sync-status offline',
     };
   }
-  const { state } = dataStore.getState().syncStatus;
+  const legacySyncStatus = callLegacyWindowFunction<Record<string, unknown>>(
+    'getSyncStatusState'
+  );
+  const state = String(
+    legacySyncStatus?.state || dataStore.getState().syncStatus.state || ''
+  );
   if (state === 'syncing') {
     return {
       label: t('settings.sync.syncing', 'Syncing changes...'),
@@ -706,12 +717,47 @@ function buildBackupContextText(): string {
   });
 }
 
+function getSyncDiagnostics() {
+  const diagnostics = callLegacyWindowFunction<Record<string, unknown>>(
+    'getLastSyncDiagnostics'
+  );
+  return diagnostics && typeof diagnostics === 'object' ? diagnostics : {};
+}
+
+function formatSyncDetail(diagnostics: Record<string, unknown>) {
+  const lastError =
+    diagnostics.lastSyncError && typeof diagnostics.lastSyncError === 'object'
+      ? (diagnostics.lastSyncError as Record<string, unknown>)
+      : null;
+  if (lastError) {
+    const message = String(lastError.message || '').trim();
+    const context = String(lastError.context || '').trim();
+    return message || context
+      ? [context, message].filter(Boolean).join(': ')
+      : t(
+          'settings.sync.detail_error',
+          'Cloud sync failed. Local changes are safe on this device.'
+        );
+  }
+  const lastCloudSyncAt = String(diagnostics.lastCloudSyncAt || '').trim();
+  if (!lastCloudSyncAt) return '';
+  const date = new Date(lastCloudSyncAt);
+  if (Number.isNaN(date.getTime())) return '';
+  return t('settings.sync.last_success', 'Last cloud sync: {time}', {
+    time: date.toLocaleString(),
+  });
+}
+
 function buildSettingsAccountView() {
   const profile = getProfileRecord();
   const currentUser = getCurrentUserRecord();
   const syncStatus = buildSyncStatusLabel();
   const nutritionReady = !!String(currentUser?.id || '').trim();
   const uiState = getSettingsAccountUiStateSnapshot();
+  const diagnostics = getSyncDiagnostics();
+  const serviceWorker = useRuntimeStore.getState().serviceWorker;
+  const showSyncRetry =
+    syncStatus.className.includes('error') && !!String(currentUser?.id || '').trim();
 
   return {
     labels: {
@@ -720,6 +766,12 @@ function buildSettingsAccountView() {
       optionEn: t('settings.language.option.en', 'English'),
       optionFi: t('settings.language.option.fi', 'Finnish'),
       signOut: t('settings.sign_out', 'Sign Out'),
+      retrySync: serviceWorker.updateReady
+        ? t('settings.sync.apply_update', 'Refresh to retry sync')
+        : t('settings.sync.retry', 'Retry sync'),
+      syncRetrying: serviceWorker.applyingUpdate
+        ? t('settings.sync.updating', 'Updating...')
+        : t('settings.sync.retrying', 'Retrying...'),
       dataBackup: t('settings.data_backup', 'Data Backup'),
       export: t('settings.export', 'Export'),
       import: t('settings.import', 'Import'),
@@ -756,6 +808,10 @@ function buildSettingsAccountView() {
       email: String(currentUser?.email || ''),
       syncLabel: syncStatus.label,
       syncClassName: syncStatus.className,
+      syncDetail: formatSyncDetail(diagnostics),
+      showSyncRetry,
+      syncRetryDisabled: serviceWorker.applyingUpdate === true,
+      syncDiagnostics: diagnostics,
       language:
         String(profile.language || '').trim() ||
         getRuntimeWindow()?.I18N?.getLanguage?.() ||
@@ -1267,6 +1323,7 @@ function buildSettingsBodyView() {
 }
 
 function syncSettingsAccountView() {
+  dataStore.getState().syncFromLegacy?.();
   useRuntimeStore.getState().setSettingsAccountView(buildSettingsAccountView());
 }
 
@@ -1846,6 +1903,22 @@ function exportData() {
   );
 }
 
+async function retryCloudSync() {
+  const serviceWorker = useRuntimeStore.getState().serviceWorker;
+  const runtimeWindow = getRuntimeWindow();
+  if (serviceWorker.updateReady || serviceWorker.applyingUpdate) {
+    runtimeWindow?.__IRONFORGE_PWA_UPDATE_RUNTIME__?.applyUpdate?.();
+    return { ok: false, reason: 'pwa_update_applied' };
+  }
+  const result = await Promise.resolve(
+    callLegacyWindowFunction<Record<string, unknown>>('retryCloudSync', {
+      notifyUser: true,
+    })
+  );
+  syncSettingsAccountView();
+  return result;
+}
+
 function importData(event?: Event | null) {
   if (
     !ensureAccountPersistenceRuntime(
@@ -2307,6 +2380,7 @@ export function installAppRuntimeBridge() {
     getProgramFrequencyNoticeHTML,
     exportData,
     importData,
+    retryCloudSync,
     clearAllData,
     saveSchedule,
     syncSettingsBridge,

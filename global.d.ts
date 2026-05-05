@@ -119,6 +119,13 @@ declare global {
   function checkDangerConfirm(nextValue?: string): void;
   function renderHistory(): void;
   function refreshSyncedUI(options?: { toast?: boolean }): void;
+  function setSyncStatus(state: string): void;
+  function retryCloudSync(options?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  function runCloudSyncHealthCheck(
+    options?: Record<string, unknown>
+  ): Promise<Record<string, unknown>>;
+  function getLastSyncDiagnostics(): Record<string, unknown>;
+  function getSyncStatusState(): Record<string, unknown>;
   function openProgramSetupSheet(): void;
   function saveSchedule(nextValues?: Partial<IronforgeSchedule>): void;
   function clearNutritionHistory(): void;
@@ -195,6 +202,16 @@ declare global {
     switchHistoryTab: (tab: string) => void;
     getHistoryReactSnapshot: () => IronforgeHistoryReactSnapshot;
     refreshSyncedUI: (options?: { toast?: boolean }) => void;
+    setSyncStatus?: (state: string) => void;
+    retryCloudSync?: (
+      options?: Record<string, unknown>
+    ) => Promise<Record<string, unknown>>;
+    runCloudSyncHealthCheck?: (
+      options?: Record<string, unknown>
+    ) => Promise<Record<string, unknown>>;
+    getLastSyncDiagnostics?: () => Record<string, unknown>;
+    getSyncStatusState?: () => Record<string, unknown>;
+    __IRONFORGE_SYNC_RETRY_CALLS__?: number;
     openProgramSetupSheet: () => void;
     renderHistory: () => void;
     confirmOk: () => void;
