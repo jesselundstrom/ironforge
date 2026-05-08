@@ -1,3 +1,13 @@
+-- Fix "column reference doc_key is ambiguous" in upsert_profile_documents_if_newer.
+--
+-- Root cause: RETURNS TABLE(doc_key text, ...) creates an implicit PL/pgSQL OUT
+-- variable named doc_key. Inside the function body the ON CONFLICT (user_id, doc_key)
+-- clause references an unqualified doc_key that PostgreSQL cannot distinguish from the
+-- OUT variable, producing the ambiguity error.
+--
+-- Fix: add #variable_conflict use_column so PL/pgSQL prefers column references over
+-- variable names when there is a naming conflict.
+
 create or replace function public.upsert_profile_documents_if_newer(_docs jsonb)
 returns table (
   doc_key text,
